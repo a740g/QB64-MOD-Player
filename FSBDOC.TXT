@@ -1,0 +1,1596 @@
+°°°°°°°°°°°°°°±±±±±±±±±±±±±²²²²²²²²²²²²²²²²²²²²²²²²±±±±±±±±±±±±±°°°°°°°°°°°°°°
+
+		      ş Digital Audio Mixing Techniques ş
+			  tutorial by  jedi / oxygen
+			  copyright  (c) Scott McNab
+			    rev 1.1  november 1995
+
+°°°°°°°°°°°°°°±±±±±±±±±±±±±²²²²²²²²²²²²²²²²²²²²²²²²±±±±±±±±±±±±±°°°°°°°°°°°°°°
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³                           °±²    Index     ²±°                             ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+Preliminary : 0.0 Introduction
+	      0.1 Contacting Jedi / Oxygen
+
+  Section 1 : 1.0 Principles of Sound and other fundamental things
+
+  Section 2 : 2.0 Module Player Design
+	      2.1 User interface code
+	      2.2 Music tracking code
+	      2.3 Device dependent code
+
+  Section 3 : 3.0 Continuous Sample Stream
+	      3.1 DMA sample output
+	      3.2 DMA buffer handling
+	      3.3 Managing the mixer
+
+  Section 4 : 4.0 The Digital Audio Mixer
+	      4.1 Mixer data structure
+	      4.2 Resampling digital audio
+	      4.3 Mixing samples with volume
+
+  Section 5 : 5.0 Optimisations
+	      5.1 Areas for optimisation
+		    5.1.1 Volume multiplication
+		    5.1.2 Sample summation
+		    5.1.3 Unrolling mixing loops
+	      5.2 Scream Tracker 3 mixing technique
+		    5.2.1 Volumetable
+		    5.2.2 Postprocessing table
+		    5.2.3 Mixing the samples
+	      5.3 Example ST3 style mixer source code
+	      5.4 Summary and suggestions
+
+  Section 6 : 6.0 Reference - SoundBlaster Port Specifications
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³                            °±² Introduction ²±°                            ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+This document is intended to accompany the MOD Player Tutorial by FireLight.
+Its objective is to describe the general idea and some of the techniques
+behind software mixing of digital audio data, with a specific focus on module
+playing (MOD/S3M/MTM etc). Some thought will be given to the design of device
+independent code with the aim of minimising code duplication. I will attempt
+to keep this discussion as device independent as possible to try and make it
+useful no matter what soundcard you have. Discussion will have a bias towards
+the capabilities (or rather lack of ;-) the SoundBlaster series of soundcards
+because they are the most common and almost all non-wavetable cards are just
+a variation on the theme.
+
+The information presented here is a result of several years experience coding
+module players in assembly language on the PC. My pet project is Starplayer,
+a 32-bit protected mode multi-module player coded entirely in 80386 assembly
+language. At the time of writing, it supports loading of up to 64 S3M/MTM/MOD
+files into extended memory with minimal conventional ram overhead, with
+playback using Gravis Ultrasound and SoundBlaster cards. Modules can be
+flipped and loaded from within a dos shell via a popup menu. Conversion of
+MTM/MOD files to S3M files is also provided. The latest version can be
+obtained from the ftp site below.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² Contacting Jedi / Oxygen ²±° ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+If you wish to contact me I can be reached via these mediums:
+
+email : jedi@tartarus.uwa.edu.au
+	jedi@it.com.au
+	jedi@omen.com.au
+snail : Scott McNab,
+	5 Honeydew Close,
+	Maida Vale, 6053,
+	Western Australia.
+  IRC : jedi on #coders or #trax
+
+If you want to find out more about me, oxygen, or starplayer:
+
+ http : http://peace.wit.com/~kosmic/oxygen/
+
+The latest version of starplayer, and other oxygen releases can always be
+found under:
+
+  ftp : ftp://peace.wit.com/kosmic/oxygen/
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³        °±² 1. Principles of Sound and other fundamental things ²±°         ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+Most of you will no doubt know that everything we hear is a direct result of
+minute variations in air pressure, known as compressions and rarefractions.
+Particles of air are moved about their mean position by a passing sound wave
+and our ears detect this and we respond to it by hearing a sound.
+
+We can represent this diagramatically as follows:
+	      Ú       _____               _____
+  compression ³      /     \             /     \
+	      ³     /       \           /       \
+   mean point úúúúú/úúúúúúúúú\úúúúúúúúú/úúúúúúúúú\úúúúúúúúú/úúúúú
+	      ³               \       /           \       /
+ rarefraction ³                \_____/             \_____/
+	      À
+When you sample a sound using a microphone and soundcard (or A/D converter),
+it takes this signal and approximates it as a series of binary numbers.
+Most often, in the case of module players at least, these numbers are 8-bit
+binary values, which have a range of 0 to 255, or -128 to +127. What we are
+left with is a string of numbers which, when you feed back to the soundcard
+(or D/A converter), will give a sound which resembles the initial sound.
+
+Now, we know that with a non-wavetable soundcard we have only 1 digital voice
+channel to play with (or 2 if you have a stereo soundcard), but all .mod files
+have at least 4 tracks making up a tune. With a wavetable soundcard all that
+is required is to tell the soundcard to play the correct sample on the correct
+channel at the correct pitch, but when there is only 1 output channel then it
+is up to the software to take the independent channel samples and 'generate' a
+sample which is equivalent to the overall heard sound.
+
+From high-school physics you should know about the superposition of sound
+waves. Basically, when two different sound waves interact, they can combine
+both constructively and destructively. If the waves are based around a zero
+mean point, then the equivalent wave is simply the algebraic sum of the two
+waves. ie.
+	 Resultant Wave = Wave1 + Wave2
+
+This can be represented graphically by taking two sound waves,
+	 Wave1:
+		_________           _________
+	       |         |         |         |
+	  úúúúúúúúúúúúúúú|úúúúúúúúú|úúúúúúúúú|úúúúúúúúú|úúúúú
+			 |_________|         |_________|
+     and Wave2:
+		 /\        /\        /\        /\
+		/  \      /  \      /  \      /  \
+	  úúúúú/úúúú\úúúú/úúúú\úúúú/úúúú\úúúú/úúúú\úúúú/úúúúú
+		     \  /      \  /      \  /      \  /
+		      \/        \/        \/        \/
+and adding them together to form,
+
+Resultant Wave:
+		 /\                  /\
+		/  \                /  \
+	       /    \              /    \
+	       |     \  /|         |     \  /|
+	  úúúúú|úúúúúú\/ú|ú/\úúúúúú|úúúúúú\/ú|ú/\úúúúúú|úúúúú
+			 |/  \     |         |/  \     |
+			      \    |              \    /
+			       \  /                \  /
+				\/                  \/
+The digital mixer, which will be described next, is the code which performs
+this function with as little processor load as possible.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³                        °±² 2. Module Player Design  ²±°                    ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+Instead of rushing headfirst into hardcore mixer coding, its important to
+firstly consider the structure of the modplayer and the relationship between
+tracker and mixing code.
+
+A typical module player would consist of the following completely separate
+layers: ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+	³²² User Interface Code ²²³
+	ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+	³±± Music Tracking Code ±±³
+	ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+	³° Device Dependent Code °³
+	ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+In reality however it is more convenient and efficient to have the tracking
+code and device level code intermixed, but still separate, so that the program
+block diagram would be:
+	ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+	³²²²²² User Interface Code ²²²²²ÃÄÄ menus, VU bars, etc.
+	ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´
+	³±±± Sound Library Interface ±±±ÃÄÄ basic mod functions, load, play,
+	ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ´   stop, etc.
+	³°°°° Device Dependent Code °°°°ÃÄ¿
+	³°°°ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿°°°³ ³ device specific code: init, reset,
+	³°°°³± Music Tracking Code ±³°°°³ Ã mixing, dma handling, timing etc.
+	³°°°ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ°°°³ ³ all output handled at this level.
+	³°°°° Device Dependent Code °°°°ÃÄÙ
+	ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+The idea behind breaking the mod player into these layers is to provide a
+degree of independence between code layers to ease implementation of new code
+modules such as new devices (soundcards) or new module formats (tracking code)
+and to simplify modification of existing code so changes to one layer don't
+affect others. The ultimate aim is to create a structure where a new soundcard
+can be implemented simply by writing a device driver containing output code
+specific to that soundcard so that it functions identically to the other
+devices without any modification to existing tracking or user interface code.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 2.1 User interface code ²±° ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+For ease of use and adaption into new or existing programs, it is often best
+to write a completely device and module format independent interface for the
+music library. By providing a handful of basic functions at this level it is
+then possible to incorporate completely new module formats or soundcards in
+existing code by simple linking it to the new music library.
+
+A typical interface would consist of the following public subroutines:
+	- InitSystem.
+	  Autodetect and initialise soundcard and music system. Accept
+	  optional parameters to force a specific soundcard, IRQ/DMA settings
+	  and mixing rates. Allocate any required ram for tables etc.
+	- LoadModule.
+	  Load the specified filename into memory and return a module pointer.
+	  If wavetable device have the optional ability to dump samples to
+	  soundcard RAM immediately.
+	- PlayModule.
+	  Dump samples to soundcard ram if necessary and start playing the
+	  module specified by the module pointer.
+	- StopModule.
+	  Stop the play routine and reset soundcard.
+	- ReleaseModule.
+	  Remove the selected module from soundcard and/or system ram.
+	- CloseSystem.
+	  Reset soundcard and close the music system, freeing up any allocated
+	  memory.
+
+The PlayModule and StopModule functions simply call the equivalent device
+dependent routines depending on which sound device is active.
+
+Non-essential functions which are often useful are:
+	- GetDeviceRAM.
+	  Return the amount of free sample ram in active device or the amount
+	  of free ram if using a soundcard which requires software mixing.
+	- SetMasterVol.
+	  Set the master playback volume.
+	- GetMasterVol.
+	  Get the master playback volume.
+	- GetFileType.
+	  Useful if you want to be able to determine a module format without
+	  actually loading it.
+
+With this interface I have chosen to reference modules by a pointer. All
+operations on a module can be referenced by this pointer so multiple modules
+can reside in memory simultaneously. With my music library this pointer is
+actually 32-bit pointer to a header which contains things such as the size,
+format, module title and a pointer to where the actual module lies in memory.
+
+The structure for this header is kept in an include file and made available to
+the calling program so it is free to read the current song position etc.
+Likewise, the calling program is also free to change the song position by
+changing these variables. Any changes to the format and content of the
+structure are accounted for by simply recompiling with the updated include
+file.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 2.2 Music tracking code ²±° ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+All module formats can be broken down to a sequence of 5 possible operations.
+It is the job of the tracking code to 'track' through the module and interpret
+all the notes and effects as a combination of these operations. These are:
+
+	- Change/New channel volume
+	- New sample/sample point
+	- Change/New sample pitch
+	- Set pan position for channel
+	- Change song BPM setting
+
+Even such complex things as volume and pan enveloping in FastTracker II can be
+broken down into a combination of these 5 operations. Therefore by writing
+separate tracking code for each module format supported (or by converting each
+module format to a single internal format), it is possible to implement
+completely new formats without having to modify any of the existing device
+dependent code.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 2.3 Device dependent code ²±° ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+The device dependent code for the module player is the final link between the
+tracking code and the soundcard. It is the job of this code to take the
+processed track data and perform all the device dependent functions required
+to generate audio on a particular device.
+
+The device dependent code must be able to:
+	- Initialise the particular soundcard
+	- Start playing a module and call the tracking code at specified time
+	  intervals to process track data.
+	- Process the output from the tracking code for each channel and
+	  produce an audible output.
+	- Stop playing a module on request.
+
+When called to start playing, the device dependent code would hook the
+soundcard and/or system timer interrupts and commence playback by starting
+DMA output. At regular intervals (determined by the tracking code as the
+current BPM setting), the code will need to call the tracking update routine
+to obtain updated channel info.
+
+As mentioned earlier, all module formats can be broken down to a sequence of 5
+possible operations. As the tracking code processes the module it will signal
+to the device dependent code what combination of these 5 operations is to be
+performed on each channel.
+
+The easiest way to do this is by having a flag byte for each channel with
+individual bits specifying which operations are required. A typical format for
+this byte would be (in assembler):
+
+_CHN_NewVol     equ     00000001b       ;Change/New chan volume
+_CHN_NewSamp    equ     00000010b       ;New sample/sample point
+_CHN_NewPitch   equ     00000100b       ;Change/New sample pitch
+_CHN_NewPan     equ     00001000b       ;Set pan position for channel
+_CHN_NewBPM     equ     00010000b       ;Change song BPM setting
+
+The tracking code would set individual bits in this byte and update the
+appropriate channel variables accordingly. The device dependent code would
+test for each of these bits and perform each of the operations using the
+channel variables. The bits can be cleared as they are processed so they are
+ready for the next signal from the tracking code.
+
+All the data for a particular channel such as sample number, pitch and volume
+as well as effect parameters for that channel are kept in a structure and
+updated by the tracking code accordingly. The device dependent code will read
+these values as required as indicated by this flag.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³                     °±² 3. Continuous Sample Stream ²±°                    ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+For wavetable soundcards, the channel variables are processed and sent to the
+appropriate voice registers on the card when changes are indicated by the
+tracking code. For a non-wavetable card, these values are converted to
+parameters which are then passed to the mixer code to generate audio data from
+the raw sample data. Before considering the techniques used in resampling
+and mixing the audio data, it is necessary to develop routines which will
+establish and maintain a continuous audio data stream to the soundcard.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 3.1 DMA sample output ²±° ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+The very first thing you should do when developing mixing code for a specific
+soundcard is to write code which will continually output plain audio data from
+a buffer at a specified frequency. For the majority of soundcards this is done
+by writing an interrupt handler to process soundcard IRQs and programming the
+soundcard and DMA controller to output a buffer to the soundcard Digital
+to Analogue Converter (DAC).
+
+When outputting to the PC speaker or DACs which are connected to the printer
+port (eg. COVOX), the system timer is programmed to clock at the mixing
+frequency (eg. 22khz) and one byte from the buffer is written to the port each
+interrupt. This technique has a large processor overhead due to the huge
+number of IRQs which must be handled and should be avoided if alternative
+methods (ie. DMA) are supported by the sound hardware.
+
+Example procedure: (Soundblaster cards)
+==================
+
+The procedure for setting up 8-bit mono DMA output on a soundblaster card is
+as follows: (taken from SB Developer Kit)
+
+	(1) Load data for DAC to memory.
+	    (generate mixed data buffer in this case)
+	(2) Set up DMAC for DMA operation.
+	    (program the DMA Controller to service the SB DMA channel)
+	(3) Set the DSP TIME_CONSTANT to the desired sampling rate.
+	    (tell the SB what frequency to output at)
+	(4) Send Comand 14h to DSP.
+	    (tell the SB to prepare for DMA mode 8-bit DAC)
+	(5) Send DATA_LENGTH (2 bytes, LSB first), where DATA_LENGTH+1 is the
+	    size of the data block to transfer.
+	    (tell the SB the size of our data buffer)
+	(6) Transfer of the whole block (block size=DATA_LENGTH+1) starts
+	    immediately after (5)
+
+The soundblaster will generate an IRQ on its IRQ channel when the DMA block
+has finished transfer. The interrupt handler needs to trap this and
+acknowledge it by reading a byte from the soundblaster DATA AVAILABLE status
+port (2xEh). The handler would then set up another DMA transfer to output the
+next data block. Dont forget to send an EOI (End of Interrupt) signal to the
+interrupt controller (port 20h) at the end of the interrupt handler.
+
+	ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+	³ IMPORTANT : The DMA controller can only output blocks up ³
+	³ to a maximum size of 64k in one transfer. Also, the data ³
+	³ block must not cross a page boundary in physical memory. ³
+	³ This means you must check that the buffer which you are  ³
+	³ using does not cross a 64k boundary in memory.           ³
+	³ (ie. segments 0000h, 1000h, 2000h, 3000h, etc). If it    ³
+	³ does then you must reduce the size of the buffer or      ³
+	³ allocate another one which does not cross the boundary.  ³
+	ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+Example program pseudo-code: (Soundblaster cards)
+============================
+
+This will output an 8-bit mono sample buffer (SoundData) at a given frequency
+(MixRate) of up to 22khz. It assumes the soundblaster is operating on DMA
+channel 1, is initialised and speaker is enabled.
+
+Firstly, determine the time constant for the output rate. This value will be
+used whenever a new DMA block is to be started. Note that this equation is
+valid only for the frequency range from 3906.25 Hz to 21739 Hz.
+
+		TIME_CONSTANT = 256 - (1,000,000/MixRate)
+
+For frequencies from 21739 Hz to 43478 Hz the equation is:
+
+		TIME_CONSTANT = (MSByte of) 65536 - (256,000,000/MixRate)
+
+Now we need to program the DMAC for the DMA operation.
+The port and data values differ depending on which DMA channel is being used.
+This example assumes DMA channel 1 is being used.
+
+SetDMAC:        out 0Ah with 05h         ;Mask off DMA channel 1
+		out 0Ch with 00h         ;Clear byte pointer F/F to lower byte
+		out 0Bh with 49h         ;Set transfer mode to DAC
+					 ;(45h for ADC)
+
+		out 02h with LSB of      ;The address of the SoundData buffer
+			Base Address     ;  must be converted to a physical
+		out 02h with MSB of      ;  page and offset within that page.
+			Base Address     ;This page:offset value is written to
+		out 83h with Page Number ;  the DMAC.
+					 ;Note: the DMAC can only address the
+					 ;  first 1MB of memory.
+					 ;      ie. pages 0h to Fh
+
+		out 03h with LSB of Data ;Where Data Counter is the LENGTH-1
+			Counter          ;  of the sample buffer.
+		out 03h with MSB of Data
+			Counter
+		out 0Ah with 01h         ;enable DMA channel 1
+
+	ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+	³ REFERENCE : An excellent source of information regarding ³
+	³ programming the DMA controller can be found in the file  ³
+	³ DMA_VLA.TXT which is a part of the PC Games Programming  ³
+	³ Encyclopaedia 1.0 (PCGPEV10.ZIP). The official home site ³
+	³ for this is:                                             ³
+	³       teeri.oulu.fi                                      ³
+	³       /pub/msdos/programming/gpe                         ³
+	ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+Once the DMAC is programmed it is time to program the DSP. The actual
+procedure will vary slightly depending on whether normal or high-speed DMA is
+to be used. The exact procedure and a description of the port parameters of
+the DSP included in the reference section of this document. This example will
+assume normal-speed DMA (ie. < 22khz).
+
+Before we start the transfer we need to set the transfer rate. For this we
+use the TIME_CONSTANT value calculated earlier.
+
+	Note: Before each write to the DSP Command Port (2xCh), the program
+	      must read port 2xCh until bit 7 of the returned byte is "0".
+
+Therefore the procedure for setting the transfer rate is:
+
+SetTimeConst:   read 2xCh until the MSB is a "0" ;  wait until DSP is ready
+		out 40h to 2xCh                  ;select set time constant
+		read 2xCh until the MSB is a "0" ;  wait until DSP is ready
+		out TIME_CONSTANT to 2xCh        ;write time constant
+
+Once the time constant is set we tell the DSP to start output. This is done by
+writing 14h to the command port and specifying the length of the transfer.
+
+SetDSP:         read 2xCh until the MSB is a "0" ;  wait until DSP is ready
+		out 14h to 2xCh                  ;select DMA mode 8-bit DAC
+		read 2xCh until the MSB is a "0" ;  wait until DSP is ready
+		out LSB of LENGTH                ;where LENGTH+1 is the number
+						 ;  of bytes to send
+		read 2xCh until the MSB is a "0" ;  wait until DSP is ready
+		out MSB of LENGTH                ;send MSB of buffer length
+
+This will cause output to start immediately. Once the DSP reaches the end of
+the buffer it will trigger an IRQ on the soundblaster IRQ channel. This must
+be trapped and the DSP and interrupt controller acknowledged. The SB must then
+be programmed to start playing the next sample buffer. A typical interrupt
+handler would thus look like:
+
+SB_IRQ_Handler: push registers          ;preserve registers during IRQ
+		read byte from 2xEh     ;acknowledge IRQ from DSP
+
+		call SetDMAC            ;start sending the next buffer of
+		call SetTimeConst       ;  mixed data
+		call SetDSP
+
+		out 20h to port 20h     ;acknowledge IRQ from interrupt
+					;  controller (port A0h for IRQs > 7)
+		pop registers           ;restore registers
+		iret                    ;return from interrupt handler
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 3.2 DMA buffer handling ²±° ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+Once the DMA code is functional we need to provide a constant stream of mixed
+data to output. There are two techniques commonly used for managing mixed data
+and feeding it to the soundcard:
+
+(1) Double buffering.
+This involves using two separate DMA buffers and mixing data into one and
+playing the other. Once a DMA transfer has completed, the process alternates
+and the second buffer is played while new data is mixed into the first buffer.
+The major advantage of this technique is that by trapping soundcard IRQs the
+module playing code can be made to function completely independent of the
+system timer. The drawback is that on some systems if the soundcard IRQ is not
+processed immediately then there will be an audible click which occurs
+because of the slight time delay between the DMA transfer stopping and the
+next one being started.
+
+(2) Auto-init DMA.
+On newer soundblaster cards (DSP version 2.01 and higher) there is an
+auto-init DMA mode available. In this mode the DSP will automatically start
+playing the same buffer once it reaches the end. The advantage of this method
+is that end-of-buffer clicks are eliminated and the program doesnt have to
+manually start transfers. The drawback is that since only one buffer is being
+used the audio data must be mixed into the buffer which is being played at the
+same time. To do this the system timer must be programmed to interrupt at
+sufficiently short intervals and the DMAC must be read to determine how much
+data needs to be mixed to ensure data which has not been played is not being
+overwritten. This means that without clever IRQ management the system timer is
+not available for other uses.
+
+In this tutorial we will use the double buffering technique because of the
+relative ease of implementation.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 3.3 Managing the mixer ²±° ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+With double buffering the first thing the handler must do, after acknowledging
+the DSP, is start playing the other buffer. The handler must then call the
+mixing routine to mix the next buffer. Since the decide dependent code is also
+responsible for calling the tracking code at specified regular intervals we
+must also account for this.
+
+Since the buffer is a fixed length (typically 1-2k) and the intervals required
+for the tracking routine almost certainly wont coincide exactly with this
+buffer length, we must break up mixing the buffer into smaller sections. These
+smaller sections must equal the time interval required by the tracking code
+for the timing of the music to be correct.
+
+An equation to determine the amount of data to mix between calls to the
+tracking code is thus:
+
+	MixLength = ((MixRate * 10)/BPM) >> 2
+					 ^^^^
+				     shift right x2
+This value need only be calculated when the module is first started and then
+whenever a new BPM is indicated by an effect.
+
+Therefore the handler should call the tracking code, then mix MixLength number
+of bytes, then call the tracking code again, etc until the end of the buffer
+is reached. The routine needs to keep track of the number of bytes remaining
+to be mixed and then mix that number before calling the tracking code at the
+next interrupt.
+
+An important note about this method to be conscious of is that since several
+tracking ticks will be mixed during each buffer update, if your code is
+monitoring the pattern and row variables to show the user the song position
+then these values will appear to 'jump' if the buffer size is set too large.
+A reasonable approximation to the actual song position can be obtained by
+using about a 1k buffer for 22khz audio or a 2k buffer for 44khz.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³                      °±² 4. The Digital Audio Mixer ²±°                    ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+The single most important point about mixing routines is that they must be
+FAST. Since this routine will be processing a lot of data continually in the
+background, an efficient mixer can dramatically improve overall program
+execution. Here it is worth sacrificing a little code size by unrolling a few
+critical loops. Reading a book on code optimisation would also be a good idea.
+In case you were unsure, assembly language is almost certainly a must for any
+efficient mixer.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 4.1 Mixer data structure ²±° ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+We know that the mixing routine must generate MixLength bytes of audio data
+into a specified buffer in memory. It must take the raw sample data, and
+adjust it according to pitch, volume and pan variables while accounting for
+any loop points in the sample. The data which maintains all this information
+is best stored in a data structure local to the mixing code. There should a
+structure for each channel to be mixed and the format should contain:
+
+      (dword) Mix_CurrentPtr            ;Pointer to current sample
+      (dword) Mix_LoopEnd               ;Pointer to end of sample/loop end
+      (dword) Mix_LoopLen               ;Sample loop length (0 if no loop)
+      (word)  Mix_LowSpeed              ;Scaling rate (fractional part)
+      (word)  Mix_HighSpeed             ;Scaling rate (integer part)
+      (word)  Mix_Count                 ;Scaling fractional counter
+      (byte)  Mix_Volume                ;Volume of sample
+      (byte)  Mix_PanPos                ;Pan position
+      (byte)  Mix_ActiveFlag            ;Is voice active flag? (0 = inactive)
+      (byte)  Mix_SampleType (optional) ;Defines: 8 or 16-bit sample,
+					;         bi-directional looping, etc.
+
+Note: for efficiency reasons these variables may not necessarily be stored
+exactly as indicated in this structure. A flat-memory model is assumed
+throughout this description to simplify explanation.
+
+Whenever the device dependent code calls the tracking code to update channel
+variables, it must then interpret the changes to these variables (section 2.3)
+and set the variables in this mixer data structure accordingly.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 4.2 Resampling digital audio ²±° ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+Resampling of digital audio refers to the procedure used to make a sound
+sampled at one frequency sound the same when played back at a different mixing
+rate. If a sample is recorded at 44khz and is to be played back at the same
+pitch but using an output frequency of 32khz then a certain percentage of the
+original sample data has to be skipped during playback or the sample won't
+maintain the original pitch. Likewise, if a 22khz sample is to be played back
+at the same pitch using a 32khz mixing rate, some of the sample data will have
+to be scaled to insert more data in the output stream than is in the original
+sample.
+
+The basic resampling algorithm involves determining the ratio of desired
+frequency against output frequency and then scaling the sample data
+accordingly. In the mixing code the resampling is done on the run by stepping
+through the sample data by a scaling factor which involves both integer and
+fractional components instead of simply incrementing 1 byte at a time.
+
+The sample frequency is determined by the tracking code as a combination of
+the current pitch period and the middle-C frequency for the current sample
+(C2SPD). The scaling factor is determined from the sample frequency by the
+ratio:
+			Sample Freq
+		Scale = -----------
+			Mixing Freq
+
+For efficiency reasons scaling is done using fixed point instead of floating
+point arithmetic. 32-bit precision (16-bit integer and 16-bit fractional)
+gives good results for the range of frequencies typically found in this kind
+of situation, hence the scaling factor is typically broken into two 16-bit
+variables (Mix_HighSpeed and Mix_LowSpeed).
+
+Example pseudo-code: determining sample scaling factor
+====================
+
+	(word)Mix_HighSpeed = (SampleFreq / MixingRate);
+
+	(word)Mix_LowSpeed = (((SampleFreq % MixingRate) << 16) / MixingRate);
+				^^^^^^^^^^^^^^^^^^^^^^^
+			     remainder of previous division
+
+The actual scaling routine is then implemented by using a carry-counter to
+simulate fractional stepping through the sample. The Mix_Count variable is
+maintained for this purpose and is only reset to zero when a new sample is
+started.
+
+To step through a sample with the scaling factor, firstly add Mix_LowSpeed to
+Mix_Count. Then add Mix_HighSpeed AND the overflow carry from the previous
+operation to Mix_CurrentPtr. Get the byte which Mix_CurrentPtr is pointing to
+and add it to the output stream. Repeat for all the bytes needed to fill the
+output buffer.
+
+Sample loops are handled by checking if Mix_CurrentPtr has reached or passed
+Mix_LoopEnd. If so then Mix_LoopLen is subtracted from Mix_CurrentPtr. Note
+that Mix_Count is NOT reset to zero when a sample loops. If the sample does
+not loop then the sample stops when Mix_CurrentPtr is greater or equal to
+Mix_LoopEnd.
+
+Example assembly code: scaled sample-stepping (not optimised)
+======================
+
+For demonstration Mix_CurrentPtr is assumed to be only 16-bits. In a real
+routine all registers and variables would be 32-bits for speed.
+
+StepSample:     mov ax,[Mix_LowSpeed]   ;add Mix_LowSpeed to Mix_Count
+		add [Mix_Count],ax      ;carry flag is set on add overflow
+		mov ax,[Mix_CurrentPtr] ;add Mix_HighSpeed to Mix_CurrentPtr
+		adc ax,[Mix_HighSpeed]  ; with carry flag
+		cmp ax,[Mix_LoopEnd]    ;check if passed loop endpoint, skip
+		jb dontloop             ; if not passed endpoint else subtract
+		sub ax,[Mix_LoopLen]    ; Mix_LoopLen from Mix_CurrentPtr
+dontloop:       mov [Mix_CurrentPtr],ax ;store Mix_CurrentPtr for next loop
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 4.3 Mixing samples with volume ²±° ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+Once we have a way of scaling the samples correctly we need to combine the
+samples for each of the channels into one output stream. As mentioned in the
+first section, mixing audio is achieved simply by adding all of the component
+samples (assuming the samples are signed). However, to control the sample
+volume and protect against distortion and clipping if the range exceeds the
+8-bit limit on the output data, the data from each sample must be scaled
+before being summed into the total output.
+
+The theoretical approach to applying volume to a sample involves multiplying
+the sample by a volume scaling factor before being summed into the output.
+
+Example assembly code: sample volume scaling (not optimised)
+======================
+
+This routine would be applied for each channel for each byte in the output
+stream. For demonstration it assumes a 16-bit sample pointer, 8-bit signed
+sample data and an 8-bit signed output stream.
+
+SumSample:   mov si,[Mix_CurrentPtr]    ;get pointer to current sample byte
+	     mov al,ds:[si]             ;get the current sample byte
+	     imul byte ptr [Mix_Volume] ;perform SIGNED multiply by vol. scale
+	     add [OutputByte],ah        ;then ADD it to the output byte
+					;NOTE: add AH register NOT AL
+
+By adding the AH register to the output byte, it effectively is performing the
+C operation:
+
+	(char)OutputByte = ((char)*(Mix_CurrentPtr) * (char)Mix_Volume) / 256;
+
+This makes the Mix_Volume variable equivalent to a fractional multiply which
+is needed to make the sample quieter to prevent overflow in the output stream.
+
+The Mix_Volume variable can be calculated from the total number of channels to
+be mixed and the volume of the channel, and needs to be updated whenever the
+tracking code specifies a new volume on the channel. The equation to determine
+Mix_Volume for 8-bit samples and an 8-bit output stream without allowing any
+sample clipping is thus:
+
+	Mix_Volume = ((256/NumberOfChans)*MODVolume) >> 6;
+
+Once all the channels have been added to the OutputByte, it can then be
+converted to an unsigned format (since soundblaster cards have an unsigned
+data format) and then placed in the output buffer. The easiest way to convert
+an 8-bit signed value into 8-bit unsigned is to flip bit 7 using exclusive or.
+ie. OutputData XOR 128.
+
+Example pseudo-code: complete mixing routine (very unoptimised but functional)
+====================
+
+The whole mixing routine is then implemented as a group of nested loops, where
+MixLength is the number of bytes desired in the output stream. StepSample and
+SumSample are the algorithms defined previously.
+
+void Mix8bitMono( int MixLength, char * buffer )
+{
+	static ChannelDataStruc Channels[NumberOfChannels];
+	int MixCount;
+	int channel;
+	char OutputByte;
+
+	MixCount = MixLength;
+
+	while( MixCount )
+	{
+		OutputByte = 0;
+		for( channel = 0, channel < NumberOfChannels, channel++ )
+		{
+			StepSample( *Channels[channel] );
+			SumSample( *Channels[channel] );
+		}
+		*(buffer++) = OutputByte ^ 128;
+		MixCount--;
+	}
+}
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³                          °±² 5. Optimisations ²±°                          ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+The procedures presented in previous sections are all that is required to
+create a basic 8-bit digital audio mixer. These algorithms, although
+functional, are far from efficient and can be vastly optimised and improved in
+a number of ways. This section deals with possible areas and techniques of
+optimisation as well as examining the mixing algorithm used by Scream Tracker
+3 and possible optimisations using this technique.
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.1 Areas for optimisation ²±° ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+There are 3 main targets for optimisation in a mixing routine:
+	- Volume multiplication.
+	- Sample summation.
+	- Unrolling mixing loops.
+
+5.1.1 Volume multiplication:
+============================
+
+By far the most CPU demanding part of the mixing routine described up to now
+is the need to multiply every byte of each channel being mixed by a scaling
+factor to simulate variable sample volumes. With a single IMUL instruction
+alone taking up to 42 cycles on a 80486 and 160 cycles on an 8086, eliminating
+the need to perform these multiplications alone significantly results in
+significant code efficiency. A simple way around these multiplications is to
+use a lookup table with precalculated results.
+
+The basic idea behind a lookup table is to replace the IMUL [Mix_Volume]
+instruction which multiplies the original sample byte in AL by the required
+scaling factor to get a resultant byte for summation in AH. This instruction
+can be replaced by a MOV instruction from a precalculated table which consists
+of 65 lots (or one for each possible volume value) of 256 bytes (or one for
+each possible 8-bit sample value) which contain the results of an equivalent
+IMUL instruction.
+
+5.1.2 Sample summation:
+=======================
+
+The example algorithm given in section 4.3 has a major efficiency flaw in that
+information for every sample being mixed must be retrieved for each byte in
+the output stream. In real mode this would typically mean that one of the
+segment registers must be changed to retrieve a byte from each sample being
+mixed. Since MOVs to the segment registers are several times slower than a
+normal MOV they should be avoided if possible. One method of doing this is to
+have a dedicated 'summation buffer' to which an entire channel is added at a
+time. That is, get the information for a single channel and step through the
+sample adding the output to the summation buffer until that buffer is full
+before adding the next channel. Once all the channels have been summed perform
+XOR 128 on each byte to get the output buffer then clear the buffer for the
+next time. This technique lends itself to further optimisation through
+unrolling loops and using the registers to contain sample pointers since the
+pointers only change occasionally instead of several times for every byte.
+
+5.1.3 Unrolling mixing loops:
+=============================
+
+When creating fast assembly language code it is important to realise that it
+is not always the smallest code which is the fastest. This especially applies
+to algorithms which involve heavy repetition (such as mixing). A small loop
+can often be sped up by unrolling it several times to reduce time wasted
+checking and jumping if it has not reached the end of the loop.
+
+For a small loop of only a handful of instructions the comparison and jump
+instructions can form a significant percentage of overall loop execution time.
+By unrolling the main mixing loop several times the counter is only checked
+once every now and then in the output. However, it is important to remember
+that the mixing routine may get called to mix any number of bytes which are
+not necessarily an integral multiple of the unrolled loop size. Similarly, the
+chances of a sample or loop endpoint being an integral multiple of the
+unrolled loop is also very remote and the code will have to deal with these
+situations.
+
+This problem must be overcome by firstly checking if the number of bytes left
+to be mixed is less than the unrolled loop size and if it is then use a normal
+rolled loop. A good compromise I have found is achieved by unrolling the main
+mixing loop 16 times. This seems to provide a comfortable trade off between
+the speed gained from unrolling the loop and the speed lost by mixing the
+remaining bytes in a rolled loop. For faster mixing rates and larger output
+buffers it may be more efficient to unroll further and have smaller series of
+unrolled loops to cater for overflow (eg. a 32 byte unrolled mixing loop with
+a second 8 byte unrolled loop to cater for overflow and a third rolled loop
+for any leftovers).
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.2 Scream Tracker 3 mixing technique ²±° ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+The second most notable drawback of the algorithm presented in section 4.3
+beside inefficiency is the poor quality of sound which results from using this
+technique. The poor sound quality results from reducing the volume and hence
+resolution of the sample data before mixing because of the need to prevent
+overflow beyond the 8 bits in the output byte. One simple method to achieve
+improved sound quality is to use 16-bits when adding all the channels together
+and then only use the top 8-bits in the output stream. While this will improve
+output quality to an extent by realising that some clipping in the output
+stream is acceptable it is possible to achieve better overall output quality,
+particularly with multichannel modules where the chances of having all
+channels contributing a maximum value at once becomes rare.
+
+Scream Tracker 3 uses several techniques which allow for easy optimisation for
+faster mixing with better overall output quality. This is an extract from
+TECH.DOC which comes as a part of the Scream Tracker 3 archive:
+
+       "How ST3 mixes:
+
+     1. volumetable is created in the following way:
+
+	³ volumetable[volume][sampledata]=volume*(sampledata-128)/64;
+
+	NOTE: sampledata in memory is unsigned in ST3, so the -128 in the
+	      formula converts it so that the volumetable output is signed.
+
+     2. postprocessing table is created with this pseudocode:
+
+	³ z=mastervol&127;
+	³ if(z<0x10) z=0x10;
+	³ c=2048*16/z;
+	³ a=(2048-c)/2;
+	³ b=a+c;
+	³                     Ú 0                , if x < a
+	³ posttable[x+1024] = ³ (x-a)*256/(b-a)  , if a <= x < b
+	³                     À 255              , if x > b
+
+     3. mixing the samples
+
+	³ output=1024
+	³ for i=0 to number of channels
+	³         output+=volumetable[volume*globalvolume/64][sampledata];
+	³ next
+	³ realoutput=posttable[output]
+
+     This is how the mixing is done in theory. In practice it's a bit
+     different for speed reasons, but the result is the same."
+
+What is basically being done here is that 2 lookup tables are being used, the
+volume table to replace the volume scaling multiplication (see section 5.1)
+and the postprocessing table to scale the overall output according to the
+number of channels and the allowable amount of output clipping.
+
+Each section is described in detail as follows:
+
+5.2.1 Volumetable:
+==================
+
+The volume table is the value which would result if a single sample was scaled
+by a volume factor of volume/maxvolume, or in this case, volume/64. The result
+is similar to the IMUL described in section 4.3 except that the sample data
+is converted to signed by subtracting 128 (equivalent to XOR 128) before being
+signed multiplied. This is necessary since sample data in ST3 is unsigned.
+
+This table is useful later because, by locating the table in memory on a
+segment boundary, the scaled sample data byte can be retrieved simply by
+creating an index by combining the volume and original sample data bytes into
+one 16-bit offset.
+
+For example:
+		mov es,[volumetable]    ;get segment ptr of volume table
+		mov bh,[volume]         ;get sample volume
+		mov bl,[sampledata]     ;get sample data to scale
+
+then the register pair ES:BX is equivalent to:
+
+		volumetable[volume][sampledata];
+
+Since the sample volume and pointer to the volumetable doesnt change for the
+output stream of one channel, scaled sample data can be retrieved simply by
+loading the original sample data into BL and fetching the new byte from ES:BX.
+
+5.2.2 Postprocessing table:
+===========================
+
+The postprocessing table is basically an array of 2048 bytes which is used to
+derive the final output data from the intermediate summation value which
+results from adding all the (volume scaled) sample bytes together. This allows
+the overall volume level to be compensated for the number of channels being
+mixed.
+
+Once created by the pseudo-algorithm described above for all values of x in
+the range 0 to 2048 the array contains values for an output stream which can
+be visualised as follows:
+
+    255 úúúúúúúúúúúúúúúúúúúúúúúúúúúúúúúúúúúúúÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ 255
+					   / |
+					 /   |
+				       /     |
+    128 úúúúúúúúúúúúúúúúúúúúúúúúúúúúú/úúúúúúú|úúúúúúúúúúúúúúúúúúúúú 128
+				   / |       |
+				 /   |       |
+			       /     |       |
+      0 ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄúúúúúúú|úúúúúúú|úúúúúúúúúúúúúúúúúúúúú 0
+	|                    |       |       |                    |
+	0                    a      1024     b                   2048
+
+What happens is that the mastervol setting determines the spacing of points
+a and b from the centre at 1024. Values outside a to b are clipped to the
+limits while a line is formed for the values within a to b. Further analysis
+of the algorithm shows that this line has a larger gradient (ie. is steeper)
+for larger values of mastervol and is less sloped for smaller values.
+
+5.2.3 Mixing the samples:
+=========================
+
+While the first two bits of code need only be called once to generate the
+tables when a new song is started, this part is the part which makes up the
+actual mixing routine. Basically a default 'silent' value of 1024 is initially
+assumed for the summation value. This value is then added to by the scaled
+value for each channel, obtained by looking up
+
+	volumetable[volume*globalvolume/64][sampledata]
+
+Here the channel volume is also scaled by the globalvolume variable and if
+stored separately need be done only when the volume or the globalvolume is
+changed. Using the lookup process described in 5.2.1 the value will either
+increase or decrease the summation value, representing a move to the right or
+left respectively along the graph in 5.2.2.
+
+Once all the channels have been added to the summation value, a final value
+for the output stream is obtained from the postprocessing table by
+
+	realoutput=posttable[summation value];
+
+Note that by using this technique it is not necessary to adjust the volume
+setting according to the number of active channels (as described in section
+4.3) since this is automatically accounted for by the mastervol variable when
+the postprocessing table is initially created. This also means that the post-
+processing table must be recalculated whenever the number of channels to be
+mixed is changed (ie. when a new module is started with a different number of
+channels).
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.3 Example ST3 style mixer source code ²±° ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+The previous section describes the basic algorithm used by ST3 for providing
+good quality 8-bit mixed output. This technique lends itself to optimisation
+in various areas, particularly by using an intermediate output 'summation'
+buffer which an entire channel can be summed at a time. Instead of a vague
+description of how to optimise such a mixing routine I have included the
+actual 32-bit PMODE assembly language source code for the soundblaster IRQ
+handler and main 8-bit mixing routine from my pet project Starplayer.
+
+The following code is the source for a complete SB IRQ handler and 8-bit audio
+mixer which uses an algorithm modelled on ST3. Not all routines are included
+since this is intended to be an illustrative example of a typical mixing
+routine to further your understanding of how digital mixers work. While the
+code has been optimised to an extent, it is by no means the best or most
+optimised and could be improved in a number of ways. If you use any of this
+code in your own programs it would be good if you give me a word in the
+credits or greets and send me an email saying what a cool guy I am :-)
+
+Example assembly code: SB IRQ handler and 8-bit mono mixer
+======================
+
+		;Some of the following code has been edited to remove
+		;checking and complexity etc which is not necessary for
+		;illustrative purposes. Variable names and sizes should
+		;be fairly obvious from the context. Comments have been
+		;added to aid understanding and associate with other
+		;parts of this text.
+
+SB_IRQ_Handler  proc near               ;SB IRQ handler
+
+		pushad                  ;preserve registers and setup
+		push ds es              ;  protected mode selectors (segments)
+		mov ds,cs:_seldata
+		mov es,cs:_seldata
+
+		mov dx,[PortAddr]       ;Ack. SB interrupt
+		add dx,0eh              ;  by reading port 2xEh
+		in al,dx                ;  (see section 3.1)
+
+		call SwapSBBuffers      ;start playing next DMA buffer and
+					;  point SB_Buffer to buffer to fill
+					;  (see section 3.1 and 3.2)
+
+		mov al,020h             ;Set hardware for next interrupt
+		out 0A0h,al             ;  ack. interrupt controller chips
+		out 020h,al
+
+		movzx eax,[SB_BufferSize] ;get number of bytes to fill
+		mov [SB_BufCount],eax
+
+		mov edi,[SB_Buffer]     ;edi = ptr to buffer to fill
+
+@@loop:         cmp [SB_GapCount],0     ;if there are bytes remaining to be
+		ja @@domix              ;  mixed then go and mix them.
+
+		call UpdateTracker      ;otherwise call tracking code to
+					;  update module (device independent,
+					;  see section 2.2)
+
+		call SB_ProcessTracks   ;call SB device dependent code to
+					;  interpret variables set by tracking
+					;  code. (see section 2.3)
+
+		mov eax,[SB_GapLength]  ;GapLength is calculated by
+		mov [SB_GapCount],eax   ;  SB_ProcessTracks when a new BPM is
+					;  set (see section 3.3)
+
+@@domix:        mov ecx,[SB_GapCount]   ;check if remaining bytes to mix
+		cmp ecx,[SB_BufCount]   ;  is bigger than bytes remaining in
+		jb @@point2             ;  buffer.
+		mov ecx,[SB_BufCount]   ;If so then reduce number of bytes
+					;  to mix.
+
+@@point2:       call Mixer_8bitMono     ;mix ECX bytes into output buffer
+					;  at EDI using channel values set
+					;  by last call to SB_ProcessTracks
+		add edi,ecx             ;increase buffer pointer to next
+					;  part to be filled
+		sub [SB_GapCount],ecx   ;decrease count for remaining size
+		sub [SB_BufCount],ecx   ;  of buffer and gap to be filled
+
+		jnz @@loop              ;loop while bytes are remaining in
+					;  buffer to be filled
+
+@@notplaying:   pop es ds               ;restore registers and return from
+		popad                   ;  interrupt handler
+		iretd
+SB_IRQ_Handler  endp
+;---------------------------------------
+_Mix8bitMono    macro                   ;macro to mix 1 byte of 1 channel.
+					;  used by Mixer_8bitMono routine.
+					;  this is equivalent to the
+					;  StepSample and SumSample routines
+					;  in section 4.2 and 4.2
+
+		add eax,edx             ;add Mix_LowSpeed to Mix_Count
+		mov bl,[ebp]            ;get sample data from Mix_CurrentPtr
+		adc ebp,esi             ;add with carry Mix_HighSpeed to
+					;  Mix_CurrentPtr
+		movsx ax,byte ptr [ebx] ;get byte from volumetable array and
+					;  sign extend it to 16-bits so it can
+					;  be added to the summation value
+					;  (see section 5.2.1)
+		add [edi],ax            ;add value to summation table
+		add edi,2               ;increase pointer in summation table
+endm
+;---------------------------------------
+Mixer_8bitMono  proc near               ;mix ECX bytes of 8-bit mono data to
+					;  buffer at EDI using parameters from
+					;  SB_Tables structures
+
+		push ecx edi            ;preserve registers
+		push edi
+
+		mov [TempMixCount],ecx  ;save the number of bytes to mix
+
+		mov edi,[MixingTable]   ;clear pre-mixing table (or the
+		movzx ecx,[SB_BufferSize] ;summation buffer) by storing the
+		mov eax,04000400h       ;  initial mean value of 1024 in each
+		shr ecx,1               ;  of the table entries
+		rep stosd               ;  (see section 5.2.2)
+
+		mov esi,[SB_Tables]     ;get pointer to SB channel structures
+		mov dl,[SB_NumChans]    ;get number of channels to mix
+
+@@mixloop:      mov edi,[MixingTable]   ;EDI = ptr to summation buffer
+		mov ecx,[TempMixCount]  ;ECX = number of bytes to mix in
+					;      output stream
+		push edx                ;preserve channel counter in DL
+
+		cmp [esi+Mix_ActiveFlag],0 ;is current channel active?
+		jz @@donemixing         ;  if not then dont mix
+
+		cmp [esi+Mix_LoopLen],0 ;is sample a looping sample?
+		jz @@nolooping          ;  if not then jump to non-looping
+					;  mixing routine
+
+		;-----------------------
+		;The following code mixes ECX bytes of the current channel,
+		;assuming a looping sample
+
+@@handleloopedb: mov edx,ecx            ;keep number of bytes to mix for later
+@@handlelooped: mov eax,[esi+Mix_LoopEnd]    ;determine number of bytes left
+		sub eax,[esi+Mix_CurrentPtr] ;  in sample before loop point is
+					     ;  reached
+		jg @@noloopnow               ;dont perform loop if there are
+					     ;  bytes remaining
+@@notzeroyet:   mov eax,[esi+Mix_CurrentPtr] ;subtract the loop length from
+		sub eax,[esi+Mix_LoopLen]    ;  the current sample pointer
+		mov [esi+Mix_CurrentPtr],eax ;and update sample pointer
+		jmp short @@handlelooped     ;jump and check if pointer is
+					     ;  still past loop end point
+					     ;  (this may be possible for
+					     ;  samples being played back
+					     ;  very fast)
+
+		;This next bit converts the number of bytes remaining to be
+		;mixed in the original sample (EAX) to the equivalent number
+		;of bytes in the output stream. This is necessary because
+		;since we have unrolled the main mixing loop we cant check to
+		;see if the sample pointer has gone past the loop point after
+		;each byte is mixed.
+		;The ScaleRate value is calculated by dividing 100000000h by
+		;a dword made by combining Mix_HighSpeed and Mix_LowSpeed
+		;words into one 32-bit register. This value is calculated by
+		;SB_ProcessTracks when the scaling rates are calculated from
+		;the period and mixing rate (see section 4.2)
+
+@@noloopnow:    push edx                ;preserve EDX which gets affected by
+					;  the multiply
+		mul [esi+Mix_ScaleRate] ;the number of bytes is calculated by
+					;  multiplying by the ScaleRate
+		or ax,ax                ;if fractional 16-bit part is zero we
+		jz @@noaddbyte          ;  must add an extra carry number to
+		add eax,10000h          ;  the resultant in EDX:EAX.
+@@noaddbyte:    shrd eax,edx,16         ;we must remove the fractional part
+					;  of the multiply by shifting EDX:EAX
+					;  right by 16-bits giving an integral
+					;  number of bytes in EAX
+		pop edx                 ;restore EDX
+
+		cmp eax,ecx             ;check if the number of bytes which
+		ja @@noajustloop        ;  need to be mixed before looping
+		mov ecx,eax             ;  the sample is greater than the
+					;  remaining buffer size and restrict
+					;  if it is
+@@noajustloop:  sub edx,ecx             ;subtract total remaining bytes count
+					;  by the size about to be mixed
+		or ecx,ecx              ;ensure ECX counter is non-zero to
+		jnz @@cxnotzero         ;  prevent problems in the unlikely
+		inc ecx                 ;  event that it is
+
+@@cxnotzero:    push edx esi            ;preserve buffer counter and structure
+					;  index registers since we will be
+					;  needing ALL available registers for
+					;  the mixing loop. (see section 4.1
+					;  for a description of the following
+					;  variables)
+
+		mov eax,[esi+Mix_Count]      ;EAX=overflow counter
+		mov edx,[esi+Mix_LowSpeed]   ;EDX=low (fractional) scaling
+					     ;    factor
+		mov ebp,[esi+Mix_CurrentPtr] ;EBP=current sample pointer
+		mov ebx,[VolumeTable]        ;EBX=pointer to volumetable
+		add ebx,[esi+Mix_Volume]     ;    + offset for volume
+		mov esi,[esi+Mix_HighSpeed]  ;ESI=high (integral) scaling
+					     ;    factor
+		;NOTES:
+		;1. Mix_LowSpeed and Mix_Count have been shifted left 16-bits
+		;   to occupy the high word of EDX and EAX since we will be
+		;   needing the lower 16-bits to get the sample data and add
+		;   it to the output summation buffer.
+		;2. Mix_Volume is the volume which has been shifted left
+		;   8-bits (ie. 0000VV00h) so that when added to the volume
+		;   table pointer it references the set of 256 bytes for the
+		;   required volume simply by putting the original sample data
+		;   in BL. (see section 5.2.1)
+
+		push cx                 ;since we are mixing in multiples of
+		shr cx,4                ;  16 bytes we divide the mix counter
+		push cx                 ;  by 16 with shr by 4
+		jz @@no16bytes          ;check that this does not leave us
+					;  with 0 bytes to mix and jump to mix
+					;  the remainder if it does
+
+@@16byteloop:   rept 16                 ;macro to unroll the mixing loop 16
+		_Mix8bitMono            ;  times. see the macro definition
+		endm                    ;  above for a description of how this
+					;  part works
+		dec cx                  ;decrease counter and loop until
+		jnz @@16byteloop        ;  counter is zero
+
+@@no16bytes:    pop ax                  ;determine the remaining number of
+		pop cx                  ;  bytes left to mix by subtracting
+		shl ax,4                ;  total number of bytes by the
+		sub cx,ax               ;  largest multiple of 16 which fits
+		jz @@donetheloop        ;skip if no remaining bytes left to
+					;  be mixed (ie. total number of bytes
+					;  was an integral multiple of 16)
+@@looploop:     _Mix8bitMono            ;mix the bytes remaining using a
+		dec cx                  ;  rolled loop (see section 5.1.3)
+		jnz @@looploop
+@@donetheloop:  pop esi                 ;restore channel pointer in ESI
+
+		mov [esi+Mix_CurrentPtr],ebp ;update channel sample pointer
+		mov [esi+Mix_Count],eax      ;  and overflow counter with
+					     ;  new values
+		pop ecx                 ;get remaining number of bytes to
+		or ecx,ecx              ;  mix before end of mixing buffer
+		jg @@handleloopedb
+		jmp @@donemixing        ;finish mixing channel if no bytes
+					;  remaining
+
+		;-----------------------
+		;The following code mixes ECX bytes of the current channel,
+		;assuming a non-looping sample. This section is very similar
+		;to the previous section except that the sample is stopped
+		;instead of looped once the endpoint is reached.
+
+@@nolooping:    mov eax,[esi+Mix_LoopEnd]    ;get number of remaining bytes
+		sub eax,[esi+Mix_CurrentPtr] ;  in source sample
+		jle @@stopsample             ;stop sample if zero or negative
+					     ;  bytes left
+
+		mul [esi+Mix_ScaleRate]      ;multiply number of bytes left
+		shrd eax,edx,16              ;  by ScaleRate and shift right
+					     ;  16-bits to obtain number of
+					     ;  bytes in output stream before
+					     ;  sample ends (see above)
+
+		cmp eax,ecx                  ;check if number of bytes to mix
+		ja @@noajustend              ;  of sample is less than the
+		mov ecx,eax                  ;  remaining buffer size and
+					     ;  limit the number of bytes to
+					     ;  mix if so
+		mov [esi+Mix_ActiveFlag],0   ;set channel ActiveFlag to
+					     ;  inactive since sample will
+					     ;  have stopped by the time
+					     ;  this loop is complete
+
+@@noajustend:   or ecx,ecx                   ;if zero bytes left to mix then
+		jz @@stopsample              ;  set channel to inactive and
+					     ;  dont mix any bytes
+		push esi                     ;preserve channel structure
+					     ;  index register
+
+		mov eax,[esi+Mix_Count]      ;set up registers for loop
+		mov edx,[esi+Mix_LowSpeed]   ;  (see description above)
+		mov ebp,[esi+Mix_CurrentPtr]
+		mov ebx,[VolumeTable]
+		add ebx,[esi+Mix_Volume]
+		mov esi,[esi+Mix_HighSpeed]
+
+		push cx                 ;main mixing loop unrolled 16 times
+		shr cx,4                ;  (see above)
+		push cx
+		jz @@no16bytes2
+@@16byteloop2:  rept 16                 ;  unroll loop macro (see above)
+		_Mix8bitMono
+		endm
+		dec cx
+		jnz @@16byteloop2
+@@no16bytes2:   pop ax                  ;  calculate remainder (see above)
+		pop cx
+		shl ax,4
+		sub cx,ax
+		jz @@donetheloop2
+@@nolooploop2:  _Mix8bitMono            ;  mix remaining bytes (see above)
+		dec ecx
+		jnz @@nolooploop2
+@@donetheloop2: pop esi                      ;restore index register and
+		mov [esi+Mix_CurrentPtr],ebp ;  update variables (see above)
+		mov [esi+Mix_Count],eax
+		jmp short @@donemixing
+
+@@stopsample:   mov [esi+Mix_ActiveFlag],0   ;set channel active flag to
+					     ;  inactive if sample has ended
+
+@@donemixing:   pop edx                 ;get current channel counter
+		add esi,Mix_Size        ;increase structure index to point to
+					;  the next channel data structure
+		dec dl                  ;decrease channel count
+		jnz @@mixloop           ;loop if counter is not zero
+
+		;At this point we have an array (MixingTable) which consists
+		;of TempMixCount 16-bit values which are the result of adding
+		;the frequency and volume scaled sample data. Now all that
+		;remains to be done is to pass these values through the
+		;postprocessing table to obtain the final output data which
+		;will be stored in the buffer which was passed to this
+		;subroutine.
+
+		pop edi                 ;get pointer to final output buffer
+		mov ecx,[TempMixCount]  ;get number of bytes to transform
+		mov esi,[MixingTable]   ;get pointer to summation table
+		mov edx,[PostTable]     ;get pointer to postprocessing table
+
+@@copytable:    movsx ebx,word ptr [esi] ;get 16-bit value from summation
+					 ;  table
+		mov al,[ebx+edx]        ;get final output byte from the
+					;  postprocessing table at the offset
+					;  given by the 16-bit summation
+					;  value
+		mov [edi],al            ;store the final output byte in the
+					;  output buffer
+		add esi,2               ;increase pointer in summation table
+		inc edi                 ;increase pointer in output buffer
+
+		dec ecx                 ;decrease counter and loop until all
+		jnz @@copytable         ;  bytes are transformed and copied
+					;  into the output buffer
+		pop edi ecx             ;restore registers and return
+		ret
+Mixer_8bitMono  endp
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³ °±² 5.4 Summary and suggestions ²±° ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+Throughout this document I have presented the basic ideas and techniques
+behind digital audio resampling and mixing for MOD style music players. From
+a very basic mixing algorithm, various areas and means of optimisation have
+been presented with a focus on the mixing algorithm described by the Future
+Crew in Scream Tracker 3. This algorithm turns out to be very useful for
+providing quick, reasonable quality mixing of 8-bit sample data to an 8-bit
+output stream and is perfect for demos and games where mixing speed is more
+important than sound quality. Various improvements on these ideas are left up
+to the reader as an exercise when developing their own code and could include:
+
+	- Support for stereo output. One simple way to achieve this is to
+	  have two output streams and then mix the same sample data into both
+	  streams adjusting the relative volume in each channel to simulate
+	  panning. The significant mixer load increase from this duplication
+	  is perhaps the reason ST3 only supports left or right panning for
+	  soundblaster cards. Possible optimisations for this technique could
+	  include having separate core mixing routines which are 'hard-wired'
+	  for mixing either to the left, centre or right.
+
+	- Interpolation of sample data. When being mixed at a sample rate
+	  which is higher than the desired sample frequency the sample step
+	  routine will only move the sample pointer once every few bytes
+	  resulting in these samples sounding chunky. Interpolation involves
+	  'generating' intermediate values according to the sample rate and
+	  could be achieved using fixed point arithmetic similar to that
+	  employed by the sample stepping algorithm. This is perhaps only
+	  really worthwhile for 16-bit output at high mixing rates since the
+	  difference is largely inaudible in 8-bit streams.
+
+	- Support for 16-bit output. This is a certain way to significantly
+	  improve overall sound quality. Approximately 2-bits resolution of
+	  each sample is lost mixing a 4 channel module alone, making the
+	  8-bit samples equivalent to 6-bit samples or less. Using 16-bit
+	  output enables all the 8-bits resolution to be retained as well as
+	  extending the resolution through interpolation if it is implemented.
+
+	- Support for 16-bit samples. While not necessary for traditional
+	  module types such as MODs and S3Ms, newer module formats allow the
+	  use of 16-bit samples in songs. Separate mixing routines would have
+	  to be developed to mix these samples, although if the module was
+	  being mixed to an 8-bit output stream then it would possibly be
+	  simpler to mix just the most significant byte out of each 16-bit
+	  sample since the extra resolution would be lost anyway. If XM format
+	  modules are to be supported then it will also be necessary to
+	  support bi-directional or ping-pong looping. This would invole
+	  making the mixer capable of handling reverse sample-stepping.
+
+	- Special effects. Once a routine exists to generate audio data it is
+	  a relatively simple matter to implement various special effects such
+	  as echoes and reverb. By keeping several copies of the mixing data
+	  echoes can be created by mixing the same data into the output stream
+	  a short time later at a lower volume creating an echo. Similarly,
+	  reverb can be simulated by using very short echoes of less than
+	  about one tenth of a second. Chorus and flanging effects can also be
+	  simulated by changing the rate at which the second identical sample
+	  buffer is mixed up and down by a small amount.
+
+	- Sound effects. Support for spot sound effects for games etc can
+	  simply be added either by including the sound effects as part of the
+	  module and then passing note trigger commands directly to the
+	  tracking code. Alternatively if several sound effects are to be
+	  played at once it may be faster to code a separate sound effect
+	  mixer which is then added to the music output stream once both sfx
+	  and music buffers have been generated. This has the advantage that
+	  sound effects are normally played back at the one frequency and
+	  sometimes also at the one volume so a much simpler and faster mixer
+	  can be written for them which doesnt have to scale the samples for
+	  volume or frequency. Once mixed the final sfx buffer can be
+	  frequency scaled to match the output.
+
+There are a few ideas for improvements to your own code. If any of the
+information presented in this tutorial is of use to you when developing your
+own projects then I would be very interested in seeing your final creation.
+I can be contacted by any of the means listed in the contact info section of
+this document. Happy coding and good luck! :-)
+
+ÚÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+³          °±² 6. Reference - SoundBlaster Port Specifications ²±°           ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+
+Programming the Sound Blaster ADC/DAC:
+
+2x6h    DSP Reset Port                       Write Only
+2xAh    DSP Read Data Port                   Read Only
+2xCh    DSP Write Data or Command            Write
+2xCh    DSP Write Buffer Status (bit 7)      Read
+2xEh    DSP Data Available Status Bit 7)     Read Only
+
+x = 1,2,3,4,5,6 for the Sound Blaster <= 1.5
+x = 1,2,3,4,5,6 for the Sound Blaster Micro Channel Version
+x = 2,4 for the Sound Blaster 2.0
+x = 2,4 for the Sound Blaster Pro
+
+Some DSP Commands:
+
+10h  Direct mode 8-bit DAC (single byte data transfer)
+14h  DMA mode 8-bit DAC
+20h  Direct mode 8-bit ADC (single byte data transfer)
+24h  DMA mode 8-bit ADC
+40h  Set Time Constant
+48h  Set Block Size
+91h  High Speed DMA mode 8-bit DAC
+99h  High Speed DMA mode 8-bit ADC
+D1h  Turn on Speaker
+D3h  Turn off Speaker
+D0h  Halt DMA in progress
+D4h  Continue DMA
+
+To reset the DSP:
+
+1.  Write a 01h to port 2x6h
+2.  Wait for 3 microseconds
+3.  Write a 00h to port 2x6h
+4.  Read port 2xAh until a 0AAh is read (see below for how to read
+from 2xAh)
+
+If there is no 0AAh after about 100 reads, abort and declare that
+there is no Sound Blaster present (or error)
+
+To write to the DSP (all writes to 2xCh MUST follow this procedure)
+
+1.  Read 2xCh until bit 7 is clear
+2.  Write to 2xCh
+
+To read from the DSP (all reads from 2xAh MUST follow this procedure)
+
+1.  Read 2xEh until bit 7 is set
+2.  Read from 2xAh
+
+Interrupts:
+
+    In DMA DAC and DMA ADC modes, a single interrupt will occur after
+the block of data has been read/written.  To clear the interrupt,
+read 2xEh once (as well as clearing the PIC).
+
+Ignoring Interrupts:
+
+    The interrupt can be ignored if you poll the DMAC (DMA
+Controller). Once the DMAC reports a count of 0FFFFh the transfer is
+finished, read 2xEh once and you are finished.
+
+Calculating the Time Constant:
+    Normal Speed:
+	Time Constant = 256 - (1,000,000 / sampling rate)
+	e.g.          = 256 - (1,000,000 / 8,000 )
+		      = 131
+
+    High Speed:
+	Time Constant = (MSByte of) 65536 - (256,000,000 / sampling
+rate)
+	e.g.          = (MSByte of) 65536 - (256,000,000 / 44,100)
+		      = (MSByte of) 59731
+		      = (MSByte of) 0E953h
+		      = 0E9h
+
+Direct mode DAC:
+
+1.  Write a D1h to 2xCh
+2.  Write a 10h to 2xCh
+3.  Write the 8-bit data sample to 2xCh
+4.  Wait for the correct timing (must do your own timing)
+    Repeat steps 2-4 until end of data
+5.  Write a D3h to 2xCh
+
+Normal speed DMA mode DAC:
+
+1.  Write a D1h to 2xCh
+2.  Setup Interrupt service routine
+3.  Write a 40h to 2xCh
+4.  Write Time Constant to 2xCh
+5.  Program the DMAC (DMA Controller)
+6.  Write 14h to 2xCh
+7.  Write the LSByte of Data Length - 1
+8.  Write the MSByte of Data Length - 1
+9.  Service Interrupt (may need to repeat steps 5-7 in the ISR)
+10. Restore original Interrupt Service Routine
+11. Write a D3h to 2xCh
+
+Commands can be written to the DSP while waiting for the interrupt
+
+High speed DMA mode DAC:
+
+1.  Write a D1h to 2xCh
+2.  Setup Interrupt service routine
+3.  Write a 40h to 2xCh
+4.  Write Time Constant to 2xCh
+5.  Program the DMAC (DMA Controller)
+6.  Write 48h to 2xCh
+7.  Write the LSByte of Data Length - 1
+8.  Write the MSByte of Data Length - 1
+9.  Write 91h to 2xCh
+10. Service Interrupt (may need to repeat steps 5-7 in the ISR)
+11. Restore original Interrupt Service Routine
+12. Write a D3h to 2xCh
+
+Commands CANNOT be written to the DSP while waiting for the interrupt
+Resetting the DSP is the procedure used to halt DMA in progress
+
+Direct mode ADC:
+
+1.  Write a 20h to 2xCh
+2.  Read the 8-bit data sample from 2xAh
+3.  Wait for the correct timing (must do your own timing)
+    Repeat steps 1-3 until finished
+
+Normal speed DMA mode ADC:
+
+1.  Setup Interrupt service routine
+2.  Write a 40h to 2xCh
+3.  Write Time Constant to 2xCh
+4.  Program the DMAC (DMA Controller)
+5.  Write 24h to 2xCh
+6.  Write the LSByte of Data Length - 1
+7.  Write the MSByte of Data Length - 1
+8.  Service Interrupt (may need to repeat steps 5-7 in the ISR)
+9.  Restore original Interrupt Service Routine
+
+Commands can be written to the DSP while waiting for the interrupt
+
+High speed DMA mode ADC:
+
+1.  Setup Interrupt service routine
+2.  Write a 40h to 2xCh
+3.  Write Time Constant to 2xCh
+4.  Program the DMAC (DMA Controller)
+5.  Write 48h to 2xCh
+6.  Write the LSByte of Data Length - 1
+7.  Write the MSByte of Data Length - 1
+8.  Write 99h to 2xCh
+9.  Service Interrupt (may need to repeat steps 5-7 in the ISR)
+10. Restore original Interrupt Service Routine
+
+Commands CANNOT be written to the DSP while waiting for the interrupt
+Resetting the DSP is the procedure used to halt DMA in progress
+
