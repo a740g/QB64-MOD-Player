@@ -17,14 +17,14 @@ A ProTracker (and compatible) MOD player written in QB64
 
 ## FAQ
 
-### Why a MOD player in QB64?
+Why a MOD player in QB64?
 
 Just for learning and fun!
 
-### Will you add S3M, XM, IT support?
+Will you add S3M, XM, IT support?
 
 No. But you are free to fork and do it yourself.
 
-### Can this be used in a game / demo?
+Can this be used in a game / demo?
 
 Absolutely. With little effort. But I have not tried integrating this into anything else myself.
