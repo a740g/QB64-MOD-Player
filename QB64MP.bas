@@ -1,11 +1,6 @@
-'$Debug
 '-----------------------------------------------------------------------------------------------------
-' QB64 MOD Tracker music player by a740g
-' Goals:
-'   No external dependecies
-'   Support all MOD types (1 - 99 channels, 31 samples etc.)
-'   No mixing code - depend on QB64 internal sound engine mixer. Failed! No _CREATESOUND in QB64
-'   Easy plug-n-play API
+' QB64 MOD Player
+' Copyright (c) 2022 Samuel Gomes
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -18,6 +13,7 @@ Option ExplicitArray
 Option Base 1
 '$Static
 $Resize:Smooth
+'$Debug
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -571,6 +567,9 @@ End Sub
 
 
 ' Mixes and queues a frame/tick worth of samples
+' TODO & Notes:
+'   All mixing calculations are done using floating-point math (it's 2022 :)
+'   Resampling is using nearest samples. No linear interpolation yet
 Sub MixMODFrame
     Dim As Unsigned Long i, nPos
     Dim As Unsigned Byte nChannel, nSample
@@ -611,7 +610,7 @@ Sub MixMODFrame
 
                     ' Get a sample, change format and add
                     ' TODO: Panning & volume: newSample = oldSample * volume / volumeLevels (64)
-                    sam = Asc(SampleData(nSample), nPos + 1)
+                    sam = Asc(SampleData(nSample), 1 + nPos) ' Samples are stored in a string and strings are 1 based
                     samLT = samLT + sam / 128
                     samRT = samRT + sam / 128
 
