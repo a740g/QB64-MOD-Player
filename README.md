@@ -13,8 +13,8 @@ A ProTracker (and compatible) MOD player written in QB64 - WIP
 ## Bibliography
 
 - [MOD Player Tutorial](https://github.com/a740g/QB64-MOD-Player/blob/main/FMODDOC.TXT) by FireLight
-- [Noisetracker/Soundtracker/Protracker Module Format](https://github.com/a740g/QB64-MOD-Player/blob/main/MOD-FORM.TXT) by Andrew Scott
-- [MODFIL10.TXT](https://github.com/a740g/QB64-MOD-Player/blob/main/MODFIL10.TXT) by Thunder
+- [Noisetracker/Soundtracker/Protracker Module Format](https://github.com/a740g/QB64-MOD-Player/blob/main/Mod-form.txt) by Andrew Scott
+- [MODFIL10.TXT](https://github.com/a740g/QB64-MOD-Player/blob/main/MODFIL10.txt) by Thunder
 - [Digital Audio Mixing Techniques](https://github.com/a740g/QB64-MOD-Player/blob/main/FSBDOC.TXT) by jedi / oxygen
 - [Writing Mixing Routines](https://github.com/a740g/QB64-MOD-Player/blob/main/MIXING10.TXT) by BYTERAVER/TNT
 
