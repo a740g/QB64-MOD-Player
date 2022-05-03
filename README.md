@@ -6,6 +6,7 @@ Goals:
 
 - No dependency on 3rd party libraries
 - Support all MOD types (1 - 99 channels, 31 samples etc.) - WIP
+- Support all effects - WIP
 - No mixing code - depend on QB64 internal sound engine mixer [FAIL - No _NEWSOUND in QB64]
 - Easy plug-n-play API - WIP
 

@@ -26,6 +26,7 @@ Const NULLSTRING$ = ""
 Const AMIGA_PAULA_CLOCK_RATE! = 7159090.5! ' PAL: 7093789.2, NSTC: 7159090.5
 Const PATTERN_LINE_MAX~%% = 63~%% ' Max line number in a pattern
 Const ORDER_TABLE_MAX~%% = 127~%% ' Max position in the order table
+Const SAMPLE_VOLUME_MAX~%% = 64~%% ' This is the maximum volume of any sample in the MOD
 Const SONG_SPEED_DEFAULT~%% = 6~%% ' This is the default speed for song where it is not specified
 Const SONG_BPM_DEFAULT~%% = 125~%% ' Default song BPM
 '-----------------------------------------------------------------------------------------------------
@@ -79,7 +80,7 @@ Type SongType
     endJumpOrder As Unsigned Byte ' This is used for jumping to an order if global looping is on
     highestPattern As Unsigned Byte ' The highest pattern number read from the MOD file
     orderPosition As Unsigned Byte ' The position in the order list
-    patternLine As Unsigned Byte ' Points to the patter line to be played
+    patternLine As Unsigned Byte ' Points to the pattern line to be played
     patternDelay As Unsigned Byte ' Number of times to delay pattern
     isLooping As Byte ' Loop the song once we reach the max order specified in the song
     isPlaying As Byte ' This is set to true as long as the song is playing
@@ -88,9 +89,9 @@ Type SongType
     bpm As Unsigned Byte ' Current song BPM
     tick As Unsigned Byte ' Current song tick
     qb64SoundPipe As Long ' QB64 sound pipe that we will use to stream the mixed audio
-    volume As Unsigned Byte ' Song master volume
+    volume As Single ' Song master volume - 1: full, 0.5: ... mid ... 0: none
     mixerRate As Long ' This is always set by QB64 internal audio engine
-    mixerBufferUpdateSize As Unsigned Long ' This is the amount of samples we have to mix based on mixerRate & bpm
+    mixerBufferSize As Unsigned Long ' This is the amount of samples we have to mix based on mixerRate & bpm
 End Type
 '-----------------------------------------------------------------------------------------------------
 
@@ -190,7 +191,7 @@ Do
     For nChan = 0 To Song.channels - 1
         Print Hex$(nChan); "> "; Hex$(Channel(nChan).sample); " "; Channel(nChan).note; " "; Hex$(Channel(nChan).effect); " "; Hex$(Channel(nChan).operand); " ";
     Next
-    Print
+    Print SndRawLen; "sec buffer"
 Loop While Song.isPlaying
 
 StopMODPlayer
@@ -207,7 +208,7 @@ Sub UpdateMODTimer (nBPM As Unsigned Byte)
     Song.bpm = nBPM
 
     ' Calculate the mixer buffer update size
-    Song.mixerBufferUpdateSize = SHR((Song.mixerRate * 10) / Song.bpm, 2)
+    Song.mixerBufferSize = ((Song.mixerRate * 10) / Song.bpm) / 4
 
     ' S / (2 * B / 5) (where S is second and B is BPM)
     On Timer(Song.qb64Timer, 1 / (2 * Song.bpm / 5)) MODPlayerTimerHandler
@@ -230,7 +231,7 @@ Function LoadMODFile%% (sName As String)
 
     ' Check what kind of MOD file this is
     ' Seek to offset 1080 (438h) in the file & read in 4 bytes
-    Dim i As Long
+    Dim i As Unsigned Integer
     Get fileHandle, 1081, Song.subtype
 
     ' Also, seek to the beginning of the file and get the song title
@@ -310,7 +311,7 @@ Function LoadMODFile%% (sName As String)
 
         ' Read volume
         Sample(i).volume = Asc(Input$(1, fileHandle))
-        If Sample(i).volume > 64 Then Sample(i).volume = 64 ' Sanity check
+        If Sample(i).volume > SAMPLE_VOLUME_MAX Then Sample(i).volume = SAMPLE_VOLUME_MAX ' Sanity check
 
         ' Read loop start
         Get fileHandle, , byte1
@@ -353,7 +354,7 @@ Function LoadMODFile%% (sName As String)
     If Song.samples = 31 Then Seek fileHandle, Loc(1) + 5
 
     ' Load the frequency table
-    Dim As Long c
+    Dim c As Unsigned Integer
     Restore FreqTab
     Read c ' Read the size
     ReDim FrequencyTable(0 To c - 1) As Unsigned Integer ' Allocate size elements
@@ -362,9 +363,8 @@ Function LoadMODFile%% (sName As String)
         Read FrequencyTable(i)
     Next
 
-    Dim As Long a, b
     Dim As Unsigned Byte byte3, byte4
-    Dim As Unsigned Integer period
+    Dim As Unsigned Integer a, b, period
 
     ' Load the patterns
     ' TODO: special handling for FLT8?
@@ -405,7 +405,7 @@ Function LoadMODFile%% (sName As String)
     ' Load the samples
     For i = 1 To Song.samples
         ' Resize the sample data
-        SampleData(i) = String$(Sample(i).length, NULL)
+        SampleData(i) = Space$(Sample(i).length)
         ' Now load the data
         Get fileHandle, , SampleData(i)
         ' Allocate 1 byte more than needed for mixer runoff
@@ -437,6 +437,7 @@ Sub StartMODPlayer
     Song.patternLine = 0
     Song.speed = SONG_SPEED_DEFAULT
     Song.tick = Song.speed - 1
+    Song.volume = 1
 
     ' Setup the channel array
     ReDim Channel(0 To Song.channels - 1) As ChannelType
@@ -572,11 +573,11 @@ End Sub
 '   Resampling is using nearest samples. No linear interpolation yet
 Sub MixMODFrame
     Dim As Unsigned Long i, nPos
-    Dim As Unsigned Byte nChannel, nSample
+    Dim As Unsigned Byte nChannel, nSample, vol
     Dim As Single samLT, samRT
     Dim As Byte sam
 
-    For i = 1 To Song.mixerBufferUpdateSize
+    For i = 1 To Song.mixerBufferSize
         samLT = 0
         samRT = 0
 
@@ -607,12 +608,13 @@ Sub MixMODFrame
                 ' Only mix the sample if we have not completed or are looping
                 If Not Channel(nChannel).played Or Sample(nSample).loopLength > 0 Then
                     nPos = Channel(nChannel).samplePosition
+                    vol = Channel(nChannel).volume
 
                     ' Get a sample, change format and add
-                    ' TODO: Panning & volume: newSample = oldSample * volume / volumeLevels (64)
+                    ' TODO: Panning
                     sam = Asc(SampleData(nSample), 1 + nPos) ' Samples are stored in a string and strings are 1 based
-                    samLT = samLT + sam / 128
-                    samRT = samRT + sam / 128
+                    samLT = samLT + (sam * vol / SAMPLE_VOLUME_MAX) / 128 ' MOD sound samples are signed -128 to 127
+                    samRT = samRT + (sam * vol / SAMPLE_VOLUME_MAX) / 128 ' So, we divide the samples by 128 to convert these to QB64 sound pipe format
 
                     ' Move to the next sample position based on the pitch
                     Channel(nChannel).samplePosition = Channel(nChannel).samplePosition + Channel(nChannel).pitch
@@ -620,9 +622,9 @@ Sub MixMODFrame
             End If
         Next
 
-        ' Now divide the summed sample by the number of channels
-        samLT = samLT / Song.channels
-        samRT = samRT / Song.channels
+        ' Now divide the summed sample by the number of channels and apply master volume
+        samLT = (samLT / Song.channels) * Song.volume
+        samRT = (samRT / Song.channels) * Song.volume
         ' Feed the sample to the QB64 sound pipe
         SndRaw samLT, samRT, Song.qb64SoundPipe
     Next
