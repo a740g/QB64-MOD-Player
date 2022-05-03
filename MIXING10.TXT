@@ -1,0 +1,550 @@
+
+
+
+               WRITING MIXING ROUTINES - BY BYTERAVER/TNT
+               ------------------------------------------
+
+
+
+
+  þ Introduction/history
+  ----------------------
+
+  Hello everybody. Why this document, you might think. Well! let's start
+with the beginning: About three years ago, I got my GUS MAX (my first sound-
+card (no, I did not even have a noisecard before ;-)), and of course I wanted
+to program for it, because I'm really keen on digital music... So after
+browsing my GUS CD thouroughly, I managed to find some sources by Mark
+Feldman (they came originally from the PCGPE 1.0 collection) and started
+writing my MODplayer. It took me a while before I got one single beep out of
+my GUS, but from there on I made fast progress with my MODPlayer. After a few
+months, I got a player that played most effects, except tone portamento,
+vibrato and tremolo. Then a friend of mine got really disgusted as he saw how
+good my GUS worked with MIDI (FastTracker II and Winslows); he couldn't get
+his PC and his MIDI-compatible Roland E-16 to work together. As the GUS MAX
+costed quite much at that time here in France, and - to make things even
+worse - was nearly unavailable, I lent him my GUS, and got his SB PRO instead
+(yuck). Now I wanted to get some noise out of this shitcard, too ;-). As I
+got the entire PCGPE collection now, I jerked a bit around with the sources
+included there. I actually managed to play one sample at a time (mono) or even
+two samples simultaneously (!) in stereo. But the most simple MOD file can
+play 4 instruments or samples at one time. SHIT. So I tried to find some DOC's
+about the subject. But it seemed that all those elite guys kept the secrets
+of their ultra-fast mixers for them. Goldplay and STKMIK everywhere, but
+no description nor source files. Then I got sick of that, and decided to try
+it on my own: I also decided to make a description file and release it,
+because quite a few guys still use things as STKMIK because they don't know
+how to program mixing routines...
+So I tried to MIX together two samples, simply by adding them and dividing the
+result by two...  And it worked! Hem.  That was the beginning of a quite long
+process!  After "some calculations", I got a "mixer" ready that used
+pascal-floating point calculations (...): it could mix at 8kHz on my 486dx/50.
+It sounded awful BTW, but hey man, I WROTE MIXING ROUTINES!!!  These routines
+used the SoundBlaster in direct mode (non dma), such as ScreamTracker 2.x.
+From then on, I started optimizing.  Finally, I got a procedure that was
+written in 100% inline ASM. These routine could mix four channels at 20kHz, in
+mono. Not too impressing compared to Inertia Player, FastTracker II and Cubic
+player, all of which had no problems (not too many ;-)) with 32 channels at
+44kHz. Of course, I'm not a state-of-the-art ASM coder, but still I felt here
+was something wrong ;-).  So came the idea to mix a complete buffer in one go
+rather than each byte at a time. after two days of hard work, I got this
+double-buffered mixing routine ready. It could mix 4 channels at 24kHz. This
+was a BIG progress:  the difference between 20 and 24kHz is huge in direct
+mode, since the IRQ procedure (needed for the timing in direct mode) eats
+about 95% of CPU time...  Now I tried to mix via DMA. But it didn't work: for
+some odd reason, the routine written by Mark Dixon (PCGPE) did not generate an
+IRQ. A few months and MANY hours of research later, I discovered in a book
+from Michael Tischer (PC INTERN 4), or actually in the C-sources included,
+that I had to reprogram the PIC (Programmable Interrupt Controller) chip to
+ALLOW the IRQ to be activated. Oh my GOD! Now, a few hours later my DMA-mixing
+routine worked OK. It could mix 32 channels at 22kHz in mono. Finally!!!
+
+
+
+
+  þ Before writing mixing routines
+  --------------------------------
+
+  - If you never wrote MOD player routines (or something similar) before, and
+    you don't know anything about digital sound playback, I suggest you learn
+    more about these topics before writing mixing routines. These file assumes
+    you know what a MOD file is, what it is for, and how it works. You won't
+    get far If you don't have the basics, believe me!
+  - Second, I'm sorry to say this, but to write mixing routines you have to
+    use several enhanced resources of your PC. If this is not done the right
+    way, you may even cause physical damage to your PC. So be warned:
+    WHATEVER HAPPENS, NO MATTER HOW WORSE, I'M  N-O-T  GOING TO BE HELD
+    RESPONSIBLE. Take it, or don't. But take it easy - you're not really
+    playing with fire.
+
+
+
+
+  þ Some notes to make a proper start
+  -----------------------------------
+
+  Now here are some things you must keep in mind when writing a mixing
+routine:
+
+  - Don't think it's easy
+  - Don't think is difficult, neither ;-)
+  - Don't think the way I described is the best nor the fastest way, or the
+    only way to write mixing routines.
+  - Never give up (too early ;-) )
+  - my routines were written for the SoundBlaster, and are 8bit. If you are
+    writing mixing routines for another noisecard, you may be willing to make
+    some minor changes; for example, the SoundBlaster Series need unsigned
+    data. Note that the sample data stored in MOD's is signed, so you'll
+    have to convert the sample data (XOR each byte with 128).
+  - All my pseudo code is in Pascal, because this is probably the most used
+    and most easy language available. But note that you should use ASM instead
+    if you want to make a fast mixer.
+    Another reason for using pascal is that nearly every C programmer knows
+    Pascal, but only a few Pascal programmers know C.
+
+
+
+
+  þ The double-buffered technique
+  -------------------------------
+
+  Now here is a little explanation of the double-buffered technique. Now this
+is very simple; just set up two buffers with an equal size. Now the thing to
+do is:
+
+    1/ fill the first buffer with playable data;
+    2/ Play the first buffer;
+    3/ fill the second buffer whilst the first one is playing;
+    4/ Wait until the Soundcard is ready with the replay of the first buffer;
+       (here your main program continues (your demo for example)).
+    5/ Swap the first and the second buffer (swap the pointers: the first
+       buffer becomes the second, ans the second the first), and go to
+       step 2/.
+
+Note: I call the first buffer the "PlayBuffer" and the second buffer the
+      "MixBuffer". These are (in my program) two pointers to the famous two
+      equal-sized buffers.
+
+  In our case, the "playable data" will be the four (or more) channels mixed
+together.
+  Note that the method described above is not suitable for looping DMA (using
+the auto-init feature of the DMA-chip). If you want to use looping DMA, you
+need to set up things a bit differently. As I've not tried this yet, I won't
+describe here how to do this. Maybe later.
+  Another important thing to check: the two buffers must be located BETWEEN
+page boundaries, since the DMA controller cannot do transfers that cross page
+boundaries.
+
+  logical  address:  segment:offset
+  physical address:  segment*16+offset
+  page|page_offset:  (segment*16+offset)/65536|(segment*16+offset) mod 65535
+  (note the two different numbers: 65536 & 65535. This come clearer if you
+   implement it in a fast way: )
+
+  page|page_offset:
+
+      (segment shl 4 + offset) shr 16|(segment shr 4 + offset) AND $FFFF
+
+Example:
+
+  logical  address: F000:ABC5h
+  physical address: 0FABC5h
+  page:page_offset: F:ABC5h
+
+  The first byte & the last byte of the DMA - transferrable buffer must have
+the same page address.
+
+
+  þ Some channel Information
+  --------------------------
+
+  Here is the information that you'll need to keep handy for each channel
+(I'll explain the function of each field below). (put it in a record and set
+up an array of it, with 32 elements (for a maximum of 32 channels of course):
+
+//////////////////////////////////////////////////////////////////////////////
+
+Type
+  ChnMixInfoType = Record
+{ Some general Info:                                                         }
+    OnMix       : Boolean; { If this channel is active                       }
+    Vol,                   { the channel volume (for mono mixing)            }
+    LeftVol,               { the left -side channel volume (for panning)     }
+    RightVol    : Byte;    { the right-side channel volume (for panning)     }
+{ Information about the sample:                                              }
+    RepeatSample: Boolean; { If the sample is a looping one                  }
+    RepeatOffset,          { Repeat Offset of the sample                     }
+    RepeatLength,          { Repeat Length of the sample                     }
+    Length      ,          { Length        of the sample                     }
+    SampleSeg   ,          { Segment of the sample data                      }
+    SampleOfs   : Word;    { Offset  of the sample data                      }
+    IncEr,                 { Frequency constant                              }
+    RealIndex   : LongInt; { Index in sample data                            }
+  End;
+{
+  The IncEr and RealIndex fields have an integer portion of 16bits (the
+higher 16bits) and a fractional part of 16bits (the lower 16bits). Thus:
+
+  Actual Sample Data Index         = RealIndex / 65536
+  Actual frequency increment Index = IncEr / 65536
+}
+
+VAR
+  MixInfo: Array[1..32] of ChnMixInfoType;
+
+//////////////////////////////////////////////////////////////////////////////
+
+  Here is the explanation for each field:
+
+  - OnMix       : this flag tells the mixing routine whether some sample is
+                  playing or not in this channel. If it is not set (FALSE)
+                  the mixer will skip this channel.
+
+  - Vol         : this is the volume of the channel. This value is only used
+                  by the mono mixer. it ranges from 0 to 64.
+  - LeftVol,
+    RightVol    : these values are only used by the stereo mixer (that
+                  supports panning); Leftvol determines how loud the sample
+                  sounds on the left side, rightvol has the same function for
+                  the right side. If LeftVol = RightVol, the sample is played
+                  through what sometimes is called the center channel.
+                  Note that LeftVol + RightVol = 64, always (64 is the maximum
+                  volume).
+                  These values are needed for panning. Each channel has a cer-
+                  tain panning, ranging from 0 to 255, 0 being the mostleft
+                  and 255 being the mostright. Now here you have the formula
+                  that calculates these two values starting from the panning
+                  and volume of the channel:
+
+                  LeftVol  = ((255-Panning) * channel_volume) / 255
+                  RightVol = (     Panning  * channel_volume) / 255
+
+                  As you see the values LeftVol and RightVol have a range from
+                  0 to 64, just like the "Vol" value.
+
+  - RepeatSample: this flag is set if the sample should be restarted when it
+                  reaches its end during playback.
+
+  - RepeatOffset: this variable holds the repeat offset of the sample.
+
+  - RepeatLength: this variable holds the repeat length of the sample.
+
+  - Length      : this variable holds the length of the sample. Notice that,
+                  just as the two precedent fields, this is a word, so samples
+                  longer than 65500 bytes are not supported by this mixer
+                  (this is the well-known 64kb limit).
+
+  - SampleSeg,
+    SampleOfs   : I use these two values in the ASM version of the mixing
+                  routine, since I preferred to use two segment values rather
+                  than a far pointer. Anyway: SampleSeg:SampleOfs points to
+                  the data of the sample that is actually played in that
+                  channel. To convert these values to a more convenient far
+                  pointer, you'll need to do the following in Pascal:
+
+                  SamplePointer = ptr(SampleSeg, SampleOfs);
+
+  - IncEr       : I'll come back later on this field. It determines how fast
+                  the mixer should progress through the sample data; in fact
+                  this value determines the frequency of the channel. Here is
+                  how this value is calculated:
+
+                  IncEr = ((3546895 / Period) * 65536) / MixRate
+
+                  Where:
+                  - MixRate is the mixing frequency (e.g. 22kHz, 44kHz, 8kHz):
+                    22050, 44100, 8484, etc.
+                  - Period is a value that corresponds to a particular note.
+                    each note has its corresponding period; besides the period
+                    is inversional proportionnal to the Note (the higher the
+                    note the lower the period value).
+                    The period value is used for special effects (portamento,
+                    vibrato) calculations. It ranges from 54 to 1814 for MOD
+                    typed music files.
+                  Why that constant value 3546895? Well, look at the following
+                  formula:
+
+                      PlayFrequency = 7093789.2 / (Period * 2)
+
+                  Thus: PlayFrequency = (7093789.2 / 2) / Period
+                  So  : PlayFrequency = 3546895 / Period
+                  So
+                      IncEr = (PlayFrequency * 65536) / MixRate
+
+                  The value 7093789.2 comes from the AMIGA. (Don't forget that
+                  the MOD format came originally from the commodore AMIGA
+                  computer).
+                  If the IncEr value = 65536, the sample will be played at its
+                  proper frequency (the frequency it was recorded at).
+                  I think the IncEr value is called a "frequency counter" by
+                  the "professionals" but I'm not sure.
+
+  - RealIndex   : This is the index in the sample data * 65536.
+
+Note: If you didn't understood all of it, don't panic, it's not THAT
+      important.
+
+
+
+
+  þ Frequencies
+  -------------
+
+  If you play raw sound data (sample data) at frequency xx, it will sound
+  "higher" if you play it at frequency xx+yy (yy being a positive value),
+  and it will sound "lower" if you play it at frequency xx-yy (xx > yy of
+  course). Now we have a problem: we have several channels, each with their
+  own pitch (frequency). Besides, we need to put data through the soundcard
+  at at constant rate, or the music get's screwed. This rate is called the
+  mixing frequency or mixing rate, "MixRate" in short. So we have to find
+  another way to change the pitch of the samples in each channel. Let's take
+  an example:
+  Say you have a sample, consisting of the following data:
+
+  00, 03, 04, 03, 05, 07, 13, 15, 14, ...
+
+  It's proper frequency is 11000Hz (for example), so we need to push 11000
+  bytes per second through the soundcard. Unfortunately, we just set up our
+  card for a mixrate of 22000Hz; e.g. the card needs 22000 bytes per second,
+  not 11000. We are going to solve the problem this way:
+  instead of pushing 00, 03, 04, 03 etc bytes through the soundcard, we are
+  going to push 00, 00, 03, 03, 04, 04, 03, 03, 05, 05, 07, 07 etc through
+  the soundcard. That is, each 1/MixRate times per second, we progress
+  SampleRate/MixRate bytes through the sample data (11000/22000 = 0.5: each
+  time another byte has to be mixed, we progress 0.5 bytes through the sample
+  data).
+  The IncEr value described above holds this "magic" Index:
+  SampleRate / MixRate. Come on, re-read the above paragraph if you haven't
+  understood, this is important but still quite easy ;-).
+
+
+
+
+  þ On for Real: the mixing routine
+  ---------------------------------
+
+  Ok, let's move on to the real stuff. What I'm going to describe now is the
+soul of the mixing routine, the mystic procedure that the "big names" could
+implement in such an incredible fast way!
+This procedure has one parameter: the nr of bytes it should mix. Why this is
+not always the size of the Mixbuffer is explained later (Next topic).
+
+
+If you want to mix a sample at a certain volume (0 <= volume <= MaxVolume),
+you can do that using this formula:
+
+
+                (SampleData * Volume) / MaxVolume
+
+
+To mix the different channels together, the following formula is used:
+
+
+         channel_1 + channel_2 + channel_3 + ... + channel_NrOfChannels
+Music =  ______________________________________________________________
+
+                                 NrOfChannels
+
+
+  No matter if a sample is actually playing or not in channel x or y, you
+should always divide by the same value (NrOfChannels), or the global volume
+will get screwed.
+
+
+//////////////////////////////////////////////////////////////////////////////
+
+VAR
+  MixIndex,              { this is an index in the MixBuffer                 }
+  MixLoopCnt,            { this is just a loop counter                       }
+  TMixIndex  : Word  ;   { this is an index in the temporary DWORD MixBuffer }
+
+
+Procedure MONO_MIX_8BIT(NrB2Mix: Word);
+VAR
+  _ebx       : LongInt;  { just a dummy variable, 32 bit                     }
+  chn        : Byte;     { this is an index in the MixInfo record, see above }
+
+{ Now Let's start the procedure: :-) }
+
+BEGIN
+{Clean the buffer: ----------------------------------------------------------}
+  For TMixIndex:=0 to NrB2Mix-1 do TMixBuffer^[TMixIndex]:=0;
+
+{ Now mix all the channels together: ----------------------------------------}
+  For Chn:=1 to ModInfo.NrChannels do
+  Begin
+    MixLoopCnt:=NrB2Mix; TMixIndex:=0;           { update/init loop counters }
+    If MixInfo[chn].OnMix then                      { Should I mix this chn? }
+    Repeat
+      _ebx:=MixInfo[chn].RealIndex shr 16;
+      Inc(MixInfo[chn].RealIndex, MixInfo[chn].IncEr);
+      If _ebx>=MixInfo[chn].Length then
+        If MixInfo[chn].RepeatSample then
+             MixInfo[chn].RealIndex:=LongInt(MixInfo[chn].RepeatOffset) shl 16
+        Else Begin MixInfo[chn].OnMix:=False; goto _2_SkipMix; End
+      Else
+        Begin                 { push word on buffer & clean High Word of it: }
+          Inc(TMixBuffer^[TMixIndex], Word(DBufType(ptr(MixInfo[chn].SampleSeg,
+                           MixInfo[chn].SampleOfs))^[_ebx])*MixInfo[chn].Vol);
+          dec(MixLoopCnt); Inc(TMixIndex);  { increment Index of temp buffer }
+        End;
+    Until MixLoopCnt = 0;
+_2_SkipMix:
+  End;
+
+{ And now modify the mixed buffer so we can play it: (put res. down to 8bit) }
+  For TMixIndex:=0 to NrB2Mix-1 do
+  Begin
+    MixBuffer^[MixIndex]:=Byte((TMixBuffer^[TMixIndex] shr 6) div ModInfo.NrChannels);
+{ shr 6 <=> divide by MaxVolume = 64 }
+    Inc(MixIndex);
+  End;
+END; {MONO_MIX_8BIT}
+
+//////////////////////////////////////////////////////////////////////////////
+
+
+  This procedure swaps the pointers to the two DMA/MIX buffers: PlayBuffer
+(the buffer we just pushed through the soundcard) becomes MixBuffer (the
+sound is played, we don't need it anymore, we can use it to mix the next
+buffer), and MixBuffer (the buffer that contains the music data we mixed
+during the previous IRQ call (previous call to the mixing routine)) becomes
+PlayBuffer (this data will now be played by the soundcard).
+
+
+//////////////////////////////////////////////////////////////////////////////
+
+Procedure _SWAPBUFFERS;
+VAR
+  temp: PByteBuffer;
+BEGIN { swap mix & play buffers }
+  temp:=MixBuffer; MixBuffer:=PlayBuffer; PlayBuffer:=temp;
+END; {_SWAPBUFFERS}
+
+//////////////////////////////////////////////////////////////////////////////
+
+
+  The following procedure updates the BPM; here are procedures called that
+play the actual music (and effects such as volume slide, portamento etc.).
+
+
+//////////////////////////////////////////////////////////////////////////////
+
+Procedure _UPDATEBPM;
+BEGIN
+  Inc(count);                                     { Yes, update bpm (and FX) }
+  if count<Timing.speed then UpDateMultipleStepsEffects
+  Else Begin WaitState:=True; Count:=0; UpDateNotes; End;
+END; {_UPDATEBPM}
+
+//////////////////////////////////////////////////////////////////////////////
+
+
+  This procedure coordinates the whole mixing process. It is called ONCE each
+time a buffer (of a fixed length: MixBufLen) has to be mixed (in other words,
+it is called each time the SoundCard generates an IRQ.
+  What this fn does, is described in the following paragraph, especially in
+"Note 1" and "Note 2".
+
+
+//////////////////////////////////////////////////////////////////////////////
+
+Procedure _SBMONO_MIXER;
+VAR X: Word;
+BEGIN
+  MixIndex:=0;
+  X:=CallBpm-MixCount; { here is a little bug, may cause probs if very large
+                         mixbuffers are used. At least I think so.}
+  If X>MixBuflen then
+    Begin MixCount:=MixCount+MixBuflen; MONO_MIX_8BIT(MixBuflen); End
+  Else
+    Begin
+      MONO_MIX_8BIT(X); X:=MixBuflen-X; MixCount:=0; _UPDATEBPM;
+      If X>=Callbpm then
+      Repeat
+        MONO_MIX_8BIT(CallBpm); _UPDATEBPM; Dec(X, CallBpm);
+      Until X<CallBpm;
+      If X<>0 then Begin MixCount:=X; MONO_MIX_8BIT(X); End;
+    End;
+END; {_SBMONO_MIXER}
+
+//////////////////////////////////////////////////////////////////////////////
+
+
+
+
+  þ Organisation of the BPM routines, timing problems
+  ---------------------------------------------------
+
+  What Problems? Hum ;-)...
+  Ok, that soundcard needs to be fed MixRate byte/second. But nobody said you
+couldn't do more than one transfer per second, right? If you do only one
+transfer per second, you'll also have to calculate MixRate bytes in one go.
+That's too many to stay discrete: if you have some type of animation going
+on (a demo or an arcade game for example), it will freeze for a little, but
+noticeable while, and that is highly undesireable. No, you need to mix about
+50 buffers/second, or at least 25. (Note: if you have the intro called "DRIFT"
+(made by Wild Light, released ASM '95), try to run it with SoundBlaster Music
+and see what happens! Now this is exactly the thing you should avoid!).
+
+  But what about the BPM routine? On a standard MOD, you have to update the
+BPM (process the note data or the effects such as volume slide etc.) about
+50 times/second: the default tempo for a MOD file is 125, and you have to up-
+date the BPM (tempo*2/5) times/second (Note: 125*2/5 = 50). So how many bytes
+can we mix between two BPM calls? Simply (MixRate/CallBpm) bytes, where
+CallBpm = (tempo*2/5). We could of course change the length of the buffers
+each time a tempo change occurs, in such a way that
+BufLength = MixRate/CallBpm, but this is shitty programming. Thus we need to
+keep track of the nr of bytes we mixed since the last BPM call.
+(Yes this explanations are difficult to follow but hey, I'm a student of 20,
+not a teacher of 50, sorry).
+
+Okay, these are the variables we will need:
+(Note that these are global variables that must keep their value between
+successive calls to the mixing routine)
+
+
+  CallBpm   : This variable is described in the precedent paragraph
+  MixBuflen : this is the length of the DMA/MIX-buffers in bytes.
+  MixCount  : this value keeps track of the nr of bytes we actually mixed.
+              Each time an IRQ occurs (generated by the SoundCard when it
+              is ready playing a buffer of music data), we need to Mix
+              MixBufLen bytes. If MixBufLen equals 2048 for example, BUT
+              we only need to mix 100 bytes before the next BPM call, this
+              value remembers us how many bytes (actually MixBufLen-100) we
+              still have to mix before we exit the IRQ procedure.
+
+  Note that:
+
+  (Note 1) - if MixBufLen > (MixRate / CallBpm) / 2, several BPM updates
+             should be processed during the mixing of one Buffer (one IRQ).
+  (Note 2) - if MixBufLen < (MixRate / CallBpm), a BPM update doesn't need to
+             be processed every time an IRQ occurs.
+
+
+
+
+  þ One Last Word
+  ---------------
+
+  I do hope this will help you a bit further. I *DO* know that some parts
+of the explanations are quite confusing. The source code should help you
+when in doubt. Whenever you're stuck, feel free to email me (I hope I'll get
+an email address fast enough, if you can't find the email address, - tough
+luck, you'll need to snail mail me).
+  BTW - I needed to finish this doc in a hurry, my apologies for some
+possible errors.
+
+
+
+  Address:
+
+    Erland van Olmen
+    LuchterenKerkweg nr 198
+    9031 Gent
+    Belgium/Europe
+
+    Email: erlandvo@hotmail.com
+
+
+

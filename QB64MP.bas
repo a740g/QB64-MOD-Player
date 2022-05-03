@@ -27,8 +27,12 @@ Const AMIGA_PAULA_CLOCK_RATE! = 7159090.5! ' PAL: 7093789.2, NSTC: 7159090.5
 Const PATTERN_LINE_MAX~%% = 63~%% ' Max line number in a pattern
 Const ORDER_TABLE_MAX~%% = 127~%% ' Max position in the order table
 Const SAMPLE_VOLUME_MAX~%% = 64~%% ' This is the maximum volume of any sample in the MOD
+Const SAMPLE_PAN_LEFT~%% = 0~%% ' This value is per "set pan position" effect
+Const SAMPLE_PAN_CENTRE~%% = 64~%% ' This value is per "set pan position" effect
+Const SAMPLE_PAN_RIGHT~%% = 128~%% ' This value is per "set pan position" effect
 Const SONG_SPEED_DEFAULT~%% = 6~%% ' This is the default speed for song where it is not specified
 Const SONG_BPM_DEFAULT~%% = 125~%% ' Default song BPM
+Const SONG_VOLUME_MAX~%% = 255~%% ' Max song master volume
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -57,15 +61,15 @@ Type SampleType
 End Type
 
 Type ChannelType
-    sample As Integer ' Sample number copied from pattern channel
-    period As Integer ' Effect period copied from pattern channel
-    effect As Integer ' Effect copied from pattern channel
-    operand As Integer ' Effect param copied from pattern channel
-    volume As Integer ' Sample volume
+    sample As Unsigned Byte ' Sample number copied from pattern array
+    period As Unsigned Integer ' Effect period copied from pattern array
+    effect As Unsigned Byte ' Effect copied from pattern array
+    operand As Unsigned Byte ' Effect param copied from pattern array
+    volume As Unsigned Byte ' Sample volume initially copied from sample array
     pitch As Single ' Sample pitch. The mixer code uses this to step through the sample correctly
+    panningPosition As Unsigned Byte ' Position 0 is left ... 64 is centre ... 128 is right
     played As Byte ' This is set to true once the mixer is done with the sample
     samplePosition As Single ' Where are we in the sample buffer
-    note As String * 3 ' String description of the period
     'sampleFinePosition As Long ' Sample fine position
     'sampleNote As Integer ' Sample note
     'sampleNoteFine As Integer ' Sample note fine
@@ -89,7 +93,7 @@ Type SongType
     bpm As Unsigned Byte ' Current song BPM
     tick As Unsigned Byte ' Current song tick
     qb64SoundPipe As Long ' QB64 sound pipe that we will use to stream the mixed audio
-    volume As Single ' Song master volume - 1: full, 0.5: ... mid ... 0: none
+    volume As Unsigned Byte ' Song master volume 0 is none ... 255 is full
     mixerRate As Long ' This is always set by QB64 internal audio engine
     mixerBufferSize As Unsigned Long ' This is the amount of samples we have to mix based on mixerRate & bpm
 End Type
@@ -181,6 +185,8 @@ Else
 End If
 
 StartMODPlayer
+'Song.volume = 0.5
+'Song.isLooping = TRUE
 
 Dim nChan As Unsigned Byte
 Do
@@ -189,9 +195,9 @@ Do
 
     Print Hex$(Song.orderPosition); "-"; Hex$(Order(Song.orderPosition)); "-"; Hex$(Song.patternLine); ": ";
     For nChan = 0 To Song.channels - 1
-        Print Hex$(nChan); "> "; Hex$(Channel(nChan).sample); " "; Channel(nChan).note; " "; Hex$(Channel(nChan).effect); " "; Hex$(Channel(nChan).operand); " ";
+        Print Hex$(nChan); "> "; Hex$(Channel(nChan).sample); " "; NoteTable(Channel(nChan).period / 8); " "; Hex$(Channel(nChan).effect); " "; Hex$(Channel(nChan).operand); " ";
     Next
-    Print SndRawLen; "sec buffer"
+    Print
 Loop While Song.isPlaying
 
 StopMODPlayer
@@ -437,10 +443,23 @@ Sub StartMODPlayer
     Song.patternLine = 0
     Song.speed = SONG_SPEED_DEFAULT
     Song.tick = Song.speed - 1
-    Song.volume = 1
+    Song.volume = SONG_VOLUME_MAX
 
     ' Setup the channel array
     ReDim Channel(0 To Song.channels - 1) As ChannelType
+
+    ' Setup panning for all channels except last one if we have an odd number
+    For i = 0 To Song.channels - 1 - (Song.channels Mod 2)
+        If i Mod 2 = 0 Then
+            Channel(i).panningPosition = SAMPLE_PAN_LEFT + SAMPLE_PAN_CENTRE / 2
+        Else
+            Channel(i).panningPosition = SAMPLE_PAN_RIGHT - SAMPLE_PAN_CENTRE / 2
+        End If
+    Next
+    ' Set the last channel to center. This also works for single channel
+    If Song.channels Mod 2 = 1 Then
+        Channel(Song.channels - 1).panningPosition = SAMPLE_PAN_CENTRE
+    End If
 
     ' Allocate a QB64 sound pipe
     Song.qb64SoundPipe = SndOpenRaw
@@ -538,7 +557,6 @@ Sub UpdateMODNotes
             ' If not a porta effect, then set the channels frequency to the looked up amiga value + or - any finetune
             If nEffect <> &H3 And nEffect <> &H5 Then
                 Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixerRate
-                Channel(nChannel).note = NoteTable(nPeriod / 8)
             End If
         End If
 
@@ -573,7 +591,7 @@ End Sub
 '   Resampling is using nearest samples. No linear interpolation yet
 Sub MixMODFrame
     Dim As Unsigned Long i, nPos
-    Dim As Unsigned Byte nChannel, nSample, vol
+    Dim As Unsigned Byte nChannel, nSample, vol, pan
     Dim As Single samLT, samRT
     Dim As Byte sam
 
@@ -609,12 +627,13 @@ Sub MixMODFrame
                 If Not Channel(nChannel).played Or Sample(nSample).loopLength > 0 Then
                     nPos = Channel(nChannel).samplePosition
                     vol = Channel(nChannel).volume
+                    pan = Channel(nChannel).panningPosition
 
                     ' Get a sample, change format and add
-                    ' TODO: Panning
                     sam = Asc(SampleData(nSample), 1 + nPos) ' Samples are stored in a string and strings are 1 based
-                    samLT = samLT + (sam * vol / SAMPLE_VOLUME_MAX) / 128 ' MOD sound samples are signed -128 to 127
-                    samRT = samRT + (sam * vol / SAMPLE_VOLUME_MAX) / 128 ' So, we divide the samples by 128 to convert these to QB64 sound pipe format
+                    ' The following two lines does volume & panning
+                    samLT = samLT + (sam * (((SAMPLE_PAN_RIGHT - pan) * vol) / SAMPLE_PAN_RIGHT) / SAMPLE_VOLUME_MAX) / 128 ' MOD sound samples are signed -128 to 127
+                    samRT = samRT + (sam * ((pan * vol) / SAMPLE_PAN_RIGHT) / SAMPLE_VOLUME_MAX) / 128 ' So, we divide the samples by 128 to convert these to QB64 sound pipe format
 
                     ' Move to the next sample position based on the pitch
                     Channel(nChannel).samplePosition = Channel(nChannel).samplePosition + Channel(nChannel).pitch
@@ -623,8 +642,8 @@ Sub MixMODFrame
         Next
 
         ' Now divide the summed sample by the number of channels and apply master volume
-        samLT = (samLT / Song.channels) * Song.volume
-        samRT = (samRT / Song.channels) * Song.volume
+        samLT = (samLT / Song.channels) * Song.volume / SONG_VOLUME_MAX
+        samRT = (samRT / Song.channels) * Song.volume / SONG_VOLUME_MAX
         ' Feed the sample to the QB64 sound pipe
         SndRaw samLT, samRT, Song.qb64SoundPipe
     Next

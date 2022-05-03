@@ -1,8 +1,8 @@
 # QB64 MOD Player
 
-A ProTracker (and compatible) MOD player written in QB64
+A ProTracker (and compatible) MOD player written in QB64 - WIP
 
-## Goals:
+## Goals
 
 - No dependency on 3rd party libraries
 - Support all MOD types (1 - 99 channels, 31 samples etc.) - WIP
@@ -10,10 +10,13 @@ A ProTracker (and compatible) MOD player written in QB64
 - No mixing code - depend on QB64 internal sound engine mixer - FAIL [No _NEWSOUND in QB64]
 - Easy plug-n-play API - WIP
 
-## Bibliography:
+## Bibliography
 
 - [MOD Player Tutorial](https://github.com/a740g/QB64-MOD-Player/blob/main/FMODDOC.TXT) by FireLight
+- [Noisetracker/Soundtracker/Protracker Module Format](https://github.com/a740g/QB64-MOD-Player/blob/main/MOD-FORM.TXT) by Andrew Scott
+- [MODFIL10.TXT](https://github.com/a740g/QB64-MOD-Player/blob/main/MODFIL10.TXT) by Thunder
 - [Digital Audio Mixing Techniques](https://github.com/a740g/QB64-MOD-Player/blob/main/FSBDOC.TXT) by jedi / oxygen
+- [Writing Mixing Routines](https://github.com/a740g/QB64-MOD-Player/blob/main/MIXING10.TXT) by BYTERAVER/TNT
 
 ## FAQ
 
