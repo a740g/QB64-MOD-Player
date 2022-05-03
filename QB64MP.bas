@@ -4,12 +4,12 @@
 ' Goals:
 '   No external dependecies
 '   Support all MOD types (1 - 99 channels, 31 samples etc.)
-'   No mixing code - depend on QB64 internal sound engine mixer?
+'   No mixing code - depend on QB64 internal sound engine mixer. Failed! No _CREATESOUND in QB64
 '   Easy plug-n-play API
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
-' These are some metacommands and compiler options for QB64 to write modern & type-strict code
+' METACOMMANDS
 '-----------------------------------------------------------------------------------------------------
 $NoPrefix
 DefLng A-Z
@@ -21,11 +21,11 @@ $Resize:Smooth
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
-' Some common and useful constants
+' CONSTANTS
 '-----------------------------------------------------------------------------------------------------
 Const FALSE%% = 0%%, TRUE%% = Not FALSE
 Const NULL%% = 0%%
-Const NULLSTRING = ""
+Const NULLSTRING$ = ""
 
 Const AMIGA_PAULA_CLOCK_RATE! = 7159090.5! ' PAL: 7093789.2, NSTC: 7159090.5
 Const PATTERN_LINE_MAX~%% = 63~%% ' Max line number in a pattern
@@ -35,7 +35,7 @@ Const SONG_BPM_DEFAULT~%% = 125~%% ' Default song BPM
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
-' Progarm type definitions
+' USER DEFINED TYPES
 '-----------------------------------------------------------------------------------------------------
 ' +-------------------------------------+
 ' | Byte 0    Byte 1   Byte 2   Byte 3  |
@@ -99,7 +99,7 @@ End Type
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
-' Library declarations
+' EXTERNAL LIBRARIES
 '-----------------------------------------------------------------------------------------------------
 Declare Library
     Function isprint& (ByVal c As Long)
@@ -107,7 +107,7 @@ End Declare
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
-' Global variables and arrays
+' GLOBAL VARIABLES
 '-----------------------------------    ------------------------------------------------------------------
 Dim Shared Song As SongType
 Dim Shared Order(0 To ORDER_TABLE_MAX) As Unsigned Byte ' Order list
@@ -120,7 +120,7 @@ ReDim Shared NoteTable(0 To 0) As String * 3
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
-' Program data
+' PROGRAM DATA
 '-----------------------------------------------------------------------------------------------------
 ' Amiga frequency table
 FreqTab:
@@ -170,17 +170,16 @@ Data "   "
 Data C-1,C#1,D-1,D#1,E-1,F-1,F#1,G-1,G#1,A-1,A#1,B-1
 Data C-2,C#2,D-2,D#2,E-2,F-2,F#2,G-2,G#2,A-2,A#2,B-2
 Data C-3,C#3,D-3,D#3,E-3,F-3,F#3,G-3,G#3,A-3,A#3,B-3
-
+Data LOL
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
-' Program entry point
+' PROGRAM ENTRY POINT
 '-----------------------------------------------------------------------------------------------------
-
-If LoadMODFile("C:\Users\samue\OneDrive\repos\RetroLib\data\AXELF.MOD") Then
+If LoadMODFile("axelf.mod") Then
     Print "Loaded MOD file!";
 Else
-    Print "Failed to load file. Check file type!"
+    Print "Failed to load file!"
     End
 End If
 
@@ -191,9 +190,9 @@ Do
     Sleep 1
     If InKey$ = Chr$(27) Then Exit Do
 
-    Print Song.orderPosition; "-"; Order(Song.orderPosition); "-"; Song.patternLine; ":";
+    Print Hex$(Song.orderPosition); "-"; Hex$(Order(Song.orderPosition)); "-"; Hex$(Song.patternLine); ": ";
     For nChan = 0 To Song.channels - 1
-        Print nChan; ":"; Hex$(Channel(nChan).sample); "-"; Channel(nChan).note; "-"; Hex$(Channel(nChan).effect); "-"; Hex$(Channel(nChan).operand),
+        Print Hex$(nChan); "> "; Hex$(Channel(nChan).sample); " "; Channel(nChan).note; " "; Hex$(Channel(nChan).effect); " "; Hex$(Channel(nChan).operand); " ";
     Next
     Print
 Loop While Song.isPlaying
@@ -204,9 +203,8 @@ End
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
-' FUNCTIONs & SUBs
+' FUNCTIONS & SUBROUTINES
 '-----------------------------------------------------------------------------------------------------
-
 ' Calculates and sets the timer speed and also the mixer buffer update size
 ' We always set the global BPM using this and never directly
 Sub UpdateMODTimer (nBPM As Unsigned Byte)
@@ -543,7 +541,7 @@ Sub UpdateMODNotes
             ' If not a porta effect, then set the channels frequency to the looked up amiga value + or - any finetune
             If nEffect <> &H3 And nEffect <> &H5 Then
                 Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixerRate
-                'Channel(nChannel).note = NoteTable(nPeriod)
+                Channel(nChannel).note = NoteTable(nPeriod / 8)
             End If
         End If
 
@@ -631,3 +629,4 @@ Sub MixMODFrame
     Next
 End Sub
 '-----------------------------------------------------------------------------------------------------
+
