@@ -97,6 +97,7 @@ Type SongType
     volume As Unsigned Byte ' Song master volume 0 is none ... 255 is full
     mixRate As Long ' This is always set by QB64 internal audio engine
     mixBufferSize As Unsigned Long ' This is the amount of samples we have to mix based on mixerRate & bpm
+    useHQMix As Byte ' If this is set to true, then we are using linear interpolation mixing
 End Type
 '-----------------------------------------------------------------------------------------------------
 
@@ -194,6 +195,7 @@ End If
 StartMODPlayer
 'Song.volume = 0.5
 'Song.isLooping = TRUE
+Song.useHQMix = TRUE
 
 Dim nChan As Unsigned Byte
 Do
@@ -684,57 +686,64 @@ End Sub
 
 
 ' Mixes and queues a frame/tick worth of samples
-' TODO & Notes:
-'   All mixing calculations are done using floating-point math (it's 2022 :)
-'   Resampling is using nearest samples. No linear interpolation yet
+' All mixing calculations are done using floating-point math (it's 2022 :)
 Sub MixMODFrame
-    Dim As Unsigned Long i, nPos
-    Dim As Unsigned Byte nChannel, nSample, vol, pan
-    Dim As Single samLT, samRT
-    Dim As Byte sam
+    Dim i As Unsigned Long
+    Dim As Unsigned Byte chan, nSample, vol, pan
+    Dim As Single fpos, sam, samLT, samRT
+    Dim As Byte sam1, sam2
 
     For i = 1 To Song.mixBufferSize
         samLT = 0
         samRT = 0
 
-        For nChannel = 0 To Song.channels - 1
+        For chan = 0 To Song.channels - 1
             ' Check if we need to mix the sample, wrap or simply stop
             ' Get one sample from each channel
             ' Add the sample to samLT & samRT after coverting to QB64 sound pipe format considering panning
             ' Increment the sample position and check other stuff
 
             ' Get the sample number we need to work with
-            nSample = Channel(nChannel).sample
+            nSample = Channel(chan).sample
 
             ' Only proceed if we have a valid sample number (> 0)
             If Not nSample = 0 Then
                 ' Check if we are looping
                 If Sample(nSample).loopLength > 0 Then
                     ' Reset loop position if we reached the end of the loop
-                    If Channel(nChannel).samplePosition > Sample(nSample).loopEnd Then
-                        Channel(nChannel).samplePosition = Sample(nSample).loopStart
+                    If Channel(chan).samplePosition > Sample(nSample).loopEnd Then
+                        Channel(chan).samplePosition = Sample(nSample).loopStart
                     End If
                 Else
                     ' For non-looping sample simply set the played flag as true if we reached the end
-                    If Channel(nChannel).samplePosition >= Sample(nSample).length Then
-                        Channel(nChannel).played = TRUE
+                    If Channel(chan).samplePosition >= Sample(nSample).length Then
+                        Channel(chan).played = TRUE
                     End If
                 End If
 
                 ' Only mix the sample if we have not completed or are looping
-                If Not Channel(nChannel).played Or Sample(nSample).loopLength > 0 Then
-                    nPos = Channel(nChannel).samplePosition
-                    vol = Channel(nChannel).volume
-                    pan = Channel(nChannel).panningPosition
+                If Not Channel(chan).played Or Sample(nSample).loopLength > 0 Then
+                    fpos = Channel(chan).samplePosition
+                    vol = Channel(chan).volume
+                    pan = Channel(chan).panningPosition
 
                     ' Get a sample, change format and add
-                    sam = Asc(SampleData(nSample), 1 + nPos) ' Samples are stored in a string and strings are 1 based
+                    ' Samples are stored in a string and strings are 1 based
+                    If Song.useHQMix Then
+                        sam1 = Asc(SampleData(nSample), 1 + Fix(fpos))
+                        sam2 = Asc(SampleData(nSample), 2 + Fix(fpos))
+                        sam = sam1 + (sam2 - sam1) * (fpos - Fix(fpos))
+                    Else
+                        sam1 = Asc(SampleData(nSample), 1 + fpos)
+                        sam = sam1
+                    End If
+
                     ' The following two lines does volume & panning
                     samLT = samLT + (sam * (((SAMPLE_PAN_RIGHT - pan) * vol) / SAMPLE_PAN_RIGHT) / SAMPLE_VOLUME_MAX) / 128 ' MOD sound samples are signed -128 to 127
                     samRT = samRT + (sam * ((pan * vol) / SAMPLE_PAN_RIGHT) / SAMPLE_VOLUME_MAX) / 128 ' So, we divide the samples by 128 to convert these to QB64 sound pipe format
 
                     ' Move to the next sample position based on the pitch
-                    Channel(nChannel).samplePosition = Channel(nChannel).samplePosition + Channel(nChannel).pitch
+                    Channel(chan).samplePosition = Channel(chan).samplePosition + Channel(chan).pitch
                 End If
             End If
         Next
