@@ -86,8 +86,9 @@ Type SongType
     orderPosition As Unsigned Byte ' The position in the order list
     patternRow As Unsigned Byte ' Points to the pattern row to be played
     patternDelay As Unsigned Byte ' Number of times to delay pattern
-    isLooping As Byte ' Loop the song once we reach the max order specified in the song
+    isLooping As Byte ' Set this to true to loop the song once we reach the max order specified in the song
     isPlaying As Byte ' This is set to true as long as the song is playing
+    isPaused As Byte ' Set this to true to pause playback
     qb64Timer As Long ' We use this to store the QB64 timer number
     speed As Unsigned Byte ' Current song speed
     bpm As Unsigned Byte ' Current song BPM
@@ -177,7 +178,11 @@ Data LOL
 '-----------------------------------------------------------------------------------------------------
 ' PROGRAM ENTRY POINT
 '-----------------------------------------------------------------------------------------------------
-If LoadMODFile("amegas.mod") Then
+Dim modfile As String
+
+If CommandCount > 0 Then modfile = Command$ Else modfile = "visions.mod"
+
+If LoadMODFile(modfile) Then
     Print "Loaded MOD file!"
 Else
     Print "Failed to load file!"
@@ -192,7 +197,6 @@ StartMODPlayer
 
 Dim nChan As Unsigned Byte
 Do
-    Sleep 1
     If InKey$ = Chr$(27) Then Exit Do
 
     Print Hex$(Song.orderPosition); "-"; Hex$(Order(Song.orderPosition)); "-"; Hex$(Song.patternRow); ": ";
@@ -200,6 +204,8 @@ Do
         Print Hex$(nChan); "> "; Hex$(Channel(nChan).sample); " "; NoteTable(Channel(nChan).period / 8); " "; Hex$(Channel(nChan).effect); " "; Hex$(Channel(nChan).operand); " ";
     Next
     Print
+
+    Delay 0.01
 Loop While Song.isPlaying
 
 StopMODPlayer
@@ -461,6 +467,7 @@ Sub StartMODPlayer
     Song.speed = SONG_SPEED_DEFAULT
     Song.tick = Song.speed
     Song.volume = SONG_VOLUME_MAX
+    Song.isPaused = FALSE
 
     ' Setup the channel array
     ReDim Channel(0 To Song.channels - 1) As ChannelType
@@ -505,31 +512,43 @@ End Sub
 
 ' Called by the QB64 timer at a specified rate
 Sub MODPlayerTimerHandler
-    ' Check conditions for which we should just exit
+    ' Simply do not process anything if song is paused
+    If Song.isPaused Then Exit Sub
+
+    ' Check conditions for which we should just exit or loop
     If Song.orderPosition >= Song.orders Then
         If Song.isLooping Then
             Song.orderPosition = Song.endJumpOrder
+            Song.patternRow = 0
+            Song.speed = SONG_SPEED_DEFAULT
+            Song.tick = Song.speed
         Else
             Song.isPlaying = FALSE
             Exit Sub
         End If
     End If
 
-    ' Set the playing flag as true
+    ' Set the playing flag to true
     Song.isPlaying = TRUE
 
     If Song.tick >= Song.speed Then
         ' Reset song tick
         Song.tick = 0
-        ' Check if we have finished the pattern and then move to the next one
-        If Song.patternRow > PATTERN_ROW_MAX Then
-            Song.orderPosition = Song.orderPosition + 1
-            Song.patternRow = 0
-        End If
 
+        ' Process pattern row if pattern delay is over
         If Song.patternDelay = 0 Then
             UpdateMODRow
+
+            ' Increment the row counter
+            ' Note UpdateMODTick() should not pickup stuff from the pattern array but from the channel array
+            ' This is because we are already at a new row not processed by UpdateMODRow()
             Song.patternRow = Song.patternRow + 1
+
+            ' Check if we have finished the pattern and then move to the next one
+            If Song.patternRow > PATTERN_ROW_MAX Then
+                Song.orderPosition = Song.orderPosition + 1
+                Song.patternRow = 0
+            End If
         Else
             Song.patternDelay = Song.patternDelay - 1
         End If
@@ -563,16 +582,17 @@ Sub UpdateMODRow
         nOpY = nOperand And &HF
 
         ' Set volume. We never play if sample number is zero. Our sample array is 1 based
+        ' ONLY RESET VOLUME IF THERE IS AN SAMPLE NUMBER
         If nSample > 0 Then
             Channel(nChannel).sample = nSample
             Channel(nChannel).volume = Sample(nSample).volume
         End If
 
-        ' Set frequency
+        ' ONLY RESET PITCH IF THERE IS A PERIOD VALUE AND PORTA NOT SET
         If nPeriod > 0 Then
             Channel(nChannel).period = nPeriod
-            ' If not a porta effect, then set the channels frequency to the looked up amiga value + or - any finetune
-            If nEffect <> &H3 And nEffect <> &H5 Then
+            ' If not a porta effect, then set the channel pitch to the looked up amiga value + or - any finetune
+            If nEffect <> 3 And nEffect <> 5 Then
                 Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixRate
                 Channel(nChannel).played = FALSE
                 Channel(nChannel).samplePosition = 0
@@ -581,22 +601,32 @@ Sub UpdateMODRow
 
         ' Process tick 0 effects
         Select Case nEffect
-            Case 0 ' No effect
-                Exit Select
-
-            Case 8 ' Set panning position
+            Case &H0 ' Arpeggio
+            Case &H1 ' Slide up
+            Case &H2 ' Slide Down
+            Case &H3 ' Tone Portamento
+            Case &H4 ' Vibrato
+            Case &H5 ' Tone Portamento + Volume Slide
+            Case &H6 ' Vibrato + Volume Slide
+            Case &H7 ' Tremolo
+            Case &H8 ' Set Panning Position
                 If nOperand = 164 Then
                     ' TODO: handle surround?
-                    Print "Surround effect not implemented!"
+                    Title "Surround effect 8 not implemented!"
                 Else
                     Channel(nChannel).panningPosition = nOperand
                 End If
 
-            Case 12
+            Case &H9 ' Set Sample Offset
+            Case &HA ' Volume Slide
+            Case &HB ' Position Jump
+            Case &HC ' Set Volume
                 Channel(nChannel).volume = nOperand
                 If Channel(nChannel).volume > SAMPLE_VOLUME_MAX Then Channel(nChannel).volume = SAMPLE_VOLUME_MAX
 
-            Case 15 ' Set speed
+            Case &HD ' Pattern Break
+            Case &HE ' Extended Effects
+            Case &HF ' Set Speed
                 If nOperand < 32 Then
                     Song.speed = nOperand
                 Else
@@ -604,7 +634,7 @@ Sub UpdateMODRow
                 End If
 
             Case Else
-                Print "Effect not implemented!"
+                Title "Effect not supported: " + Str$(nEffect) + "!"
         End Select
     Next
 End Sub
@@ -612,7 +642,44 @@ End Sub
 
 ' Updates any tick based effects after tick 0
 Sub UpdateMODTick
-    ' TODO
+    ' The pattern that we are playing is always Order(OrderPosition)
+    Dim As Unsigned Byte nPattern, nSample, nEffect, nOperand, nOpX, nOpY, nChannel
+    Dim nPeriod As Unsigned Integer
+
+    nPattern = Order(Song.orderPosition)
+
+    ' Process all channels
+    For nChannel = 0 To Song.channels - 1
+        ' We are not processing a new row but tick 1+ effects
+        ' So we pick these up from the channel array
+        nSample = Channel(nChannel).sample
+        nPeriod = Channel(nChannel).period
+        nEffect = Channel(nChannel).effect
+        nOperand = Channel(nChannel).operand
+        nOpX = SHR(nOperand, 4)
+        nOpY = nOperand And &HF
+
+        Select Case nEffect
+            Case &H0 ' Arpeggio
+            Case &H1 ' Slide up
+            Case &H2 ' Slide Down
+            Case &H3 ' Tone Portamento
+            Case &H4 ' Vibrato
+            Case &H5 ' Tone Portamento + Volume Slide
+            Case &H6 ' Vibrato + Volume Slide
+            Case &H7 ' Tremolo
+            Case &H8 ' Set Panning Position
+            Case &H9 ' Set Sample Offset
+            Case &HA ' Volume Slide
+            Case &HB ' Position Jump
+            Case &HC ' Set Volume
+            Case &HD ' Pattern Break
+            Case &HE ' Extended Effects
+            Case &HF ' Set Speed
+            Case Else
+                Title "Effect not supported: " + Str$(nEffect) + "!"
+        End Select
+    Next
 End Sub
 
 
