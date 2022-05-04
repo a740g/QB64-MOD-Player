@@ -177,12 +177,14 @@ Data LOL
 '-----------------------------------------------------------------------------------------------------
 ' PROGRAM ENTRY POINT
 '-----------------------------------------------------------------------------------------------------
-If LoadMODFile("axelf.mod") Then
-    Print "Loaded MOD file!";
+If LoadMODFile("amegas.mod") Then
+    Print "Loaded MOD file!"
 Else
     Print "Failed to load file!"
     End
 End If
+
+PrintMODInfo
 
 StartMODPlayer
 'Song.volume = 0.5
@@ -208,6 +210,25 @@ End
 '-----------------------------------------------------------------------------------------------------
 ' FUNCTIONS & SUBROUTINES
 '-----------------------------------------------------------------------------------------------------
+' Dumps mod guts to the screen
+Sub PrintMODInfo
+    Print "Name: "; Song.songName
+    Print "Type: "; Song.subtype; " with"; Song.channels; "channels and"; Song.samples; "samples"
+    Print "Orders:"; Song.orders, "Highest Pattern:"; Song.highestPattern, "End Jump Order:"; Song.endJumpOrder
+    Sleep 5
+
+    Dim i As Unsigned Byte
+
+    Print
+    Print "Sample info:"
+    For i = 1 To Song.samples
+        Print "Sample name: "; Sample(i).sampleName
+        Print "Volume:"; Sample(i).volume, "Finetune:"; Sample(i).fineTune
+        Print "Length:"; Sample(i).length, "Loop length:"; Sample(i).loopLength, "Loop start:"; Sample(i).loopStart, "Loop end:"; Sample(i).loopEnd
+        Sleep 5
+    Next
+End Sub
+
 ' Calculates and sets the timer speed and also the mixer buffer update size
 ' We always set the global BPM using this and never directly
 Sub UpdateMODTimer (nBPM As Unsigned Byte)
@@ -530,7 +551,8 @@ End Sub
 ' Updates a row of notes and play them out on tick 0
 Sub UpdateMODNotes
     ' The pattern that we are playing is always Order(OrderPosition)
-    Dim As Unsigned Byte nPattern, nPeriod, nSample, nEffect, nOperand, nOpX, nOpY, nChannel
+    Dim As Unsigned Byte nPattern, nSample, nEffect, nOperand, nOpX, nOpY, nChannel
+    Dim nPeriod As Unsigned Integer
 
     nPattern = Order(Song.orderPosition)
 
@@ -562,18 +584,30 @@ Sub UpdateMODNotes
 
         ' Process tick 0 effects
         Select Case nEffect
-            Case &H0 ' No effect
+            Case 0 ' No effect
                 Exit Select
 
-            Case &HF ' Speed & BPM
-                If nOperand < &H20 Then
+            Case 8 ' Set panning position
+                If nOperand = 164 Then
+                    ' TODO: handle surround?
+                    Print "Surround effect not implemented!"
+                Else
+                    Channel(nChannel).panningPosition = nOperand
+                End If
+
+            Case 12
+                Channel(nChannel).volume = nOperand
+                If Channel(nChannel).volume > SAMPLE_VOLUME_MAX Then Channel(nChannel).volume = SAMPLE_VOLUME_MAX
+
+            Case 15 ' Set speed
+                If nOperand < 32 Then
                     Song.speed = nOperand
                 Else
                     UpdateMODTimer nOperand
                 End If
 
             Case Else
-                Print "Effect not handled!"
+                Print "Effect not implemented!"
         End Select
     Next
 End Sub
