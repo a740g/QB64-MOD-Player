@@ -1,14 +1,13 @@
 # QB64 MOD Player
 
-A ProTracker (and compatible) MOD player written in QB64 - WIP
+A ProTracker (and compatible) MOD player written in QB64
 
 ## Goals
 
-- No dependency on 3rd party libraries
+- No dependency on 3rd party libraries - OK
 - Support all MOD types (1 - 99 channels, 31 samples etc.) - WIP
 - Support all effects - WIP
-- Depend on QB64 internal sound engine mixer - FAIL [No _NEWSOUND in QB64 among other things]
-- Easy plug-n-play API - WIP
+- Easy plug-&-play API - WIP
 
 ## Bibliography
 
@@ -28,6 +27,10 @@ Will you add S3M, XM, IT support?
 
 No. But you are free to fork and do it yourself.
 
+I found a bug. How can I help?
+
+There are probably many bugs now. This will change as the code matures. In the meantime, let me know using GitHub issues.
+
 Can this be used in a game / demo?
 
-Absolutely. With little effort. But I have not tried integrating this into anything else myself.
+Absolutely. With little effort. But I have not tried integrating this into anything myself (yet).

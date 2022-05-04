@@ -181,7 +181,7 @@ Data LOL
 '-----------------------------------------------------------------------------------------------------
 Dim modfile As String
 
-If CommandCount > 0 Then modfile = Command$ Else modfile = "visions.mod"
+If CommandCount > 0 Then modfile = Command$ Else modfile = "elysium.mod"
 
 If LoadMODFile(modfile) Then
     Print "Loaded MOD file!"
