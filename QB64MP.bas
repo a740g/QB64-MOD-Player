@@ -24,7 +24,7 @@ Const NULL%% = 0%%
 Const NULLSTRING$ = ""
 
 Const AMIGA_PAULA_CLOCK_RATE! = 7159090.5! ' PAL: 7093789.2, NSTC: 7159090.5
-Const PATTERN_LINE_MAX~%% = 63~%% ' Max line number in a pattern
+Const PATTERN_ROW_MAX~%% = 63~%% ' Max row number in a pattern
 Const ORDER_TABLE_MAX~%% = 127~%% ' Max position in the order table
 Const SAMPLE_VOLUME_MAX~%% = 64~%% ' This is the maximum volume of any sample in the MOD
 Const SAMPLE_PAN_LEFT~%% = 0~%% ' This value is per "set pan position" effect
@@ -84,7 +84,7 @@ Type SongType
     endJumpOrder As Unsigned Byte ' This is used for jumping to an order if global looping is on
     highestPattern As Unsigned Byte ' The highest pattern number read from the MOD file
     orderPosition As Unsigned Byte ' The position in the order list
-    patternLine As Unsigned Byte ' Points to the pattern line to be played
+    patternRow As Unsigned Byte ' Points to the pattern row to be played
     patternDelay As Unsigned Byte ' Number of times to delay pattern
     isLooping As Byte ' Loop the song once we reach the max order specified in the song
     isPlaying As Byte ' This is set to true as long as the song is playing
@@ -94,8 +94,8 @@ Type SongType
     tick As Unsigned Byte ' Current song tick
     qb64SoundPipe As Long ' QB64 sound pipe that we will use to stream the mixed audio
     volume As Unsigned Byte ' Song master volume 0 is none ... 255 is full
-    mixerRate As Long ' This is always set by QB64 internal audio engine
-    mixerBufferSize As Unsigned Long ' This is the amount of samples we have to mix based on mixerRate & bpm
+    mixRate As Long ' This is always set by QB64 internal audio engine
+    mixBufferSize As Unsigned Long ' This is the amount of samples we have to mix based on mixerRate & bpm
 End Type
 '-----------------------------------------------------------------------------------------------------
 
@@ -112,7 +112,7 @@ End Declare
 '-----------------------------------    ------------------------------------------------------------------
 Dim Shared Song As SongType
 Dim Shared Order(0 To ORDER_TABLE_MAX) As Unsigned Byte ' Order list
-ReDim Shared Pattern(0 To 0, 0 To 0, 0 To 0) As PatternType ' Pattern data strored as (pattern, line, channel)
+ReDim Shared Pattern(0 To 0, 0 To 0, 0 To 0) As PatternType ' Pattern data strored as (pattern, row, channel)
 ReDim Shared Sample(1 To 1) As SampleType ' Sample info array. One based because sample 0 means nothing (well something :) in the pattern data
 ReDim Shared SampleData(1 To 1) As String ' Sample data array. Again one based for same reason above
 ReDim Shared Channel(0 To 0) As ChannelType ' Channel info array
@@ -184,7 +184,7 @@ Else
     End
 End If
 
-PrintMODInfo
+'PrintMODInfo
 
 StartMODPlayer
 'Song.volume = 0.5
@@ -195,7 +195,7 @@ Do
     Sleep 1
     If InKey$ = Chr$(27) Then Exit Do
 
-    Print Hex$(Song.orderPosition); "-"; Hex$(Order(Song.orderPosition)); "-"; Hex$(Song.patternLine); ": ";
+    Print Hex$(Song.orderPosition); "-"; Hex$(Order(Song.orderPosition)); "-"; Hex$(Song.patternRow); ": ";
     For nChan = 0 To Song.channels - 1
         Print Hex$(nChan); "> "; Hex$(Channel(nChan).sample); " "; NoteTable(Channel(nChan).period / 8); " "; Hex$(Channel(nChan).effect); " "; Hex$(Channel(nChan).operand); " ";
     Next
@@ -211,11 +211,12 @@ End
 ' FUNCTIONS & SUBROUTINES
 '-----------------------------------------------------------------------------------------------------
 ' Dumps mod guts to the screen
+' This is just used for debugging
 Sub PrintMODInfo
     Print "Name: "; Song.songName
     Print "Type: "; Song.subtype; " with"; Song.channels; "channels and"; Song.samples; "samples"
     Print "Orders:"; Song.orders, "Highest Pattern:"; Song.highestPattern, "End Jump Order:"; Song.endJumpOrder
-    Sleep 5
+    Sleep
 
     Dim i As Unsigned Byte
 
@@ -225,7 +226,7 @@ Sub PrintMODInfo
         Print "Sample name: "; Sample(i).sampleName
         Print "Volume:"; Sample(i).volume, "Finetune:"; Sample(i).fineTune
         Print "Length:"; Sample(i).length, "Loop length:"; Sample(i).loopLength, "Loop start:"; Sample(i).loopStart, "Loop end:"; Sample(i).loopEnd
-        Sleep 5
+        Sleep
     Next
 End Sub
 
@@ -235,7 +236,7 @@ Sub UpdateMODTimer (nBPM As Unsigned Byte)
     Song.bpm = nBPM
 
     ' Calculate the mixer buffer update size
-    Song.mixerBufferSize = ((Song.mixerRate * 10) / Song.bpm) / 4
+    Song.mixBufferSize = ((Song.mixRate * 10) / Song.bpm) / 4
 
     ' S / (2 * B / 5) (where S is second and B is BPM)
     On Timer(Song.qb64Timer, 1 / (2 * Song.bpm / 5)) MODPlayerTimerHandler
@@ -353,13 +354,8 @@ Function LoadMODFile%% (sName As String)
         If Sample(i).loopLength = 2 Then Sample(i).loopLength = 0 ' Sanity check
 
         ' Calculate repeat end
-        Sample(i).loopEnd = Sample(i).loopStart + Sample(i).loopLength - 1
-
-        ' Check and sanitize
-        If Sample(i).loopEnd > Sample(i).length - 1 Then
-            Sample(i).loopEnd = Sample(i).length - 1
-            Sample(i).loopLength = Sample(i).loopStart + Sample(i).loopEnd + 1
-        End If
+        Sample(i).loopEnd = Sample(i).loopStart + Sample(i).loopLength
+        If Sample(i).loopEnd > Sample(i).length Then Sample(i).loopEnd = Sample(i).length ' Sanity check
     Next
 
     Song.orders = Asc(Input$(1, fileHandle))
@@ -375,7 +371,7 @@ Function LoadMODFile%% (sName As String)
     Next
 
     ' Resize pattern data array
-    ReDim Pattern(0 To Song.highestPattern, 0 To PATTERN_LINE_MAX, 0 To Song.channels - 1) As PatternType
+    ReDim Pattern(0 To Song.highestPattern, 0 To PATTERN_ROW_MAX, 0 To Song.channels - 1) As PatternType
 
     ' Skip past the 4 byte marker if this is a 31 sample mod
     If Song.samples = 31 Then Seek fileHandle, Loc(1) + 5
@@ -396,7 +392,7 @@ Function LoadMODFile%% (sName As String)
     ' Load the patterns
     ' TODO: special handling for FLT8?
     For i = 0 To Song.highestPattern
-        For a = 0 To PATTERN_LINE_MAX
+        For a = 0 To PATTERN_ROW_MAX
             For b = 0 To Song.channels - 1
                 Get fileHandle, , byte1
                 Get fileHandle, , byte2
@@ -435,8 +431,8 @@ Function LoadMODFile%% (sName As String)
         SampleData(i) = Space$(Sample(i).length)
         ' Now load the data
         Get fileHandle, , SampleData(i)
-        ' Allocate 1 byte more than needed for mixer runoff
-        SampleData(i) = SampleData(i) + Chr$(NULL)
+        ' Allocate 2 bytes more than needed for mixer runoff
+        SampleData(i) = SampleData(i) + String$(2, NULL)
     Next
 
     Close fileHandle
@@ -457,13 +453,13 @@ Sub StartMODPlayer
     Next
 
     ' Set the mix rate to match that of the system
-    Song.mixerRate = SndRate
+    Song.mixRate = SndRate
 
     ' Initialize some important stuff
     Song.orderPosition = 0
-    Song.patternLine = 0
+    Song.patternRow = 0
     Song.speed = SONG_SPEED_DEFAULT
-    Song.tick = Song.speed - 1
+    Song.tick = Song.speed
     Song.volume = SONG_VOLUME_MAX
 
     ' Setup the channel array
@@ -521,35 +517,36 @@ Sub MODPlayerTimerHandler
 
     ' Set the playing flag as true
     Song.isPlaying = TRUE
-    ' Increment song tick on each update
-    Song.tick = Song.tick + 1
 
     If Song.tick >= Song.speed Then
         ' Reset song tick
         Song.tick = 0
         ' Check if we have finished the pattern and then move to the next one
-        If Song.patternLine > PATTERN_LINE_MAX Then
+        If Song.patternRow > PATTERN_ROW_MAX Then
             Song.orderPosition = Song.orderPosition + 1
-            Song.patternLine = 0
+            Song.patternRow = 0
         End If
 
         If Song.patternDelay = 0 Then
-            UpdateMODNotes
-            Song.patternLine = Song.patternLine + 1
+            UpdateMODRow
+            Song.patternRow = Song.patternRow + 1
         Else
             Song.patternDelay = Song.patternDelay - 1
         End If
     Else
-        UpdateMODEffects
+        UpdateMODTick
     End If
 
     ' Mix the current tick
     MixMODFrame
+
+    ' Increment song tick on each update
+    Song.tick = Song.tick + 1
 End Sub
 
 
 ' Updates a row of notes and play them out on tick 0
-Sub UpdateMODNotes
+Sub UpdateMODRow
     ' The pattern that we are playing is always Order(OrderPosition)
     Dim As Unsigned Byte nPattern, nSample, nEffect, nOperand, nOpX, nOpY, nChannel
     Dim nPeriod As Unsigned Integer
@@ -558,10 +555,10 @@ Sub UpdateMODNotes
 
     ' Process all channels
     For nChannel = 0 To Song.channels - 1
-        nSample = Pattern(nPattern, Song.patternLine, nChannel).sample
-        nPeriod = Pattern(nPattern, Song.patternLine, nChannel).period
-        nEffect = Pattern(nPattern, Song.patternLine, nChannel).effect
-        nOperand = Pattern(nPattern, Song.patternLine, nChannel).operand
+        nSample = Pattern(nPattern, Song.patternRow, nChannel).sample
+        nPeriod = Pattern(nPattern, Song.patternRow, nChannel).period
+        nEffect = Pattern(nPattern, Song.patternRow, nChannel).effect
+        nOperand = Pattern(nPattern, Song.patternRow, nChannel).operand
         nOpX = SHR(nOperand, 4)
         nOpY = nOperand And &HF
 
@@ -569,8 +566,6 @@ Sub UpdateMODNotes
         If nSample > 0 Then
             Channel(nChannel).sample = nSample
             Channel(nChannel).volume = Sample(nSample).volume
-            Channel(nChannel).played = FALSE
-            Channel(nChannel).samplePosition = 0
         End If
 
         ' Set frequency
@@ -578,7 +573,9 @@ Sub UpdateMODNotes
             Channel(nChannel).period = nPeriod
             ' If not a porta effect, then set the channels frequency to the looked up amiga value + or - any finetune
             If nEffect <> &H3 And nEffect <> &H5 Then
-                Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixerRate
+                Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixRate
+                Channel(nChannel).played = FALSE
+                Channel(nChannel).samplePosition = 0
             End If
         End If
 
@@ -614,7 +611,7 @@ End Sub
 
 
 ' Updates any tick based effects after tick 0
-Sub UpdateMODEffects
+Sub UpdateMODTick
     ' TODO
 End Sub
 
@@ -629,7 +626,7 @@ Sub MixMODFrame
     Dim As Single samLT, samRT
     Dim As Byte sam
 
-    For i = 1 To Song.mixerBufferSize
+    For i = 1 To Song.mixBufferSize
         samLT = 0
         samRT = 0
 
