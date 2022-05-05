@@ -27,9 +27,9 @@ Const AMIGA_PAULA_CLOCK_RATE! = 7159090.5! ' PAL: 7093789.2, NSTC: 7159090.5
 Const PATTERN_ROW_MAX~%% = 63~%% ' Max row number in a pattern
 Const ORDER_TABLE_MAX~%% = 127~%% ' Max position in the order table
 Const SAMPLE_VOLUME_MAX~%% = 64~%% ' This is the maximum volume of any sample in the MOD
-Const SAMPLE_PAN_LEFT~%% = 0~%% ' This value is per "set pan position" effect
-Const SAMPLE_PAN_CENTRE~%% = 64~%% ' This value is per "set pan position" effect
-Const SAMPLE_PAN_RIGHT~%% = 128~%% ' This value is per "set pan position" effect
+Const SAMPLE_PAN_LEFT~%% = 0~%% ' Leftmost pannning position
+Const SAMPLE_PAN_RIGHT~%% = 255~%% ' Rightmost pannning position
+Const SAMPLE_PAN_CENTRE! = (SAMPLE_PAN_RIGHT - SAMPLE_PAN_LEFT) / 2! ' Center position
 Const SONG_SPEED_DEFAULT~%% = 6~%% ' This is the default speed for song where it is not specified
 Const SONG_BPM_DEFAULT~%% = 125~%% ' Default song BPM
 Const SONG_VOLUME_MAX~%% = 255~%% ' Max song master volume
@@ -63,18 +63,12 @@ Type SampleType
 End Type
 
 Type ChannelType
-    sample As Unsigned Byte ' Sample number copied from pattern array
-    period As Unsigned Integer ' Effect period copied from pattern array
-    effect As Unsigned Byte ' Effect copied from pattern array
-    operand As Unsigned Byte ' Effect param copied from pattern array
-    volume As Unsigned Byte ' Sample volume initially copied from sample array
-    pitch As Single ' Sample pitch. The mixer code uses this to step through the sample correctly
-    panningPosition As Unsigned Byte ' Position 0 is left ... 64 is centre ... 128 is right
+    sample As Unsigned Byte ' Sample number to be mixed
+    volume As Integer ' Channel volume. This is a signed int because we need -ve values & to clip properly
     played As Byte ' This is set to true once the mixer is done with the sample
+    pitch As Single ' Sample pitch. The mixer code uses this to step through the sample correctly
+    panningPosition As Single ' Position 0 is leftmost ... 255 is rightmost
     samplePosition As Single ' Where are we in the sample buffer
-    'sampleFinePosition As Long ' Sample fine position
-    'sampleNote As Integer ' Sample note
-    'sampleNoteFine As Integer ' Sample note fine
 End Type
 
 Type SongType
@@ -86,8 +80,11 @@ Type SongType
     endJumpOrder As Unsigned Byte ' This is used for jumping to an order if global looping is on
     highestPattern As Unsigned Byte ' The highest pattern number read from the MOD file
     orderPosition As Unsigned Byte ' The position in the order list
-    patternRow As Unsigned Byte ' Points to the pattern row to be played
+    patternRow As Integer ' Points to the pattern row to be played. This is int becase sometimes we need to set it to -1
     patternDelay As Unsigned Byte ' Number of times to delay pattern
+    orderJumpFlag As Byte ' This will be set to true if we have jumped to any order (Jump To Pattern effect)
+    tickPattern As Unsigned Byte ' This is the pattern number where UpdateMODRow() was
+    tickPatternRow As Integer ' This is the pattern row number processed by UpdateMODRow()
     isLooping As Byte ' Set this to true to loop the song once we reach the max order specified in the song
     isPlaying As Byte ' This is set to true as long as the song is playing
     isPaused As Byte ' Set this to true to pause playback
@@ -181,11 +178,13 @@ Data LOL
 '-----------------------------------------------------------------------------------------------------
 ' PROGRAM ENTRY POINT
 '-----------------------------------------------------------------------------------------------------
-Dim As String modfile
+Width 120, 40
 
-If CommandCount > 0 Then modfile = Command$ Else modfile = "elysium.mod"
+Dim As String modFileName
 
-If LoadMODFile(modfile) Then
+If CommandCount > 0 Then modFileName = Command$ Else modFileName = "ELYSIUM.mod"
+
+If LoadMODFile(modFileName) Then
     Print "Loaded MOD file!"
 Else
     Print "Failed to load file!"
@@ -194,6 +193,7 @@ End If
 
 'PrintMODInfo
 
+Title "QB64 MOD Player - " + modFileName
 StartMODPlayer
 
 Dim nChan As Unsigned Byte, k As String
@@ -220,9 +220,9 @@ Do
             Song.useHQMix = Not Song.useHQMix
     End Select
 
-    Print Song.orderPosition; "-"; Order(Song.orderPosition); "-"; Song.patternRow; ": ";
+    Print Using "### ### ##: "; Song.orderPosition; Order(Song.orderPosition); Song.patternRow;
     For nChan = 0 To Song.channels - 1
-        Print nChan; ">"; Channel(nChan).sample; NoteTable(Channel(nChan).period / 8); " "; Hex$(Channel(nChan).effect); " "; Hex$(Channel(nChan).operand); " ";
+        Print Using ">&< \\ & \\ \\ "; Hex$(nChan); Hex$(Channel(nChan).sample); NoteTable(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).period / 8); Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).effect); Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).operand);
     Next
     Print
 
@@ -552,6 +552,7 @@ Sub MODPlayerTimerHandler
             Song.patternRow = 0
             Song.speed = SONG_SPEED_DEFAULT
             Song.tick = Song.speed
+            'Song.orderJumpFlag = TRUE  ' TODO: Is this needed?
         Else
             Song.isPlaying = FALSE
             Exit Sub
@@ -567,10 +568,16 @@ Sub MODPlayerTimerHandler
 
         ' Process pattern row if pattern delay is over
         If Song.patternDelay = 0 Then
+
+            ' Save the pattern and row for UpdateMODTick()
+            Song.tickPattern = Order(Song.orderPosition)
+            Song.tickPatternRow = Song.patternRow
+
+            ' Process the row
             UpdateMODRow
 
             ' Increment the row counter
-            ' Note UpdateMODTick() should not pickup stuff from the pattern array but from the channel array
+            ' Note UpdateMODTick() should pickup stuff using tickPattern & tickPatternRow
             ' This is because we are already at a new row not processed by UpdateMODRow()
             Song.patternRow = Song.patternRow + 1
 
@@ -595,19 +602,21 @@ End Sub
 
 
 ' Updates a row of notes and play them out on tick 0
+' The pattern that we are playing is always Song.tickPattern. This is always updated in the timer handler
 Sub UpdateMODRow
-    ' The pattern that we are playing is always Order(OrderPosition)
-    Dim As Unsigned Byte nPattern, nSample, nEffect, nOperand, nOpX, nOpY, nChannel
+    Dim As Unsigned Byte nSample, nEffect, nOperand, nOpX, nOpY, nChannel
     Dim nPeriod As Unsigned Integer
+    Dim nPatternRow As Integer
 
-    nPattern = Order(Song.orderPosition)
+    ' We need this so that we don't start accessing -1 elements in the pattern array when there is a pattern jump
+    nPatternRow = Song.patternRow
 
     ' Process all channels
     For nChannel = 0 To Song.channels - 1
-        nSample = Pattern(nPattern, Song.patternRow, nChannel).sample
-        nPeriod = Pattern(nPattern, Song.patternRow, nChannel).period
-        nEffect = Pattern(nPattern, Song.patternRow, nChannel).effect
-        nOperand = Pattern(nPattern, Song.patternRow, nChannel).operand
+        nSample = Pattern(Song.tickPattern, nPatternRow, nChannel).sample
+        nPeriod = Pattern(Song.tickPattern, nPatternRow, nChannel).period
+        nEffect = Pattern(Song.tickPattern, nPatternRow, nChannel).effect
+        nOperand = Pattern(Song.tickPattern, nPatternRow, nChannel).operand
         nOpX = SHR(nOperand, 4)
         nOpY = nOperand And &HF
 
@@ -620,7 +629,6 @@ Sub UpdateMODRow
 
         ' ONLY RESET PITCH IF THERE IS A PERIOD VALUE AND PORTA NOT SET
         If nPeriod > 0 Then
-            Channel(nChannel).period = nPeriod
             ' If not a porta effect, then set the channel pitch to the looked up amiga value + or - any finetune
             If nEffect <> 3 And nEffect <> 5 Then
                 Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixRate
@@ -631,66 +639,90 @@ Sub UpdateMODRow
 
         ' Process tick 0 effects
         Select Case nEffect
-            Case &H0 ' Arpeggio
+            Case &H1 ' 1: Slide up
                 Title "Effect not implemented: " + Str$(nEffect)
 
-            Case &H1 ' Slide up
+            Case &H2 ' 2: Slide Down
                 Title "Effect not implemented: " + Str$(nEffect)
 
-            Case &H2 ' Slide Down
+            Case &H3 ' 3: Tone Portamento
                 Title "Effect not implemented: " + Str$(nEffect)
 
-            Case &H3 ' Tone Portamento
+            Case &H4 ' 4: Vibrato
                 Title "Effect not implemented: " + Str$(nEffect)
 
-            Case &H4 ' Vibrato
+            Case &H5 ' 5: Tone Portamento + Volume Slide
                 Title "Effect not implemented: " + Str$(nEffect)
 
-            Case &H5 ' Tone Portamento + Volume Slide
+            Case &H6 ' 6: Vibrato + Volume Slide
                 Title "Effect not implemented: " + Str$(nEffect)
 
-            Case &H6 ' Vibrato + Volume Slide
+            Case &H7 ' 7: Tremolo
                 Title "Effect not implemented: " + Str$(nEffect)
 
-            Case &H7 ' Tremolo
+            Case &H8 ' 8: Set Panning Position
+                Channel(nChannel).panningPosition = nOperand
+
+            Case &H9 ' 9: Set Sample Offset
                 Title "Effect not implemented: " + Str$(nEffect)
 
-            Case &H8 ' Set Panning Position
-                If nOperand = 164 Then
-                    ' TODO: handle surround?
-                    Title "Surround effect 8 not implemented!"
-                Else
-                    Channel(nChannel).panningPosition = nOperand
-                End If
+            Case &HB ' 11: Jump To Pattern
+                Song.orderPosition = nOperand
+                Song.patternRow = -1 ' This will increment right after & we will start at 0
+                If Song.orderPosition >= Song.orders Then Song.orderPosition = Song.endJumpOrder
+                Song.orderJumpFlag = TRUE
 
-            Case &H9 ' Set Sample Offset
-                Title "Effect not implemented: " + Str$(nEffect)
-
-            Case &HA ' Volume Slide
-                Title "Effect not implemented: " + Str$(nEffect)
-
-            Case &HB ' Position Jump
-                Title "Effect not implemented: " + Str$(nEffect)
-
-            Case &HC ' Set Volume
+            Case &HC ' 12: Set Volume
                 Channel(nChannel).volume = nOperand
+                If Channel(nChannel).volume < 0 Then Channel(nChannel).volume = 0
                 If Channel(nChannel).volume > SAMPLE_VOLUME_MAX Then Channel(nChannel).volume = SAMPLE_VOLUME_MAX
 
-            Case &HD ' Pattern Break
+            Case &HD ' 13: Pattern Break
                 Title "Effect not implemented: " + Str$(nEffect)
 
-            Case &HE ' Extended Effects
-                Title "Effect not implemented: " + Str$(nEffect)
+            Case &HE ' 14: Extended Effects
+                Select Case nOpX
+                    Case &H0
+                        Song.useHQMix = Not (nOpY <> 0) ' Most docs say if y is 0, then turn it on
 
-            Case &HF ' Set Speed
+                    Case &H1
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &H2
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &H3
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &H4
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &H5
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &H6
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &H7
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &H8
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &H9
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &HA
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &HB
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &HC
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &HD
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &HE
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &HF
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                End Select
+
+            Case &HF ' 15: Set Speed
                 If nOperand < 32 Then
                     Song.speed = nOperand
                 Else
                     UpdateMODTimer nOperand
                 End If
-
-            Case Else
-                Title "Unknown effect: " + Str$(nEffect)
         End Select
     Next
 End Sub
@@ -699,73 +731,95 @@ End Sub
 ' Updates any tick based effects after tick 0
 Sub UpdateMODTick
     ' The pattern that we are playing is always Order(OrderPosition)
-    Dim As Unsigned Byte nPattern, nSample, nEffect, nOperand, nOpX, nOpY, nChannel
+    Dim As Unsigned Byte nSample, nEffect, nOperand, nOpX, nOpY, nChannel
     Dim nPeriod As Unsigned Integer
-
-    nPattern = Order(Song.orderPosition)
 
     ' Process all channels
     For nChannel = 0 To Song.channels - 1
         ' We are not processing a new row but tick 1+ effects
-        ' So we pick these up from the channel array
-        nSample = Channel(nChannel).sample
-        nPeriod = Channel(nChannel).period
-        nEffect = Channel(nChannel).effect
-        nOperand = Channel(nChannel).operand
+        ' So we pick these using tickPattern and tickPatternRow
+        nSample = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).sample
+        nPeriod = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).period
+        nEffect = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).effect
+        nOperand = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).operand
         nOpX = SHR(nOperand, 4)
         nOpY = nOperand And &HF
 
         Select Case nEffect
-            Case &H0 ' Arpeggio
+            Case &H0 ' 0: Arpeggio
+                If (nOperand > 0) Then
+                    Select Case Song.tick Mod 3
+                        Case 0
+                            Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixRate
+                        Case 1
+                            Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + (8 * nOpX) + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixRate
+                        Case 2
+                            Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + (8 * nOpY) + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixRate
+                    End Select
+                End If
+
+            Case &H1 ' 1: Slide up
                 Title "Effect not implemented: " + Str$(nEffect)
 
-            Case &H1 ' Slide up
+            Case &H2 ' 2: Slide Down
                 Title "Effect not implemented: " + Str$(nEffect)
 
-            Case &H2 ' Slide Down
+            Case &H3 ' 3: Tone Portamento
                 Title "Effect not implemented: " + Str$(nEffect)
 
-            Case &H3 ' Tone Portamento
+            Case &H4 ' 4: Vibrato
                 Title "Effect not implemented: " + Str$(nEffect)
 
-            Case &H4 ' Vibrato
+            Case &H5 ' 5: Tone Portamento + Volume Slide
                 Title "Effect not implemented: " + Str$(nEffect)
 
-            Case &H5 ' Tone Portamento + Volume Slide
+            Case &H6 ' 6: Vibrato + Volume Slide
                 Title "Effect not implemented: " + Str$(nEffect)
 
-            Case &H6 ' Vibrato + Volume Slide
+            Case &H7 ' 7: Tremolo
                 Title "Effect not implemented: " + Str$(nEffect)
 
-            Case &H7 ' Tremolo
+            Case &HA ' 10: Volume Slide
+                Channel(nChannel).volume = Channel(nChannel).volume + nOpX - nOpY
+                If Channel(nChannel).volume < 0 Then Channel(nChannel).volume = 0
+                If Channel(nChannel).volume > SAMPLE_VOLUME_MAX Then Channel(nChannel).volume = SAMPLE_VOLUME_MAX
+
+            Case &HD ' 13: Pattern Break
                 Title "Effect not implemented: " + Str$(nEffect)
 
-            Case &H8 ' Set Panning Position
-                Title "Effect not implemented: " + Str$(nEffect)
-
-            Case &H9 ' Set Sample Offset
-                Title "Effect not implemented: " + Str$(nEffect)
-
-            Case &HA ' Volume Slide
-                Title "Effect not implemented: " + Str$(nEffect)
-
-            Case &HB ' Position Jump
-                Title "Effect not implemented: " + Str$(nEffect)
-
-            Case &HC ' Set Volume
-                Title "Effect not implemented: " + Str$(nEffect)
-
-            Case &HD ' Pattern Break
-                Title "Effect not implemented: " + Str$(nEffect)
-
-            Case &HE ' Extended Effects
-                Title "Effect not implemented: " + Str$(nEffect)
-
-            Case &HF ' Set Speed
-                Title "Effect not implemented: " + Str$(nEffect)
-
-            Case Else
-                Title "Unknown effect: " + Str$(nEffect)
+            Case &HE ' 14: Extended Effects
+                Select Case nOpX
+                    Case &H1
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &H2
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &H3
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &H4
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &H5
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &H6
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &H7
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &H8
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &H9
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &HA
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &HB
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &HC
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &HD
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &HE
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                    Case &HF
+                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                End Select
         End Select
     Next
 End Sub
@@ -775,8 +829,8 @@ End Sub
 ' All mixing calculations are done using floating-point math (it's 2022 :)
 Sub MixMODFrame
     Dim i As Unsigned Long
-    Dim As Unsigned Byte chan, nSample, vol, pan
-    Dim As Single fpos, fsam, fsamLT, fsamRT
+    Dim As Unsigned Byte chan, nSample, vol
+    Dim As Single fpan, fpos, fsam, fsamLT, fsamRT
     Dim As Byte bsam1, bsam2
 
     For i = 1 To Song.mixBufferSize
@@ -811,7 +865,7 @@ Sub MixMODFrame
                 If Not Channel(chan).played Or Sample(nSample).loopLength > 0 Then
                     fpos = Channel(chan).samplePosition
                     vol = Channel(chan).volume
-                    pan = Channel(chan).panningPosition
+                    fpan = Channel(chan).panningPosition
 
                     ' Get a sample, change format and add
                     ' Samples are stored in a string and strings are 1 based
@@ -826,8 +880,8 @@ Sub MixMODFrame
                     End If
 
                     ' The following two lines does volume & panning
-                    fsamLT = fsamLT + (fsam * (((SAMPLE_PAN_RIGHT - pan) * vol) / SAMPLE_PAN_RIGHT) / SAMPLE_VOLUME_MAX)
-                    fsamRT = fsamRT + (fsam * ((pan * vol) / SAMPLE_PAN_RIGHT) / SAMPLE_VOLUME_MAX)
+                    fsamLT = fsamLT + (fsam * (((SAMPLE_PAN_RIGHT - fpan) * vol) / SAMPLE_PAN_RIGHT) / SAMPLE_VOLUME_MAX)
+                    fsamRT = fsamRT + (fsam * ((fpan * vol) / SAMPLE_PAN_RIGHT) / SAMPLE_VOLUME_MAX)
 
                     ' Move to the next sample position based on the pitch
                     Channel(chan).samplePosition = Channel(chan).samplePosition + Channel(chan).pitch
