@@ -33,6 +33,8 @@ Const SAMPLE_PAN_RIGHT~%% = 128~%% ' This value is per "set pan position" effect
 Const SONG_SPEED_DEFAULT~%% = 6~%% ' This is the default speed for song where it is not specified
 Const SONG_BPM_DEFAULT~%% = 125~%% ' Default song BPM
 Const SONG_VOLUME_MAX~%% = 255~%% ' Max song master volume
+Const SONG_AMPLIFICATION_VOLUME~%% = 32~%% ' Maximum volume that can be applied to final mix
+Const SONG_CHANNEL_MAX~%% = 99~%% ' Maximum number of MOD channels we can have
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -179,7 +181,7 @@ Data LOL
 '-----------------------------------------------------------------------------------------------------
 ' PROGRAM ENTRY POINT
 '-----------------------------------------------------------------------------------------------------
-Dim modfile As String
+Dim As String modfile
 
 If CommandCount > 0 Then modfile = Command$ Else modfile = "elysium.mod"
 
@@ -193,17 +195,34 @@ End If
 'PrintMODInfo
 
 StartMODPlayer
-'Song.volume = 0.5
-'Song.isLooping = TRUE
-Song.useHQMix = TRUE
 
-Dim nChan As Unsigned Byte
+Dim nChan As Unsigned Byte, k As String
 Do
-    If InKey$ = Chr$(27) Then Exit Do
+    k = InKey$
 
-    Print Hex$(Song.orderPosition); "-"; Hex$(Order(Song.orderPosition)); "-"; Hex$(Song.patternRow); ": ";
+    Select Case k
+        Case Chr$(27)
+            Exit Do
+
+        Case " "
+            Song.isPaused = Not Song.isPaused
+
+        Case "=", "+"
+            Song.volume = Song.volume + 1
+
+        Case "-", "_"
+            Song.volume = Song.volume - 1
+
+        Case "l", "L"
+            Song.isLooping = Not Song.isLooping
+
+        Case "q", "Q"
+            Song.useHQMix = Not Song.useHQMix
+    End Select
+
+    Print Song.orderPosition; "-"; Order(Song.orderPosition); "-"; Song.patternRow; ": ";
     For nChan = 0 To Song.channels - 1
-        Print Hex$(nChan); "> "; Hex$(Channel(nChan).sample); " "; NoteTable(Channel(nChan).period / 8); " "; Hex$(Channel(nChan).effect); " "; Hex$(Channel(nChan).operand); " ";
+        Print nChan; ">"; Channel(nChan).sample; NoteTable(Channel(nChan).period / 8); " "; Hex$(Channel(nChan).effect); " "; Hex$(Channel(nChan).operand); " ";
     Next
     Print
 
@@ -306,7 +325,7 @@ Function LoadMODFile%% (sName As String)
                 Song.channels = Val(Right$(Song.subtype, 2))
                 Song.samples = 31
             Else
-                ' Sanity check for default 15 sample MODs
+                ' Extra checks for 15 sample MOD
                 For i = 1 To Len(Song.songName)
                     If isprint(Asc(Song.songName, i)) = 0 And Asc(Song.songName, i) <> NULL Then
                         ' This is probably not a 15 sample MOD file
@@ -329,11 +348,21 @@ Function LoadMODFile%% (sName As String)
     ' Resize the sample array
     ReDim Sample(1 To Song.samples) As SampleType
     Dim As Unsigned Byte byte1, byte2
+    Dim c As Unsigned Integer
 
     ' Load the sample headers
     For i = 1 To Song.samples
         ' Read the sample name
         Get fileHandle, , Sample(i).sampleName
+
+        ' Extra checks for 15 sample MOD
+        For c = 1 To Len(Sample(i).sampleName)
+            If isprint(Asc(Sample(i).sampleName, c)) = 0 And Asc(Sample(i).sampleName, c) <> NULL Then
+                ' This is probably not a 15 sample MOD file
+                Close fileHandle
+                Exit Function
+            End If
+        Next
 
         ' Read sample length
         Get fileHandle, , byte1
@@ -385,7 +414,6 @@ Function LoadMODFile%% (sName As String)
     If Song.samples = 31 Then Seek fileHandle, Loc(1) + 5
 
     ' Load the frequency table
-    Dim c As Unsigned Integer
     Restore FreqTab
     Read c ' Read the size
     ReDim FrequencyTable(0 To c - 1) As Unsigned Integer ' Allocate size elements
@@ -584,7 +612,7 @@ Sub UpdateMODRow
         nOpY = nOperand And &HF
 
         ' Set volume. We never play if sample number is zero. Our sample array is 1 based
-        ' ONLY RESET VOLUME IF THERE IS AN SAMPLE NUMBER
+        ' ONLY RESET VOLUME IF THERE IS A SAMPLE NUMBER
         If nSample > 0 Then
             Channel(nChannel).sample = nSample
             Channel(nChannel).volume = Sample(nSample).volume
@@ -604,13 +632,29 @@ Sub UpdateMODRow
         ' Process tick 0 effects
         Select Case nEffect
             Case &H0 ' Arpeggio
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &H1 ' Slide up
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &H2 ' Slide Down
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &H3 ' Tone Portamento
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &H4 ' Vibrato
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &H5 ' Tone Portamento + Volume Slide
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &H6 ' Vibrato + Volume Slide
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &H7 ' Tremolo
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &H8 ' Set Panning Position
                 If nOperand = 164 Then
                     ' TODO: handle surround?
@@ -620,14 +664,24 @@ Sub UpdateMODRow
                 End If
 
             Case &H9 ' Set Sample Offset
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &HA ' Volume Slide
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &HB ' Position Jump
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &HC ' Set Volume
                 Channel(nChannel).volume = nOperand
                 If Channel(nChannel).volume > SAMPLE_VOLUME_MAX Then Channel(nChannel).volume = SAMPLE_VOLUME_MAX
 
             Case &HD ' Pattern Break
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &HE ' Extended Effects
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &HF ' Set Speed
                 If nOperand < 32 Then
                     Song.speed = nOperand
@@ -636,7 +690,7 @@ Sub UpdateMODRow
                 End If
 
             Case Else
-                Title "Effect not supported: " + Str$(nEffect) + "!"
+                Title "Unknown effect: " + Str$(nEffect)
         End Select
     Next
 End Sub
@@ -663,23 +717,55 @@ Sub UpdateMODTick
 
         Select Case nEffect
             Case &H0 ' Arpeggio
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &H1 ' Slide up
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &H2 ' Slide Down
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &H3 ' Tone Portamento
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &H4 ' Vibrato
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &H5 ' Tone Portamento + Volume Slide
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &H6 ' Vibrato + Volume Slide
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &H7 ' Tremolo
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &H8 ' Set Panning Position
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &H9 ' Set Sample Offset
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &HA ' Volume Slide
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &HB ' Position Jump
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &HC ' Set Volume
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &HD ' Pattern Break
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &HE ' Extended Effects
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case &HF ' Set Speed
+                Title "Effect not implemented: " + Str$(nEffect)
+
             Case Else
-                Title "Effect not supported: " + Str$(nEffect) + "!"
+                Title "Unknown effect: " + Str$(nEffect)
         End Select
     Next
 End Sub
@@ -690,17 +776,17 @@ End Sub
 Sub MixMODFrame
     Dim i As Unsigned Long
     Dim As Unsigned Byte chan, nSample, vol, pan
-    Dim As Single fpos, sam, samLT, samRT
-    Dim As Byte sam1, sam2
+    Dim As Single fpos, fsam, fsamLT, fsamRT
+    Dim As Byte bsam1, bsam2
 
     For i = 1 To Song.mixBufferSize
-        samLT = 0
-        samRT = 0
+        fsamLT = 0
+        fsamRT = 0
 
         For chan = 0 To Song.channels - 1
             ' Check if we need to mix the sample, wrap or simply stop
             ' Get one sample from each channel
-            ' Add the sample to samLT & samRT after coverting to QB64 sound pipe format considering panning
+            ' Add the sample to samLT & samRT after applying panning & volume
             ' Increment the sample position and check other stuff
 
             ' Get the sample number we need to work with
@@ -730,17 +816,18 @@ Sub MixMODFrame
                     ' Get a sample, change format and add
                     ' Samples are stored in a string and strings are 1 based
                     If Song.useHQMix Then
-                        sam1 = Asc(SampleData(nSample), 1 + Fix(fpos))
-                        sam2 = Asc(SampleData(nSample), 2 + Fix(fpos))
-                        sam = sam1 + (sam2 - sam1) * (fpos - Fix(fpos))
+                        ' Apply interpolation
+                        bsam1 = Asc(SampleData(nSample), 1 + Fix(fpos))
+                        bsam2 = Asc(SampleData(nSample), 2 + Fix(fpos))
+                        fsam = bsam1 + (bsam2 - bsam1) * (fpos - Fix(fpos))
                     Else
-                        sam1 = Asc(SampleData(nSample), 1 + fpos)
-                        sam = sam1
+                        bsam1 = Asc(SampleData(nSample), 1 + fpos)
+                        fsam = bsam1
                     End If
 
                     ' The following two lines does volume & panning
-                    samLT = samLT + (sam * (((SAMPLE_PAN_RIGHT - pan) * vol) / SAMPLE_PAN_RIGHT) / SAMPLE_VOLUME_MAX) / 128 ' MOD sound samples are signed -128 to 127
-                    samRT = samRT + (sam * ((pan * vol) / SAMPLE_PAN_RIGHT) / SAMPLE_VOLUME_MAX) / 128 ' So, we divide the samples by 128 to convert these to QB64 sound pipe format
+                    fsamLT = fsamLT + (fsam * (((SAMPLE_PAN_RIGHT - pan) * vol) / SAMPLE_PAN_RIGHT) / SAMPLE_VOLUME_MAX)
+                    fsamRT = fsamRT + (fsam * ((pan * vol) / SAMPLE_PAN_RIGHT) / SAMPLE_VOLUME_MAX)
 
                     ' Move to the next sample position based on the pitch
                     Channel(chan).samplePosition = Channel(chan).samplePosition + Channel(chan).pitch
@@ -748,11 +835,16 @@ Sub MixMODFrame
             End If
         Next
 
-        ' Now divide the summed sample by the number of channels and apply master volume
-        samLT = (samLT / Song.channels) * Song.volume / SONG_VOLUME_MAX
-        samRT = (samRT / Song.channels) * Song.volume / SONG_VOLUME_MAX
+        ' Now divide the summed sample by the number of channels and apply master volume + amplification (if any)
+        ' MOD sound samples are signed -128 to 127
+        ' So, we divide the samples by 128 to convert these to QB64 sound pipe format
+        ' We simply reuse fsam to reduce common floating point math
+        ' The below expression has been simplified and rearranged to reduce the number of divisions
+        ' Don't ask me how. Probably I was drunk. But it works. :)
+        fsam = (Song.volume * SONG_CHANNEL_MAX + SONG_AMPLIFICATION_VOLUME * Song.channels - SONG_AMPLIFICATION_VOLUME) / (128 * Song.channels * SONG_CHANNEL_MAX * SONG_VOLUME_MAX)
+
         ' Feed the sample to the QB64 sound pipe
-        SndRaw samLT, samRT, Song.qb64SoundPipe
+        SndRaw fsamLT * fsam, fsamRT * fsam, Song.qb64SoundPipe
     Next
 End Sub
 '-----------------------------------------------------------------------------------------------------
