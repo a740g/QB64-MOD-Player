@@ -35,6 +35,12 @@ Const SONG_BPM_DEFAULT~%% = 125~%% ' Default song BPM
 Const SONG_VOLUME_MAX~%% = 255~%% ' Max song master volume
 Const SONG_AMPLIFICATION_VOLUME~%% = 32~%% ' Maximum volume that can be applied to final mix
 Const SONG_CHANNEL_MAX~%% = 99~%% ' Maximum number of MOD channels we can have
+' This helps with QB64 sndraw buffer underruns due to timer glitches, system hitches etc.
+' Setting this to something big will "slow" down the final audio stream
+' Also, audio will keep playing even after the song has ended
+' I am considering moving the Update() code to something that can be polled
+' This will help us avoid these hacks
+Const MIXER_BUFFER_UNDERRUN_PROTECTION~% = 256~%
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -69,6 +75,9 @@ Type ChannelType
     pitch As Single ' Sample pitch. The mixer code uses this to step through the sample correctly
     panningPosition As Single ' Position 0 is leftmost ... 255 is rightmost
     samplePosition As Single ' Where are we in the sample buffer
+    patternLoopRow As Integer ' This is the beginning of the loop in the pattern for effect E6x
+    patternLoopRowCounter As Unsigned Byte ' This is a loop counter for effect E6x
+    sampleOffset As Single ' This is used for effect 9xy
 End Type
 
 Type SongType
@@ -93,9 +102,9 @@ Type SongType
     tick As Unsigned Byte ' Current song tick
     qb64SoundPipe As Long ' QB64 sound pipe that we will use to stream the mixed audio
     volume As Unsigned Byte ' Song master volume 0 is none ... 255 is full
-    mixRate As Long ' This is always set by QB64 internal audio engine
-    mixBufferSize As Unsigned Long ' This is the amount of samples we have to mix based on mixerRate & bpm
-    useHQMix As Byte ' If this is set to true, then we are using linear interpolation mixing
+    mixerRate As Long ' This is always set by QB64 internal audio engine
+    mixerBufferSize As Unsigned Long ' This is the amount of samples we have to mix based on mixerRate & bpm
+    useHQMixer As Byte ' If this is set to true, then we are using linear interpolation mixing
 End Type
 '-----------------------------------------------------------------------------------------------------
 
@@ -123,7 +132,7 @@ ReDim Shared NoteTable(0 To 0) As String * 3
 '-----------------------------------------------------------------------------------------------------
 ' PROGRAM DATA
 '-----------------------------------------------------------------------------------------------------
-' Amiga frequency table
+' Amiga frequency table. TODO: Fix this!
 FreqTab:
 Data 296
 Data 907,900,894,887,881,875,868,862
@@ -165,6 +174,15 @@ Data 120,119,118,118,117,116,115,114
 Data 113,113,112,111,110,109,109,108
 Data NaN
 
+' Sine table for tremolo & vibrato
+SineTab:
+Data 32
+Data 0,24,49,74,97,120,141,161
+Data 180,197,212,224,235,244,250,253
+Data 255,253,250,244,235,224,212,197
+Data 180,161,141,120,97,74,49,24
+Data NaN
+
 NoteTab:
 Data 37
 Data "   "
@@ -181,7 +199,7 @@ Width 120, 40
 
 Dim As String modFileName
 
-If CommandCount > 0 Then modFileName = Command$ Else modFileName = "ELYSIUM.mod"
+If CommandCount > 0 Then modFileName = Command$ Else modFileName = "starg12.mod"
 
 If LoadMODFile(modFileName) Then
     Print "Loaded MOD file!"
@@ -216,7 +234,7 @@ Do
             Song.isLooping = Not Song.isLooping
 
         Case "q", "Q"
-            Song.useHQMix = Not Song.useHQMix
+            Song.useHQMixer = Not Song.useHQMixer
     End Select
 
     Print Using "### ### ##: "; Song.orderPosition; Order(Song.orderPosition); Song.patternRow;
@@ -262,7 +280,7 @@ Sub UpdateMODTimer (nBPM As Unsigned Byte)
     Song.bpm = nBPM
 
     ' Calculate the mixer buffer update size
-    Song.mixBufferSize = ((Song.mixRate * 10) / Song.bpm) / 4
+    Song.mixerBufferSize = ((Song.mixerRate * 10) / Song.bpm) / 4
 
     ' S / (2 * B / 5) (where S is second and B is BPM)
     On Timer(Song.qb64Timer, 1 / (2 * Song.bpm / 5)) MODPlayerTimerHandler
@@ -347,21 +365,11 @@ Function LoadMODFile%% (sName As String)
     ' Resize the sample array
     ReDim Sample(1 To Song.samples) As SampleType
     Dim As Unsigned Byte byte1, byte2
-    Dim c As Unsigned Integer
 
     ' Load the sample headers
     For i = 1 To Song.samples
         ' Read the sample name
         Get fileHandle, , Sample(i).sampleName
-
-        ' Extra checks for 15 sample MOD
-        For c = 1 To Len(Sample(i).sampleName)
-            If isprint(Asc(Sample(i).sampleName, c)) = 0 And Asc(Sample(i).sampleName, c) <> NULL Then
-                ' This is probably not a 15 sample MOD file
-                Close fileHandle
-                Exit Function
-            End If
-        Next
 
         ' Read sample length
         Get fileHandle, , byte1
@@ -381,7 +389,7 @@ Function LoadMODFile%% (sName As String)
         Get fileHandle, , byte1
         Get fileHandle, , byte2
         Sample(i).loopStart = (byte1 * &H100 + byte2) * 2
-        If Sample(i).loopStart > Sample(i).length - 1 Then Sample(i).loopStart = 0 ' Sanity check
+        If Sample(i).loopStart >= Sample(i).length Then Sample(i).loopStart = 0 ' Sanity check
 
         ' Read loop length
         Get fileHandle, , byte1
@@ -391,7 +399,7 @@ Function LoadMODFile%% (sName As String)
 
         ' Calculate repeat end
         Sample(i).loopEnd = Sample(i).loopStart + Sample(i).loopLength
-        If Sample(i).loopEnd > Sample(i).length Then Sample(i).loopEnd = Sample(i).length ' Sanity check
+        If Sample(i).loopEnd >= Sample(i).length Then Sample(i).loopEnd = Sample(i).length ' Sanity check
     Next
 
     Song.orders = Asc(Input$(1, fileHandle))
@@ -408,6 +416,7 @@ Function LoadMODFile%% (sName As String)
 
     ' Resize pattern data array
     ReDim Pattern(0 To Song.highestPattern, 0 To PATTERN_ROW_MAX, 0 To Song.channels - 1) As PatternType
+    Dim c As Unsigned Integer
 
     ' Skip past the 4 byte marker if this is a 31 sample mod
     If Song.samples = 31 Then Seek fileHandle, Loc(1) + 5
@@ -466,8 +475,8 @@ Function LoadMODFile%% (sName As String)
         SampleData(i) = Space$(Sample(i).length)
         ' Now load the data
         Get fileHandle, , SampleData(i)
-        ' Allocate 2 bytes more than needed for mixer runoff
-        SampleData(i) = SampleData(i) + String$(2, NULL)
+        ' Allocate 1 byte more than needed for mixer runoff
+        SampleData(i) = SampleData(i) + Chr$(NULL)
     Next
 
     Close fileHandle
@@ -488,11 +497,7 @@ Sub StartMODPlayer
     Next
 
     ' Set the mix rate to match that of the system
-    ' TODO: This 4+ more more here might help with QB64 sndraw buffer underruns due to timer glitches
-    '   Need to fully test this and look for any side effects
-    '   Setting this to something big will "slow" down the final audio stream
-    '   Also, audio will keep playing even after the song has ended
-    Song.mixRate = SndRate '+ 4
+    Song.mixerRate = SndRate + MIXER_BUFFER_UNDERRUN_PROTECTION
 
     ' Initialize some important stuff
     Song.orderPosition = 0
@@ -637,7 +642,7 @@ Sub UpdateMODRow
         If nPeriod > 0 Then
             ' If not a porta effect, then set the channel pitch to the looked up amiga value + or - any finetune
             If nEffect <> 3 And nEffect <> 5 Then
-                Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixRate
+                Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixerRate
                 Channel(nChannel).played = FALSE
                 Channel(nChannel).samplePosition = 0
             End If
@@ -649,7 +654,10 @@ Sub UpdateMODRow
                 Channel(nChannel).panningPosition = nOperand
 
             Case &H9 ' 9: Set Sample Offset
-                Title "Effect not implemented: " + Str$(nEffect)
+                If nOperand > 0 Then Channel(nChannel).sampleOffset = nOperand * 256
+                If Channel(nChannel).sampleOffset >= Sample(Channel(nChannel).sample).length Then Channel(nChannel).sampleOffset = Sample(Channel(nChannel).sample).length - 1
+                Channel(nChannel).samplePosition = Channel(nChannel).sampleOffset
+
 
             Case &HB ' 11: Jump To Pattern
                 Song.orderPosition = nOperand
@@ -658,8 +666,7 @@ Sub UpdateMODRow
                 patternJumpFlag = TRUE
 
             Case &HC ' 12: Set Volume
-                Channel(nChannel).volume = nOperand
-                If Channel(nChannel).volume < 0 Then Channel(nChannel).volume = 0
+                Channel(nChannel).volume = nOperand ' This can never be +ve cause it is unsigned. So we only clip for max
                 If Channel(nChannel).volume > SAMPLE_VOLUME_MAX Then Channel(nChannel).volume = SAMPLE_VOLUME_MAX
 
             Case &HD ' 13: Pattern Break
@@ -672,31 +679,54 @@ Sub UpdateMODRow
             Case &HE ' 14: Extended Effects
                 Select Case nOpX
                     Case &H0 ' 0: Set Filter
-                        'Song.useHQMix = Not (nOpY <> 0) ' Most docs say if y is 0, then turn it on
-                        Song.useHQMix = nOpY <> 0 ' I'am conflicted XD. FireLight doc says the opposite
+                        'Song.useHQMixer = Not (nOpY <> 0) ' Most docs say if y is 0, then turn it on
+                        Song.useHQMixer = nOpY <> 0 ' I'am conflicted XD. FireLight doc says the opposite
 
                     Case &H1 ' 1: Fine Portamento Up
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+
                     Case &H2 ' 2: Fine Portamento Down
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+
                     Case &H3 ' 3: Glissando Control
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+
                     Case &H4 ' 4: Set Vibrato Waveform
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+
                     Case &H5 ' 5: Set Finetune
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+
                     Case &H6 ' 6: Pattern Loop
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                        If nOpY = 0 Then
+                            Channel(nChannel).patternLoopRow = nPatternRow
+                        Else
+                            If Channel(nChannel).patternLoopRowCounter = 0 Then
+                                Channel(nChannel).patternLoopRowCounter = nOpY
+                            Else
+                                Channel(nChannel).patternLoopRowCounter = Channel(nChannel).patternLoopRowCounter - 1
+                            End If
+                        End If
+                        If Channel(nChannel).patternLoopRowCounter > 0 Then Song.patternRow = Channel(nChannel).patternLoopRow - 1
+
                     Case &H7 ' 7: Set Tremolo WaveForm
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+
                     Case &H8 ' 8: 16 position panning
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                        If nOpY > 15 Then nOpY = 15
+                        Channel(nChannel).panningPosition = nOpY * ((SAMPLE_PAN_RIGHT - SAMPLE_PAN_LEFT) / 15)
+
                     Case &HA ' 10: Fine Volume Slide Up
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                        Channel(nChannel).volume = Channel(nChannel).volume + nOpY
+                        If Channel(nChannel).volume > SAMPLE_VOLUME_MAX Then Channel(nChannel).volume = SAMPLE_VOLUME_MAX
+
                     Case &HB ' 11: Fine Volume Slide Down
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                        Channel(nChannel).volume = Channel(nChannel).volume - nOpY
+                        If Channel(nChannel).volume < 0 Then Channel(nChannel).volume = 0
+
                     Case &HE ' 14: Pattern Delay
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                        Song.patternDelay = nOpY
+
                     Case &HF ' 15: Invert Loop
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
                 End Select
@@ -734,11 +764,11 @@ Sub UpdateMODTick
                 If (nOperand > 0) Then
                     Select Case Song.tick Mod 3
                         Case 0
-                            Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixRate
+                            Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixerRate
                         Case 1
-                            Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + (8 * nOpX) + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixRate
+                            Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + (8 * nOpX) + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixerRate
                         Case 2
-                            Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + (8 * nOpY) + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixRate
+                            Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + (8 * nOpY) + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixerRate
                     End Select
                 End If
 
@@ -779,9 +809,15 @@ Sub UpdateMODTick
                         End If
 
                     Case &HC ' 12: Cut Note
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                        If Song.tick = nOpY Then Channel(nChannel).volume = 0
+
                     Case &HD ' 13: Delay Note
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                        If Song.tick = nOpY Then
+                            If nSample > 0 Then Channel(nChannel).volume = Sample(Channel(nChannel).sample).volume
+                            Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixerRate
+                            Channel(nChannel).played = FALSE
+                            Channel(nChannel).samplePosition = 0
+                        End If
                 End Select
         End Select
     Next
@@ -796,7 +832,7 @@ Sub MixMODFrame
     Dim As Single fpan, fpos, fsam, fsamLT, fsamRT
     Dim As Byte bsam1, bsam2
 
-    For i = 1 To Song.mixBufferSize
+    For i = 1 To Song.mixerBufferSize
         fsamLT = 0
         fsamRT = 0
 
@@ -814,7 +850,7 @@ Sub MixMODFrame
                 ' Check if we are looping
                 If Sample(nSample).loopLength > 0 Then
                     ' Reset loop position if we reached the end of the loop
-                    If Channel(chan).samplePosition > Sample(nSample).loopEnd Then
+                    If Channel(chan).samplePosition >= Sample(nSample).loopEnd Then
                         Channel(chan).samplePosition = Sample(nSample).loopStart
                     End If
                 Else
@@ -832,7 +868,7 @@ Sub MixMODFrame
 
                     ' Get a sample, change format and add
                     ' Samples are stored in a string and strings are 1 based
-                    If Song.useHQMix Then
+                    If Song.useHQMixer Then
                         ' Apply interpolation
                         bsam1 = Asc(SampleData(nSample), 1 + Fix(fpos))
                         bsam2 = Asc(SampleData(nSample), 2 + Fix(fpos))
@@ -843,8 +879,9 @@ Sub MixMODFrame
                     End If
 
                     ' The following two lines does volume & panning
-                    fsamLT = fsamLT + (fsam * (((SAMPLE_PAN_RIGHT - fpan) * vol) / SAMPLE_PAN_RIGHT) / SAMPLE_VOLUME_MAX)
-                    fsamRT = fsamRT + (fsam * ((fpan * vol) / SAMPLE_PAN_RIGHT) / SAMPLE_VOLUME_MAX)
+                    ' The below expressions were simplified and rearranged to reduce the number of divisions
+                    fsamLT = fsamLT + (fsam * vol * (SAMPLE_PAN_RIGHT - fpan)) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
+                    fsamRT = fsamRT + (fsam * vol * fpan) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
 
                     ' Move to the next sample position based on the pitch
                     Channel(chan).samplePosition = Channel(chan).samplePosition + Channel(chan).pitch
@@ -856,9 +893,9 @@ Sub MixMODFrame
         ' MOD sound samples are signed -128 to 127
         ' So, we divide the samples by 128 to convert these to QB64 sound pipe format
         ' We simply reuse fsam to reduce common floating point math
-        ' The below expression has been simplified and rearranged to reduce the number of divisions
+        ' The below expression was simplified and rearranged to reduce the number of divisions
         ' Don't ask me how. Probably I was drunk. But it works. :)
-        fsam = (Song.volume * SONG_CHANNEL_MAX + SONG_AMPLIFICATION_VOLUME * Song.channels - SONG_AMPLIFICATION_VOLUME) / (128 * Song.channels * SONG_CHANNEL_MAX * SONG_VOLUME_MAX)
+        fsam = (Song.volume * SONG_CHANNEL_MAX + Song.channels * SONG_AMPLIFICATION_VOLUME - SONG_AMPLIFICATION_VOLUME) / (Song.channels * SONG_CHANNEL_MAX * SONG_VOLUME_MAX * 128)
 
         ' Feed the sample to the QB64 sound pipe
         SndRaw fsamLT * fsam, fsamRT * fsam, Song.qb64SoundPipe
