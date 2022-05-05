@@ -29,7 +29,7 @@ Const ORDER_TABLE_MAX~%% = 127~%% ' Max position in the order table
 Const SAMPLE_VOLUME_MAX~%% = 64~%% ' This is the maximum volume of any sample in the MOD
 Const SAMPLE_PAN_LEFT~%% = 0~%% ' Leftmost pannning position
 Const SAMPLE_PAN_RIGHT~%% = 255~%% ' Rightmost pannning position
-Const SAMPLE_PAN_CENTRE! = (SAMPLE_PAN_RIGHT - SAMPLE_PAN_LEFT) / 2! ' Center position
+Const SAMPLE_PAN_CENTRE! = (SAMPLE_PAN_RIGHT - SAMPLE_PAN_LEFT) / 2! ' Center panning position
 Const SONG_SPEED_DEFAULT~%% = 6~%% ' This is the default speed for song where it is not specified
 Const SONG_BPM_DEFAULT~%% = 125~%% ' Default song BPM
 Const SONG_VOLUME_MAX~%% = 255~%% ' Max song master volume
@@ -82,7 +82,6 @@ Type SongType
     orderPosition As Unsigned Byte ' The position in the order list
     patternRow As Integer ' Points to the pattern row to be played. This is int becase sometimes we need to set it to -1
     patternDelay As Unsigned Byte ' Number of times to delay pattern
-    orderJumpFlag As Byte ' This will be set to true if we have jumped to any order (Jump To Pattern effect)
     tickPattern As Unsigned Byte ' This is the pattern number where UpdateMODRow() was
     tickPatternRow As Integer ' This is the pattern row number processed by UpdateMODRow()
     isLooping As Byte ' Set this to true to loop the song once we reach the max order specified in the song
@@ -110,7 +109,7 @@ End Declare
 
 '-----------------------------------------------------------------------------------------------------
 ' GLOBAL VARIABLES
-'-----------------------------------    ------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------
 Dim Shared Song As SongType
 Dim Shared Order(0 To ORDER_TABLE_MAX) As Unsigned Byte ' Order list
 ReDim Shared Pattern(0 To 0, 0 To 0, 0 To 0) As PatternType ' Pattern data strored as (pattern, row, channel)
@@ -224,7 +223,7 @@ Do
     For nChan = 0 To Song.channels - 1
         Print Using ">&< \\ & \\ \\ "; Hex$(nChan); Hex$(Channel(nChan).sample); NoteTable(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).period / 8); Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).effect); Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).operand);
     Next
-    Print
+    Print 'SndRawLen
 
     Delay 0.01
 Loop While Song.isPlaying
@@ -489,7 +488,11 @@ Sub StartMODPlayer
     Next
 
     ' Set the mix rate to match that of the system
-    Song.mixRate = SndRate
+    ' TODO: This 4+ more more here might help with QB64 sndraw buffer underruns due to timer glitches
+    '   Need to fully test this and look for any side effects
+    '   Setting this to something big will "slow" down the final audio stream
+    '   Also, audio will keep playing even after the song has ended
+    Song.mixRate = SndRate '+ 4
 
     ' Initialize some important stuff
     Song.orderPosition = 0
@@ -607,6 +610,9 @@ Sub UpdateMODRow
     Dim As Unsigned Byte nSample, nEffect, nOperand, nOpX, nOpY, nChannel
     Dim nPeriod As Unsigned Integer
     Dim nPatternRow As Integer
+    Dim patternJumpFlag As Byte ' This is set to true when a pattern jump effect is triggered
+    Dim patternBreakFlag As Byte ' This is set to true when a pattern break effect is triggered
+
 
     ' We need this so that we don't start accessing -1 elements in the pattern array when there is a pattern jump
     nPatternRow = Song.patternRow
@@ -639,27 +645,6 @@ Sub UpdateMODRow
 
         ' Process tick 0 effects
         Select Case nEffect
-            Case &H1 ' 1: Slide up
-                Title "Effect not implemented: " + Str$(nEffect)
-
-            Case &H2 ' 2: Slide Down
-                Title "Effect not implemented: " + Str$(nEffect)
-
-            Case &H3 ' 3: Tone Portamento
-                Title "Effect not implemented: " + Str$(nEffect)
-
-            Case &H4 ' 4: Vibrato
-                Title "Effect not implemented: " + Str$(nEffect)
-
-            Case &H5 ' 5: Tone Portamento + Volume Slide
-                Title "Effect not implemented: " + Str$(nEffect)
-
-            Case &H6 ' 6: Vibrato + Volume Slide
-                Title "Effect not implemented: " + Str$(nEffect)
-
-            Case &H7 ' 7: Tremolo
-                Title "Effect not implemented: " + Str$(nEffect)
-
             Case &H8 ' 8: Set Panning Position
                 Channel(nChannel).panningPosition = nOperand
 
@@ -670,7 +655,7 @@ Sub UpdateMODRow
                 Song.orderPosition = nOperand
                 Song.patternRow = -1 ' This will increment right after & we will start at 0
                 If Song.orderPosition >= Song.orders Then Song.orderPosition = Song.endJumpOrder
-                Song.orderJumpFlag = TRUE
+                patternJumpFlag = TRUE
 
             Case &HC ' 12: Set Volume
                 Channel(nChannel).volume = nOperand
@@ -678,42 +663,41 @@ Sub UpdateMODRow
                 If Channel(nChannel).volume > SAMPLE_VOLUME_MAX Then Channel(nChannel).volume = SAMPLE_VOLUME_MAX
 
             Case &HD ' 13: Pattern Break
-                Title "Effect not implemented: " + Str$(nEffect)
+                Song.patternRow = (nOpX * 10) + nOpY - 1
+                If Song.patternRow > PATTERN_ROW_MAX Then Song.patternRow = -1
+                If Not patternBreakFlag And Not patternJumpFlag Then Song.orderPosition = Song.orderPosition + 1
+                If Song.orderPosition >= Song.orders Then Song.orderPosition = Song.endJumpOrder
+                patternBreakFlag = TRUE
 
             Case &HE ' 14: Extended Effects
                 Select Case nOpX
-                    Case &H0
-                        Song.useHQMix = Not (nOpY <> 0) ' Most docs say if y is 0, then turn it on
+                    Case &H0 ' 0: Set Filter
+                        'Song.useHQMix = Not (nOpY <> 0) ' Most docs say if y is 0, then turn it on
+                        Song.useHQMix = nOpY <> 0 ' I'am conflicted XD. FireLight doc says the opposite
 
-                    Case &H1
+                    Case &H1 ' 1: Fine Portamento Up
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &H2
+                    Case &H2 ' 2: Fine Portamento Down
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &H3
+                    Case &H3 ' 3: Glissando Control
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &H4
+                    Case &H4 ' 4: Set Vibrato Waveform
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &H5
+                    Case &H5 ' 5: Set Finetune
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &H6
+                    Case &H6 ' 6: Pattern Loop
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &H7
+                    Case &H7 ' 7: Set Tremolo WaveForm
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &H8
+                    Case &H8 ' 8: 16 position panning
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &H9
+                    Case &HA ' 10: Fine Volume Slide Up
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &HA
+                    Case &HB ' 11: Fine Volume Slide Down
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &HB
+                    Case &HE ' 14: Pattern Delay
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &HC
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &HD
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &HE
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &HF
+                    Case &HF ' 15: Invert Loop
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
                 End Select
 
@@ -758,13 +742,13 @@ Sub UpdateMODTick
                     End Select
                 End If
 
-            Case &H1 ' 1: Slide up
+            Case &H1 ' 1: Porta Up
                 Title "Effect not implemented: " + Str$(nEffect)
 
-            Case &H2 ' 2: Slide Down
+            Case &H2 ' 2: Porta Down
                 Title "Effect not implemented: " + Str$(nEffect)
 
-            Case &H3 ' 3: Tone Portamento
+            Case &H3 ' 3: Porta To Note
                 Title "Effect not implemented: " + Str$(nEffect)
 
             Case &H4 ' 4: Vibrato
@@ -784,40 +768,19 @@ Sub UpdateMODTick
                 If Channel(nChannel).volume < 0 Then Channel(nChannel).volume = 0
                 If Channel(nChannel).volume > SAMPLE_VOLUME_MAX Then Channel(nChannel).volume = SAMPLE_VOLUME_MAX
 
-            Case &HD ' 13: Pattern Break
-                Title "Effect not implemented: " + Str$(nEffect)
-
             Case &HE ' 14: Extended Effects
                 Select Case nOpX
-                    Case &H1
+                    Case &H9 ' 9: Retrigger Note
+                        If nOpY <> 0 Then
+                            If Song.tick Mod nOpY = 0 Then
+                                Channel(nChannel).played = FALSE
+                                Channel(nChannel).samplePosition = 0
+                            End If
+                        End If
+
+                    Case &HC ' 12: Cut Note
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &H2
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &H3
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &H4
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &H5
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &H6
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &H7
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &H8
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &H9
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &HA
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &HB
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &HC
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &HD
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &HE
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
-                    Case &HF
+                    Case &HD ' 13: Delay Note
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
                 End Select
         End Select
