@@ -166,6 +166,23 @@ Data 120,119,118,118,117,116,115,114
 Data 113,113,112,111,110,109,109,108
 Data NaN
 
+' Thanks to FireLight for this table
+PeriodTab:
+Data 134
+Data 27392,25856,24384,23040,21696,20480,19328,18240,17216,16256,15360,14496
+Data 13696,12928,12192,11520,10848,10240,9664,9120,8608,8128,7680,7248
+Data 6848,6464,6096,5760,5424,5120,4832,4560,4304,4064,3840,3624
+Data 3424,3232,3048,2880,2712,2560,2416,2280,2152,2032,1920,1812
+Data 1712,1616,1524,1440,1356,1280,1208,1140,1076,1016,960,906
+Data 856,808,762,720,678,640,604,570,538,508,480,453
+Data 428,404,381,360,339,320,302,285,269,254,240,226
+Data 214,202,190,180,170,160,151,143,135,127,120,113
+Data 107,101,95,90,85,80,75,71,67,63,60,56
+Data 53,50,47,45,42,40,37,35,33,31,30,28
+Data 26,25,23,22,21,20,18,17,16,15,15,14
+Data 0,0
+Data NaN
+
 ' Sine table for tremolo & vibrato
 SineTab:
 Data 32
@@ -391,7 +408,7 @@ Function LoadMODFile%% (sName As String)
 
         ' Calculate repeat end
         Sample(i).loopEnd = Sample(i).loopStart + Sample(i).loopLength
-        If Sample(i).loopEnd >= Sample(i).length Then Sample(i).loopEnd = Sample(i).length ' Sanity check
+        If Sample(i).loopEnd > Sample(i).length Then Sample(i).loopEnd = Sample(i).length ' Sanity check
     Next
 
     Song.orders = Asc(Input$(1, fileHandle))
@@ -438,9 +455,11 @@ Function LoadMODFile%% (sName As String)
                 Pattern(i, a, b).sample = (byte1 And &HF0) Or SHR(byte3, 4)
 
                 period = SHL(byte1 And &HF, 8) Or byte2
+
                 ' Do the look up in the table against what is read in
                 ' Store note (in midi style format)
-                Pattern(i, a, b).period = 0
+                ' TODO: Fix this per updated freq table
+                Pattern(i, a, b).period = 0 ' Zero is probably not a good idea
                 For c = 1 To 36
                     If period > FrequencyTable(c * 8) - 3 And period < FrequencyTable(c * 8) + 3 Then
                         Pattern(i, a, b).period = c * 8
@@ -452,8 +471,6 @@ Function LoadMODFile%% (sName As String)
 
                 ' Some sanity check
                 If Pattern(i, a, b).sample > Song.samples Then Pattern(i, a, b).sample = 0 ' Sample 0 means no sample. So valid sample are 1-15/31
-                '  TODO: Check if these are really required
-                'If Pattern(i, a, b).effect = &HC And Pattern(i, a, b).operand > 64 Then Pattern(i, a, b).operand = 64
             Next
         Next
     Next
@@ -467,8 +484,8 @@ Function LoadMODFile%% (sName As String)
         SampleData(i) = Space$(Sample(i).length)
         ' Now load the data
         Get fileHandle, , SampleData(i)
-        ' Allocate 1 byte more than needed for mixer runoff
-        SampleData(i) = SampleData(i) + Chr$(NULL)
+        ' Allocate 2 bytes more than needed for mixer runoff
+        SampleData(i) = SampleData(i) + String$(2, NULL)
     Next
 
     Close fileHandle
@@ -552,7 +569,6 @@ Sub MODPlayerTimerHandler
             Song.patternRow = 0
             Song.speed = SONG_SPEED_DEFAULT
             Song.tick = Song.speed
-            'Song.orderJumpFlag = TRUE  ' TODO: Is this needed?
         Else
             Song.isPlaying = FALSE
             Exit Sub
@@ -570,6 +586,7 @@ Sub MODPlayerTimerHandler
         If Song.patternDelay = 0 Then
 
             ' Save the pattern and row for UpdateMODTick()
+            ' The pattern that we are playing is always Song.tickPattern
             Song.tickPattern = Order(Song.orderPosition)
             Song.tickPatternRow = Song.patternRow
 
@@ -602,7 +619,6 @@ End Sub
 
 
 ' Updates a row of notes and play them out on tick 0
-' The pattern that we are playing is always Song.tickPattern. This is always updated in the timer handler
 Sub UpdateMODRow
     Dim As Unsigned Byte nSample, nEffect, nOperand, nOpX, nOpY, nChannel
     Dim nPeriod As Unsigned Integer
@@ -631,7 +647,7 @@ Sub UpdateMODRow
         End If
 
         ' ONLY RESET PITCH IF THERE IS A PERIOD VALUE AND PORTA NOT SET
-        If nPeriod > 0 Then
+        If nPeriod > 0 Then ' TODO: Zero here is not good
             ' If not a porta effect, then set the channel pitch to the looked up amiga value + or - any finetune
             If nEffect <> 3 And nEffect <> 5 Then
                 Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
@@ -643,6 +659,7 @@ Sub UpdateMODRow
         ' Process tick 0 effects
         Select Case nEffect
             Case &H8 ' 8: Set Panning Position
+                ' Don't care about DMP panning BS. We are doing this the Fastracker style
                 Channel(nChannel).panningPosition = nOperand
 
             Case &H9 ' 9: Set Sample Offset
@@ -706,6 +723,7 @@ Sub UpdateMODRow
 
                     Case &H8 ' 8: 16 position panning
                         If nOpY > 15 Then nOpY = 15
+                        ' Why does this kind of stuff bother me so much. We just could have written "/ 17" XD
                         Channel(nChannel).panningPosition = nOpY * ((SAMPLE_PAN_RIGHT - SAMPLE_PAN_LEFT) / 15)
 
                     Case &HA ' 10: Fine Volume Slide Up
@@ -881,16 +899,16 @@ Sub MixMODFrame
             End If
         Next
 
-        ' Man! I was probably more drunk that I thought and made such a simple thing so complicated
+        ' Man! I was probably more drunk than I thought and made such a simple thing so complicated
         fsam = Song.volume / (256 * SONG_VOLUME_MAX)
         fsamLT = fsamLT * fsam
         fsamRT = fsamRT * fsam
 
-        ' Clipping
-        If fsamLT < -1.0 Then fsamLT = -1.0
-        If fsamLT > 1.0 Then fsamLT = 1.0
-        If fsamRT < -1.0 Then fsamRT = -1.0
-        If fsamRT > 1.0 Then fsamRT = 1.0
+        ' Clip samples to QB64 range
+        If fsamLT < -1 Then fsamLT = -1
+        If fsamLT > 1 Then fsamLT = 1
+        If fsamRT < -1 Then fsamRT = -1
+        If fsamRT > 1 Then fsamRT = 1
 
         ' Feed the sample to the QB64 sound pipe
         SndRaw fsamLT, fsamRT, Song.qb64SoundPipe
