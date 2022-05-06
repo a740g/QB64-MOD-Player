@@ -632,9 +632,11 @@ Sub UpdateMODRow
         If nPeriod >= 0 Then
             ' If not a porta effect, then set the channel pitch to the looked up amiga value + or - any finetune
             If nEffect <> 3 And nEffect <> 5 Then
-                Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
-                Channel(nChannel).played = FALSE
-                Channel(nChannel).samplePosition = 0
+                If Channel(nChannel).sample > 0 Then ' TODO: This "if" may be a hack and really not required
+                    Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
+                    Channel(nChannel).played = FALSE
+                    Channel(nChannel).samplePosition = 0
+                End If
             End If
         End If
 
@@ -645,9 +647,11 @@ Sub UpdateMODRow
                 Channel(nChannel).panningPosition = nOperand
 
             Case &H9 ' 9: Set Sample Offset
-                If nOperand > 0 Then Channel(nChannel).sampleOffset = nOperand * 256
-                If Channel(nChannel).sampleOffset >= Sample(Channel(nChannel).sample).length Then Channel(nChannel).sampleOffset = Sample(Channel(nChannel).sample).length - 1
-                Channel(nChannel).samplePosition = Channel(nChannel).sampleOffset
+                If Channel(nChannel).sample > 0 Then ' TODO: This "if" may be a hack and really not required
+                    If nOperand > 0 Then Channel(nChannel).sampleOffset = nOperand * 256
+                    If Channel(nChannel).sampleOffset >= Sample(Channel(nChannel).sample).length Then Channel(nChannel).sampleOffset = Sample(Channel(nChannel).sample).length - 1
+                    Channel(nChannel).samplePosition = Channel(nChannel).sampleOffset
+                End If
 
 
             Case &HB ' 11: Jump To Pattern
