@@ -605,11 +605,9 @@ End Sub
 ' Updates a row of notes and play them out on tick 0
 Sub UpdateMODRow
     Dim As Unsigned Byte nSample, nEffect, nOperand, nOpX, nOpY, nChannel
-    Dim nPeriod As Integer
-    Dim nPatternRow As Integer
-    Dim patternJumpFlag As Byte ' This is set to true when a pattern jump effect is triggered
-    Dim patternBreakFlag As Byte ' This is set to true when a pattern break effect is triggered
-
+    Dim As Integer nPeriod, nPatternRow
+    ' This are set to true when a pattern jump effect and pattern break effect are triggered
+    Dim As Byte patternJumpFlag, patternBreakFlag
 
     ' We need this so that we don't start accessing -1 elements in the pattern array when there is a pattern jump
     nPatternRow = Song.patternRow
@@ -672,8 +670,7 @@ Sub UpdateMODRow
             Case &HE ' 14: Extended Effects
                 Select Case nOpX
                     Case &H0 ' 0: Set Filter
-                        'Song.useHQMixer = Not (nOpY <> 0) ' Most docs say if y is 0, then turn it on
-                        Song.useHQMixer = nOpY <> 0 ' I'am conflicted XD. FireLight doc says the opposite
+                        Song.useHQMixer = nOpY <> 0
 
                     Case &H1 ' 1: Fine Portamento Up
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
