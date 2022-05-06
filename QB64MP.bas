@@ -33,14 +33,6 @@ Const SAMPLE_PAN_CENTRE! = (SAMPLE_PAN_RIGHT - SAMPLE_PAN_LEFT) / 2! ' Center pa
 Const SONG_SPEED_DEFAULT~%% = 6~%% ' This is the default speed for song where it is not specified
 Const SONG_BPM_DEFAULT~%% = 125~%% ' Default song BPM
 Const SONG_VOLUME_MAX~%% = 255~%% ' Max song master volume
-Const SONG_AMPLIFICATION_VOLUME~%% = 32~%% ' Maximum volume that can be applied to final mix
-Const SONG_CHANNEL_MAX~%% = 99~%% ' Maximum number of MOD channels we can have
-' This helps with QB64 sndraw buffer underruns due to timer glitches, system hitches etc.
-' Setting this to something big will "slow" down the final audio stream
-' Also, audio will keep playing even after the song has ended
-' I am considering moving the Update() code to something that can be polled
-' This will help us avoid these hacks
-Const MIXER_BUFFER_UNDERRUN_PROTECTION~% = 256~%
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -280,10 +272,10 @@ Sub UpdateMODTimer (nBPM As Unsigned Byte)
     Song.bpm = nBPM
 
     ' Calculate the mixer buffer update size
-    Song.mixerBufferSize = ((Song.mixerRate * 10) / Song.bpm) / 4
+    Song.mixerBufferSize = (Song.mixerRate * 5) / (2 * Song.bpm)
 
     ' S / (2 * B / 5) (where S is second and B is BPM)
-    On Timer(Song.qb64Timer, 1 / (2 * Song.bpm / 5)) MODPlayerTimerHandler
+    On Timer(Song.qb64Timer, 5 / (2 * Song.bpm)) MODPlayerTimerHandler
 End Sub
 
 
@@ -497,7 +489,7 @@ Sub StartMODPlayer
     Next
 
     ' Set the mix rate to match that of the system
-    Song.mixerRate = SndRate + MIXER_BUFFER_UNDERRUN_PROTECTION
+    Song.mixerRate = SndRate
 
     ' Initialize some important stuff
     Song.orderPosition = 0
@@ -642,7 +634,7 @@ Sub UpdateMODRow
         If nPeriod > 0 Then
             ' If not a porta effect, then set the channel pitch to the looked up amiga value + or - any finetune
             If nEffect <> 3 And nEffect <> 5 Then
-                Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixerRate
+                Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
                 Channel(nChannel).played = FALSE
                 Channel(nChannel).samplePosition = 0
             End If
@@ -764,11 +756,11 @@ Sub UpdateMODTick
                 If (nOperand > 0) Then
                     Select Case Song.tick Mod 3
                         Case 0
-                            Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixerRate
+                            Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
                         Case 1
-                            Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + (8 * nOpX) + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixerRate
+                            Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + (8 * nOpX) + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
                         Case 2
-                            Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + (8 * nOpY) + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixerRate
+                            Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + (8 * nOpY) + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
                     End Select
                 End If
 
@@ -814,7 +806,7 @@ Sub UpdateMODTick
                     Case &HD ' 13: Delay Note
                         If Song.tick = nOpY Then
                             If nSample > 0 Then Channel(nChannel).volume = Sample(Channel(nChannel).sample).volume
-                            Channel(nChannel).pitch = (AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * 2)) / Song.mixerRate
+                            Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
                             Channel(nChannel).played = FALSE
                             Channel(nChannel).samplePosition = 0
                         End If
@@ -889,16 +881,19 @@ Sub MixMODFrame
             End If
         Next
 
-        ' Now divide the summed sample by the number of channels and apply master volume + amplification (if any)
-        ' MOD sound samples are signed -128 to 127
-        ' So, we divide the samples by 128 to convert these to QB64 sound pipe format
-        ' We simply reuse fsam to reduce common floating point math
-        ' The below expression was simplified and rearranged to reduce the number of divisions
-        ' Don't ask me how. Probably I was drunk. But it works. :)
-        fsam = (Song.volume * SONG_CHANNEL_MAX + Song.channels * SONG_AMPLIFICATION_VOLUME - SONG_AMPLIFICATION_VOLUME) / (Song.channels * SONG_CHANNEL_MAX * SONG_VOLUME_MAX * 128)
+        ' Man! I was probably more drunk that I thought and made such a simple thing so complicated
+        fsam = Song.volume / (256 * SONG_VOLUME_MAX)
+        fsamLT = fsamLT * fsam
+        fsamRT = fsamRT * fsam
+
+        ' Clipping
+        If fsamLT < -1.0 Then fsamLT = -1.0
+        If fsamLT > 1.0 Then fsamLT = 1.0
+        If fsamRT < -1.0 Then fsamRT = -1.0
+        If fsamRT > 1.0 Then fsamRT = 1.0
 
         ' Feed the sample to the QB64 sound pipe
-        SndRaw fsamLT * fsam, fsamRT * fsam, Song.qb64SoundPipe
+        SndRaw fsamLT, fsamRT, Song.qb64SoundPipe
     Next
 End Sub
 '-----------------------------------------------------------------------------------------------------
