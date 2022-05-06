@@ -45,7 +45,7 @@ Const SONG_VOLUME_MAX~%% = 255~%% ' Max song master volume
 ' +-------------------------------------+
 Type PatternType
     sample As Unsigned Byte ' aaaaDDDD = sample number
-    period As Unsigned Integer ' BBBBCCCCCCCC = sample period value
+    period As Integer ' BBBBCCCCCCCC = sample period value
     effect As Unsigned Byte ' eeee = effect number
     operand As Unsigned Byte ' FFFFFFFF = effect parameters
 End Type
@@ -53,7 +53,7 @@ End Type
 Type SampleType
     sampleName As String * 22 ' Sample name or message
     length As Long ' Sample length in bytes
-    fineTune As Unsigned Byte ' Lower four bits are the finetune value, stored as a signed four bit number
+    fineTune As Byte ' Lower four bits are the finetune value, stored as a signed four bit number
     volume As Unsigned Byte ' Volume: 0 - 64
     loopStart As Long ' Loop start in bytes
     loopLength As Long ' Loop length in bytes
@@ -82,9 +82,9 @@ Type SongType
     highestPattern As Unsigned Byte ' The highest pattern number read from the MOD file
     orderPosition As Unsigned Byte ' The position in the order list
     patternRow As Integer ' Points to the pattern row to be played. This is int becase sometimes we need to set it to -1
-    patternDelay As Unsigned Byte ' Number of times to delay pattern
-    tickPattern As Unsigned Byte ' This is the pattern number where UpdateMODRow() was
-    tickPatternRow As Integer ' This is the pattern row number processed by UpdateMODRow()
+    patternDelay As Unsigned Byte ' Number of times to delay pattern for effect EE
+    tickPattern As Unsigned Byte ' Pattern number for UpdateMODRow() & UpdateMODTick()
+    tickPatternRow As Integer ' Pattern row number for UpdateMODTick() only
     isLooping As Byte ' Set this to true to loop the song once we reach the max order specified in the song
     isPlaying As Byte ' This is set to true as long as the song is playing
     isPaused As Byte ' Set this to true to pause playback
@@ -117,14 +117,14 @@ ReDim Shared Pattern(0 To 0, 0 To 0, 0 To 0) As PatternType ' Pattern data stror
 ReDim Shared Sample(1 To 1) As SampleType ' Sample info array. One based because sample 0 means nothing (well something :) in the pattern data
 ReDim Shared SampleData(1 To 1) As String ' Sample data array. Again one based for same reason above
 ReDim Shared Channel(0 To 0) As ChannelType ' Channel info array
-ReDim Shared FrequencyTable(0 To 0) As Unsigned Integer
-ReDim Shared NoteTable(0 To 0) As String * 3
+ReDim Shared FrequencyTable(0 To 0) As Unsigned Integer ' Amiga frequency table
+ReDim Shared NoteTable(0 To 0) As String * 3 ' This is for the UI. TODO: Move this out to a different file
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
 ' PROGRAM DATA
 '-----------------------------------------------------------------------------------------------------
-' Amiga frequency table. TODO: Fix this!
+' Amiga frequency table.
 FreqTab:
 Data 296
 Data 907,900,894,887,881,875,868,862
@@ -166,23 +166,6 @@ Data 120,119,118,118,117,116,115,114
 Data 113,113,112,111,110,109,109,108
 Data NaN
 
-' Thanks to FireLight for this table
-PeriodTab:
-Data 134
-Data 27392,25856,24384,23040,21696,20480,19328,18240,17216,16256,15360,14496
-Data 13696,12928,12192,11520,10848,10240,9664,9120,8608,8128,7680,7248
-Data 6848,6464,6096,5760,5424,5120,4832,4560,4304,4064,3840,3624
-Data 3424,3232,3048,2880,2712,2560,2416,2280,2152,2032,1920,1812
-Data 1712,1616,1524,1440,1356,1280,1208,1140,1076,1016,960,906
-Data 856,808,762,720,678,640,604,570,538,508,480,453
-Data 428,404,381,360,339,320,302,285,269,254,240,226
-Data 214,202,190,180,170,160,151,143,135,127,120,113
-Data 107,101,95,90,85,80,75,71,67,63,60,56
-Data 53,50,47,45,42,40,37,35,33,31,30,28
-Data 26,25,23,22,21,20,18,17,16,15,15,14
-Data 0,0
-Data NaN
-
 ' Sine table for tremolo & vibrato
 SineTab:
 Data 32
@@ -192,6 +175,8 @@ Data 255,253,250,244,235,224,212,197
 Data 180,161,141,120,97,74,49,24
 Data NaN
 
+' Note string table for UI
+' TODO: Move this out to different file
 NoteTab:
 Data 37
 Data "   "
@@ -202,10 +187,8 @@ Data LOL
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
-' PROGRAM ENTRY POINT
+' PROGRAM ENTRY POINT - This is just test code. We have no proper UI yet
 '-----------------------------------------------------------------------------------------------------
-Width 120, 40
-
 Dim As String modFileName
 
 If CommandCount > 0 Then modFileName = Command$ Else modFileName = "starg12.mod"
@@ -221,6 +204,8 @@ End If
 
 Title "QB64 MOD Player - " + modFileName
 StartMODPlayer
+
+Width 12 + (Song.channels * 18), 40
 
 Dim nChan As Unsigned Byte, k As String
 Do
@@ -458,8 +443,7 @@ Function LoadMODFile%% (sName As String)
 
                 ' Do the look up in the table against what is read in
                 ' Store note (in midi style format)
-                ' TODO: Fix this per updated freq table
-                Pattern(i, a, b).period = 0 ' Zero is probably not a good idea
+                Pattern(i, a, b).period = -1
                 For c = 1 To 36
                     If period > FrequencyTable(c * 8) - 3 And period < FrequencyTable(c * 8) + 3 Then
                         Pattern(i, a, b).period = c * 8
@@ -621,7 +605,7 @@ End Sub
 ' Updates a row of notes and play them out on tick 0
 Sub UpdateMODRow
     Dim As Unsigned Byte nSample, nEffect, nOperand, nOpX, nOpY, nChannel
-    Dim nPeriod As Unsigned Integer
+    Dim nPeriod As Integer
     Dim nPatternRow As Integer
     Dim patternJumpFlag As Byte ' This is set to true when a pattern jump effect is triggered
     Dim patternBreakFlag As Byte ' This is set to true when a pattern break effect is triggered
@@ -647,7 +631,7 @@ Sub UpdateMODRow
         End If
 
         ' ONLY RESET PITCH IF THERE IS A PERIOD VALUE AND PORTA NOT SET
-        If nPeriod > 0 Then ' TODO: Zero here is not good
+        If nPeriod >= 0 Then
             ' If not a porta effect, then set the channel pitch to the looked up amiga value + or - any finetune
             If nEffect <> 3 And nEffect <> 5 Then
                 Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
@@ -756,7 +740,7 @@ End Sub
 Sub UpdateMODTick
     ' The pattern that we are playing is always Order(OrderPosition)
     Dim As Unsigned Byte nSample, nEffect, nOperand, nOpX, nOpY, nChannel
-    Dim nPeriod As Unsigned Integer
+    Dim nPeriod As Integer
 
     ' Process all channels
     For nChannel = 0 To Song.channels - 1
