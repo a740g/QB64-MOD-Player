@@ -196,7 +196,7 @@ Data LOL
 '-----------------------------------------------------------------------------------------------------
 Dim As String modFileName
 
-If CommandCount > 0 Then modFileName = Command$ Else modFileName = "yedo.mod"
+If CommandCount > 0 Then modFileName = Command$ Else modFileName = "enigma.mod"
 
 If LoadMODFile(modFileName) Then
     Print "Loaded MOD file!"
@@ -691,10 +691,10 @@ Sub UpdateMODRow
                         Song.useHQMixer = nOpY <> 0
 
                     Case &H1 ' 1: Fine Portamento Up
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                        Channel(nChannel).period = Channel(nChannel).period - nOperand ' Subtract frequency
 
                     Case &H2 ' 2: Fine Portamento Down
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                        Channel(nChannel).period = Channel(nChannel).period + nOperand ' Add frequency
 
                     Case &H3 ' 3: Glissando Control
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
@@ -774,14 +774,11 @@ Sub UpdateMODTick
                 If (nOperand > 0) Then
                     Select Case Song.tick Mod 3
                         Case 0
-                            Channel(nChannel).period = nPeriod
-                            Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
+                            Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(Channel(nChannel).period + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
                         Case 1
-                            Channel(nChannel).period = nPeriod
-                            Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + (8 * nOpX) + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
+                            Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(Channel(nChannel).period + (8 * nOpX) + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
                         Case 2
-                            Channel(nChannel).period = nPeriod
-                            Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + (8 * nOpY) + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
+                            Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(Channel(nChannel).period + (8 * nOpY) + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
                     End Select
                 End If
 
