@@ -10,7 +10,7 @@ A ProTracker (and compatible) MOD player written in QB64
 - Support all effects - WIP
 - Easy plug-&-play API - WIP
 - Play all the test MODs in the repository correctly - WIP
-- Survive ode2ptk.mod & black_queen.mod
+- Survive ode2ptk.mod & black_queen.mod - WIP
 
 ## Bibliography
 
