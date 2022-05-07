@@ -65,6 +65,7 @@ Type ChannelType
     volume As Integer ' Channel volume. This is a signed int because we need -ve values & to clip properly
     played As Byte ' This is set to true once the mixer is done with the sample
     pitch As Single ' Sample pitch. The mixer code uses this to step through the sample correctly
+    period As Unsigned Integer ' This is used to hold period for various effects
     panningPosition As Single ' Position 0 is leftmost ... 255 is rightmost
     samplePosition As Single ' Where are we in the sample buffer
     patternLoopRow As Integer ' This is the beginning of the loop in the pattern for effect E6x
@@ -116,6 +117,7 @@ Dim Shared Order(0 To ORDER_TABLE_MAX) As Unsigned Byte ' Order list
 ReDim Shared Pattern(0 To 0, 0 To 0, 0 To 0) As PatternType ' Pattern data strored as (pattern, row, channel)
 ReDim Shared Sample(1 To 1) As SampleType ' Sample info array. One based because sample 0 means nothing (well something :) in the pattern data
 ReDim Shared SampleData(1 To 1) As String ' Sample data array. Again one based for same reason above
+'ReDim Shared SampleSwapData(1 To 1) As String
 ReDim Shared Channel(0 To 0) As ChannelType ' Channel info array
 ReDim Shared FrequencyTable(0 To 0) As Unsigned Integer ' Amiga frequency table
 ReDim Shared NoteTable(0 To 0) As String * 3 ' This is for the UI. TODO: Move this out to a different file
@@ -191,7 +193,7 @@ Data LOL
 '-----------------------------------------------------------------------------------------------------
 Dim As String modFileName
 
-If CommandCount > 0 Then modFileName = Command$ Else modFileName = "starg12.mod"
+If CommandCount > 0 Then modFileName = Command$ Else modFileName = "ELYSIUM.mod"
 
 If LoadMODFile(modFileName) Then
     Print "Loaded MOD file!"
@@ -204,6 +206,7 @@ End If
 
 Title "QB64 MOD Player - " + modFileName
 StartMODPlayer
+Song.isLooping = TRUE
 
 Width 12 + (Song.channels * 18), 40
 
@@ -233,7 +236,7 @@ Do
 
     Print Using "### ### ##: "; Song.orderPosition; Order(Song.orderPosition); Song.patternRow;
     For nChan = 0 To Song.channels - 1
-        Print Using ">&< \\ & \\ \\ "; Hex$(nChan); Hex$(Channel(nChan).sample); NoteTable(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).period / 8); Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).effect); Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).operand);
+        Print Using ">##< ## & \\ \\ "; nChan; Channel(nChan).sample; NoteTable(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).period / 8); Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).effect); Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).operand);
     Next
     Print 'SndRawLen
 
@@ -633,6 +636,7 @@ Sub UpdateMODRow
             ' If not a porta effect, then set the channel pitch to the looked up amiga value + or - any finetune
             If nEffect <> 3 And nEffect <> 5 Then
                 If Channel(nChannel).sample > 0 Then ' TODO: This "if" may be a hack and really not required
+                    Channel(nChannel).period = nPeriod
                     Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
                     Channel(nChannel).played = FALSE
                     Channel(nChannel).samplePosition = 0
@@ -689,7 +693,8 @@ Sub UpdateMODRow
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
 
                     Case &H5 ' 5: Set Finetune
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                        Sample(Channel(nChannel).sample).fineTune = nOpY
+                        If Sample(Channel(nChannel).sample).fineTune > 7 Then Sample(Channel(nChannel).sample).fineTune = Sample(Channel(nChannel).sample).fineTune - 16
 
                     Case &H6 ' 6: Pattern Loop
                         If nOpY = 0 Then
@@ -759,19 +764,27 @@ Sub UpdateMODTick
                 If (nOperand > 0) Then
                     Select Case Song.tick Mod 3
                         Case 0
+                            Channel(nChannel).period = nPeriod
                             Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
                         Case 1
+                            Channel(nChannel).period = nPeriod
                             Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + (8 * nOpX) + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
                         Case 2
+                            Channel(nChannel).period = nPeriod
                             Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + (8 * nOpY) + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
                     End Select
                 End If
 
             Case &H1 ' 1: Porta Up
-                Title "Effect not implemented: " + Str$(nEffect)
+                Channel(nChannel).period = Channel(nChannel).period - nOperand ' Subtract frequency
+                If Channel(nChannel).period < 56 Then Channel(nChannel).period = 56
+                Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(Channel(nChannel).period + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
 
             Case &H2 ' 2: Porta Down
-                Title "Effect not implemented: " + Str$(nEffect)
+                Channel(nChannel).period = Channel(nChannel).period + nOperand ' Add frequency
+                If Channel(nChannel).period > 288 Then Channel(nChannel).period = 288
+                Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(Channel(nChannel).period + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
+
 
             Case &H3 ' 3: Porta To Note
                 Title "Effect not implemented: " + Str$(nEffect)
@@ -809,6 +822,7 @@ Sub UpdateMODTick
                     Case &HD ' 13: Delay Note
                         If Song.tick = nOpY Then
                             If nSample > 0 Then Channel(nChannel).volume = Sample(Channel(nChannel).sample).volume
+                            Channel(nChannel).period = nPeriod
                             Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
                             Channel(nChannel).played = FALSE
                             Channel(nChannel).samplePosition = 0
@@ -884,7 +898,7 @@ Sub MixMODFrame
             End If
         Next
 
-        ' Man! I was probably more drunk than I thought and made such a simple thing so complicated
+        ' Man! I was probably more drunk than I thought and made such a simple thing so complicated earlier
         fsam = Song.volume / (256 * SONG_VOLUME_MAX)
         fsamLT = fsamLT * fsam
         fsamRT = fsamRT * fsam
