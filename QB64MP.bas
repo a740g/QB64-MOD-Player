@@ -70,9 +70,13 @@ Type ChannelType
     samplePosition As Single ' Where are we in the sample buffer
     patternLoopRow As Integer ' This (signed) is the beginning of the loop in the pattern for effect E6x
     patternLoopRowCounter As Unsigned Byte ' This is a loop counter for effect E6x
-    noteToPortamentoTo As Unsigned Integer ' Note to porta to value for E3x
+    portamentoTo As Unsigned Integer ' Note to porta to value for E3x
     portamentoSpeed As Unsigned Byte ' Porta speed for E3x
-    vibratoPosition As Byte ' Position in the sine table for E4x
+    vibratoPosition As Byte ' Vibrato position in the sine table for E4x (signed!)
+    vibratoDepth As Unsigned Byte ' Vibrato depth
+    vibratoSpeed As Unsigned Byte ' Vibrato speed
+    tremoloPosition As Byte ' Tremolo position in the sine table (singned!)
+    waveControl As Unsigned Byte ' Waveform type for vibrato and tremolo (4 bits each)
     sampleOffset As Single ' This is used for effect 9xy
 End Type
 
@@ -123,6 +127,7 @@ ReDim Shared SampleData(1 To 1) As String ' Sample data array. Again one based f
 'ReDim Shared SampleSwapData(1 To 1) As String
 ReDim Shared Channel(0 To 0) As ChannelType ' Channel info array
 ReDim Shared FrequencyTable(0 To 0) As Unsigned Integer ' Amiga frequency table
+ReDim Shared SineTable(0 To 0) As Unsigned Byte ' Sine table used for effects
 ReDim Shared NoteTable(0 To 0) As String * 3 ' This is for the UI. TODO: Move this out to a different file
 '-----------------------------------------------------------------------------------------------------
 
@@ -493,8 +498,17 @@ End Function
 
 ' Initializes the audio mixer, prepares eveything else for playback and kick starts the timer and hence song playback
 Sub StartMODPlayer
-    ' Load the note table
     Dim As Unsigned Integer i, s
+
+    ' Load the sine table
+    Restore SineTab
+    Read s
+    ReDim SineTable(0 To s - 1) As Unsigned Byte
+    For i = 0 To s - 1
+        Read SineTable(i)
+    Next
+
+    ' Load the note table
     Restore NoteTab
     Read s
     ReDim NoteTable(0 To s - 1) As String * 3
@@ -643,24 +657,37 @@ Sub UpdateMODRow
 
         ' ONLY RESET PITCH IF THERE IS A PERIOD VALUE AND PORTA NOT SET
         If nPeriod >= 0 Then
+            Channel(nChannel).period = nPeriod
+            Channel(nChannel).played = FALSE
+            Channel(nChannel).samplePosition = 0
+
+            ' Retrigger tremolo and vibrato waveforms
+            If Channel(nChannel).waveControl And &HF < 4 Then Channel(nChannel).vibratoPosition = 0
+            If SHR(Channel(nChannel).waveControl, 4) < 4 Then Channel(nChannel).tremoloPosition = 0
+
             ' If not a porta effect, then set the channel pitch to the looked up amiga value + or - any finetune
             If nEffect <> &H3 And nEffect <> &H5 Then
-                Channel(nChannel).period = nPeriod
                 Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
-                Channel(nChannel).played = FALSE
-                Channel(nChannel).samplePosition = 0
             End If
         End If
 
         ' Process tick 0 effects
-        Select Case nEffect
-            Case &H3, &H5 ' 3 & 5: Tone Portamento + Volume Slide
+        Select Case nEffect ' We are using everycase here because there are overlapping code
+            Case &H3 ' 3: Porta To Note
                 ' Just remember stuff here
-                If nPeriod >= 0 Then Channel(nChannel).noteToPortamentoTo = nPeriod
                 If nOperand > 0 Then Channel(nChannel).portamentoSpeed = nOperand
+                If nPeriod >= 0 Then Channel(nChannel).portamentoTo = nPeriod
+
+            Case &H5 ' 5: Tone Portamento + Volume Slide
+                ' Just remember stuff here
+                If nPeriod >= 0 Then Channel(nChannel).portamentoTo = nPeriod
+
+            Case &H4 ' 4: Vibrato
+                If nOpX > 0 Then Channel(nChannel).vibratoSpeed = nOpX
+                If nOpY > 0 Then Channel(nChannel).vibratoDepth = nOpY
 
             Case &H8 ' 8: Set Panning Position
-                ' Don't care about DMP panning BS. We are doing this the Fastracker style
+                ' Don't care about DMP panning BS. We are doing this Fasttracker style
                 Channel(nChannel).panningPosition = nOperand
 
             Case &H9 ' 9: Set Sample Offset
@@ -691,9 +718,11 @@ Sub UpdateMODRow
                         Song.useHQMixer = nOpY <> 0
 
                     Case &H1 ' 1: Fine Portamento Up
+                        ' TODO: Clamp here?
                         Channel(nChannel).period = Channel(nChannel).period - nOperand ' Subtract frequency
 
                     Case &H2 ' 2: Fine Portamento Down
+                        ' TODO: Clamp here?
                         Channel(nChannel).period = Channel(nChannel).period + nOperand ' Add frequency
 
                     Case &H3 ' 3: Glissando Control
@@ -792,19 +821,19 @@ Sub UpdateMODTick
                 If Channel(nChannel).period > 288 Then Channel(nChannel).period = 288
                 Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(Channel(nChannel).period + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
 
-
             Case &H3 ' 3: Porta To Note
                 DoPortamento nChannel
 
             Case &H4 ' 4: Vibrato
-                Title "Effect not implemented: " + Str$(nEffect)
+                DoVibrato nChannel
 
             Case &H5 ' 5: Tone Portamento + Volume Slide
                 DoPortamento nChannel
                 DoVolumeSlide nChannel, nOpX, nOpY
 
             Case &H6 ' 6: Vibrato + Volume Slide
-                Title "Effect not implemented: " + Str$(nEffect)
+                DoVibrato nChannel
+                DoVolumeSlide nChannel, nOpX, nOpY
 
             Case &H7 ' 7: Tremolo
                 Title "Effect not implemented: " + Str$(nEffect)
@@ -829,7 +858,7 @@ Sub UpdateMODTick
                         If Song.tick = nOpY Then
                             If nSample > 0 Then Channel(nChannel).volume = Sample(Channel(nChannel).sample).volume
                             Channel(nChannel).period = nPeriod
-                            Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
+                            Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(Channel(nChannel).period + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
                             Channel(nChannel).played = FALSE
                             Channel(nChannel).samplePosition = 0
                         End If
@@ -922,12 +951,12 @@ End Sub
 
 
 Sub DoPortamento (chan As Unsigned Byte)
-    If Channel(chan).period < Channel(chan).noteToPortamentoTo Then
+    If Channel(chan).period < Channel(chan).portamentoTo Then
         Channel(chan).period = Channel(chan).period + Channel(chan).portamentoSpeed
-        If Channel(chan).period > Channel(chan).noteToPortamentoTo Then Channel(chan).period = Channel(chan).noteToPortamentoTo
-    ElseIf Channel(chan).period > Channel(chan).noteToPortamentoTo Then
+        If Channel(chan).period > Channel(chan).portamentoTo Then Channel(chan).period = Channel(chan).portamentoTo
+    ElseIf Channel(chan).period > Channel(chan).portamentoTo Then
         Channel(chan).period = Channel(chan).period - Channel(chan).portamentoSpeed
-        If Channel(chan).period < Channel(chan).noteToPortamentoTo Then Channel(chan).period = Channel(chan).noteToPortamentoTo
+        If Channel(chan).period < Channel(chan).portamentoTo Then Channel(chan).period = Channel(chan).portamentoTo
     End If
 
     Channel(chan).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(Channel(chan).period + Sample(Channel(chan).sample).fineTune) * Song.mixerRate * 2)
@@ -938,6 +967,43 @@ Sub DoVolumeSlide (chan As Unsigned Byte, x As Unsigned Byte, y As Unsigned Byte
     Channel(chan).volume = Channel(chan).volume + x - y
     If Channel(chan).volume < 0 Then Channel(chan).volume = 0
     If Channel(chan).volume > SAMPLE_VOLUME_MAX Then Channel(chan).volume = SAMPLE_VOLUME_MAX
+End Sub
+
+
+Sub DoVibrato (chan As Unsigned Byte)
+    Dim delta As Unsigned Integer
+    Dim temp As Unsigned Byte
+
+    temp = Channel(chan).vibratoPosition And 31
+
+    Select Case Channel(chan).waveControl And 3
+        Case 0
+            delta = SineTable(temp)
+
+        Case 1
+            temp = SHL(temp, 3)
+            If Channel(chan).vibratoPosition < 0 Then temp = 255 - temp
+            delta = temp
+
+        Case 2
+            delta = 255
+
+        Case 3
+            delta = SineTable(temp)
+    End Select
+
+    delta = delta * Channel(chan).vibratoDepth
+    delta = SHR(delta, 7)
+    delta = SHL(delta, 2) ' we use 4 * periods so make vibrato 4 times bigger
+
+    If Channel(chan).vibratoPosition >= 0 Then
+        Channel(chan).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(Channel(chan).period + Sample(Channel(chan).sample).fineTune + delta) * Song.mixerRate * 2)
+    Else
+        Channel(chan).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(Channel(chan).period + Sample(Channel(chan).sample).fineTune - delta) * Song.mixerRate * 2)
+    End If
+
+    Channel(chan).vibratoPosition = Channel(chan).vibratoPosition + Channel(chan).vibratoSpeed
+    If Channel(chan).vibratoPosition > 31 Then Channel(chan).vibratoPosition = Channel(chan).vibratoPosition - 64
 End Sub
 '-----------------------------------------------------------------------------------------------------
 
