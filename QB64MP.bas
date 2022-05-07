@@ -53,7 +53,7 @@ End Type
 Type SampleType
     sampleName As String * 22 ' Sample name or message
     length As Long ' Sample length in bytes
-    fineTune As Byte ' Lower four bits are the finetune value, stored as a signed four bit number
+    fineTune As Byte ' Lower four bits are the finetune value, stored as a *signed* four bit number
     volume As Unsigned Byte ' Volume: 0 - 64
     loopStart As Long ' Loop start in bytes
     loopLength As Long ' Loop length in bytes
@@ -65,11 +65,14 @@ Type ChannelType
     volume As Integer ' Channel volume. This is a signed int because we need -ve values & to clip properly
     played As Byte ' This is set to true once the mixer is done with the sample
     pitch As Single ' Sample pitch. The mixer code uses this to step through the sample correctly
-    period As Unsigned Integer ' This is used to hold period for various effects
+    period As Integer ' This is used to hold period for various effects (signed!)
     panningPosition As Single ' Position 0 is leftmost ... 255 is rightmost
     samplePosition As Single ' Where are we in the sample buffer
-    patternLoopRow As Integer ' This is the beginning of the loop in the pattern for effect E6x
+    patternLoopRow As Integer ' This (signed) is the beginning of the loop in the pattern for effect E6x
     patternLoopRowCounter As Unsigned Byte ' This is a loop counter for effect E6x
+    noteToPortamentoTo As Unsigned Integer ' Note to porta to value for E3x
+    portamentoSpeed As Unsigned Byte ' Porta speed for E3x
+    vibratoPosition As Byte ' Position in the sine table for E4x
     sampleOffset As Single ' This is used for effect 9xy
 End Type
 
@@ -81,11 +84,11 @@ Type SongType
     orders As Unsigned Byte ' Song length in orders
     endJumpOrder As Unsigned Byte ' This is used for jumping to an order if global looping is on
     highestPattern As Unsigned Byte ' The highest pattern number read from the MOD file
-    orderPosition As Unsigned Byte ' The position in the order list
-    patternRow As Integer ' Points to the pattern row to be played. This is int becase sometimes we need to set it to -1
+    orderPosition As Integer ' The position in the order list
+    patternRow As Integer ' Points to the pattern row to be played. This is signed because sometimes we need to set it to -1
     patternDelay As Unsigned Byte ' Number of times to delay pattern for effect EE
     tickPattern As Unsigned Byte ' Pattern number for UpdateMODRow() & UpdateMODTick()
-    tickPatternRow As Integer ' Pattern row number for UpdateMODTick() only
+    tickPatternRow As Integer ' Pattern row number for UpdateMODTick() only (signed)
     isLooping As Byte ' Set this to true to loop the song once we reach the max order specified in the song
     isPlaying As Byte ' This is set to true as long as the song is playing
     isPaused As Byte ' Set this to true to pause playback
@@ -193,7 +196,7 @@ Data LOL
 '-----------------------------------------------------------------------------------------------------
 Dim As String modFileName
 
-If CommandCount > 0 Then modFileName = Command$ Else modFileName = "ELYSIUM.mod"
+If CommandCount > 0 Then modFileName = Command$ Else modFileName = "yedo.mod"
 
 If LoadMODFile(modFileName) Then
     Print "Loaded MOD file!"
@@ -212,6 +215,12 @@ Width 12 + (Song.channels * 18), 40
 
 Dim nChan As Unsigned Byte, k As String
 Do
+    Print Using "### ### ##: "; Song.orderPosition; Order(Song.orderPosition); Song.patternRow;
+    For nChan = 0 To Song.channels - 1
+        Print Using ">##< ## & \\ \\ "; nChan; Channel(nChan).sample; NoteTable(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).period / 8); Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).effect); Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).operand);
+    Next
+    Print 'SndRawLen
+
     k = InKey$
 
     Select Case k
@@ -232,13 +241,15 @@ Do
 
         Case "q", "Q"
             Song.useHQMixer = Not Song.useHQMixer
-    End Select
 
-    Print Using "### ### ##: "; Song.orderPosition; Order(Song.orderPosition); Song.patternRow;
-    For nChan = 0 To Song.channels - 1
-        Print Using ">##< ## & \\ \\ "; nChan; Channel(nChan).sample; NoteTable(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).period / 8); Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).effect); Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).operand);
-    Next
-    Print 'SndRawLen
+        Case ",", "<"
+            Song.orderPosition = Song.orderPosition - 1
+            If Song.orderPosition < 0 Then Song.orderPosition = Song.orders - 1
+
+        Case ".", ">"
+            Song.orderPosition = Song.orderPosition + 1
+            If Song.orderPosition >= Song.orders Then Song.orderPosition = 0
+    End Select
 
     Delay 0.01
 Loop While Song.isPlaying
@@ -444,8 +455,7 @@ Function LoadMODFile%% (sName As String)
 
                 period = SHL(byte1 And &HF, 8) Or byte2
 
-                ' Do the look up in the table against what is read in
-                ' Store note (in midi style format)
+                ' Do the look up in the table against what is read in and store note
                 Pattern(i, a, b).period = -1
                 For c = 1 To 36
                     If period > FrequencyTable(c * 8) - 3 And period < FrequencyTable(c * 8) + 3 Then
@@ -634,29 +644,29 @@ Sub UpdateMODRow
         ' ONLY RESET PITCH IF THERE IS A PERIOD VALUE AND PORTA NOT SET
         If nPeriod >= 0 Then
             ' If not a porta effect, then set the channel pitch to the looked up amiga value + or - any finetune
-            If nEffect <> 3 And nEffect <> 5 Then
-                If Channel(nChannel).sample > 0 Then ' TODO: This "if" may be a hack and really not required
-                    Channel(nChannel).period = nPeriod
-                    Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
-                    Channel(nChannel).played = FALSE
-                    Channel(nChannel).samplePosition = 0
-                End If
+            If nEffect <> &H3 And nEffect <> &H5 Then
+                Channel(nChannel).period = nPeriod
+                Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
+                Channel(nChannel).played = FALSE
+                Channel(nChannel).samplePosition = 0
             End If
         End If
 
         ' Process tick 0 effects
         Select Case nEffect
+            Case &H3, &H5 ' 3 & 5: Tone Portamento + Volume Slide
+                ' Just remember stuff here
+                If nPeriod >= 0 Then Channel(nChannel).noteToPortamentoTo = nPeriod
+                If nOperand > 0 Then Channel(nChannel).portamentoSpeed = nOperand
+
             Case &H8 ' 8: Set Panning Position
                 ' Don't care about DMP panning BS. We are doing this the Fastracker style
                 Channel(nChannel).panningPosition = nOperand
 
             Case &H9 ' 9: Set Sample Offset
-                If Channel(nChannel).sample > 0 Then ' TODO: This "if" may be a hack and really not required
-                    If nOperand > 0 Then Channel(nChannel).sampleOffset = nOperand * 256
-                    If Channel(nChannel).sampleOffset >= Sample(Channel(nChannel).sample).length Then Channel(nChannel).sampleOffset = Sample(Channel(nChannel).sample).length - 1
-                    Channel(nChannel).samplePosition = Channel(nChannel).sampleOffset
-                End If
-
+                If nOperand > 0 Then Channel(nChannel).sampleOffset = nOperand * 256
+                If Channel(nChannel).sampleOffset >= Sample(Channel(nChannel).sample).length Then Channel(nChannel).sampleOffset = Sample(Channel(nChannel).sample).length - 1
+                Channel(nChannel).samplePosition = Channel(nChannel).sampleOffset
 
             Case &HB ' 11: Jump To Pattern
                 Song.orderPosition = nOperand
@@ -787,13 +797,14 @@ Sub UpdateMODTick
 
 
             Case &H3 ' 3: Porta To Note
-                Title "Effect not implemented: " + Str$(nEffect)
+                DoPortamento nChannel
 
             Case &H4 ' 4: Vibrato
                 Title "Effect not implemented: " + Str$(nEffect)
 
             Case &H5 ' 5: Tone Portamento + Volume Slide
-                Title "Effect not implemented: " + Str$(nEffect)
+                DoPortamento nChannel
+                DoVolumeSlide nChannel, nOpX, nOpY
 
             Case &H6 ' 6: Vibrato + Volume Slide
                 Title "Effect not implemented: " + Str$(nEffect)
@@ -802,9 +813,7 @@ Sub UpdateMODTick
                 Title "Effect not implemented: " + Str$(nEffect)
 
             Case &HA ' 10: Volume Slide
-                Channel(nChannel).volume = Channel(nChannel).volume + nOpX - nOpY
-                If Channel(nChannel).volume < 0 Then Channel(nChannel).volume = 0
-                If Channel(nChannel).volume > SAMPLE_VOLUME_MAX Then Channel(nChannel).volume = SAMPLE_VOLUME_MAX
+                DoVolumeSlide nChannel, nOpX, nOpY
 
             Case &HE ' 14: Extended Effects
                 Select Case nOpX
@@ -912,6 +921,26 @@ Sub MixMODFrame
         ' Feed the sample to the QB64 sound pipe
         SndRaw fsamLT, fsamRT, Song.qb64SoundPipe
     Next
+End Sub
+
+
+Sub DoPortamento (chan As Unsigned Byte)
+    If Channel(chan).period < Channel(chan).noteToPortamentoTo Then
+        Channel(chan).period = Channel(chan).period + Channel(chan).portamentoSpeed
+        If Channel(chan).period > Channel(chan).noteToPortamentoTo Then Channel(chan).period = Channel(chan).noteToPortamentoTo
+    ElseIf Channel(chan).period > Channel(chan).noteToPortamentoTo Then
+        Channel(chan).period = Channel(chan).period - Channel(chan).portamentoSpeed
+        If Channel(chan).period < Channel(chan).noteToPortamentoTo Then Channel(chan).period = Channel(chan).noteToPortamentoTo
+    End If
+
+    Channel(chan).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(Channel(chan).period + Sample(Channel(chan).sample).fineTune) * Song.mixerRate * 2)
+End Sub
+
+
+Sub DoVolumeSlide (chan As Unsigned Byte, x As Unsigned Byte, y As Unsigned Byte)
+    Channel(chan).volume = Channel(chan).volume + x - y
+    If Channel(chan).volume < 0 Then Channel(chan).volume = 0
+    If Channel(chan).volume > SAMPLE_VOLUME_MAX Then Channel(chan).volume = SAMPLE_VOLUME_MAX
 End Sub
 '-----------------------------------------------------------------------------------------------------
 
