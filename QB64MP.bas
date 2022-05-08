@@ -13,7 +13,7 @@ Option ExplicitArray
 Option Base 1
 '$Static
 $Resize:Smooth
-'$Debug
+$Debug
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -23,7 +23,7 @@ Const FALSE%% = 0%%, TRUE%% = Not FALSE
 Const NULL%% = 0%%
 Const NULLSTRING$ = ""
 
-Const AMIGA_PAULA_CLOCK_RATE! = 7159090.5! ' PAL: 7093789.2, NSTC: 7159090.5
+Const AMIGA_CONSTANT! = 3579545.25! ' PAL: 7093789.2 / 2, NSTC: 7159090.5 / 2
 Const PATTERN_ROW_MAX~%% = 63~%% ' Max row number in a pattern
 Const ORDER_TABLE_MAX~%% = 127~%% ' Max position in the order table
 Const SAMPLE_VOLUME_MAX~%% = 64~%% ' This is the maximum volume of any sample in the MOD
@@ -33,6 +33,7 @@ Const SAMPLE_PAN_CENTRE! = (SAMPLE_PAN_RIGHT - SAMPLE_PAN_LEFT) / 2! ' Center pa
 Const SONG_SPEED_DEFAULT~%% = 6~%% ' This is the default speed for song where it is not specified
 Const SONG_BPM_DEFAULT~%% = 125~%% ' Default song BPM
 Const SONG_VOLUME_MAX~%% = 255~%% ' Max song master volume
+Const BUFFER_UNDERRUN_PROTECTION~% = 256~% ' This prevents audio pops and glitches due to QB64 timer inaccuracy
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -45,7 +46,7 @@ Const SONG_VOLUME_MAX~%% = 255~%% ' Max song master volume
 ' +-------------------------------------+
 Type PatternType
     sample As Unsigned Byte ' aaaaDDDD = sample number
-    period As Integer ' BBBBCCCCCCCC = sample period value
+    period As Integer ' BBBBCCCCCCCC = sample period value (signed becuase invalids will have -1)
     effect As Unsigned Byte ' eeee = effect number
     operand As Unsigned Byte ' FFFFFFFF = effect parameters
 End Type
@@ -65,17 +66,17 @@ Type ChannelType
     volume As Integer ' Channel volume. This is a signed int because we need -ve values & to clip properly
     played As Byte ' This is set to true once the mixer is done with the sample
     pitch As Single ' Sample pitch. The mixer code uses this to step through the sample correctly
-    period As Integer ' This is used to hold period for various effects (signed!)
+    period As Integer ' This is used to store period values for various effects (signed, see above)
     panningPosition As Single ' Position 0 is leftmost ... 255 is rightmost
     samplePosition As Single ' Where are we in the sample buffer
     patternLoopRow As Integer ' This (signed) is the beginning of the loop in the pattern for effect E6x
     patternLoopRowCounter As Unsigned Byte ' This is a loop counter for effect E6x
-    portamentoTo As Unsigned Integer ' Note to porta to value for E3x
+    portamentoTo As Integer ' Note to porta to value for E3x (signed)
     portamentoSpeed As Unsigned Byte ' Porta speed for E3x
-    vibratoPosition As Byte ' Vibrato position in the sine table for E4x (signed!)
+    vibratoPosition As Byte ' Vibrato position in the sine table for E4x (signed)
     vibratoDepth As Unsigned Byte ' Vibrato depth
     vibratoSpeed As Unsigned Byte ' Vibrato speed
-    tremoloPosition As Byte ' Tremolo position in the sine table (singned!)
+    tremoloPosition As Byte ' Tremolo position in the sine table (singned)
     waveControl As Unsigned Byte ' Waveform type for vibrato and tremolo (4 bits each)
     sampleOffset As Single ' This is used for effect 9xy
 End Type
@@ -88,7 +89,7 @@ Type SongType
     orders As Unsigned Byte ' Song length in orders
     endJumpOrder As Unsigned Byte ' This is used for jumping to an order if global looping is on
     highestPattern As Unsigned Byte ' The highest pattern number read from the MOD file
-    orderPosition As Integer ' The position in the order list
+    orderPosition As Integer ' The position in the order list. Signed so that we can properly wrap
     patternRow As Integer ' Points to the pattern row to be played. This is signed because sometimes we need to set it to -1
     patternDelay As Unsigned Byte ' Number of times to delay pattern for effect EE
     tickPattern As Unsigned Byte ' Pattern number for UpdateMODRow() & UpdateMODTick()
@@ -124,7 +125,6 @@ Dim Shared Order(0 To ORDER_TABLE_MAX) As Unsigned Byte ' Order list
 ReDim Shared Pattern(0 To 0, 0 To 0, 0 To 0) As PatternType ' Pattern data strored as (pattern, row, channel)
 ReDim Shared Sample(1 To 1) As SampleType ' Sample info array. One based because sample 0 means nothing (well something :) in the pattern data
 ReDim Shared SampleData(1 To 1) As String ' Sample data array. Again one based for same reason above
-'ReDim Shared SampleSwapData(1 To 1) As String
 ReDim Shared Channel(0 To 0) As ChannelType ' Channel info array
 ReDim Shared FrequencyTable(0 To 0) As Unsigned Integer ' Amiga frequency table
 ReDim Shared SineTable(0 To 0) As Unsigned Byte ' Sine table used for effects
@@ -201,7 +201,7 @@ Data LOL
 '-----------------------------------------------------------------------------------------------------
 Dim As String modFileName
 
-If CommandCount > 0 Then modFileName = Command$ Else modFileName = "enigma.mod"
+If CommandCount > 0 Then modFileName = Command$ Else modFileName = "mods/test/1xx-PortamentoUp.mod"
 
 If LoadMODFile(modFileName) Then
     Print "Loaded MOD file!"
@@ -517,7 +517,7 @@ Sub StartMODPlayer
     Next
 
     ' Set the mix rate to match that of the system
-    Song.mixerRate = SndRate
+    Song.mixerRate = SndRate + BUFFER_UNDERRUN_PROTECTION
 
     ' Initialize some important stuff
     Song.orderPosition = 0
@@ -657,7 +657,7 @@ Sub UpdateMODRow
 
         ' ONLY RESET PITCH IF THERE IS A PERIOD VALUE AND PORTA NOT SET
         If nPeriod >= 0 Then
-            Channel(nChannel).period = nPeriod
+            Channel(nChannel).period = nPeriod + Sample(Channel(nChannel).sample).fineTune
             Channel(nChannel).played = FALSE
             Channel(nChannel).samplePosition = 0
 
@@ -666,13 +666,13 @@ Sub UpdateMODRow
             If SHR(Channel(nChannel).waveControl, 4) < 4 Then Channel(nChannel).tremoloPosition = 0
 
             ' If not a porta effect, then set the channel pitch to the looked up amiga value + or - any finetune
-            If nEffect <> &H3 And nEffect <> &H5 Then
-                Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(nPeriod + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
+            If nEffect <> &H3 And nEffect <> &H5 Then ' TODO: And note delay?
+                Channel(nChannel).pitch = GetPitch(Channel(nChannel).period)
             End If
         End If
 
         ' Process tick 0 effects
-        Select Case nEffect ' We are using everycase here because there are overlapping code
+        Select Case nEffect
             Case &H3 ' 3: Porta To Note
                 ' Just remember stuff here
                 If nOperand > 0 Then Channel(nChannel).portamentoSpeed = nOperand
@@ -801,25 +801,25 @@ Sub UpdateMODTick
         Select Case nEffect
             Case &H0 ' 0: Arpeggio
                 If (nOperand > 0) Then
-                    Select Case Song.tick Mod 3
+                    Select Case (Song.tick + 1) Mod 3 ' +1 here to make it sound like FT2. Dunno why it works yet :(
                         Case 0
-                            Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(Channel(nChannel).period + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
+                            Channel(nChannel).pitch = GetPitch(Channel(nChannel).period)
                         Case 1
-                            Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(Channel(nChannel).period + (8 * nOpX) + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
+                            Channel(nChannel).pitch = GetPitch(Channel(nChannel).period + (8 * nOpX))
                         Case 2
-                            Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(Channel(nChannel).period + (8 * nOpY) + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
+                            Channel(nChannel).pitch = GetPitch(Channel(nChannel).period + (8 * nOpY))
                     End Select
                 End If
 
             Case &H1 ' 1: Porta Up
-                Channel(nChannel).period = Channel(nChannel).period - nOperand ' Subtract frequency
+                Channel(nChannel).period = Channel(nChannel).period - nOperand ' TODO: This is fucked!
                 If Channel(nChannel).period < 56 Then Channel(nChannel).period = 56
-                Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(Channel(nChannel).period + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
+                Channel(nChannel).pitch = GetPitch(Channel(nChannel).period)
 
             Case &H2 ' 2: Porta Down
-                Channel(nChannel).period = Channel(nChannel).period + nOperand ' Add frequency
+                Channel(nChannel).period = Channel(nChannel).period + nOperand '  TODO: This is fucked!
                 If Channel(nChannel).period > 288 Then Channel(nChannel).period = 288
-                Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(Channel(nChannel).period + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
+                Channel(nChannel).pitch = GetPitch(Channel(nChannel).period)
 
             Case &H3 ' 3: Porta To Note
                 DoPortamento nChannel
@@ -857,8 +857,8 @@ Sub UpdateMODTick
                     Case &HD ' 13: Delay Note
                         If Song.tick = nOpY Then
                             If nSample > 0 Then Channel(nChannel).volume = Sample(Channel(nChannel).sample).volume
-                            Channel(nChannel).period = nPeriod
-                            Channel(nChannel).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(Channel(nChannel).period + Sample(Channel(nChannel).sample).fineTune) * Song.mixerRate * 2)
+                            Channel(nChannel).period = nPeriod + Sample(Channel(nChannel).sample).fineTune
+                            Channel(nChannel).pitch = GetPitch(Channel(nChannel).period)
                             Channel(nChannel).played = FALSE
                             Channel(nChannel).samplePosition = 0
                         End If
@@ -950,6 +950,12 @@ Sub MixMODFrame
 End Sub
 
 
+' This gives us the sample pitch based on the period
+Function GetPitch! (period As Integer)
+    GetPitch = AMIGA_CONSTANT / (FrequencyTable(period) * Song.mixerRate)
+End Function
+
+
 Sub DoPortamento (chan As Unsigned Byte)
     If Channel(chan).period < Channel(chan).portamentoTo Then
         Channel(chan).period = Channel(chan).period + Channel(chan).portamentoSpeed
@@ -959,7 +965,7 @@ Sub DoPortamento (chan As Unsigned Byte)
         If Channel(chan).period < Channel(chan).portamentoTo Then Channel(chan).period = Channel(chan).portamentoTo
     End If
 
-    Channel(chan).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(Channel(chan).period + Sample(Channel(chan).sample).fineTune) * Song.mixerRate * 2)
+    Channel(chan).pitch = GetPitch(Channel(chan).period)
 End Sub
 
 
@@ -997,9 +1003,9 @@ Sub DoVibrato (chan As Unsigned Byte)
     delta = SHL(delta, 2) ' we use 4 * periods so make vibrato 4 times bigger
 
     If Channel(chan).vibratoPosition >= 0 Then
-        Channel(chan).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(Channel(chan).period + Sample(Channel(chan).sample).fineTune + delta) * Song.mixerRate * 2)
+        Channel(chan).pitch = GetPitch(Channel(chan).period + delta)
     Else
-        Channel(chan).pitch = AMIGA_PAULA_CLOCK_RATE / (FrequencyTable(Channel(chan).period + Sample(Channel(chan).sample).fineTune - delta) * Song.mixerRate * 2)
+        Channel(chan).pitch = GetPitch(Channel(chan).period - delta)
     End If
 
     Channel(chan).vibratoPosition = Channel(chan).vibratoPosition + Channel(chan).vibratoSpeed
