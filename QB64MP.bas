@@ -202,7 +202,7 @@ Data LOL
 '-----------------------------------------------------------------------------------------------------
 Dim As String modFileName
 
-If CommandCount > 0 Then modFileName = Command$ Else modFileName = "mods/enigma.mod"
+If CommandCount > 0 Then modFileName = Command$ Else modFileName = "mods/test/Bxx-PositionJump.mod"
 
 If LoadMODFile(modFileName) Then
     Print "Loaded MOD file!"
@@ -215,7 +215,7 @@ End If
 
 Title "QB64 MOD Player - " + modFileName
 StartMODPlayer
-Song.isLooping = TRUE
+'Song.isLooping = TRUE
 
 Width 12 + (Song.channels * 18), 40
 
@@ -695,7 +695,7 @@ Sub UpdateMODRow
 
             Case &H9 ' 9: Set Sample Offset
                 If nOperand > 0 Then Channel(nChannel).sampleOffset = nOperand * 256
-                If Channel(nChannel).sampleOffset >= Sample(Channel(nChannel).sample).length Then Channel(nChannel).sampleOffset = Sample(Channel(nChannel).sample).length - 1
+                If Channel(nChannel).sampleOffset >= Sample(Channel(nChannel).sample).length Then Channel(nChannel).sampleOffset = Sample(Channel(nChannel).sample).length
                 Channel(nChannel).samplePosition = Channel(nChannel).sampleOffset
 
             Case &HB ' 11: Jump To Pattern
@@ -877,10 +877,10 @@ End Sub
 ' Mixes and queues a frame/tick worth of samples
 ' All mixing calculations are done using floating-point math (it's 2022 :)
 Sub MixMODFrame
-    Dim i As Unsigned Long
+    Dim As Unsigned Long i, npos
     Dim As Unsigned Byte chan, nSample, vol
     Dim As Single fpan, fpos, fsam, fsamLT, fsamRT
-    Dim As Byte bsam1, bsam2
+    Dim As Byte bsam1, bsam2, isLooping
 
     For i = 1 To Song.mixerBufferSize
         fsamLT = 0
@@ -897,21 +897,28 @@ Sub MixMODFrame
 
             ' Only proceed if we have a valid sample number (> 0)
             If Not nSample = 0 Then
+                ' We need these too many times
+                fpos = Channel(chan).samplePosition
+                isLooping = (Sample(nSample).loopLength > 0)
+
                 ' Check if we are looping
-                If Sample(nSample).loopLength > 0 Then
+                If isLooping Then
                     ' Reset loop position if we reached the end of the loop
-                    If Channel(chan).samplePosition >= Sample(nSample).loopEnd Then
+                    If fpos >= Sample(nSample).loopEnd Then
                         Channel(chan).samplePosition = Sample(nSample).loopStart
                     End If
                 Else
                     ' For non-looping sample simply set the played flag as true if we reached the end
-                    If Channel(chan).samplePosition >= Sample(nSample).length Then
+                    If fpos >= Sample(nSample).length Then
                         Channel(chan).played = TRUE
                     End If
                 End If
 
+                ' We don't want anything below 0
+                If fpos < 0 Then Channel(chan).samplePosition = 0
+
                 ' Only mix the sample if we have not completed or are looping
-                If Not Channel(chan).played Or Sample(nSample).loopLength > 0 Then
+                If Not Channel(chan).played Or isLooping Then
                     fpos = Channel(chan).samplePosition
                     vol = Channel(chan).volume
                     fpan = Channel(chan).panningPosition
@@ -920,9 +927,10 @@ Sub MixMODFrame
                     ' Samples are stored in a string and strings are 1 based
                     If Song.useHQMixer Then
                         ' Apply interpolation
-                        bsam1 = Asc(SampleData(nSample), 1 + Fix(fpos))
-                        bsam2 = Asc(SampleData(nSample), 2 + Fix(fpos))
-                        fsam = bsam1 + (bsam2 - bsam1) * (fpos - Fix(fpos))
+                        npos = Fix(fpos)
+                        bsam1 = Asc(SampleData(nSample), 1 + npos)
+                        bsam2 = Asc(SampleData(nSample), 2 + npos)
+                        fsam = bsam1 + (bsam2 - bsam1) * (fpos - npos)
                     Else
                         bsam1 = Asc(SampleData(nSample), 1 + fpos)
                         fsam = bsam1
@@ -934,7 +942,7 @@ Sub MixMODFrame
                     fsamRT = fsamRT + (fsam * vol * fpan) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
 
                     ' Move to the next sample position based on the pitch
-                    Channel(chan).samplePosition = Channel(chan).samplePosition + Channel(chan).pitch
+                    Channel(chan).samplePosition = fpos + Channel(chan).pitch
                 End If
             End If
         Next
