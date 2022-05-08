@@ -1,14 +1,14 @@
 # QB64 MOD Player
 
-A ProTracker (and compatible) MOD player written in QB64
+A [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player written in [QB64](https://github.com/QB64-Phoenix-Edition/QB64pe)
 
 ## Goals
 
 - No dependency on 3rd party libraries - OK
 - No OS specific code in the Loader, Player & Mixer - OK
-- Support all MOD types (1 - 99 channels, 31 samples etc.) - WIP
+- Support all MOD types (1 - 99 channels, 31 samples etc.) - OK
 - Support all effects - WIP
-- Easy plug-&-play API - WIP
+- Easy plug-&-play API - OK
 - Play all the test MODs in the repository correctly - WIP
 - Survive ode2ptk.mod & black_queen.mod - WIP
 
