@@ -13,7 +13,7 @@ Option ExplicitArray
 Option Base 1
 '$Static
 $Resize:Smooth
-$Debug
+'$Debug
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -33,7 +33,7 @@ Const SAMPLE_PAN_CENTRE! = (SAMPLE_PAN_RIGHT - SAMPLE_PAN_LEFT) / 2! ' Center pa
 Const SONG_SPEED_DEFAULT~%% = 6~%% ' This is the default speed for song where it is not specified
 Const SONG_BPM_DEFAULT~%% = 125~%% ' Default song BPM
 Const SONG_VOLUME_MAX~%% = 255~%% ' Max song master volume
-Const BUFFER_UNDERRUN_PROTECTION~% = 256~% ' This prevents audio pops and glitches due to QB64 timer inaccuracy
+Const BUFFER_UNDERRUN_PROTECTION~%% = 64~%% ' This prevents audio pops and glitches due to QB64 timer inaccuracy
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -66,19 +66,20 @@ Type ChannelType
     volume As Integer ' Channel volume. This is a signed int because we need -ve values & to clip properly
     played As Byte ' This is set to true once the mixer is done with the sample
     pitch As Single ' Sample pitch. The mixer code uses this to step through the sample correctly
-    period As Integer ' This is used to store period values for various effects (signed, see above)
+    frequency As Unsigned Integer ' This is frequency of the playing sample used by various effects
+    period As Integer ' Period + finetune for various effects (signed, see above)
     panningPosition As Single ' Position 0 is leftmost ... 255 is rightmost
-    samplePosition As Single ' Where are we in the sample buffer
+    samplePosition As Single ' Where are we in the sample buffer (fp32)
     patternLoopRow As Integer ' This (signed) is the beginning of the loop in the pattern for effect E6x
     patternLoopRowCounter As Unsigned Byte ' This is a loop counter for effect E6x
-    portamentoTo As Integer ' Note to porta to value for E3x (signed)
+    portamentoTo As Unsigned Integer ' Note to porta to value for E3x
     portamentoSpeed As Unsigned Byte ' Porta speed for E3x
     vibratoPosition As Byte ' Vibrato position in the sine table for E4x (signed)
     vibratoDepth As Unsigned Byte ' Vibrato depth
     vibratoSpeed As Unsigned Byte ' Vibrato speed
     tremoloPosition As Byte ' Tremolo position in the sine table (singned)
     waveControl As Unsigned Byte ' Waveform type for vibrato and tremolo (4 bits each)
-    sampleOffset As Single ' This is used for effect 9xy
+    sampleOffset As Long ' This is used for effect 9xy
 End Type
 
 Type SongType
@@ -201,7 +202,7 @@ Data LOL
 '-----------------------------------------------------------------------------------------------------
 Dim As String modFileName
 
-If CommandCount > 0 Then modFileName = Command$ Else modFileName = "mods/test/1xx-PortamentoUp.mod"
+If CommandCount > 0 Then modFileName = Command$ Else modFileName = "mods/enigma.mod"
 
 If LoadMODFile(modFileName) Then
     Print "Loaded MOD file!"
@@ -508,7 +509,7 @@ Sub StartMODPlayer
         Read SineTable(i)
     Next
 
-    ' Load the note table
+    ' Load the note table. TODO: Move this out to UI code files
     Restore NoteTab
     Read s
     ReDim NoteTable(0 To s - 1) As String * 3
@@ -517,7 +518,7 @@ Sub StartMODPlayer
     Next
 
     ' Set the mix rate to match that of the system
-    Song.mixerRate = SndRate + BUFFER_UNDERRUN_PROTECTION
+    Song.mixerRate = SndRate + BUFFER_UNDERRUN_PROTECTION ' <-- This is just a lame way to avoid clicks & pops. We should really move to a polling system
 
     ' Initialize some important stuff
     Song.orderPosition = 0
@@ -531,6 +532,7 @@ Sub StartMODPlayer
     ReDim Channel(0 To Song.channels - 1) As ChannelType
 
     ' Setup panning for all channels except last one if we have an odd number
+    ' I hope I did this right. But i don't care even if it not the classic way. This is cooler :)
     For i = 0 To Song.channels - 1 - (Song.channels Mod 2)
         If i Mod 2 = 0 Then
             Channel(i).panningPosition = SAMPLE_PAN_LEFT + SAMPLE_PAN_CENTRE / 2
@@ -658,8 +660,6 @@ Sub UpdateMODRow
         ' ONLY RESET PITCH IF THERE IS A PERIOD VALUE AND PORTA NOT SET
         If nPeriod >= 0 Then
             Channel(nChannel).period = nPeriod + Sample(Channel(nChannel).sample).fineTune
-            Channel(nChannel).played = FALSE
-            Channel(nChannel).samplePosition = 0
 
             ' Retrigger tremolo and vibrato waveforms
             If Channel(nChannel).waveControl And &HF < 4 Then Channel(nChannel).vibratoPosition = 0
@@ -667,7 +667,10 @@ Sub UpdateMODRow
 
             ' If not a porta effect, then set the channel pitch to the looked up amiga value + or - any finetune
             If nEffect <> &H3 And nEffect <> &H5 Then ' TODO: And note delay?
-                Channel(nChannel).pitch = GetPitch(Channel(nChannel).period)
+                Channel(nChannel).played = FALSE
+                Channel(nChannel).samplePosition = 0
+                Channel(nChannel).frequency = FrequencyTable(Channel(nChannel).period)
+                Channel(nChannel).pitch = GetPitchFromFrequency(Channel(nChannel).frequency)
             End If
         End If
 
@@ -676,11 +679,11 @@ Sub UpdateMODRow
             Case &H3 ' 3: Porta To Note
                 ' Just remember stuff here
                 If nOperand > 0 Then Channel(nChannel).portamentoSpeed = nOperand
-                If nPeriod >= 0 Then Channel(nChannel).portamentoTo = nPeriod
+                If nPeriod >= 0 Then Channel(nChannel).portamentoTo = FrequencyTable(Channel(nChannel).period)
 
             Case &H5 ' 5: Tone Portamento + Volume Slide
                 ' Just remember stuff here
-                If nPeriod >= 0 Then Channel(nChannel).portamentoTo = nPeriod
+                If nPeriod >= 0 Then Channel(nChannel).portamentoTo = FrequencyTable(Channel(nChannel).period)
 
             Case &H4 ' 4: Vibrato
                 If nOpX > 0 Then Channel(nChannel).vibratoSpeed = nOpX
@@ -702,7 +705,7 @@ Sub UpdateMODRow
                 patternJumpFlag = TRUE
 
             Case &HC ' 12: Set Volume
-                Channel(nChannel).volume = nOperand ' This can never be +ve cause it is unsigned. So we only clip for max
+                Channel(nChannel).volume = nOperand ' Operand can never be -ve cause it is unsigned. So we only clip for max below
                 If Channel(nChannel).volume > SAMPLE_VOLUME_MAX Then Channel(nChannel).volume = SAMPLE_VOLUME_MAX
 
             Case &HD ' 13: Pattern Break
@@ -718,12 +721,14 @@ Sub UpdateMODRow
                         Song.useHQMixer = nOpY <> 0
 
                     Case &H1 ' 1: Fine Portamento Up
-                        ' TODO: Clamp here?
-                        Channel(nChannel).period = Channel(nChannel).period - nOperand ' Subtract frequency
+                        Channel(nChannel).frequency = Channel(nChannel).frequency - nOpY ' TODO: Check this!
+                        If Channel(nChannel).frequency < 108 Then Channel(nChannel).frequency = 108
+                        Channel(nChannel).pitch = GetPitchFromFrequency(Channel(nChannel).frequency)
 
                     Case &H2 ' 2: Fine Portamento Down
-                        ' TODO: Clamp here?
-                        Channel(nChannel).period = Channel(nChannel).period + nOperand ' Add frequency
+                        Channel(nChannel).frequency = Channel(nChannel).frequency + nOpY ' TODO: Check this!
+                        If Channel(nChannel).frequency > 907 Then Channel(nChannel).frequency = 907
+                        Channel(nChannel).pitch = GetPitchFromFrequency(Channel(nChannel).frequency)
 
                     Case &H3 ' 3: Glissando Control
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
@@ -803,23 +808,23 @@ Sub UpdateMODTick
                 If (nOperand > 0) Then
                     Select Case (Song.tick + 1) Mod 3 ' +1 here to make it sound like FT2. Dunno why it works yet :(
                         Case 0
-                            Channel(nChannel).pitch = GetPitch(Channel(nChannel).period)
+                            Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).period)
                         Case 1
-                            Channel(nChannel).pitch = GetPitch(Channel(nChannel).period + (8 * nOpX))
+                            Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).period + (8 * nOpX))
                         Case 2
-                            Channel(nChannel).pitch = GetPitch(Channel(nChannel).period + (8 * nOpY))
+                            Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).period + (8 * nOpY))
                     End Select
                 End If
 
             Case &H1 ' 1: Porta Up
-                Channel(nChannel).period = Channel(nChannel).period - nOperand ' TODO: This is fucked!
-                If Channel(nChannel).period < 56 Then Channel(nChannel).period = 56
-                Channel(nChannel).pitch = GetPitch(Channel(nChannel).period)
+                Channel(nChannel).frequency = Channel(nChannel).frequency - nOperand
+                If Channel(nChannel).frequency < 108 Then Channel(nChannel).frequency = 108
+                Channel(nChannel).pitch = GetPitchFromFrequency(Channel(nChannel).frequency)
 
             Case &H2 ' 2: Porta Down
-                Channel(nChannel).period = Channel(nChannel).period + nOperand '  TODO: This is fucked!
-                If Channel(nChannel).period > 288 Then Channel(nChannel).period = 288
-                Channel(nChannel).pitch = GetPitch(Channel(nChannel).period)
+                Channel(nChannel).frequency = Channel(nChannel).frequency + nOperand
+                If Channel(nChannel).frequency > 907 Then Channel(nChannel).frequency = 907
+                Channel(nChannel).pitch = GetPitchFromFrequency(Channel(nChannel).frequency)
 
             Case &H3 ' 3: Porta To Note
                 DoPortamento nChannel
@@ -858,7 +863,8 @@ Sub UpdateMODTick
                         If Song.tick = nOpY Then
                             If nSample > 0 Then Channel(nChannel).volume = Sample(Channel(nChannel).sample).volume
                             Channel(nChannel).period = nPeriod + Sample(Channel(nChannel).sample).fineTune
-                            Channel(nChannel).pitch = GetPitch(Channel(nChannel).period)
+                            Channel(nChannel).frequency = FrequencyTable(Channel(nChannel).period)
+                            Channel(nChannel).pitch = GetPitchFromFrequency(Channel(nChannel).frequency)
                             Channel(nChannel).played = FALSE
                             Channel(nChannel).samplePosition = 0
                         End If
@@ -951,21 +957,27 @@ End Sub
 
 
 ' This gives us the sample pitch based on the period
-Function GetPitch! (period As Integer)
-    GetPitch = AMIGA_CONSTANT / (FrequencyTable(period) * Song.mixerRate)
+Function GetPitchFromPeriod! (period As Integer)
+    GetPitchFromPeriod = GetPitchFromFrequency(FrequencyTable(period))
+End Function
+
+
+' This gives us the sample pitch based on the period
+Function GetPitchFromFrequency! (freq As Unsigned Integer)
+    GetPitchFromFrequency = AMIGA_CONSTANT / (freq * Song.mixerRate)
 End Function
 
 
 Sub DoPortamento (chan As Unsigned Byte)
-    If Channel(chan).period < Channel(chan).portamentoTo Then
-        Channel(chan).period = Channel(chan).period + Channel(chan).portamentoSpeed
-        If Channel(chan).period > Channel(chan).portamentoTo Then Channel(chan).period = Channel(chan).portamentoTo
-    ElseIf Channel(chan).period > Channel(chan).portamentoTo Then
-        Channel(chan).period = Channel(chan).period - Channel(chan).portamentoSpeed
-        If Channel(chan).period < Channel(chan).portamentoTo Then Channel(chan).period = Channel(chan).portamentoTo
+    If Channel(chan).frequency < Channel(chan).portamentoTo Then
+        Channel(chan).frequency = Channel(chan).frequency + Channel(chan).portamentoSpeed
+        If Channel(chan).frequency > Channel(chan).portamentoTo Then Channel(chan).frequency = Channel(chan).portamentoTo
+    ElseIf Channel(chan).frequency > Channel(chan).portamentoTo Then
+        Channel(chan).frequency = Channel(chan).frequency - Channel(chan).portamentoSpeed
+        If Channel(chan).frequency < Channel(chan).portamentoTo Then Channel(chan).frequency = Channel(chan).portamentoTo
     End If
 
-    Channel(chan).pitch = GetPitch(Channel(chan).period)
+    Channel(chan).pitch = GetPitchFromFrequency(Channel(chan).frequency)
 End Sub
 
 
@@ -1000,12 +1012,11 @@ Sub DoVibrato (chan As Unsigned Byte)
 
     delta = delta * Channel(chan).vibratoDepth
     delta = SHR(delta, 7)
-    delta = SHL(delta, 2) ' we use 4 * periods so make vibrato 4 times bigger
 
     If Channel(chan).vibratoPosition >= 0 Then
-        Channel(chan).pitch = GetPitch(Channel(chan).period + delta)
+        Channel(chan).pitch = GetPitchFromFrequency(Channel(chan).frequency + delta)
     Else
-        Channel(chan).pitch = GetPitch(Channel(chan).period - delta)
+        Channel(chan).pitch = GetPitchFromFrequency(Channel(chan).frequency - delta)
     End If
 
     Channel(chan).vibratoPosition = Channel(chan).vibratoPosition + Channel(chan).vibratoSpeed
