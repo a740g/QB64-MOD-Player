@@ -12,8 +12,8 @@ Option Explicit
 Option ExplicitArray
 Option Base 1
 '$Static
-$Resize:Smooth
 '$Debug
+$Resize:Smooth
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -202,7 +202,7 @@ Data LOL
 '-----------------------------------------------------------------------------------------------------
 Dim As String modFileName
 
-If CommandCount > 0 Then modFileName = Command$ Else modFileName = "mods/test/Bxx-PositionJump.mod"
+If CommandCount > 0 Then modFileName = Command$ Else modFileName = "mods/nemesis.mod"
 
 If LoadMODFile(modFileName) Then
     Print "Loaded MOD file!"
@@ -215,7 +215,7 @@ End If
 
 Title "QB64 MOD Player - " + modFileName
 StartMODPlayer
-'Song.isLooping = TRUE
+Song.isLooping = TRUE
 
 Width 12 + (Song.channels * 18), 40
 
@@ -302,18 +302,18 @@ End Sub
 
 
 ' Loads the MOD file into memory and prepares all required gobals
-Function LoadMODFile%% (sName As String)
+Function LoadMODFile%% (sFileName As String)
     ' By default we assume a failure
     LoadMODFile = FALSE
 
     ' Check if the file exists
-    If Not FileExists(sName) Then Exit Function
+    If Not FileExists(sFileName) Then Exit Function
 
     ' Attempt to open the file
     Dim fileHandle As Long
     fileHandle = FreeFile
 
-    Open sName For Binary Access Read As fileHandle
+    Open sFileName For Binary Access Read As fileHandle
 
     ' Check what kind of MOD file this is
     ' Seek to offset 1080 (438h) in the file & read in 4 bytes
@@ -483,12 +483,8 @@ Function LoadMODFile%% (sName As String)
 
     ' Load the samples
     For i = 1 To Song.samples
-        ' Resize the sample data
-        SampleData(i) = Space$(Sample(i).length)
-        ' Now load the data
-        Get fileHandle, , SampleData(i)
-        ' Allocate 2 bytes more than needed for mixer runoff
-        SampleData(i) = SampleData(i) + String$(2, NULL)
+        ' Read and load sample size bytes of data. Also allocate 2 bytes more than needed for mixer runoff
+        SampleData(i) = Input$(Sample(i).length, fileHandle) + String$(2, NULL)
     Next
 
     Close fileHandle
