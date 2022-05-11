@@ -65,14 +65,14 @@ Type ChannelType
     sample As Unsigned Byte ' Sample number to be mixed
     volume As Integer ' Channel volume. This is a signed int because we need -ve values & to clip properly
     played As Byte ' This is set to true once the mixer is done with the sample
-    pitch As Single ' Sample pitch. The mixer code uses this to step through the sample correctly
+    pitch As Single ' Sample pitch. The mixer code uses this to step through the sample correctly (fp32)
     frequency As Unsigned Integer ' This is frequency of the playing sample used by various effects
     note As Integer ' Note + finetune for various effects (signed, see above)
-    panningPosition As Single ' Position 0 is leftmost ... 255 is rightmost
+    panningPosition As Single ' Position 0 is leftmost ... 255 is rightmost (fp32)
     samplePosition As Single ' Where are we in the sample buffer (fp32)
     patternLoopRow As Integer ' This (signed) is the beginning of the loop in the pattern for effect E6x
     patternLoopRowCounter As Unsigned Byte ' This is a loop counter for effect E6x
-    portamentoTo As Unsigned Integer ' Note to porta to value for E3x
+    portamentoTo As Unsigned Integer ' Frequency to porta to value for E3x
     portamentoSpeed As Unsigned Byte ' Porta speed for E3x
     vibratoPosition As Byte ' Vibrato position in the sine table for E4x (signed)
     vibratoDepth As Unsigned Byte ' Vibrato depth
@@ -202,7 +202,7 @@ Data LOL
 '-----------------------------------------------------------------------------------------------------
 Dim As String modFileName
 
-If CommandCount > 0 Then modFileName = Command$ Else modFileName = "mods/test/Bxx-PositionJump.mod"
+If CommandCount > 0 Then modFileName = Command$ Else modFileName = "mods/BeatWave.mod"
 
 If LoadMODFile(modFileName) Then
     Print "Loaded MOD file!"
@@ -611,6 +611,17 @@ Sub MODPlayerTimerHandler
             If Song.patternRow > PATTERN_ROW_MAX Then
                 Song.orderPosition = Song.orderPosition + 1
                 Song.patternRow = 0
+
+                ' This fixes subscript out of range for songs that use all 128 orders
+                If Song.orderPosition >= Song.orders Then
+                    If Song.isLooping Then
+                        Song.orderPosition = Song.endJumpOrder
+                        Song.speed = SONG_SPEED_DEFAULT
+                        Song.tick = Song.speed
+                    Else
+                        Song.isPlaying = FALSE
+                    End If
+                End If
             End If
         Else
             Song.patternDelay = Song.patternDelay - 1
@@ -717,12 +728,12 @@ Sub UpdateMODRow
                         Song.useHQMixer = nOpY <> 0
 
                     Case &H1 ' 1: Fine Portamento Up
-                        Channel(nChannel).frequency = Channel(nChannel).frequency - nOpY ' TODO: Check this!
+                        Channel(nChannel).frequency = Channel(nChannel).frequency - nOpY
                         If Channel(nChannel).frequency < 108 Then Channel(nChannel).frequency = 108
                         Channel(nChannel).pitch = GetPitchFromFrequency(Channel(nChannel).frequency)
 
                     Case &H2 ' 2: Fine Portamento Down
-                        Channel(nChannel).frequency = Channel(nChannel).frequency + nOpY ' TODO: Check this!
+                        Channel(nChannel).frequency = Channel(nChannel).frequency + nOpY
                         If Channel(nChannel).frequency > 907 Then Channel(nChannel).frequency = 907
                         Channel(nChannel).pitch = GetPitchFromFrequency(Channel(nChannel).frequency)
 
