@@ -46,7 +46,7 @@ Const BUFFER_UNDERRUN_PROTECTION~%% = 64~%% ' This prevents audio pops and glitc
 ' +-------------------------------------+
 Type PatternType
     sample As Unsigned Byte ' aaaaDDDD = sample number
-    period As Integer ' BBBBCCCCCCCC = sample period value (signed becuase invalids will have -1)
+    note As Integer ' BBBBCCCCCCCC = note value (signed becuase invalids will have -1)
     effect As Unsigned Byte ' eeee = effect number
     operand As Unsigned Byte ' FFFFFFFF = effect parameters
 End Type
@@ -67,7 +67,7 @@ Type ChannelType
     played As Byte ' This is set to true once the mixer is done with the sample
     pitch As Single ' Sample pitch. The mixer code uses this to step through the sample correctly
     frequency As Unsigned Integer ' This is frequency of the playing sample used by various effects
-    period As Integer ' Period + finetune for various effects (signed, see above)
+    note As Integer ' Note + finetune for various effects (signed, see above)
     panningPosition As Single ' Position 0 is leftmost ... 255 is rightmost
     samplePosition As Single ' Where are we in the sample buffer (fp32)
     patternLoopRow As Integer ' This (signed) is the beginning of the loop in the pattern for effect E6x
@@ -202,7 +202,7 @@ Data LOL
 '-----------------------------------------------------------------------------------------------------
 Dim As String modFileName
 
-If CommandCount > 0 Then modFileName = Command$ Else modFileName = "mods/nemesis.mod"
+If CommandCount > 0 Then modFileName = Command$ Else modFileName = "mods/test/Bxx-PositionJump.mod"
 
 If LoadMODFile(modFileName) Then
     Print "Loaded MOD file!"
@@ -223,7 +223,7 @@ Dim nChan As Unsigned Byte, k As String
 Do
     Print Using "### ### ##: "; Song.orderPosition; Order(Song.orderPosition); Song.patternRow;
     For nChan = 0 To Song.channels - 1
-        Print Using ">##< ## & \\ \\ "; nChan; Channel(nChan).sample; NoteTable(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).period / 8); Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).effect); Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).operand);
+        Print Using ">##< ## & \\ \\ "; nChan; Channel(nChan).sample; NoteTable(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).note / 8); Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).effect); Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).operand);
     Next
     Print 'SndRawLen
 
@@ -462,10 +462,10 @@ Function LoadMODFile%% (sFileName As String)
                 period = SHL(byte1 And &HF, 8) Or byte2
 
                 ' Do the look up in the table against what is read in and store note
-                Pattern(i, a, b).period = -1
+                Pattern(i, a, b).note = -1
                 For c = 1 To 36
                     If period > FrequencyTable(c * 8) - 3 And period < FrequencyTable(c * 8) + 3 Then
-                        Pattern(i, a, b).period = c * 8
+                        Pattern(i, a, b).note = c * 8
                     End If
                 Next
 
@@ -630,7 +630,7 @@ End Sub
 ' Updates a row of notes and play them out on tick 0
 Sub UpdateMODRow
     Dim As Unsigned Byte nSample, nEffect, nOperand, nOpX, nOpY, nChannel
-    Dim As Integer nPeriod, nPatternRow
+    Dim As Integer nNote, nPatternRow
     ' This are set to true when a pattern jump effect and pattern break effect are triggered
     Dim As Byte patternJumpFlag, patternBreakFlag
 
@@ -640,7 +640,7 @@ Sub UpdateMODRow
     ' Process all channels
     For nChannel = 0 To Song.channels - 1
         nSample = Pattern(Song.tickPattern, nPatternRow, nChannel).sample
-        nPeriod = Pattern(Song.tickPattern, nPatternRow, nChannel).period
+        nNote = Pattern(Song.tickPattern, nPatternRow, nChannel).note
         nEffect = Pattern(Song.tickPattern, nPatternRow, nChannel).effect
         nOperand = Pattern(Song.tickPattern, nPatternRow, nChannel).operand
         nOpX = SHR(nOperand, 4)
@@ -653,9 +653,9 @@ Sub UpdateMODRow
             Channel(nChannel).volume = Sample(nSample).volume
         End If
 
-        ' ONLY RESET PITCH IF THERE IS A PERIOD VALUE AND PORTA NOT SET
-        If nPeriod >= 0 Then
-            Channel(nChannel).period = nPeriod + Sample(Channel(nChannel).sample).fineTune
+        ' ONLY RESET PITCH IF THERE IS A NOTE VALUE AND PORTA NOT SET
+        If nNote >= 0 Then
+            Channel(nChannel).note = nNote + Sample(Channel(nChannel).sample).fineTune
 
             ' Retrigger tremolo and vibrato waveforms
             If Channel(nChannel).waveControl And &HF < 4 Then Channel(nChannel).vibratoPosition = 0
@@ -665,7 +665,7 @@ Sub UpdateMODRow
             If nEffect <> &H3 And nEffect <> &H5 Then ' TODO: And note delay?
                 Channel(nChannel).played = FALSE
                 Channel(nChannel).samplePosition = 0
-                Channel(nChannel).frequency = FrequencyTable(Channel(nChannel).period)
+                Channel(nChannel).frequency = FrequencyTable(Channel(nChannel).note)
                 Channel(nChannel).pitch = GetPitchFromFrequency(Channel(nChannel).frequency)
             End If
         End If
@@ -675,11 +675,11 @@ Sub UpdateMODRow
             Case &H3 ' 3: Porta To Note
                 ' Just remember stuff here
                 If nOperand > 0 Then Channel(nChannel).portamentoSpeed = nOperand
-                If nPeriod >= 0 Then Channel(nChannel).portamentoTo = FrequencyTable(Channel(nChannel).period)
+                If nNote >= 0 Then Channel(nChannel).portamentoTo = FrequencyTable(Channel(nChannel).note)
 
             Case &H5 ' 5: Tone Portamento + Volume Slide
                 ' Just remember stuff here
-                If nPeriod >= 0 Then Channel(nChannel).portamentoTo = FrequencyTable(Channel(nChannel).period)
+                If nNote >= 0 Then Channel(nChannel).portamentoTo = FrequencyTable(Channel(nChannel).note)
 
             Case &H4 ' 4: Vibrato
                 If nOpX > 0 Then Channel(nChannel).vibratoSpeed = nOpX
@@ -793,7 +793,7 @@ Sub UpdateMODTick
         ' We are not processing a new row but tick 1+ effects
         ' So we pick these using tickPattern and tickPatternRow
         nSample = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).sample
-        nPeriod = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).period
+        nPeriod = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).note
         nEffect = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).effect
         nOperand = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).operand
         nOpX = SHR(nOperand, 4)
@@ -804,11 +804,11 @@ Sub UpdateMODTick
                 If (nOperand > 0) Then
                     Select Case (Song.tick + 1) Mod 3 ' +1 here to make it sound like FT2. Dunno why it works yet :(
                         Case 0
-                            Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).period)
+                            Channel(nChannel).pitch = GetPitchFromNote(Channel(nChannel).note)
                         Case 1
-                            Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).period + (8 * nOpX))
+                            Channel(nChannel).pitch = GetPitchFromNote(Channel(nChannel).note + (8 * nOpX))
                         Case 2
-                            Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).period + (8 * nOpY))
+                            Channel(nChannel).pitch = GetPitchFromNote(Channel(nChannel).note + (8 * nOpY))
                     End Select
                 End If
 
@@ -858,8 +858,8 @@ Sub UpdateMODTick
                     Case &HD ' 13: Delay Note
                         If Song.tick = nOpY Then
                             If nSample > 0 Then Channel(nChannel).volume = Sample(Channel(nChannel).sample).volume
-                            Channel(nChannel).period = nPeriod + Sample(Channel(nChannel).sample).fineTune
-                            Channel(nChannel).frequency = FrequencyTable(Channel(nChannel).period)
+                            Channel(nChannel).note = nPeriod + Sample(Channel(nChannel).sample).fineTune
+                            Channel(nChannel).frequency = FrequencyTable(Channel(nChannel).note)
                             Channel(nChannel).pitch = GetPitchFromFrequency(Channel(nChannel).frequency)
                             Channel(nChannel).played = FALSE
                             Channel(nChannel).samplePosition = 0
@@ -901,7 +901,7 @@ Sub MixMODFrame
                 If isLooping Then
                     ' Reset loop position if we reached the end of the loop
                     If fpos >= Sample(nSample).loopEnd Then
-                        Channel(chan).samplePosition = Sample(nSample).loopStart
+                        fpos = Sample(nSample).loopStart
                     End If
                 Else
                     ' For non-looping sample simply set the played flag as true if we reached the end
@@ -911,11 +911,10 @@ Sub MixMODFrame
                 End If
 
                 ' We don't want anything below 0
-                If fpos < 0 Then Channel(chan).samplePosition = 0
+                If fpos < 0 Then fpos = 0
 
                 ' Only mix the sample if we have not completed or are looping
                 If Not Channel(chan).played Or isLooping Then
-                    fpos = Channel(chan).samplePosition
                     vol = Channel(chan).volume
                     fpan = Channel(chan).panningPosition
 
@@ -954,15 +953,15 @@ Sub MixMODFrame
         If fsamRT < -1 Then fsamRT = -1
         If fsamRT > 1 Then fsamRT = 1
 
-        ' Feed the sample to the QB64 sound pipe
+        ' Feed the samples to the QB64 sound pipe
         SndRaw fsamLT, fsamRT, Song.qb64SoundPipe
     Next
 End Sub
 
 
-' This gives us the sample pitch based on the period
-Function GetPitchFromPeriod! (period As Integer)
-    GetPitchFromPeriod = GetPitchFromFrequency(FrequencyTable(period))
+' This gives us the sample pitch based on the note
+Function GetPitchFromNote! (note As Integer)
+    GetPitchFromNote = GetPitchFromFrequency(FrequencyTable(note))
 End Function
 
 
