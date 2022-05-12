@@ -72,7 +72,9 @@ Type ChannelType
     vibratoPosition As Byte ' Vibrato position in the sine table for E4x (signed)
     vibratoDepth As Unsigned Byte ' Vibrato depth
     vibratoSpeed As Unsigned Byte ' Vibrato speed
-    tremoloPosition As Byte ' Tremolo position in the sine table (singned)
+    tremoloPosition As Byte ' Tremolo position in the sine table (signed)
+    tremoloDepth As Unsigned Byte ' Tremolo depth
+    tremoloSpeed As Unsigned Byte ' Tremolo speed
     waveControl As Unsigned Byte ' Waveform type for vibrato and tremolo (4 bits each)
     sampleOffset As Long ' This is used for effect 9xy
 End Type
@@ -197,7 +199,7 @@ Data LOL
 '-----------------------------------------------------------------------------------------------------
 Dim As String modFileName
 
-If CommandCount > 0 Then modFileName = Command$ Else modFileName = "mods/cartoon-chips83.mod"
+If CommandCount > 0 Then modFileName = Command$ Else modFileName = "mods/shop.mod"
 
 If LoadMODFile(modFileName) Then
     Print "Loaded MOD file!"
@@ -599,7 +601,7 @@ Sub MODPlayerTimerHandler
                 Song.orderPosition = Song.orderPosition + 1
                 Song.patternRow = 0
 
-                ' This fixes subscript out of range for songs that use all 128 orders
+                ' Check if we need to loop or stop
                 If Song.orderPosition >= Song.orders Then
                     If Song.isLooping Then
                         Song.orderPosition = Song.endJumpOrder
@@ -629,8 +631,8 @@ End Sub
 Sub UpdateMODRow
     Dim As Unsigned Byte nSample, nEffect, nOperand, nOpX, nOpY, nChannel
     Dim As Integer nNote, nPatternRow
-    ' This are set to true when a pattern jump effect and pattern break effect are triggered
-    Dim As Bit patternJumpFlag, patternBreakFlag
+    ' This is set to true when a pattern jump effect and pattern break effect are triggered
+    Dim As Bit jumpLoopEffectFlag
 
     ' We need this so that we don't start accessing -1 elements in the pattern array when there is a pattern jump
     nPatternRow = Song.patternRow
@@ -683,6 +685,10 @@ Sub UpdateMODRow
                 If nOpX > 0 Then Channel(nChannel).vibratoSpeed = nOpX
                 If nOpY > 0 Then Channel(nChannel).vibratoDepth = nOpY
 
+            Case &H7 ' 7: Tremolo
+                If nOpX > 0 Then Channel(nChannel).tremoloSpeed = nOpX
+                If nOpY > 0 Then Channel(nChannel).tremoloDepth = nOpY
+
             Case &H8 ' 8: Set Panning Position
                 ' Don't care about DMP panning BS. We are doing this Fasttracker style
                 Channel(nChannel).panningPosition = nOperand
@@ -696,9 +702,9 @@ Sub UpdateMODRow
 
             Case &HB ' 11: Jump To Pattern
                 Song.orderPosition = nOperand
-                Song.patternRow = -1 ' This will increment right after & we will start at 0
                 If Song.orderPosition >= Song.orders Then Song.orderPosition = Song.endJumpOrder
-                patternJumpFlag = TRUE
+                Song.patternRow = -1 ' This will increment right after & we will start at 0
+                jumpLoopEffectFlag = TRUE
 
             Case &HC ' 12: Set Volume
                 Channel(nChannel).volume = nOperand ' Operand can never be -ve cause it is unsigned. So we only clip for max below
@@ -707,9 +713,11 @@ Sub UpdateMODRow
             Case &HD ' 13: Pattern Break
                 Song.patternRow = (nOpX * 10) + nOpY - 1
                 If Song.patternRow > PATTERN_ROW_MAX Then Song.patternRow = -1
-                If Not patternBreakFlag And Not patternJumpFlag Then Song.orderPosition = Song.orderPosition + 1
-                If Song.orderPosition >= Song.orders Then Song.orderPosition = Song.endJumpOrder
-                patternBreakFlag = TRUE
+                If Not jumpLoopEffectFlag Then
+                    Song.orderPosition = Song.orderPosition + 1
+                    If Song.orderPosition >= Song.orders Then Song.orderPosition = Song.endJumpOrder
+                End If
+                jumpLoopEffectFlag = TRUE
 
             Case &HE ' 14: Extended Effects
                 Select Case nOpX
@@ -730,7 +738,8 @@ Sub UpdateMODRow
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
 
                     Case &H4 ' 4: Set Vibrato Waveform
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                        Channel(nChannel).waveControl = Channel(nChannel).waveControl And &HF0
+                        Channel(nChannel).waveControl = Channel(nChannel).waveControl Or nOpY
 
                     Case &H5 ' 5: Set Finetune
                         Sample(Channel(nChannel).sample).fineTune = nOpY
@@ -749,7 +758,8 @@ Sub UpdateMODRow
                         If Channel(nChannel).patternLoopRowCounter > 0 Then Song.patternRow = Channel(nChannel).patternLoopRow - 1
 
                     Case &H7 ' 7: Set Tremolo WaveForm
-                        Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                        Channel(nChannel).waveControl = Channel(nChannel).waveControl And &HF
+                        Channel(nChannel).waveControl = Channel(nChannel).waveControl Or SHL(nOpY, 4)
 
                     Case &H8 ' 8: 16 position panning
                         If nOpY > 15 Then nOpY = 15
@@ -837,7 +847,7 @@ Sub UpdateMODTick
                 DoVolumeSlide nChannel, nOpX, nOpY
 
             Case &H7 ' 7: Tremolo
-                Title "Effect not implemented: " + Str$(nEffect)
+                DoTremolo nChannel
 
             Case &HA ' 10: Volume Slide
                 DoVolumeSlide nChannel, nOpX, nOpY
@@ -1028,6 +1038,44 @@ Sub DoVibrato (chan As Unsigned Byte)
 
     Channel(chan).vibratoPosition = Channel(chan).vibratoPosition + Channel(chan).vibratoSpeed
     If Channel(chan).vibratoPosition > 31 Then Channel(chan).vibratoPosition = Channel(chan).vibratoPosition - 64
+End Sub
+
+
+Sub DoTremolo (chan As Unsigned Byte)
+    Dim delta As Unsigned Integer
+    Dim temp As Unsigned Byte
+
+    temp = Channel(chan).tremoloPosition And 31
+
+    Select Case SHR(Channel(chan).waveControl, 4) And 3
+        Case 0
+            delta = SineTable(temp)
+
+        Case 1
+            temp = SHL(temp, 3)
+            If Channel(chan).tremoloPosition < 0 Then temp = 255 - temp
+            delta = temp
+
+        Case 2
+            delta = 255
+
+        Case 3
+            delta = SineTable(temp)
+    End Select
+
+    delta = delta * Channel(chan).tremoloDepth
+    delta = SHR(delta, 6)
+
+    If Channel(chan).tremoloPosition >= 0 Then
+        If Channel(chan).volume + delta > SAMPLE_VOLUME_MAX Then delta = SAMPLE_VOLUME_MAX - Channel(chan).volume
+        Channel(chan).volume = Channel(chan).volume + delta
+    Else
+        If Channel(chan).volume - delta < 0 Then delta = Channel(chan).volume
+        Channel(chan).volume = Channel(chan).volume - delta
+    End If
+
+    Channel(chan).tremoloPosition = Channel(chan).tremoloPosition + Channel(chan).tremoloSpeed
+    If Channel(chan).tremoloPosition > 31 Then Channel(chan).tremoloPosition = Channel(chan).tremoloPosition - 64
 End Sub
 '-----------------------------------------------------------------------------------------------------
 
