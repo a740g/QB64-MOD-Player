@@ -19,8 +19,8 @@ $Resize:Smooth
 '-----------------------------------------------------------------------------------------------------
 ' CONSTANTS
 '-----------------------------------------------------------------------------------------------------
-Const FALSE%% = 0%%, TRUE%% = Not FALSE
-Const NULL%% = 0%%
+Const FALSE` = 0`, TRUE` = Not FALSE
+Const NULL~` = 0~`
 Const NULLSTRING$ = ""
 
 Const AMIGA_CONSTANT! = 3579545.25! ' PAL: 7093789.2 / 2, NSTC: 7159090.5 / 2
@@ -39,11 +39,6 @@ Const BUFFER_UNDERRUN_PROTECTION~%% = 64~%% ' This prevents audio pops and glitc
 '-----------------------------------------------------------------------------------------------------
 ' USER DEFINED TYPES
 '-----------------------------------------------------------------------------------------------------
-' +-------------------------------------+
-' | Byte 0    Byte 1   Byte 2   Byte 3  |
-' +-------------------------------------+
-' |aaaaBBBB CCCCCCCCC DDDDeeee FFFFFFFFF|
-' +-------------------------------------+
 Type PatternType
     sample As Unsigned Byte ' aaaaDDDD = sample number
     note As Integer ' BBBBCCCCCCCC = note value (signed becuase invalids will have -1)
@@ -202,7 +197,7 @@ Data LOL
 '-----------------------------------------------------------------------------------------------------
 Dim As String modFileName
 
-If CommandCount > 0 Then modFileName = Command$ Else modFileName = "mods/BeatWave.mod"
+If CommandCount > 0 Then modFileName = Command$ Else modFileName = "mods/cartoon-chips83.mod"
 
 If LoadMODFile(modFileName) Then
     Print "Loaded MOD file!"
@@ -215,7 +210,7 @@ End If
 
 Title "QB64 MOD Player - " + modFileName
 StartMODPlayer
-Song.isLooping = TRUE
+'Song.isLooping = TRUE
 
 Width 12 + (Song.channels * 18), 40
 
@@ -448,6 +443,11 @@ Function LoadMODFile%% (sFileName As String)
     Dim As Unsigned Integer a, b, period
 
     ' Load the patterns
+    ' +-------------------------------------+
+    ' | Byte 0    Byte 1   Byte 2   Byte 3  |
+    ' +-------------------------------------+
+    ' |aaaaBBBB CCCCCCCCC DDDDeeee FFFFFFFFF|
+    ' +-------------------------------------+
     ' TODO: special handling for FLT8?
     For i = 0 To Song.highestPattern
         For a = 0 To PATTERN_ROW_MAX
@@ -568,21 +568,8 @@ End Sub
 
 ' Called by the QB64 timer at a specified rate
 Sub MODPlayerTimerHandler
-    ' Simply do not process anything if song is paused
-    If Song.isPaused Then Exit Sub
-
-    ' Check conditions for which we should just exit or loop
-    If Song.orderPosition >= Song.orders Then
-        If Song.isLooping Then
-            Song.orderPosition = Song.endJumpOrder
-            Song.patternRow = 0
-            Song.speed = SONG_SPEED_DEFAULT
-            Song.tick = Song.speed
-        Else
-            Song.isPlaying = FALSE
-            Exit Sub
-        End If
-    End If
+    ' Check conditions for which we should just exit and not process anything
+    If Song.isPaused Or Song.orderPosition >= Song.orders Then Exit Sub
 
     ' Set the playing flag to true
     Song.isPlaying = TRUE
@@ -643,7 +630,7 @@ Sub UpdateMODRow
     Dim As Unsigned Byte nSample, nEffect, nOperand, nOpX, nOpY, nChannel
     Dim As Integer nNote, nPatternRow
     ' This are set to true when a pattern jump effect and pattern break effect are triggered
-    Dim As Byte patternJumpFlag, patternBreakFlag
+    Dim As Bit patternJumpFlag, patternBreakFlag
 
     ' We need this so that we don't start accessing -1 elements in the pattern array when there is a pattern jump
     nPatternRow = Song.patternRow
@@ -665,7 +652,7 @@ Sub UpdateMODRow
         End If
 
         ' ONLY RESET PITCH IF THERE IS A NOTE VALUE AND PORTA NOT SET
-        If nNote >= 0 Then
+        If nNote >= 0 And Channel(nChannel).sample > 0 Then
             Channel(nChannel).note = nNote + Sample(Channel(nChannel).sample).fineTune
 
             ' Retrigger tremolo and vibrato waveforms
@@ -701,9 +688,11 @@ Sub UpdateMODRow
                 Channel(nChannel).panningPosition = nOperand
 
             Case &H9 ' 9: Set Sample Offset
-                If nOperand > 0 Then Channel(nChannel).sampleOffset = nOperand * 256
-                If Channel(nChannel).sampleOffset >= Sample(Channel(nChannel).sample).length Then Channel(nChannel).sampleOffset = Sample(Channel(nChannel).sample).length
-                Channel(nChannel).samplePosition = Channel(nChannel).sampleOffset
+                If Channel(nChannel).sample > 0 Then
+                    If nOperand > 0 Then Channel(nChannel).sampleOffset = nOperand * 256
+                    If Channel(nChannel).sampleOffset >= Sample(Channel(nChannel).sample).length Then Channel(nChannel).sampleOffset = Sample(Channel(nChannel).sample).length
+                    Channel(nChannel).samplePosition = Channel(nChannel).sampleOffset
+                End If
 
             Case &HB ' 11: Jump To Pattern
                 Song.orderPosition = nOperand
@@ -797,14 +786,14 @@ End Sub
 Sub UpdateMODTick
     ' The pattern that we are playing is always Order(OrderPosition)
     Dim As Unsigned Byte nSample, nEffect, nOperand, nOpX, nOpY, nChannel
-    Dim nPeriod As Integer
+    Dim nNote As Integer
 
     ' Process all channels
     For nChannel = 0 To Song.channels - 1
         ' We are not processing a new row but tick 1+ effects
         ' So we pick these using tickPattern and tickPatternRow
         nSample = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).sample
-        nPeriod = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).note
+        nNote = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).note
         nEffect = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).effect
         nOperand = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).operand
         nOpX = SHR(nOperand, 4)
@@ -817,9 +806,9 @@ Sub UpdateMODTick
                         Case 0
                             Channel(nChannel).pitch = GetPitchFromNote(Channel(nChannel).note)
                         Case 1
-                            Channel(nChannel).pitch = GetPitchFromNote(Channel(nChannel).note + (8 * nOpX))
+                            Channel(nChannel).pitch = GetPitchFromNote(Channel(nChannel).note + nOpX * 8)
                         Case 2
-                            Channel(nChannel).pitch = GetPitchFromNote(Channel(nChannel).note + (8 * nOpY))
+                            Channel(nChannel).pitch = GetPitchFromNote(Channel(nChannel).note + nOpY * 8)
                     End Select
                 End If
 
@@ -869,7 +858,7 @@ Sub UpdateMODTick
                     Case &HD ' 13: Delay Note
                         If Song.tick = nOpY Then
                             If nSample > 0 Then Channel(nChannel).volume = Sample(Channel(nChannel).sample).volume
-                            Channel(nChannel).note = nPeriod + Sample(Channel(nChannel).sample).fineTune
+                            Channel(nChannel).note = nNote + Sample(Channel(nChannel).sample).fineTune
                             Channel(nChannel).frequency = FrequencyTable(Channel(nChannel).note)
                             Channel(nChannel).pitch = GetPitchFromFrequency(Channel(nChannel).frequency)
                             Channel(nChannel).played = FALSE
@@ -887,7 +876,8 @@ Sub MixMODFrame
     Dim As Unsigned Long i, npos
     Dim As Unsigned Byte chan, nSample, vol
     Dim As Single fpan, fpos, fsam, fsamLT, fsamRT
-    Dim As Byte bsam1, bsam2, isLooping
+    Dim As Byte bsam1, bsam2
+    Dim As Bit isLooping
 
     For i = 1 To Song.mixerBufferSize
         fsamLT = 0
@@ -972,6 +962,9 @@ End Sub
 
 ' This gives us the sample pitch based on the note
 Function GetPitchFromNote! (note As Integer)
+    ' Clamp note to max size of FrequencyTable
+    If note > UBound(FrequencyTable) Then note = UBound(FrequencyTable)
+
     GetPitchFromNote = GetPitchFromFrequency(FrequencyTable(note))
 End Function
 
