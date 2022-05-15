@@ -1,6 +1,10 @@
 # QB64 MOD Player
 
-A [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player written in [QB64](https://github.com/QB64-Phoenix-Edition/QB64pe)
+A [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player written entirely in [QB64](https://github.com/QB64-Phoenix-Edition/QB64pe).
+
+![Screenshot](screenshots/qb64mp_mainscreen.png)
+![Screenshot](screenshots/qb64mp_infoscreen.png)
+![Screenshot](screenshots/qb64mp_patternscreen.png)
 
 ## Goals
 
