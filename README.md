@@ -4,13 +4,14 @@ A [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](
 
 ## Goals
 
-- No dependency on 3rd party libraries - OK
+- No dependency on third party libraries - OK
 - No OS specific code in the Loader, Player & Mixer - OK
 - Support all MOD types (1 - 99 channels, 31 samples etc.) - OK
-- Support all effects - WIP
+- Support all MOD effects - WIP (2 remaining; E3 & EF)
 - Easy plug-&-play API - OK
-- Play all the test MODs in the repository correctly - WIP
-- Survive ode2ptk.mod & black_queen.mod - WIP
+- Play all the test MODs in the repository correctly - WIP (dope.mod sounds awful I think XD)
+- Survive ode2ptk.mod & black_queen.mod - OK
+- Include a demo player to show how to use the library - OK
 
 ## Bibliography
 
@@ -22,6 +23,10 @@ A [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](
 - [Digital Audio Mixing Techniques](https://github.com/a740g/QB64-MOD-Player/blob/main/docs/FSBDOC.TXT) by jedi / oxygen
 - [Writing Mixing Routines](https://github.com/a740g/QB64-MOD-Player/blob/main/docs/MIXING10.TXT) by BYTERAVER/TNT
 - [Audio Mixer Tutorial](https://github.com/benhenshaw/mixer_tutorial) by benhenshaw
+
+## Assets
+
+- [Icon](https://iconarchive.com/artist/tsukasa-tux.html) by Tsukasa-Tux (Azrael Jackie Lockheart)
 
 ## FAQ
 
