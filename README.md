@@ -14,12 +14,13 @@ A [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](
 
 ## Bibliography
 
-- [MOD Player Tutorial](https://github.com/a740g/QB64-MOD-Player/blob/main/FMODDOC.TXT) by FireLight
-- [Noisetracker/Soundtracker/Protracker Module Format](https://github.com/a740g/QB64-MOD-Player/blob/main/Mod-form.txt) by Andrew Scott
-- [MODFIL10.TXT](https://github.com/a740g/QB64-MOD-Player/blob/main/MODFIL10.txt) by Thunder
+- [MOD Player Tutorial](https://github.com/a740g/QB64-MOD-Player/blob/main/docs/FMODDOC.TXT) by FireLight
+- [S3M Player Tutorial](https://github.com/a740g/QB64-MOD-Player/blob/main/docs/FS3MDOC.TXT) by FireLight
+- [Noisetracker/Soundtracker/Protracker Module Format](https://github.com/a740g/QB64-MOD-Player/blob/main/docs/MOD-FORM.TXT) by Andrew Scott
+- [MODFIL10.TXT](https://github.com/a740g/QB64-MOD-Player/blob/main/docs/MODFIL10.TXT) by Thunder
 - [Protracker Module](https://wiki.multimedia.cx/index.php/Protracker_Module) by MultimediaWiki
-- [Digital Audio Mixing Techniques](https://github.com/a740g/QB64-MOD-Player/blob/main/FSBDOC.TXT) by jedi / oxygen
-- [Writing Mixing Routines](https://github.com/a740g/QB64-MOD-Player/blob/main/MIXING10.TXT) by BYTERAVER/TNT
+- [Digital Audio Mixing Techniques](https://github.com/a740g/QB64-MOD-Player/blob/main/docs/FSBDOC.TXT) by jedi / oxygen
+- [Writing Mixing Routines](https://github.com/a740g/QB64-MOD-Player/blob/main/docs/MIXING10.TXT) by BYTERAVER/TNT
 - [Audio Mixer Tutorial](https://github.com/benhenshaw/mixer_tutorial) by benhenshaw
 
 ## FAQ

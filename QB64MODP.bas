@@ -23,8 +23,11 @@ Const FALSE` = 0`, TRUE` = Not FALSE
 Const NULL~` = 0~`
 Const NULLSTRING$ = ""
 
-Const AMIGA_CONSTANT! = 3579545.25! ' PAL: 7093789.2 / 2, NSTC: 7159090.5 / 2
+Const AMIGA_CONSTANT! = 14317056!
 Const PATTERN_ROW_MAX~%% = 63~%% ' Max row number in a pattern
+Const NOTE_NONE = 132 ' Note will be set to this when there is nothing
+Const NOTE_KEY_OFF = 133
+Const NOTE_NO_VOLUME = 255 ' When a note has no volume, then it will be set to this
 Const ORDER_TABLE_MAX~%% = 127~%% ' Max position in the order table
 Const SAMPLE_VOLUME_MAX~%% = 64~%% ' This is the maximum volume of any sample in the MOD
 Const SAMPLE_PAN_LEFT~%% = 0~%% ' Leftmost pannning position
@@ -39,17 +42,18 @@ Const BUFFER_UNDERRUN_PROTECTION~%% = 64~%% ' This prevents audio pops and glitc
 '-----------------------------------------------------------------------------------------------------
 ' USER DEFINED TYPES
 '-----------------------------------------------------------------------------------------------------
-Type PatternType
-    sample As Unsigned Byte ' aaaaDDDD = sample number
-    note As Integer ' BBBBCCCCCCCC = note value (signed becuase invalids will have -1)
-    effect As Unsigned Byte ' eeee = effect number
-    operand As Unsigned Byte ' FFFFFFFF = effect parameters
+Type NoteType
+    note As Unsigned Byte ' Contains info on 1 note
+    sample As Unsigned Byte ' Sample number to play
+    volume As Unsigned Byte ' Volume value. Not used for MODs. 255 = no volume
+    effect As Unsigned Byte ' Effect number
+    operand As Unsigned Byte ' Effect parameters
 End Type
 
 Type SampleType
     sampleName As String * 22 ' Sample name or message
     length As Long ' Sample length in bytes
-    fineTune As Byte ' Lower four bits are the finetune value, stored as a *signed* four bit number
+    c2SPD As Unsigned Integer ' Sample finetune is converted to c2spd
     volume As Unsigned Byte ' Volume: 0 - 64
     loopStart As Long ' Loop start in bytes
     loopLength As Long ' Loop length in bytes
@@ -59,24 +63,24 @@ End Type
 Type ChannelType
     sample As Unsigned Byte ' Sample number to be mixed
     volume As Integer ' Channel volume. This is a signed int because we need -ve values & to clip properly
-    played As Byte ' This is set to true once the mixer is done with the sample
-    pitch As Single ' Sample pitch. The mixer code uses this to step through the sample correctly (fp32)
-    frequency As Unsigned Integer ' This is frequency of the playing sample used by various effects
-    note As Integer ' Note + finetune for various effects (signed, see above)
     panningPosition As Single ' Position 0 is leftmost ... 255 is rightmost (fp32)
+    pitch As Single ' Sample pitch. The mixer code uses this to step through the sample correctly (fp32)
     samplePosition As Single ' Where are we in the sample buffer (fp32)
+    isPlaying As Byte ' This is set to false once the mixer is done with the sample
+    frequency As Unsigned Integer ' This is the period of the playing sample used by various effects
+    note As Unsigned Byte ' Last note set in channel
+    period As Unsigned Integer ' Last period set in channel
     patternLoopRow As Integer ' This (signed) is the beginning of the loop in the pattern for effect E6x
     patternLoopRowCounter As Unsigned Byte ' This is a loop counter for effect E6x
     portamentoTo As Unsigned Integer ' Frequency to porta to value for E3x
     portamentoSpeed As Unsigned Byte ' Porta speed for E3x
     vibratoPosition As Byte ' Vibrato position in the sine table for E4x (signed)
-    vibratoDepth As Unsigned Byte ' Vibrato depth
     vibratoSpeed As Unsigned Byte ' Vibrato speed
+    vibratoDepth As Unsigned Byte ' Vibrato depth
     tremoloPosition As Byte ' Tremolo position in the sine table (signed)
-    tremoloDepth As Unsigned Byte ' Tremolo depth
     tremoloSpeed As Unsigned Byte ' Tremolo speed
+    tremoloDepth As Unsigned Byte ' Tremolo depth
     waveControl As Unsigned Byte ' Waveform type for vibrato and tremolo (4 bits each)
-    sampleOffset As Long ' This is used for effect 9xy
 End Type
 
 Type SongType
@@ -120,58 +124,33 @@ End Declare
 '-----------------------------------------------------------------------------------------------------
 Dim Shared Song As SongType
 Dim Shared Order(0 To ORDER_TABLE_MAX) As Unsigned Byte ' Order list
-ReDim Shared Pattern(0 To 0, 0 To 0, 0 To 0) As PatternType ' Pattern data strored as (pattern, row, channel)
+ReDim Shared Pattern(0 To 0, 0 To 0, 0 To 0) As NoteType ' Pattern data strored as (pattern, row, channel)
 ReDim Shared Sample(1 To 1) As SampleType ' Sample info array. One based because sample 0 means nothing (well something :) in the pattern data
 ReDim Shared SampleData(1 To 1) As String ' Sample data array. Again one based for same reason above
 ReDim Shared Channel(0 To 0) As ChannelType ' Channel info array
-ReDim Shared FrequencyTable(0 To 0) As Unsigned Integer ' Amiga frequency table
+ReDim Shared PeriodTable(0 To 0) As Unsigned Integer ' Amiga period table
 ReDim Shared SineTable(0 To 0) As Unsigned Byte ' Sine table used for effects
-ReDim Shared NoteTable(0 To 0) As String * 3 ' This is for the UI. TODO: Move this out to a different file
+ReDim Shared NoteTable(0 To 0) As String * 2 ' This is for the UI. TODO: Move this out to a different file
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
 ' PROGRAM DATA
 '-----------------------------------------------------------------------------------------------------
-' Amiga frequency table.
-FreqTab:
-Data 296
-Data 907,900,894,887,881,875,868,862
-Data 856,850,844,838,832,826,820,814
-Data 808,802,796,791,785,779,774,768
-Data 762,757,752,746,741,736,730,725
-Data 720,715,709,704,699,694,689,684
-Data 678,675,670,665,660,655,651,646
-Data 640,636,632,628,623,619,614,610
-Data 604,601,597,592,588,584,580,575
-Data 570,567,563,559,555,551,547,543
-Data 538,535,532,528,524,520,516,513
-Data 508,505,502,498,494,491,487,484
-Data 480,477,474,470,467,463,460,457
-Data 453,450,447,444,441,437,434,431
-Data 428,425,422,419,416,413,410,407
-Data 404,401,398,395,392,390,387,384
-Data 381,379,376,373,370,368,365,363
-Data 360,357,355,352,350,347,345,342
-Data 339,337,335,332,330,328,325,323
-Data 320,318,316,314,312,309,307,305
-Data 302,300,298,296,294,292,290,288
-Data 285,284,282,280,278,276,274,272
-Data 269,268,266,264,262,260,258,256
-Data 254,253,251,249,247,245,244,242
-Data 240,238,237,235,233,232,230,228
-Data 226,225,223,222,220,219,217,216
-Data 214,212,211,209,208,206,205,203
-Data 202,200,199,198,196,195,193,192
-Data 190,189,188,187,185,184,183,181
-Data 180,179,177,176,175,174,172,171
-Data 170,169,167,166,165,164,163,161
-Data 160,159,158,157,156,155,154,152
-Data 151,150,149,148,147,146,145,144
-Data 143,142,141,140,139,138,137,136
-Data 135,134,133,132,131,130,129,128
-Data 127,126,125,125,123,123,122,121
-Data 120,119,118,118,117,116,115,114
-Data 113,113,112,111,110,109,109,108
+' Amiga period table data for 11 octaves
+PeriodTab:
+Data 134
+Data 27392,25856,24384,23040,21696,20480,19328,18240,17216,16256,15360,14496
+Data 13696,12928,12192,11520,10848,10240,9664,9120,8608,8128,7680,7248
+Data 6848,6464,6096,5760,5424,5120,4832,4560,4304,4064,3840,3624
+Data 3424,3232,3048,2880,2712,2560,2416,2280,2152,2032,1920,1812
+Data 1712,1616,1524,1440,1356,1280,1208,1140,1076,1016,960,906
+Data 856,808,762,720,678,640,604,570,538,508,480,453
+Data 428,404,381,360,339,320,302,285,269,254,240,226
+Data 214,202,190,180,170,160,151,143,135,127,120,113
+Data 107,101,95,90,85,80,75,71,67,63,60,56
+Data 53,50,47,45,42,40,37,35,33,31,30,28
+Data 26,25,23,22,21,20,18,17,16,15,15,14
+Data 0,0
 Data NaN
 
 ' Sine table for tremolo & vibrato
@@ -186,20 +165,17 @@ Data NaN
 ' Note string table for UI
 ' TODO: Move this out to different file
 NoteTab:
-Data 37
-Data "   "
-Data C-1,C#1,D-1,D#1,E-1,F-1,F#1,G-1,G#1,A-1,A#1,B-1
-Data C-2,C#2,D-2,D#2,E-2,F-2,F#2,G-2,G#2,A-2,A#2,B-2
-Data C-3,C#3,D-3,D#3,E-3,F-3,F#3,G-3,G#3,A-3,A#3,B-3
-Data LOL
+Data 12
+Data "C-","C#","D-","D#","E-","F-","F#","G-","G#","A-","A#","B-"
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
 ' PROGRAM ENTRY POINT - This is just test code. We have no proper UI yet
 '-----------------------------------------------------------------------------------------------------
-Dim As String modFileName
+Title "QB64 MOD Player"
 
-If CommandCount > 0 Then modFileName = Command$ Else modFileName = "mods/shop.mod"
+Dim As String modFileName
+If CommandCount > 0 Then modFileName = Command$ Else modFileName = "mods/rez-monday.mod"
 
 If LoadMODFile(modFileName) Then
     Print "Loaded MOD file!"
@@ -216,11 +192,27 @@ StartMODPlayer
 
 Width 12 + (Song.channels * 18), 40
 
-Dim nChan As Unsigned Byte, k As String
+Dim nChan As Unsigned Byte, k As String, n As Unsigned Byte
 Do
-    Print Using "### ### ##: "; Song.orderPosition; Order(Song.orderPosition); Song.patternRow;
+    Color 15
+    Print Using "### ### ##:"; Song.orderPosition; Order(Song.orderPosition); Song.patternRow;
     For nChan = 0 To Song.channels - 1
-        Print Using ">##< ## & \\ \\ "; nChan; Channel(nChan).sample; NoteTable(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).note / 8); Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).effect); Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).operand);
+        Color 14
+        Print Using " (##)"; nChan + 1;
+        Color 13
+        Print Using " ## "; Channel(nChan).sample;
+        n = Pattern(Order(Song.orderPosition), Song.patternRow, nChan).note
+        Color 10
+        If n = NOTE_NONE Then
+            Print "--- ";
+        ElseIf n = NOTE_KEY_OFF Then
+            Print "^^^ ";
+        Else
+            Print Using "&# "; NoteTable(n Mod 12); n \ 12;
+        End If
+        Color 11
+        Print Right$(" " + Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).effect), 2); " ";
+        Print Right$(" " + Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, nChan).operand), 2);
     Next
     Print 'SndRawLen
 
@@ -248,10 +240,12 @@ Do
         Case ",", "<"
             Song.orderPosition = Song.orderPosition - 1
             If Song.orderPosition < 0 Then Song.orderPosition = Song.orders - 1
+            Song.patternRow = 0
 
         Case ".", ">"
             Song.orderPosition = Song.orderPosition + 1
             If Song.orderPosition >= Song.orders Then Song.orderPosition = 0
+            Song.patternRow = 0
     End Select
 
     Delay 0.01
@@ -279,7 +273,7 @@ Sub PrintMODInfo
     Print "Sample info:"
     For i = 1 To Song.samples
         Print "Sample name: "; Sample(i).sampleName
-        Print "Volume:"; Sample(i).volume, "Finetune:"; Sample(i).fineTune
+        Print "Volume:"; Sample(i).volume, "C2SPD:"; Sample(i).c2SPD
         Print "Length:"; Sample(i).length, "Loop length:"; Sample(i).loopLength, "Loop start:"; Sample(i).loopStart, "Loop end:"; Sample(i).loopEnd
         Sleep
     Next
@@ -389,8 +383,7 @@ Function LoadMODFile%% (sFileName As String)
         If Sample(i).length = 2 Then Sample(i).length = 0 ' Sanity check
 
         ' Read finetune
-        Sample(i).fineTune = Asc(Input$(1, fileHandle))
-        If Sample(i).fineTune > 7 Then Sample(i).fineTune = Sample(i).fineTune - 16 ' This will make our finetunes value proper on the numberline
+        Sample(i).c2SPD = GetC2SPD(Asc(Input$(1, fileHandle))) ' Convert finetune to c2spd
 
         ' Read volume
         Sample(i).volume = Asc(Input$(1, fileHandle))
@@ -426,19 +419,19 @@ Function LoadMODFile%% (sFileName As String)
     Next
 
     ' Resize pattern data array
-    ReDim Pattern(0 To Song.highestPattern, 0 To PATTERN_ROW_MAX, 0 To Song.channels - 1) As PatternType
+    ReDim Pattern(0 To Song.highestPattern, 0 To PATTERN_ROW_MAX, 0 To Song.channels - 1) As NoteType
     Dim c As Unsigned Integer
 
     ' Skip past the 4 byte marker if this is a 31 sample mod
     If Song.samples = 31 Then Seek fileHandle, Loc(1) + 5
 
     ' Load the frequency table
-    Restore FreqTab
+    Restore PeriodTab
     Read c ' Read the size
-    ReDim FrequencyTable(0 To c - 1) As Unsigned Integer ' Allocate size elements
+    ReDim PeriodTable(0 To c - 1) As Unsigned Integer ' Allocate size elements
     ' Now read size values
     For i = 0 To c - 1
-        Read FrequencyTable(i)
+        Read PeriodTable(i)
     Next
 
     Dim As Unsigned Byte byte3, byte4
@@ -464,13 +457,15 @@ Function LoadMODFile%% (sFileName As String)
                 period = SHL(byte1 And &HF, 8) Or byte2
 
                 ' Do the look up in the table against what is read in and store note
-                Pattern(i, a, b).note = -1
-                For c = 1 To 36
-                    If period > FrequencyTable(c * 8) - 3 And period < FrequencyTable(c * 8) + 3 Then
-                        Pattern(i, a, b).note = c * 8
+                Pattern(i, a, b).note = NOTE_NONE
+                For c = 0 To 107
+                    If period >= PeriodTable(c + 24) Then
+                        Pattern(i, a, b).note = c
+                        Exit For
                     End If
                 Next
 
+                Pattern(i, a, b).volume = NOTE_NO_VOLUME
                 Pattern(i, a, b).effect = byte3 And &HF
                 Pattern(i, a, b).operand = byte4
 
@@ -510,7 +505,7 @@ Sub StartMODPlayer
     ' Load the note table. TODO: Move this out to UI code files
     Restore NoteTab
     Read s
-    ReDim NoteTable(0 To s - 1) As String * 3
+    ReDim NoteTable(0 To s - 1) As String * 2
     For i = 0 To s - 1
         Read NoteTable(i)
     Next
@@ -629,18 +624,18 @@ End Sub
 
 ' Updates a row of notes and play them out on tick 0
 Sub UpdateMODRow
-    Dim As Unsigned Byte nSample, nEffect, nOperand, nOpX, nOpY, nChannel
-    Dim As Integer nNote, nPatternRow
-    ' This is set to true when a pattern jump effect and pattern break effect are triggered
-    Dim As Bit jumpLoopEffectFlag
+    Dim As Unsigned Byte nChannel, nNote, nSample, nVolume, nEffect, nOperand, nOpX, nOpY
+    Dim nPatternRow As Integer
+    Dim As Bit jumpEffectFlag, breakEffectFlag ' This is set to true when a pattern jump effect and pattern break effect are triggered
 
     ' We need this so that we don't start accessing -1 elements in the pattern array when there is a pattern jump
     nPatternRow = Song.patternRow
 
     ' Process all channels
     For nChannel = 0 To Song.channels - 1
-        nSample = Pattern(Song.tickPattern, nPatternRow, nChannel).sample
         nNote = Pattern(Song.tickPattern, nPatternRow, nChannel).note
+        nSample = Pattern(Song.tickPattern, nPatternRow, nChannel).sample
+        nVolume = Pattern(Song.tickPattern, nPatternRow, nChannel).volume
         nEffect = Pattern(Song.tickPattern, nPatternRow, nChannel).effect
         nOperand = Pattern(Song.tickPattern, nPatternRow, nChannel).operand
         nOpX = SHR(nOperand, 4)
@@ -650,36 +645,41 @@ Sub UpdateMODRow
         ' ONLY RESET VOLUME IF THERE IS A SAMPLE NUMBER
         If nSample > 0 Then
             Channel(nChannel).sample = nSample
-            Channel(nChannel).volume = Sample(nSample).volume
+            ' Don't get the volume if delay note, set it when the delay note actually happens
+            If Not (nEffect = &HE And nOpX = &HD) Then
+                Channel(nChannel).volume = Sample(nSample).volume
+            End If
         End If
 
-        ' ONLY RESET PITCH IF THERE IS A NOTE VALUE AND PORTA NOT SET
-        If nNote >= 0 And Channel(nChannel).sample > 0 Then
-            Channel(nChannel).note = nNote + Sample(Channel(nChannel).sample).fineTune
+
+        If nNote < NOTE_NONE And Channel(nChannel).sample > 0 Then
+            Channel(nChannel).period = 8363 * PeriodTable(nNote) / Sample(Channel(nChannel).sample).c2SPD
+            Channel(nChannel).note = nNote
 
             ' Retrigger tremolo and vibrato waveforms
             If Channel(nChannel).waveControl And &HF < 4 Then Channel(nChannel).vibratoPosition = 0
             If SHR(Channel(nChannel).waveControl, 4) < 4 Then Channel(nChannel).tremoloPosition = 0
 
-            ' If not a porta effect, then set the channel pitch to the looked up amiga value + or - any finetune
+            ' ONLY RESET FREQUENCY IF THERE IS A NOTE VALUE AND PORTA NOT SET
             If nEffect <> &H3 And nEffect <> &H5 Then ' TODO: And note delay?
-                Channel(nChannel).played = FALSE
+                Channel(nChannel).frequency = Channel(nChannel).period
+                Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).frequency)
+                Channel(nChannel).isPlaying = TRUE
                 Channel(nChannel).samplePosition = 0
-                Channel(nChannel).frequency = FrequencyTable(Channel(nChannel).note)
-                Channel(nChannel).pitch = GetPitchFromFrequency(Channel(nChannel).frequency)
             End If
         End If
+
+        If nVolume <= SAMPLE_VOLUME_MAX Then Channel(nChannel).volume = nVolume
+        If nNote = NOTE_KEY_OFF Then Channel(nChannel).volume = 0
 
         ' Process tick 0 effects
         Select Case nEffect
             Case &H3 ' 3: Porta To Note
-                ' Just remember stuff here
                 If nOperand > 0 Then Channel(nChannel).portamentoSpeed = nOperand
-                If nNote >= 0 Then Channel(nChannel).portamentoTo = FrequencyTable(Channel(nChannel).note)
+                If nNote >= 0 Then Channel(nChannel).portamentoTo = Channel(nChannel).period
 
             Case &H5 ' 5: Tone Portamento + Volume Slide
-                ' Just remember stuff here
-                If nNote >= 0 Then Channel(nChannel).portamentoTo = FrequencyTable(Channel(nChannel).note)
+                If nNote >= 0 Then Channel(nChannel).portamentoTo = Channel(nChannel).period
 
             Case &H4 ' 4: Vibrato
                 If nOpX > 0 Then Channel(nChannel).vibratoSpeed = nOpX
@@ -694,17 +694,13 @@ Sub UpdateMODRow
                 Channel(nChannel).panningPosition = nOperand
 
             Case &H9 ' 9: Set Sample Offset
-                If Channel(nChannel).sample > 0 Then
-                    If nOperand > 0 Then Channel(nChannel).sampleOffset = nOperand * 256
-                    If Channel(nChannel).sampleOffset >= Sample(Channel(nChannel).sample).length Then Channel(nChannel).sampleOffset = Sample(Channel(nChannel).sample).length
-                    Channel(nChannel).samplePosition = Channel(nChannel).sampleOffset
-                End If
+                If nOperand > 0 Then Channel(nChannel).samplePosition = nOperand * 256
 
             Case &HB ' 11: Jump To Pattern
                 Song.orderPosition = nOperand
                 If Song.orderPosition >= Song.orders Then Song.orderPosition = Song.endJumpOrder
                 Song.patternRow = -1 ' This will increment right after & we will start at 0
-                jumpLoopEffectFlag = TRUE
+                jumpEffectFlag = TRUE
 
             Case &HC ' 12: Set Volume
                 Channel(nChannel).volume = nOperand ' Operand can never be -ve cause it is unsigned. So we only clip for max below
@@ -713,11 +709,11 @@ Sub UpdateMODRow
             Case &HD ' 13: Pattern Break
                 Song.patternRow = (nOpX * 10) + nOpY - 1
                 If Song.patternRow > PATTERN_ROW_MAX Then Song.patternRow = -1
-                If Not jumpLoopEffectFlag Then
+                If Not breakEffectFlag And Not jumpEffectFlag Then
                     Song.orderPosition = Song.orderPosition + 1
                     If Song.orderPosition >= Song.orders Then Song.orderPosition = Song.endJumpOrder
                 End If
-                jumpLoopEffectFlag = TRUE
+                breakEffectFlag = TRUE
 
             Case &HE ' 14: Extended Effects
                 Select Case nOpX
@@ -725,14 +721,12 @@ Sub UpdateMODRow
                         Song.useHQMixer = nOpY <> 0
 
                     Case &H1 ' 1: Fine Portamento Up
-                        Channel(nChannel).frequency = Channel(nChannel).frequency - nOpY
-                        If Channel(nChannel).frequency < 108 Then Channel(nChannel).frequency = 108
-                        Channel(nChannel).pitch = GetPitchFromFrequency(Channel(nChannel).frequency)
+                        Channel(nChannel).frequency = Channel(nChannel).frequency - nOpY * 4
+                        Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).frequency)
 
                     Case &H2 ' 2: Fine Portamento Down
-                        Channel(nChannel).frequency = Channel(nChannel).frequency + nOpY
-                        If Channel(nChannel).frequency > 907 Then Channel(nChannel).frequency = 907
-                        Channel(nChannel).pitch = GetPitchFromFrequency(Channel(nChannel).frequency)
+                        Channel(nChannel).frequency = Channel(nChannel).frequency + nOpY * 4
+                        Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).frequency)
 
                     Case &H3 ' 3: Glissando Control
                         Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
@@ -742,8 +736,7 @@ Sub UpdateMODRow
                         Channel(nChannel).waveControl = Channel(nChannel).waveControl Or nOpY
 
                     Case &H5 ' 5: Set Finetune
-                        Sample(Channel(nChannel).sample).fineTune = nOpY
-                        If Sample(Channel(nChannel).sample).fineTune > 7 Then Sample(Channel(nChannel).sample).fineTune = Sample(Channel(nChannel).sample).fineTune - 16
+                        Sample(Channel(nChannel).sample).c2SPD = GetC2SPD(nOpY)
 
                     Case &H6 ' 6: Pattern Loop
                         If nOpY = 0 Then
@@ -754,8 +747,8 @@ Sub UpdateMODRow
                             Else
                                 Channel(nChannel).patternLoopRowCounter = Channel(nChannel).patternLoopRowCounter - 1
                             End If
+                            If Channel(nChannel).patternLoopRowCounter > 0 Then Song.patternRow = Channel(nChannel).patternLoopRow - 1
                         End If
-                        If Channel(nChannel).patternLoopRowCounter > 0 Then Song.patternRow = Channel(nChannel).patternLoopRow - 1
 
                     Case &H7 ' 7: Set Tremolo WaveForm
                         Channel(nChannel).waveControl = Channel(nChannel).waveControl And &HF
@@ -773,6 +766,9 @@ Sub UpdateMODRow
                     Case &HB ' 11: Fine Volume Slide Down
                         Channel(nChannel).volume = Channel(nChannel).volume - nOpY
                         If Channel(nChannel).volume < 0 Then Channel(nChannel).volume = 0
+
+                    Case &HD ' 13: Delay Note
+                        Channel(nChannel).isPlaying = FALSE
 
                     Case &HE ' 14: Pattern Delay
                         Song.patternDelay = nOpY
@@ -794,88 +790,89 @@ End Sub
 
 ' Updates any tick based effects after tick 0
 Sub UpdateMODTick
-    ' The pattern that we are playing is always Order(OrderPosition)
-    Dim As Unsigned Byte nSample, nEffect, nOperand, nOpX, nOpY, nChannel
-    Dim nNote As Integer
+    Dim As Unsigned Byte nChannel, nEffect, nOperand, nOpX, nOpY
 
     ' Process all channels
     For nChannel = 0 To Song.channels - 1
-        ' We are not processing a new row but tick 1+ effects
-        ' So we pick these using tickPattern and tickPatternRow
-        nSample = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).sample
-        nNote = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).note
-        nEffect = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).effect
-        nOperand = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).operand
-        nOpX = SHR(nOperand, 4)
-        nOpY = nOperand And &HF
+        ' Only process if we have a period set
+        If Not Channel(nChannel).frequency = 0 Then
+            ' We are not processing a new row but tick 1+ effects
+            ' So we pick these using tickPattern and tickPatternRow
+            nEffect = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).effect
+            nOperand = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).operand
+            nOpX = SHR(nOperand, 4)
+            nOpY = nOperand And &HF
 
-        Select Case nEffect
-            Case &H0 ' 0: Arpeggio
-                If (nOperand > 0) Then
-                    Select Case (Song.tick + 1) Mod 3 ' +1 here to make it sound like FT2. Dunno why it works yet :(
-                        Case 0
-                            Channel(nChannel).pitch = GetPitchFromNote(Channel(nChannel).note)
-                        Case 1
-                            Channel(nChannel).pitch = GetPitchFromNote(Channel(nChannel).note + nOpX * 8)
-                        Case 2
-                            Channel(nChannel).pitch = GetPitchFromNote(Channel(nChannel).note + nOpY * 8)
-                    End Select
-                End If
+            Select Case nEffect
+                Case &H0 ' 0: Arpeggio
+                    If (nOperand > 0) Then
+                        Select Case (Song.tick + 1) Mod 3 ' Song.tick + 1 here to make it sound like FT2. Dunno why it works yet :(
+                            Case 0
+                                Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).frequency)
+                            Case 1
+                                Channel(nChannel).pitch = GetPitchFromPeriod(PeriodTable(Channel(nChannel).note + nOpX))
+                            Case 2
+                                Channel(nChannel).pitch = GetPitchFromPeriod(PeriodTable(Channel(nChannel).note + nOpY))
+                        End Select
+                    End If
 
-            Case &H1 ' 1: Porta Up
-                Channel(nChannel).frequency = Channel(nChannel).frequency - nOperand
-                If Channel(nChannel).frequency < 108 Then Channel(nChannel).frequency = 108
-                Channel(nChannel).pitch = GetPitchFromFrequency(Channel(nChannel).frequency)
+                Case &H1 ' 1: Porta Up
+                    Channel(nChannel).frequency = Channel(nChannel).frequency - nOperand * 4
+                    Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).frequency)
+                    If Channel(nChannel).frequency < 56 Then Channel(nChannel).frequency = 56
 
-            Case &H2 ' 2: Porta Down
-                Channel(nChannel).frequency = Channel(nChannel).frequency + nOperand
-                If Channel(nChannel).frequency > 907 Then Channel(nChannel).frequency = 907
-                Channel(nChannel).pitch = GetPitchFromFrequency(Channel(nChannel).frequency)
+                Case &H2 ' 2: Porta Down
+                    Channel(nChannel).frequency = Channel(nChannel).frequency + nOperand * 4
+                    Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).frequency)
 
-            Case &H3 ' 3: Porta To Note
-                DoPortamento nChannel
+                Case &H3 ' 3: Porta To Note
+                    DoPortamento nChannel
 
-            Case &H4 ' 4: Vibrato
-                DoVibrato nChannel
+                Case &H4 ' 4: Vibrato
+                    DoVibrato nChannel
 
-            Case &H5 ' 5: Tone Portamento + Volume Slide
-                DoPortamento nChannel
-                DoVolumeSlide nChannel, nOpX, nOpY
+                Case &H5 ' 5: Tone Portamento + Volume Slide
+                    DoPortamento nChannel
+                    DoVolumeSlide nChannel, nOpX, nOpY
 
-            Case &H6 ' 6: Vibrato + Volume Slide
-                DoVibrato nChannel
-                DoVolumeSlide nChannel, nOpX, nOpY
+                Case &H6 ' 6: Vibrato + Volume Slide
+                    DoVibrato nChannel
+                    DoVolumeSlide nChannel, nOpX, nOpY
 
-            Case &H7 ' 7: Tremolo
-                DoTremolo nChannel
+                Case &H7 ' 7: Tremolo
+                    DoTremolo nChannel
 
-            Case &HA ' 10: Volume Slide
-                DoVolumeSlide nChannel, nOpX, nOpY
+                Case &HA ' 10: Volume Slide
+                    DoVolumeSlide nChannel, nOpX, nOpY
 
-            Case &HE ' 14: Extended Effects
-                Select Case nOpX
-                    Case &H9 ' 9: Retrigger Note
-                        If nOpY <> 0 Then
-                            If Song.tick Mod nOpY = 0 Then
-                                Channel(nChannel).played = FALSE
+                Case &HE ' 14: Extended Effects
+                    Select Case nOpX
+                        Case &H9 ' 9: Retrigger Note
+                            If nOpY <> 0 Then
+                                If Song.tick Mod nOpY = 0 Then
+                                    Channel(nChannel).isPlaying = TRUE
+                                    Channel(nChannel).samplePosition = 0
+                                End If
+                            End If
+
+                        Case &HC ' 12: Cut Note
+                            If Song.tick = nOpY Then Channel(nChannel).volume = 0
+
+                        Case &HD ' 13: Delay Note
+                            If Song.tick = nOpY Then
+                                If Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).sample > 0 Then
+                                    Channel(nChannel).volume = Sample(Channel(nChannel).sample).volume
+                                End If
+                                If Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).volume <= SAMPLE_VOLUME_MAX Then
+                                    Channel(nChannel).volume = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).volume
+                                End If
+                                Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).frequency)
+                                Channel(nChannel).isPlaying = TRUE
                                 Channel(nChannel).samplePosition = 0
                             End If
-                        End If
-
-                    Case &HC ' 12: Cut Note
-                        If Song.tick = nOpY Then Channel(nChannel).volume = 0
-
-                    Case &HD ' 13: Delay Note
-                        If Song.tick = nOpY Then
-                            If nSample > 0 Then Channel(nChannel).volume = Sample(Channel(nChannel).sample).volume
-                            Channel(nChannel).note = nNote + Sample(Channel(nChannel).sample).fineTune
-                            Channel(nChannel).frequency = FrequencyTable(Channel(nChannel).note)
-                            Channel(nChannel).pitch = GetPitchFromFrequency(Channel(nChannel).frequency)
-                            Channel(nChannel).played = FALSE
-                            Channel(nChannel).samplePosition = 0
-                        End If
-                End Select
-        End Select
+                    End Select
+            End Select
+        End If
     Next
 End Sub
 
@@ -915,9 +912,9 @@ Sub MixMODFrame
                         fpos = Sample(nSample).loopStart
                     End If
                 Else
-                    ' For non-looping sample simply set the played flag as true if we reached the end
+                    ' For non-looping sample simply set the isplayed flag as false if we reached the end
                     If fpos >= Sample(nSample).length Then
-                        Channel(chan).played = TRUE
+                        Channel(chan).isPlaying = FALSE
                     End If
                 End If
 
@@ -925,7 +922,7 @@ Sub MixMODFrame
                 If fpos < 0 Then fpos = 0
 
                 ' Only mix the sample if we have not completed or are looping
-                If Not Channel(chan).played Or isLooping Then
+                If Channel(chan).isPlaying Or isLooping Then
                     vol = Channel(chan).volume
                     fpan = Channel(chan).panningPosition
 
@@ -970,34 +967,21 @@ Sub MixMODFrame
 End Sub
 
 
-' This gives us the sample pitch based on the note
-Function GetPitchFromNote! (note As Integer)
-    ' Clamp note to max size of FrequencyTable
-    If note > UBound(FrequencyTable) Then note = UBound(FrequencyTable)
-
-    GetPitchFromNote = GetPitchFromFrequency(FrequencyTable(note))
-End Function
-
-
-' This gives us the sample pitch based on the period
-Function GetPitchFromFrequency! (freq As Unsigned Integer)
-    GetPitchFromFrequency = AMIGA_CONSTANT / (freq * Song.mixerRate)
-End Function
-
-
+' Carry out a tone portamento to a certain note
 Sub DoPortamento (chan As Unsigned Byte)
     If Channel(chan).frequency < Channel(chan).portamentoTo Then
-        Channel(chan).frequency = Channel(chan).frequency + Channel(chan).portamentoSpeed
+        Channel(chan).frequency = Channel(chan).frequency + Channel(chan).portamentoSpeed * 4
         If Channel(chan).frequency > Channel(chan).portamentoTo Then Channel(chan).frequency = Channel(chan).portamentoTo
     ElseIf Channel(chan).frequency > Channel(chan).portamentoTo Then
-        Channel(chan).frequency = Channel(chan).frequency - Channel(chan).portamentoSpeed
+        Channel(chan).frequency = Channel(chan).frequency - Channel(chan).portamentoSpeed * 4
         If Channel(chan).frequency < Channel(chan).portamentoTo Then Channel(chan).frequency = Channel(chan).portamentoTo
     End If
 
-    Channel(chan).pitch = GetPitchFromFrequency(Channel(chan).frequency)
+    Channel(chan).pitch = GetPitchFromPeriod(Channel(chan).frequency)
 End Sub
 
 
+' Carry out a volume slide using +x -y
 Sub DoVolumeSlide (chan As Unsigned Byte, x As Unsigned Byte, y As Unsigned Byte)
     Channel(chan).volume = Channel(chan).volume + x - y
     If Channel(chan).volume < 0 Then Channel(chan).volume = 0
@@ -1005,6 +989,7 @@ Sub DoVolumeSlide (chan As Unsigned Byte, x As Unsigned Byte, y As Unsigned Byte
 End Sub
 
 
+' Carry out a vibrato at a certain depth and speed
 Sub DoVibrato (chan As Unsigned Byte)
     Dim delta As Unsigned Integer
     Dim temp As Unsigned Byte
@@ -1012,28 +997,27 @@ Sub DoVibrato (chan As Unsigned Byte)
     temp = Channel(chan).vibratoPosition And 31
 
     Select Case Channel(chan).waveControl And 3
-        Case 0
+        Case 0 ' Sine
             delta = SineTable(temp)
 
-        Case 1
+        Case 1 ' Saw down
             temp = SHL(temp, 3)
             If Channel(chan).vibratoPosition < 0 Then temp = 255 - temp
             delta = temp
 
-        Case 2
+        Case 2 ' Square
             delta = 255
 
-        Case 3
+        Case 3 ' TODO: Random?
             delta = SineTable(temp)
     End Select
 
-    delta = delta * Channel(chan).vibratoDepth
-    delta = SHR(delta, 7)
+    delta = SHR(delta * Channel(chan).vibratoDepth, 5) ' SHR 7 SHL 2
 
     If Channel(chan).vibratoPosition >= 0 Then
-        Channel(chan).pitch = GetPitchFromFrequency(Channel(chan).frequency + delta)
+        Channel(chan).pitch = GetPitchFromPeriod(Channel(chan).frequency + delta)
     Else
-        Channel(chan).pitch = GetPitchFromFrequency(Channel(chan).frequency - delta)
+        Channel(chan).pitch = GetPitchFromPeriod(Channel(chan).frequency - delta)
     End If
 
     Channel(chan).vibratoPosition = Channel(chan).vibratoPosition + Channel(chan).vibratoSpeed
@@ -1041,6 +1025,7 @@ Sub DoVibrato (chan As Unsigned Byte)
 End Sub
 
 
+' Carry out a tremolo at a certain depth and speed
 Sub DoTremolo (chan As Unsigned Byte)
     Dim delta As Unsigned Integer
     Dim temp As Unsigned Byte
@@ -1048,23 +1033,22 @@ Sub DoTremolo (chan As Unsigned Byte)
     temp = Channel(chan).tremoloPosition And 31
 
     Select Case SHR(Channel(chan).waveControl, 4) And 3
-        Case 0
+        Case 0 ' Sine
             delta = SineTable(temp)
 
-        Case 1
+        Case 1 ' Saw down
             temp = SHL(temp, 3)
             If Channel(chan).tremoloPosition < 0 Then temp = 255 - temp
             delta = temp
 
-        Case 2
+        Case 2 ' Square
             delta = 255
 
-        Case 3
+        Case 3 ' TODO: Random?
             delta = SineTable(temp)
     End Select
 
-    delta = delta * Channel(chan).tremoloDepth
-    delta = SHR(delta, 6)
+    delta = SHR(delta * Channel(chan).tremoloDepth, 6)
 
     If Channel(chan).tremoloPosition >= 0 Then
         If Channel(chan).volume + delta > SAMPLE_VOLUME_MAX Then delta = SAMPLE_VOLUME_MAX - Channel(chan).volume
@@ -1077,5 +1061,52 @@ Sub DoTremolo (chan As Unsigned Byte)
     Channel(chan).tremoloPosition = Channel(chan).tremoloPosition + Channel(chan).tremoloSpeed
     If Channel(chan).tremoloPosition > 31 Then Channel(chan).tremoloPosition = Channel(chan).tremoloPosition - 64
 End Sub
+
+
+' This gives us the sample pitch based on the period for mixing
+Function GetPitchFromPeriod! (period As Unsigned Integer)
+    GetPitchFromPeriod = AMIGA_CONSTANT / (period * Song.mixerRate)
+End Function
+
+
+' Return C2 speed for a finetune
+Function GetC2SPD~% (ft As Unsigned Byte)
+    Select Case ft
+        Case 0
+            GetC2SPD = 8363
+        Case 1
+            GetC2SPD = 8413
+        Case 2
+            GetC2SPD = 8463
+        Case 3
+            GetC2SPD = 8529
+        Case 4
+            GetC2SPD = 8581
+        Case 5
+            GetC2SPD = 8651
+        Case 6
+            GetC2SPD = 8723
+        Case 7
+            GetC2SPD = 8757
+        Case 8
+            GetC2SPD = 7895
+        Case 9
+            GetC2SPD = 7941
+        Case 10
+            GetC2SPD = 7985
+        Case 11
+            GetC2SPD = 8046
+        Case 12
+            GetC2SPD = 8107
+        Case 13
+            GetC2SPD = 8169
+        Case 14
+            GetC2SPD = 8232
+        Case 15
+            GetC2SPD = 8280
+        Case Else
+            GetC2SPD = 8363
+    End Select
+End Function
 '-----------------------------------------------------------------------------------------------------
 
