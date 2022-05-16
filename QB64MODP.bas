@@ -135,7 +135,13 @@ Sub PrintWelcomeScreen
     Color 12
     Print "   _____ ___   _____ _  _           _____ ___     ___   _"
     Color 12
-    Print "  (  _  )  _ \(  ___) )( )   / \_/ \  _  )  _ \  (  _ \(_ )                    (ù_ù)"
+    If Timer Mod 7 = 0 Then
+        Print "  (  _  )  _ \(  ___) )( )   / \_/ \  _  )  _ \  (  _ \(_ )                    (+_+)"
+    ElseIf Timer Mod 13 = 0 Then
+        Print "  (  _  )  _ \(  ___) )( )   / \_/ \  _  )  _ \  (  _ \(_ )                    (*_*)"
+    Else
+        Print "  (  _  )  _ \(  ___) )( )   / \_/ \  _  )  _ \  (  _ \(_ )                    (ù_ù)"
+    End If
     Color 12
     Print "  | ( ) | (_) ) (__ | || |   |     | ( ) | | ) | | |_) )| |   _ _ _   _   __  _ __"
     Color 15
@@ -262,8 +268,8 @@ Sub PlaySong (fileName As String)
                 Song.patternRow = 0
 
             Case "i", "I"
-                Cls
                 InfoMode = TRUE
+                Cls
                 AdjustWindowSize
 
             Case "v", "V"

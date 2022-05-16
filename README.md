@@ -1,6 +1,6 @@
 # QB64 MOD Player
 
-A [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player written entirely in [QB64](https://github.com/QB64-Phoenix-Edition/QB64pe).
+A [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player library written entirely in [QB64](https://github.com/QB64-Phoenix-Edition/QB64pe).
 
 ![Screenshot](screenshots/qb64mp_mainscreen.png)
 ![Screenshot](screenshots/qb64mp_infoscreen.png)
@@ -19,13 +19,13 @@ A [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](
 
 ## Bibliography
 
-- [MOD Player Tutorial](https://github.com/a740g/QB64-MOD-Player/blob/main/docs/FMODDOC.TXT) by FireLight
-- [S3M Player Tutorial](https://github.com/a740g/QB64-MOD-Player/blob/main/docs/FS3MDOC.TXT) by FireLight
-- [Noisetracker/Soundtracker/Protracker Module Format](https://github.com/a740g/QB64-MOD-Player/blob/main/docs/MOD-FORM.TXT) by Andrew Scott
-- [MODFIL10.TXT](https://github.com/a740g/QB64-MOD-Player/blob/main/docs/MODFIL10.TXT) by Thunder
+- [MOD Player Tutorial](docs/FMODDOC.TXT) by FireLight
+- [S3M Player Tutorial](docs/FS3MDOC.TXT) by FireLight
+- [Noisetracker/Soundtracker/Protracker Module Format](docs/MOD-FORM.TXT) by Andrew Scott
+- [MODFIL10.TXT](docs/MODFIL10.TXT) by Thunder
 - [Protracker Module](https://wiki.multimedia.cx/index.php/Protracker_Module) by MultimediaWiki
-- [Digital Audio Mixing Techniques](https://github.com/a740g/QB64-MOD-Player/blob/main/docs/FSBDOC.TXT) by jedi / oxygen
-- [Writing Mixing Routines](https://github.com/a740g/QB64-MOD-Player/blob/main/docs/MIXING10.TXT) by BYTERAVER/TNT
+- [Digital Audio Mixing Techniques](docs/FSBDOC.TXT) by jedi / oxygen
+- [Writing Mixing Routines](docs/MIXING10.TXT) by BYTERAVER/TNT
 - [Audio Mixer Tutorial](https://github.com/benhenshaw/mixer_tutorial) by benhenshaw
 
 ## Assets
@@ -40,7 +40,7 @@ Why a MOD player in QB64?
 
 Will you add S3M, XM, IT support?
 
-    No. But you are free to fork and do it yourself.
+    Not sure. Probably. But you are free to fork and do it yourself.
 
 I found a bug. How can I help?
 
