@@ -52,6 +52,7 @@ Data "C-","C#","D-","D#","E-","F-","F#","G-","G#","A-","A#","B-"
 ' PROGRAM ENTRY POINT - Frankenstein retro CLI with drag & drop support
 '-----------------------------------------------------------------------------------------------------
 Title APP_NAME ' Set the program name in the titlebar
+ChDir StartDir$ ' Change to the directory specifed by the environment
 ControlChr Off ' Turn off control characters
 AcceptFileDrop ' Enable drag and drop of files
 InitializeNoteTable ' Initialize note string table

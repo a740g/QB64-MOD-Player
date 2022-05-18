@@ -256,14 +256,14 @@ $If MODPLAYER_BM = UNDEFINED Then
         ' I hope I did this right. But i don't care even if it not the classic way. This is cooler :)
         For i = 0 To Song.channels - 1 - (Song.channels Mod 2)
             If i Mod 2 = 0 Then
-                Channel(i).panningPosition = SAMPLE_PAN_LEFT + SAMPLE_PAN_CENTRE / 2
+                Channel(i).panningPosition = SAMPLE_PAN_LEFT + SAMPLE_PAN_CENTER / 2
             Else
-                Channel(i).panningPosition = SAMPLE_PAN_RIGHT - SAMPLE_PAN_CENTRE / 2
+                Channel(i).panningPosition = SAMPLE_PAN_RIGHT - SAMPLE_PAN_CENTER / 2
             End If
         Next
         ' Set the last channel to center. This also works for single channel
         If Song.channels Mod 2 = 1 Then
-            Channel(Song.channels - 1).panningPosition = SAMPLE_PAN_CENTRE
+            Channel(Song.channels - 1).panningPosition = SAMPLE_PAN_CENTER
         End If
 
         ' Allocate a QB64 sound pipe
