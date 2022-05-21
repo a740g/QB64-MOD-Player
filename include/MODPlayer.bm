@@ -29,7 +29,7 @@ $If MODPLAYER_BM = UNDEFINED Then
 
 
     ' Loads the MOD file into memory and prepares all required gobals
-    Function LoadMODFile%% (sFileName As String)
+    Function LoadMODFile` (sFileName As String)
         ' By default we assume a failure
         LoadMODFile = FALSE
 

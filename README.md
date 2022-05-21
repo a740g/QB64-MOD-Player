@@ -17,6 +17,14 @@ A [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](
 - Survive ode2ptk.mod & black_queen.mod - OK
 - Include a demo player to show how to use the library - OK
 
+## API
+
+```VB
+Function LoadMODFile` (sFileName As String)
+Sub StartMODPlayer
+Sub StopMODPlayer
+```
+
 ## Bibliography
 
 - [MOD Player Tutorial](docs/FMODDOC.TXT) by FireLight
@@ -44,7 +52,7 @@ Will you add S3M, XM, IT support?
 
 I found a bug. How can I help?
 
-    There are probably many bugs now. This will change as the code matures. In the meantime, let me know using GitHub issues.
+    There are probably many bugs now. Let me know using GitHub issues.
 
 Can this be used in a game / demo?
 
