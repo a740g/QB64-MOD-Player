@@ -646,11 +646,10 @@ $If MODPLAYER_BM = UNDEFINED Then
                         End If
                     End If
 
-                    ' We don't want anything below 0
-                    If fpos < 0 Then fpos = 0
-
                     ' Only mix the sample if we have not completed or are looping
                     If Channel(chan).isPlaying Or isLooping Then
+                        ' We don't want anything below 0
+                        If fpos < 0 Then fpos = 0
                         vol = Channel(chan).volume
                         fpan = Channel(chan).panningPosition
 

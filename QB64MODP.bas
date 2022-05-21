@@ -37,6 +37,7 @@ Const APP_NAME$ = "QB64 MOD Player"
 '-----------------------------------------------------------------------------------------------------
 ReDim Shared NoteTable(0 To 0) As String * 2
 Dim Shared InfoMode As Byte
+Dim Shared windowWidthChar As Unsigned Integer
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -79,25 +80,29 @@ System 0
 ' Dumps MOD info along with the channel that is playing
 Sub PrintMODInfo
     Locate 1, 1
-    Color 10
-    Print Song.songName
-    Color 11
-    Print Song.subtype; " type,"; Song.channels; "channels,"; Song.samples; "samples,"; Song.orderPosition + 1; "/"; Song.orders; "orders,"; Order(Song.orderPosition) + 1; "/"; Song.highestPattern + 1; "patterns,"; Song.endJumpOrder; "loop order"
-
     Color 15
-    Print "---------------------------SAMPLE INFO---------------------------"
-    Print "  #  Name                   Vol C2SPD Length LoopLn LoopSt LoopEn"
-    Print "-----------------------------------------------------------------"
+    Print Using "Order: ### / ###    Pattern: ### / ###    Row: ## / 64    BPM: ###    Speed: ###"; Song.orderPosition + 1; Song.orders; Order(Song.orderPosition) + 1; Song.highestPattern + 1; Song.patternRow + 1; Song.bpm; Song.speed
+    Print
+    Color 10
+    Print Song.subtype; ": "; Song.songName
+    Print
+    Color 15
+    Print "_.________________________________________________________________________________._"
+    Print " |                                                                                |"
+    Print " |";: Color 12: Print " #  SAMPLE NAME             VOLUME C2SPD LENGTH LOOP LENGTH LOOP START LOOP END";: Color 15: Print " |"
+    Print "_|_                                                                              _|_"
+    Print " `/______________________________________________________________________________\'"
+    Print
 
     Dim As Unsigned Byte i, j
     For i = 1 To Song.samples
-        Color 14
+        Color 14, 0
         For j = 0 To Song.channels - 1
-            If i = Channel(j).sample Then
-                Color 13
+            If i = Pattern(Order(Song.orderPosition), Song.patternRow, j).sample Then
+                Color 13, 1
             End If
         Next
-        Print Using "###: & ### ##### ###### ###### ###### ######"; i; Sample(i).sampleName; Sample(i).volume; Sample(i).c2SPD; Sample(i).length; Sample(i).loopLength; Sample(i).loopStart; Sample(i).loopEnd
+        Print Using " ###: & ####### ##### ###### ########### ########## ########   "; i; Sample(i).sampleName; Sample(i).volume; Sample(i).c2SPD; Sample(i).length; Sample(i).loopLength; Sample(i).loopStart; Sample(i).loopEnd
     Next
 End Sub
 
@@ -105,28 +110,58 @@ End Sub
 ' Dumps current pattern information on the screen
 Sub PrintPatternInfo
     Color 15
-    Print Using "### ### ##:"; Song.orderPosition; Order(Song.orderPosition); Song.patternRow;
+    Locate 1, 1
+    Print Using "Order: ### / ###    Pattern: ### / ###    Row: ## / 64    BPM: ###    Speed: ###"; Song.orderPosition + 1; Song.orders; Order(Song.orderPosition) + 1; Song.highestPattern + 1; Song.patternRow + 1; Song.bpm; Song.speed;
 
-    Dim As Unsigned Byte n, s
-    For n = 0 To Song.channels - 1
-        Color 14
-        Print Using " (##)"; n + 1;
-        Color 13
-        Print Using " ## "; Channel(n).sample;
-        s = Pattern(Order(Song.orderPosition), Song.patternRow, n).note
-        Color 10
-        If s = NOTE_NONE Then
-            Print "--- ";
-        ElseIf s = NOTE_KEY_OFF Then
-            Print "^^^ ";
+    Dim As Integer startRow, startPat, nNote, nChan, i
+
+    startPat = Order(Song.orderPosition)
+    startRow = Song.patternRow - 19
+    If startRow < 0 Then
+        startRow = 1 + PATTERN_ROW_MAX + startRow
+        startPat = startPat - 1
+    End If
+
+    For i = 3 To 43
+        Locate i, 1
+
+        If startPat >= 0 And startPat <= Song.highestPattern Then
+            If i = 23 Then
+                Color 15, 1
+            Else
+                Color 15, 0
+            End If
+
+            Print Using " ### ##:"; startPat; startRow;
+
+            For nChan = 0 To Song.channels - 1
+                Color 14
+                Print Using " (##)"; nChan + 1;
+                Color 13
+                Print Using " ## "; Pattern(startPat, startRow, nChan).sample;
+                nNote = Pattern(startPat, startRow, nChan).note
+                Color 10
+                If nNote = NOTE_NONE Then
+                    Print "--- ";
+                ElseIf nNote = NOTE_KEY_OFF Then
+                    Print "^^^ ";
+                Else
+                    Print Using "&# "; NoteTable(nNote Mod 12); nNote \ 12;
+                End If
+                Color 11
+                Print Right$(" " + Hex$(Pattern(startPat, startRow, nChan).effect), 2); " ";
+                Print Right$(" " + Hex$(Pattern(startPat, startRow, nChan).operand), 2); " ";
+            Next
         Else
-            Print Using "&# "; NoteTable(n Mod 12); n \ 12;
+            Print Space$(windowWidthChar);
         End If
-        Color 11
-        Print Right$(" " + Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, n).effect), 2); " ";
-        Print Right$(" " + Hex$(Pattern(Order(Song.orderPosition), Song.patternRow, n).operand), 2);
+
+        startRow = startRow + 1
+        If startRow > PATTERN_ROW_MAX Then
+            startRow = 0
+            startPat = startPat + 1
+        End If
     Next
-    Print
 End Sub
 
 
@@ -134,7 +169,7 @@ End Sub
 Sub PrintWelcomeScreen
     Locate 1, 1
     Color 12
-    Print "   _____ ___   _____ _  _           _____ ___     ___   _"
+    Print "   _____ ___   _____ _  _           _____ ___     ___   _                           "
     Color 12
     If Timer Mod 7 = 0 Then
         Print "  (  _  )  _ \(  ___) )( )   / \_/ \  _  )  _ \  (  _ \(_ )                    (+_+)"
@@ -204,14 +239,16 @@ Sub InitializeNoteTable
 End Sub
 
 
-' Automatically selects sets the window size and returns the text width
+' Automatically selects, sets the window size and saves the text width
 Sub AdjustWindowSize
-    ' We need 43 lines minimum
-    If Song.channels < 4 Or Not Song.isPlaying Or InfoMode Then
-        Width 12 + (4 * 18), 43
+    If Song.channels < 5 Or Not Song.isPlaying Or InfoMode Then
+        windowWidthChar = 84 ' we don't want the width to be too small
     Else
-        Width 12 + (Song.channels * 18), 43
+        windowWidthChar = 8 + Song.channels * 19
     End If
+
+    ' We need 43 lines minimum
+    Width windowWidthChar, 43
 End Sub
 
 
@@ -230,6 +267,7 @@ Sub PlaySong (fileName As String)
 
     StartMODPlayer
     AdjustWindowSize
+    Cls
 
     Dim k As String
 
@@ -270,12 +308,13 @@ Sub PlaySong (fileName As String)
 
             Case "i", "I"
                 InfoMode = TRUE
-                Cls
                 AdjustWindowSize
+                Cls
 
             Case "v", "V"
                 InfoMode = FALSE
                 AdjustWindowSize
+                Cls
         End Select
 
         Delay 0.01
