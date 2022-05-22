@@ -152,6 +152,8 @@ Sub PrintPatternInfo
                 Print Right$(" " + Hex$(Pattern(startPat, startRow, nChan).effect), 2); " ";
                 Print Right$(" " + Hex$(Pattern(startPat, startRow, nChan).operand), 2); " ";
             Next
+
+            Color , 0
         Else
             Print Space$(windowWidthChar);
         End If
