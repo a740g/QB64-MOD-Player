@@ -89,7 +89,7 @@ Sub PrintMODInfo
     Color 15
     Print "_.________________________________________________________________________________._"
     Print " |                                                                                |"
-    Print " |";: Color 12: Print " #  SAMPLE NAME             VOLUME C2SPD LENGTH LOOP LENGTH LOOP START LOOP END";: Color 15: Print " |"
+    Print " |";: Color 12: Print " #  SAMPLE-NAME             VOLUME C2SPD LENGTH LOOP-LENGTH LOOP-START LOOP-END";: Color 15: Print " |"
     Print "_|_                                                                              _|_"
     Print " `/______________________________________________________________________________\'"
     Print
@@ -104,6 +104,7 @@ Sub PrintMODInfo
         Next
         Print Using " ###: & ####### ##### ###### ########### ########## ########   "; i; Sample(i).sampleName; Sample(i).volume; Sample(i).c2SPD; Sample(i).length; Sample(i).loopLength; Sample(i).loopStart; Sample(i).loopEnd
     Next
+    Color , 0
 End Sub
 
 
@@ -122,11 +123,11 @@ Sub PrintPatternInfo
         startPat = startPat - 1
     End If
 
-    For i = 3 To 43
+    For i = 3 To 42
         Locate i, 1
 
         If startPat >= 0 And startPat <= Song.highestPattern Then
-            If i = 23 Then
+            If i = 22 Then
                 Color 15, 1
             Else
                 Color 15, 0
@@ -181,51 +182,52 @@ Sub PrintWelcomeScreen
         Print "  (  _  )  _ \(  ___) )( )   / \_/ \  _  )  _ \  (  _ \(_ )                    (ù_ù)"
     End If
     Color 12
-    Print "  | ( ) | (_) ) (__ | || |   |     | ( ) | | ) | | |_) )| |   _ _ _   _   __  _ __"
+    Print "  | ( ) | (_) ) (__ | || |   |     | ( ) | | ) | | |_) )| |   _ _ _   _   __  _ __  "
     Color 15
-    Print "  | | | |  _ (|  _  \ || |_  | (_) | | | | | | ) |  __/ | | / _  ) ) ( )/ __ \  __)"
+    Print "  | | | |  _ (|  _  \ || |_  | (_) | | | | | | ) |  __/ | | / _  ) ) ( )/ __ \  __) "
     Color 15
-    Print "  | (( \| (_) ) (_) |__  __) | | | | (_) | |_) | | |    | |( (_| | (_) |  ___/ |"
+    Print "  | (( \| (_) ) (_) |__  __) | | | | (_) | |_) | | |    | |( (_| | (_) |  ___/ |    "
     Color 10
     Print "_.(___\_)____/ \___/   (_)   (_) (_)_____)____/  (_)   (___)\__ _)\__  |\____)_)__._"
     Color 10
-    Print " |                                                               ( )_| |          |"
+    Print " |                                                               ( )_| |          | "
     Color 10
-    Print " |                                                                \___/           |"
+    Print " |                                                                \___/           | "
     Color 14
+    Print " |                                                                                | "
+    Print " |                                                                                | "
+    Print " |                                                                                | "
+    Print " |                       ";: Color 11: Print "ESC";: Color 8: Print " .................... ";: Color 13: Print "NEXT/QUIT";: Color 14: Print "                       | "
+    Print " |                                                                                |"
+    Print " |                       ";: Color 11: Print "SPC";: Color 8: Print " ........................ ";: Color 13: Print "PAUSE";: Color 14: Print "                       | "
+    Print " |                                                                                |"
+    Print " |                       ";: Color 11: Print "=|+";: Color 8: Print " .............. ";: Color 13: Print "INCREASE VOLUME";: Color 14: Print "                       | "
+    Print " |                                                                                |"
+    Print " |                       ";: Color 11: Print "-|_";: Color 8: Print " .............. ";: Color 13: Print "DECREASE VOLUME";: Color 14: Print "                       | "
+    Print " |                                                                                |"
+    Print " |                       ";: Color 11: Print "L|l";: Color 8: Print " ......................... ";: Color 13: Print "LOOP";: Color 14: Print "                       | "
+    Print " |                                                                                |"
+    Print " |                       ";: Color 11: Print "Q|q";: Color 8: Print " ................ ";: Color 13: Print "INTERPOLATION";: Color 14: Print "                       | "
+    Print " |                                                                                |"
+    Print " |                       ";: Color 11: Print "<|,";: Color 8: Print " ....................... ";: Color 13: Print "REWIND";: Color 14: Print "                       | "
+    Print " |                                                                                |"
+    Print " |                       ";: Color 11: Print ">|.";: Color 8: Print " ...................... ";: Color 13: Print "FORWARD";: Color 14: Print "                       | "
+    Print " |                                                                                |"
+    Print " |                       ";: Color 11: Print "I|i";: Color 8: Print " ............. ";: Color 13: Print "INFORMATION VIEW";: Color 14: Print "                       | "
+    Print " |                                                                                |"
+    Print " |                       ";: Color 11: Print "V|v";: Color 8: Print " ................. ";: Color 13: Print "PATTERN VIEW";: Color 14: Print "                       | "
     Print " |                                                                                |"
     Print " |                                                                                |"
     Print " |                                                                                |"
-    Print " |                       ";: Color 11: Print "ESC";: Color 8: Print " .................... ";: Color 13: Print "NEXT/QUIT";: Color 14: Print "                       |"
+    Print " |   ";: Color 9: Print "DRAG AND DROP MULTIPLE MOD FILES ON THIS WINDOW TO PLAY THEM SEQUENTIALLY.";: Color 14: Print "   | "
     Print " |                                                                                |"
-    Print " |                       ";: Color 11: Print "SPC";: Color 8: Print " ........................ ";: Color 13: Print "PAUSE";: Color 14: Print "                       |"
+    Print " |   ";: Color 9: Print "YOU CAN ALSO START THE PROGRAM WITH MULTIPLE FILES FROM THE COMMAND LINE.";: Color 14: Print "    | "
     Print " |                                                                                |"
-    Print " |                       ";: Color 11: Print "=|+";: Color 8: Print " .............. ";: Color 13: Print "INCREASE VOLUME";: Color 14: Print "                       |"
+    Print " |  ";: Color 9: Print "THIS WAS WRITTEN PURELY IN QB64 AND THE SOURCE CODE IS AVAILABLE ON GITHUB.";: Color 14: Print "   | "
     Print " |                                                                                |"
-    Print " |                       ";: Color 11: Print "-|_";: Color 8: Print " .............. ";: Color 13: Print "DECREASE VOLUME";: Color 14: Print "                       |"
-    Print " |                                                                                |"
-    Print " |                       ";: Color 11: Print "L|l";: Color 8: Print " ......................... ";: Color 13: Print "LOOP";: Color 14: Print "                       |"
-    Print " |                                                                                |"
-    Print " |                       ";: Color 11: Print "Q|q";: Color 8: Print " ................ ";: Color 13: Print "INTERPOLATION";: Color 14: Print "                       |"
-    Print " |                                                                                |"
-    Print " |                       ";: Color 11: Print "<|,";: Color 8: Print " ....................... ";: Color 13: Print "REWIND";: Color 14: Print "                       |"
-    Print " |                                                                                |"
-    Print " |                       ";: Color 11: Print ">|.";: Color 8: Print " ...................... ";: Color 13: Print "FORWARD";: Color 14: Print "                       |"
-    Print " |                                                                                |"
-    Print " |                       ";: Color 11: Print "I|i";: Color 8: Print " ............. ";: Color 13: Print "INFORMATION VIEW";: Color 14: Print "                       |"
-    Print " |                                                                                |"
-    Print " |                       ";: Color 11: Print "V|v";: Color 8: Print " ................. ";: Color 13: Print "PATTERN VIEW";: Color 14: Print "                       |"
-    Print " |                                                                                |"
-    Print " |                                                                                |"
-    Print " |   ";: Color 9: Print "DRAG AND DROP MULTIPLE MOD FILES ON THIS WINDOW TO PLAY THEM SEQUENTIALLY.";: Color 14: Print "   |"
-    Print " |                                                                                |"
-    Print " |   ";: Color 9: Print "YOU CAN ALSO START THE PROGRAM WITH MULTIPLE FILES FROM THE COMMAND LINE.";: Color 14: Print "    |"
-    Print " |                                                                                |"
-    Print " |  ";: Color 9: Print "THIS WAS WRITTEN PURELY IN QB64 AND THE SOURCE CODE IS AVAILABLE ON GITHUB.";: Color 14: Print "   |"
-    Print " |                                                                                |"
-    Print " |                   ";: Color 9: Print "https://github.com/a740g/QB64-MOD-Player";: Color 14: Print "                     |"
+    Print " |                   ";: Color 9: Print "https://github.com/a740g/QB64-MOD-Player";: Color 14: Print "                     | "
     Print "_|_                                                                              _|_"
-    Print " `/_______________________________________________________________________________\'"
+    Print " `/_______________________________________________________________________________\'";
 End Sub
 
 

@@ -25,11 +25,11 @@ $If MODPLAYER_BI = UNDEFINED Then
     Const NULL~` = 0~`
     Const NULLSTRING$ = ""
 
-    Const AMIGA_CONSTANT! = 14317056!
+    Const AMIGA_CONSTANT! = 14317056! ' AMIGA constant
     Const PATTERN_ROW_MAX~%% = 63~%% ' Max row number in a pattern
-    Const NOTE_NONE = 132 ' Note will be set to this when there is nothing
-    Const NOTE_KEY_OFF = 133
-    Const NOTE_NO_VOLUME = 255 ' When a note has no volume, then it will be set to this
+    Const NOTE_NONE~%% = 132~%% ' Note will be set to this when there is nothing
+    Const NOTE_KEY_OFF~%% = 133~%% ' We'll use this in a future version
+    Const NOTE_NO_VOLUME~%% = 255~%% ' When a note has no volume, then it will be set to this
     Const ORDER_TABLE_MAX~%% = 127~%% ' Max position in the order table
     Const SAMPLE_VOLUME_MAX~%% = 64~%% ' This is the maximum volume of any sample in the MOD
     Const SAMPLE_PAN_LEFT~%% = 0~%% ' Leftmost pannning position
