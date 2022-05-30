@@ -239,7 +239,7 @@ $If MODPLAYER_BM = UNDEFINED Then
         Next
 
         ' Set the mix rate to match that of the system
-        Song.mixerRate = SndRate + BUFFER_UNDERRUN_PROTECTION ' <-- This is just a lame way to avoid clicks & pops. We should really move to a polling system
+        Song.mixerRate = SndRate
 
         ' Initialize some important stuff
         Song.orderPosition = 0
@@ -269,6 +269,12 @@ $If MODPLAYER_BM = UNDEFINED Then
         ' Allocate a QB64 sound pipe
         Song.qb64SoundPipe = SndOpenRaw
 
+        ' Feed some amount of silent samples to the QB64 sound pipe
+        ' This helps reduce initial buffer underrun hiccups
+        For i = 1 To BUFFER_UNDERRUN_PROTECTION * 60 ' since sample rate is per second
+            SndRaw NULL, NULL, Song.qb64SoundPipe
+        Next
+
         ' Allocate a QB64 Timer
         Song.qb64Timer = FreeTimer
         UpdateMODTimer SONG_BPM_DEFAULT
@@ -284,7 +290,7 @@ $If MODPLAYER_BM = UNDEFINED Then
         Timer(Song.qb64Timer) Off
         Timer(Song.qb64Timer) Free
 
-        SndRawDone ' Wait for the whole buffer to finish playing
+        SndRawDone Song.qb64SoundPipe ' Wait for the whole buffer to finish playing
         SndClose Song.qb64SoundPipe ' Close QB64 sound pipe
 
         Song.isPlaying = FALSE
@@ -608,79 +614,92 @@ $If MODPLAYER_BM = UNDEFINED Then
     ' Mixes and queues a frame/tick worth of samples
     ' All mixing calculations are done using floating-point math (it's 2022 :)
     Sub MixMODFrame
-        Dim As Unsigned Long i, npos
-        Dim As Unsigned Byte chan, nSample, vol
-        Dim As Single fpan, fpos, fsam, fsamLT, fsamRT
-        Dim As Byte bsam1, bsam2
+        Dim As Long c, i, nPos, nSample, nVolume
+        Dim As Single fPan, fPos, fSam, fPitch
+        Dim As Byte bSam1, bSam2
         Dim As Bit isLooping
 
-        For i = 1 To Song.mixerBufferSize
-            fsamLT = 0
-            fsamRT = 0
+        ' Allocate a temporary mixer buffer that will hold sample data for both channels
+        ' This is conveniently zeroed by QB64, so that is nice. We don't have to do it
+        ' Here 1 is the left channnel and 2 is the right channel
+        Dim mixerBuffer(1 To 2, 1 To Song.mixerBufferSize) As Single
 
-            For chan = 0 To Song.channels - 1
-                ' Check if we need to mix the sample, wrap or simply stop
-                ' Get one sample from each channel
-                ' Add the sample to samLT & samRT after applying panning & volume
-                ' Increment the sample position and check other stuff
+        ' We will iterate through each channel completely rather than jumping from channel to channel
+        ' We are doing this because it is easier for the CPU to access adjacent memory rather than something far away
+        ' Also because we do not have to fetch stuff from multiple arrays too many times
+        For c = 0 To Song.channels - 1
+            ' Get the sample number we need to work with
+            nSample = Channel(c).sample
 
-                ' Get the sample number we need to work with
-                nSample = Channel(chan).sample
+            ' Only proceed if we have a valid sample number (> 0)
+            If Not nSample = 0 Then
+                isLooping = (Sample(nSample).loopLength > 0)
 
-                ' Only proceed if we have a valid sample number (> 0)
-                If Not nSample = 0 Then
-                    ' We need these too many times
-                    fpos = Channel(chan).samplePosition
-                    isLooping = (Sample(nSample).loopLength > 0)
+                ' Proceed further if we have not completed or are looping
+                If Channel(c).isPlaying Or isLooping Then
+                    ' Get some values we need frequently during the mixing interation below
+                    ' Note that these do not change at all during the mixing process
+                    nVolume = Channel(c).volume
+                    fPan = Channel(c).panningPosition
+                    fPitch = Channel(c).pitch
 
-                    ' Check if we are looping
-                    If isLooping Then
-                        ' Reset loop position if we reached the end of the loop
-                        If fpos >= Sample(nSample).loopEnd Then
-                            fpos = Sample(nSample).loopStart
+                    ' Next we go through the channel sample data and mix it to our mixerBuffer
+                    For i = 1 To Song.mixerBufferSize
+                        ' We need these too many times
+                        fPos = Channel(c).samplePosition
+
+                        ' Check if we are looping
+                        If isLooping Then
+                            ' Reset loop position if we reached the end of the loop
+                            If fPos >= Sample(nSample).loopEnd Then
+                                fPos = Sample(nSample).loopStart
+                            End If
+                        Else
+                            ' For non-looping sample simply set the isplayed flag as false if we reached the end
+                            If fPos >= Sample(nSample).length Then
+                                Channel(c).isPlaying = FALSE
+                                ' The below two lines may not be required but are here for good measure to deal with problematic mods
+                                Channel(c).samplePosition = 0
+                                Channel(c).pitch = 0
+                                ' Exit the for mixing loop as we have no more samples to mix for this channel
+                                Exit For
+                            End If
                         End If
-                    Else
-                        ' For non-looping sample simply set the isplayed flag as false if we reached the end
-                        If fpos >= Sample(nSample).length Then
-                            Channel(chan).isPlaying = FALSE
-                        End If
-                    End If
 
-                    ' Only mix the sample if we have not completed or are looping
-                    If Channel(chan).isPlaying Or isLooping Then
                         ' We don't want anything below 0
-                        If fpos < 0 Then fpos = 0
-                        vol = Channel(chan).volume
-                        fpan = Channel(chan).panningPosition
+                        If fPos < 0 Then fPos = 0
 
-                        ' Get a sample, change format and add
                         ' Samples are stored in a string and strings are 1 based
                         If Song.useHQMixer Then
                             ' Apply interpolation
-                            npos = Fix(fpos)
-                            bsam1 = Asc(SampleData(nSample), 1 + npos)
-                            bsam2 = Asc(SampleData(nSample), 2 + npos)
-                            fsam = bsam1 + (bsam2 - bsam1) * (fpos - npos)
+                            nPos = Fix(fPos)
+                            bSam1 = Asc(SampleData(nSample), 1 + nPos) ' This will convert the unsigned byte (the way it is stored) to signed byte
+                            bSam2 = Asc(SampleData(nSample), 2 + nPos) ' This will convert the unsigned byte (the way it is stored) to signed byte
+                            fSam = bSam1 + (bSam2 - bSam1) * (fPos - nPos)
                         Else
-                            bsam1 = Asc(SampleData(nSample), 1 + fpos)
-                            fsam = bsam1
+                            bSam1 = Asc(SampleData(nSample), 1 + fPos) ' This will convert the unsigned byte (the way it is stored) to signed byte
+                            fSam = bSam1
                         End If
 
                         ' The following two lines does volume & panning
                         ' The below expressions were simplified and rearranged to reduce the number of divisions
-                        fsamLT = fsamLT + (fsam * vol * (SAMPLE_PAN_RIGHT - fpan)) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
-                        fsamRT = fsamRT + (fsam * vol * fpan) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
+                        mixerBuffer(1, i) = mixerBuffer(1, i) + (fSam * nVolume * (SAMPLE_PAN_RIGHT - fPan)) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
+                        mixerBuffer(2, i) = mixerBuffer(2, i) + (fSam * nVolume * fPan) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
 
                         ' Move to the next sample position based on the pitch
-                        Channel(chan).samplePosition = fpos + Channel(chan).pitch
-                    End If
+                        Channel(c).samplePosition = fPos + fPitch
+                    Next
                 End If
-            Next
+            End If
+        Next
 
-            ' Man! I was probably more drunk than I thought and made such a simple thing so complicated earlier
-            fsam = Song.volume / (256 * SONG_VOLUME_MAX)
-            fsamLT = fsamLT * fsam
-            fsamRT = fsamRT * fsam
+        Dim As Single fsamLT, fsamRT
+        ' Feed the samples to the QB64 sound pipe
+        For i = 1 To Song.mixerBufferSize
+            ' Apply global volume and scale sample to QB64 sound pipe specs
+            fSam = Song.volume / (256 * SONG_VOLUME_MAX) ' TODO: 256? Is this right?
+            fsamLT = mixerBuffer(1, i) * fSam
+            fsamRT = mixerBuffer(2, i) * fSam
 
             ' Clip samples to QB64 range
             If fsamLT < -1 Then fsamLT = -1

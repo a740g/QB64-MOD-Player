@@ -9,12 +9,19 @@ $If MODPLAYER_BI = UNDEFINED Then
     '-----------------------------------------------------------------------------------------------------
     ' METACOMMANDS
     '-----------------------------------------------------------------------------------------------------
+    ' We don't want an underscore prefix as we are writing this from scratch. Leading underscores are ugly
     $NoPrefix
+    ' All identifiers must default to long (32-bits). This results in fastest code execution on x86 & x64
     DefLng A-Z
+    ' Force all variables to be defined
     Option Explicit
+    ' Force all arrays to be defined
     Option ExplicitArray
+    ' Start array lower bound from 1. If 0 is required this should be explicitly specified as (0 To X)
     Option Base 1
+    ' All arrays should be static. If dynamic arrays are required use "ReDim"
     '$Static
+    ' We want our window to be resizeable. "Smooth" is a personal preference. Use "Stretch" if preferred
     $Resize:Smooth
     '-----------------------------------------------------------------------------------------------------
 
@@ -38,7 +45,7 @@ $If MODPLAYER_BI = UNDEFINED Then
     Const SONG_SPEED_DEFAULT~%% = 6~%% ' This is the default speed for song where it is not specified
     Const SONG_BPM_DEFAULT~%% = 125~%% ' Default song BPM
     Const SONG_VOLUME_MAX~%% = 255~%% ' Max song master volume
-    Const BUFFER_UNDERRUN_PROTECTION~%% = 64~%% ' This prevents audio pops and glitches due to QB64 timer inaccuracy
+    Const BUFFER_UNDERRUN_PROTECTION~%% = 128~%% ' This prevents audio pops and glitches due to QB64 timer inaccuracy
     '-----------------------------------------------------------------------------------------------------
 
     '-----------------------------------------------------------------------------------------------------
