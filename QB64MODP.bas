@@ -68,7 +68,7 @@ Do
     ProcessDroppedFiles
     PrintWelcomeScreen
     k = InKey$
-    Delay 0.01
+    Limit 120
 Loop Until k = Chr$(27)
 
 System 0
@@ -171,7 +171,7 @@ End Sub
 ' Print the welcome screen
 Sub PrintWelcomeScreen
     Locate 1, 1
-    Color 12
+    Color 12, 0
     Print "   _____ ___   _____ _  _           _____ ___     ___   _                           "
     Color 12
     If Timer Mod 7 = 0 Then
@@ -253,6 +253,8 @@ Sub AdjustWindowSize
 
     ' We need 43 lines minimum
     Width windowWidthChar, 43
+    ' Clear the screen
+    Cls
 End Sub
 
 
@@ -271,7 +273,6 @@ Sub PlaySong (fileName As String)
 
     StartMODPlayer
     AdjustWindowSize
-    Cls
 
     Dim k As String
 
@@ -313,15 +314,13 @@ Sub PlaySong (fileName As String)
             Case "i", "I"
                 InfoMode = TRUE
                 AdjustWindowSize
-                Cls
 
             Case "v", "V"
                 InfoMode = FALSE
                 AdjustWindowSize
-                Cls
         End Select
 
-        Delay 0.01
+        Limit 120
     Loop Until Not Song.isPlaying Or k = Chr$(27) Or TotalDroppedFiles > 0
 
     StopMODPlayer
@@ -354,15 +353,11 @@ Sub ProcessDroppedFiles
         Next
         FinishDrop ' This is critical
 
-        Cls
-
         ' Now play the dropped file one at a time
         For i = LBound(fileNames) To UBound(fileNames)
             PlaySong fileNames(i)
             If TotalDroppedFiles > 0 Then Exit For ' Exit the loop if we have dropped files
         Next
-
-        Cls
     End If
 End Sub
 

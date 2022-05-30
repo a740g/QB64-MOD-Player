@@ -216,8 +216,8 @@ $If MODPLAYER_BM = UNDEFINED Then
 
         ' Load the samples
         For i = 1 To Song.samples
-            ' Read and load sample size bytes of data. Also allocate 8 bytes more than needed for mixer runoff
-            SampleData(i) = Input$(Sample(i).length, fileHandle) + String$(8, NULL)
+            ' Read and load sample size bytes of data. Also allocate 16 bytes more than needed for mixer runoff
+            SampleData(i) = Input$(Sample(i).length, fileHandle) + String$(16, NULL)
         Next
 
         Close fileHandle
