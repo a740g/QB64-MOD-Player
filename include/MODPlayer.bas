@@ -13,6 +13,24 @@ $If MODPLAYER_BM = UNDEFINED Then
     $Let MODPLAYER_BM = TRUE
 
     '-----------------------------------------------------------------------------------------------------
+    ' Small test code for debugging the library. Comment the line below to disable debugging
+    '-----------------------------------------------------------------------------------------------------
+    '$Let MODPLAYER_DEBUG = TRUE
+    $If MODPLAYER_DEBUG = DEFINED Then
+            '$Debug
+            If LoadMODFile("C:\Users\samue\OneDrive\Documents\GitHub\QB64-MOD-Player\mods\rez-monday.mod") Then
+            StartMODPlayer
+            Do
+            Locate 1, 1
+            Print Using "Order: ### / ###    Pattern: ### / ###    Row: ## / 64    BPM: ###    Speed: ###"; Song.orderPosition + 1; Song.orders; Order(Song.orderPosition) + 1; Song.highestPattern + 1; Song.patternRow + 1; Song.bpm; Song.speed;
+            Limit 60
+            Loop While KeyHit <> 27 Or Song.isPlaying
+            StopMODPlayer
+            End If
+            End
+    $End If
+
+    '-----------------------------------------------------------------------------------------------------
     ' FUNCTIONS & SUBROUTINES
     '-----------------------------------------------------------------------------------------------------
     ' Calculates and sets the timer speed and also the mixer buffer update size
@@ -201,7 +219,7 @@ $If MODPLAYER_BM = UNDEFINED Then
                         End If
                     Next
 
-                    Pattern(i, a, b).volume = NOTE_NO_VOLUME
+                    Pattern(i, a, b).volume = NOTE_NO_VOLUME ' MODs don't have any volume field in the pattern
                     Pattern(i, a, b).effect = byte3 And &HF
                     Pattern(i, a, b).operand = byte4
 
@@ -253,7 +271,7 @@ $If MODPLAYER_BM = UNDEFINED Then
         ReDim Channel(0 To Song.channels - 1) As ChannelType
 
         ' Setup panning for all channels except last one if we have an odd number
-        ' I hope I did this right. But i don't care even if it not the classic way. This is cooler :)
+        ' I hope I did this right. But I don't care even if it not the classic way. This is cooler :)
         For i = 0 To Song.channels - 1 - (Song.channels Mod 2)
             If i Mod 2 = 0 Then
                 Channel(i).panningPosition = SAMPLE_PAN_LEFT + SAMPLE_PAN_CENTER / 2
@@ -290,7 +308,7 @@ $If MODPLAYER_BM = UNDEFINED Then
         Timer(Song.qb64Timer) Off
         Timer(Song.qb64Timer) Free
 
-        SndRawDone Song.qb64SoundPipe ' Wait for the whole buffer to finish playing
+        SndRawDone Song.qb64SoundPipe ' Sumbit whatever is remaining in the raw buffer for playback
         SndClose Song.qb64SoundPipe ' Close QB64 sound pipe
 
         Song.isPlaying = FALSE
@@ -299,13 +317,14 @@ $If MODPLAYER_BM = UNDEFINED Then
 
     ' Called by the QB64 timer at a specified rate
     Sub MODPlayerTimerHandler
-        ' Check conditions for which we should just exit and not process anything\
+        ' Check conditions for which we should just exit and not process anything
         If Song.orderPosition >= Song.orders Then Exit Sub
 
         ' Set the playing flag to true
         Song.isPlaying = TRUE
 
         ' If song is paused simply feed silence to the QB64 sound pipe and exit
+        ' Again, this helps use avoid stuttering and hiccups when playback is resumed
         If Song.isPaused Then
             Dim i As Long
 
@@ -396,7 +415,6 @@ $If MODPLAYER_BM = UNDEFINED Then
                 End If
             End If
 
-
             If nNote < NOTE_NONE And Channel(nChannel).sample > 0 Then
                 Channel(nChannel).period = 8363 * PeriodTable(nNote) / Sample(Channel(nChannel).sample).c2SPD
                 Channel(nChannel).note = nNote
@@ -406,11 +424,11 @@ $If MODPLAYER_BM = UNDEFINED Then
                 If SHR(Channel(nChannel).waveControl, 4) < 4 Then Channel(nChannel).tremoloPosition = 0
 
                 ' ONLY RESET FREQUENCY IF THERE IS A NOTE VALUE AND PORTA NOT SET
-                If nEffect <> &H3 And nEffect <> &H5 Then ' TODO: And note delay?
+                If nEffect <> &H3 And nEffect <> &H5 Then
                     Channel(nChannel).frequency = Channel(nChannel).period
                     Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).frequency)
-                    Channel(nChannel).isPlaying = TRUE
                     Channel(nChannel).samplePosition = 0
+                    Channel(nChannel).isPlaying = TRUE
                 End If
             End If
 
@@ -535,7 +553,7 @@ $If MODPLAYER_BM = UNDEFINED Then
 
     ' Updates any tick based effects after tick 0
     Sub UpdateMODTick
-        Dim As Unsigned Byte nChannel, nEffect, nOperand, nOpX, nOpY
+        Dim As Unsigned Byte nChannel, nVolume, nEffect, nOperand, nOpX, nOpY
 
         ' Process all channels
         For nChannel = 0 To Song.channels - 1
@@ -543,6 +561,7 @@ $If MODPLAYER_BM = UNDEFINED Then
             If Not Channel(nChannel).frequency = 0 Then
                 ' We are not processing a new row but tick 1+ effects
                 ' So we pick these using tickPattern and tickPatternRow
+                nVolume = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).volume
                 nEffect = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).effect
                 nOperand = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).operand
                 nOpX = SHR(nOperand, 4)
@@ -551,12 +570,12 @@ $If MODPLAYER_BM = UNDEFINED Then
                 Select Case nEffect
                     Case &H0 ' 0: Arpeggio
                         If (nOperand > 0) Then
-                            Select Case (Song.tick + 1) Mod 3 ' Song.tick + 1 here to make it sound like FT2. Dunno why it works yet :(
-                                Case 0
+                            Select Case Song.tick Mod 3 ' TODO: Check why this sounds wierd with 0, 1, 2
+                                Case 2
                                     Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).frequency)
                                 Case 1
                                     Channel(nChannel).pitch = GetPitchFromPeriod(PeriodTable(Channel(nChannel).note + nOpX))
-                                Case 2
+                                Case 0
                                     Channel(nChannel).pitch = GetPitchFromPeriod(PeriodTable(Channel(nChannel).note + nOpY))
                             End Select
                         End If
@@ -605,15 +624,11 @@ $If MODPLAYER_BM = UNDEFINED Then
 
                             Case &HD ' 13: Delay Note
                                 If Song.tick = nOpY Then
-                                    If Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).sample > 0 Then
-                                        Channel(nChannel).volume = Sample(Channel(nChannel).sample).volume
-                                    End If
-                                    If Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).volume <= SAMPLE_VOLUME_MAX Then
-                                        Channel(nChannel).volume = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).volume
-                                    End If
+                                    If Channel(nChannel).sample > 0 Then Channel(nChannel).volume = Sample(Channel(nChannel).sample).volume
+                                    If nVolume <= SAMPLE_VOLUME_MAX Then Channel(nChannel).volume = nVolume
                                     Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).frequency)
-                                    Channel(nChannel).isPlaying = TRUE
                                     Channel(nChannel).samplePosition = 0
+                                    Channel(nChannel).isPlaying = TRUE
                                 End If
                         End Select
                 End Select
