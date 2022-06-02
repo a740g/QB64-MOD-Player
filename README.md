@@ -1,6 +1,6 @@
 # QB64 MOD Player
 
-A [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player library written entirely in [QB64](https://github.com/QB64-Phoenix-Edition/QB64pe).
+A [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player library written entirely in [QB64](https://github.com/QB64-Phoenix-Edition/QB64pe). Yes, this does __not use any__ third party libraries!
 
 ![Screenshot](screenshots/qb64mp_mainscreen.png)
 ![Screenshot](screenshots/qb64mp_infoscreen.png)
@@ -45,16 +45,16 @@ Sub StopMODPlayer
 
 Why a MOD player in QB64?
 
-    Just for learning and fun!
+- Just for learning and fun! Long answer: I have seen plenty of MOD players code and libraries in C & C++ but very little in other languages. I know about some JavaScript, Java and C# ones. But, I am not a fan of those languages. I learnt to code on DOS using QuickBASIC and then graduated to C & C++. So, QuickBASIC always had a special place in my heart. Then, I found QB64 on the internet and the rest is history. As far as I know this is the first of it's kind. Let me know if there are any other MOD players written in pure QB64.
 
 Will you add S3M, XM, IT support?
 
-    Not sure. Probably. But you are free to fork and do it yourself.
+- Not sure. Probably. This will require some work. Mainly modularization. But you are free to fork and do it yourself.
 
 I found a bug. How can I help?
 
-    There are probably many bugs now. Let me know using GitHub issues.
+- Let me know using GitHub issues or fix it yourself and let me know!
 
 Can this be used in a game / demo?
 
-    Absolutely. With little effort. But I have not tried integrating this into anything myself (yet).
+- Absolutely. The player UI code included in a great example.
