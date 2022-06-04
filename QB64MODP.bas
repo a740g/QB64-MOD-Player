@@ -22,8 +22,8 @@ $VersionInfo:OriginalFilename='QB64MODP.exe'
 $VersionInfo:ProductName='QB64 MOD Player'
 $VersionInfo:Web='https://github.com/a740g'
 $VersionInfo:Comments='https://github.com/a740g'
-$VersionInfo:FILEVERSION#=1,0,14,0
-$VersionInfo:PRODUCTVERSION#=1,0,0,0
+$VersionInfo:FILEVERSION#=1,1,0,0
+$VersionInfo:PRODUCTVERSION#=1,1,0,0
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -95,10 +95,10 @@ Sub PrintMODInfo
     Print
 
     Dim As Unsigned Byte i, j
-    For i = 1 To Song.samples
+    For i = 0 To Song.samples - 1
         Color 14, 0
         For j = 0 To Song.channels - 1
-            If i = Pattern(Order(Song.orderPosition), Song.patternRow, j).sample Then
+            If i + 1 = Pattern(Order(Song.orderPosition), Song.patternRow, j).sample Then
                 Color 13, 1
             End If
         Next
@@ -290,16 +290,16 @@ Sub PlaySong (fileName As String)
                 Song.isPaused = Not Song.isPaused
 
             Case "=", "+"
-                Song.volume = Song.volume + 1
+                SoftSynth.volume = SoftSynth.volume + 1
 
             Case "-", "_"
-                Song.volume = Song.volume - 1
+                SoftSynth.volume = SoftSynth.volume - 1
 
             Case "l", "L"
                 Song.isLooping = Not Song.isLooping
 
             Case "q", "Q"
-                Song.useHQMixer = Not Song.useHQMixer
+                SoftSynth.useHQMixer = Not SoftSynth.useHQMixer
 
             Case ",", "<"
                 Song.orderPosition = Song.orderPosition - 1

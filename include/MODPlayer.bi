@@ -3,48 +3,24 @@
 ' Copyright (c) 2022 Samuel Gomes
 '---------------------------------------------------------------------------------------------------------
 
+'---------------------------------------------------------------------------------------------------------
+' HEADER FILES
+'---------------------------------------------------------------------------------------------------------
+'$include:'SoftSynth.bi'
+'---------------------------------------------------------------------------------------------------------
+
 $If MODPLAYER_BI = UNDEFINED Then
     $Let MODPLAYER_BI = TRUE
-
-    '-----------------------------------------------------------------------------------------------------
-    ' METACOMMANDS
-    '-----------------------------------------------------------------------------------------------------
-    ' We don't want an underscore prefix as we are writing this from scratch. Leading underscores are ugly
-    $NoPrefix
-    ' All identifiers must default to long (32-bits). This results in fastest code execution on x86 & x64
-    DefLng A-Z
-    ' Force all variables to be defined
-    Option Explicit
-    ' Force all arrays to be defined
-    Option ExplicitArray
-    ' Start array lower bound from 1. If 0 is required this should be explicitly specified as (0 To X)
-    Option Base 1
-    ' All arrays should be static. If dynamic arrays are required use "ReDim"
-    '$Static
-    ' We want our window to be resizeable. "Smooth" is a personal preference. Use "Stretch" if preferred
-    $Resize:Smooth
-    '-----------------------------------------------------------------------------------------------------
-
     '-----------------------------------------------------------------------------------------------------
     ' CONSTANTS
     '-----------------------------------------------------------------------------------------------------
-    Const FALSE` = 0`, TRUE` = Not FALSE
-    Const NULL~` = 0~`
-    Const NULLSTRING$ = ""
-
-    Const AMIGA_CONSTANT! = 14317056! ' AMIGA constant
     Const PATTERN_ROW_MAX~%% = 63~%% ' Max row number in a pattern
     Const NOTE_NONE~%% = 132~%% ' Note will be set to this when there is nothing
     Const NOTE_KEY_OFF~%% = 133~%% ' We'll use this in a future version
     Const NOTE_NO_VOLUME~%% = 255~%% ' When a note has no volume, then it will be set to this
     Const ORDER_TABLE_MAX~%% = 127~%% ' Max position in the order table
-    Const SAMPLE_VOLUME_MAX~%% = 64~%% ' This is the maximum volume of any sample in the MOD
-    Const SAMPLE_PAN_LEFT~%% = 0~%% ' Leftmost pannning position
-    Const SAMPLE_PAN_RIGHT~%% = 255~%% ' Rightmost pannning position
-    Const SAMPLE_PAN_CENTER! = (SAMPLE_PAN_RIGHT - SAMPLE_PAN_LEFT) / 2! ' Center panning position
     Const SONG_SPEED_DEFAULT~%% = 6~%% ' This is the default speed for song where it is not specified
     Const SONG_BPM_DEFAULT~%% = 125~%% ' Default song BPM
-    Const SONG_VOLUME_MAX~%% = 255~%% ' Max song master volume
     Const BUFFER_UNDERRUN_PROTECTION~%% = 128~%% ' This prevents audio pops and glitches due to QB64 timer inaccuracy
     '-----------------------------------------------------------------------------------------------------
 
@@ -72,13 +48,11 @@ $If MODPLAYER_BI = UNDEFINED Then
     Type ChannelType
         sample As Unsigned Byte ' Sample number to be mixed
         volume As Integer ' Channel volume. This is a signed int because we need -ve values & to clip properly
-        panningPosition As Single ' Position 0 is leftmost ... 255 is rightmost (fp32)
-        pitch As Single ' Sample pitch. The mixer code uses this to step through the sample correctly (fp32)
-        samplePosition As Single ' Where are we in the sample buffer (fp32)
-        isPlaying As Byte ' This is set to false once the mixer is done with the sample
-        frequency As Unsigned Integer ' This is the period of the playing sample used by various effects
+        restart As Byte ' Set this to true to retrigger the sample
         note As Unsigned Byte ' Last note set in channel
-        period As Unsigned Integer ' Last period set in channel
+        period As Unsigned Integer ' This is the period of the playing sample used by various effects
+        lastPeriod As Unsigned Integer ' Last period set in channel
+        startPosition As Unsigned Long ' This is starting position of the sample. Usually zero else value from sample offset effect
         patternLoopRow As Integer ' This (signed) is the beginning of the loop in the pattern for effect E6x
         patternLoopRowCounter As Unsigned Byte ' This is a loop counter for effect E6x
         portamentoTo As Unsigned Integer ' Frequency to porta to value for E3x
@@ -108,15 +82,11 @@ $If MODPLAYER_BI = UNDEFINED Then
         isLooping As Byte ' Set this to true to loop the song once we reach the max order specified in the song
         isPlaying As Byte ' This is set to true as long as the song is playing
         isPaused As Byte ' Set this to true to pause playback
-        qb64Timer As Long ' We use this to store the QB64 timer number
         speed As Unsigned Byte ' Current song speed
         bpm As Unsigned Byte ' Current song BPM
         tick As Unsigned Byte ' Current song tick
-        qb64SoundPipe As Long ' QB64 sound pipe that we will use to stream the mixed audio
-        volume As Unsigned Byte ' Song master volume 0 is none ... 255 is full
-        mixerRate As Long ' This is always set by QB64 internal audio engine
         mixerBufferSize As Unsigned Long ' This is the amount of samples we have to mix based on mixerRate & bpm
-        useHQMixer As Byte ' If this is set to true, then we are using linear interpolation mixing
+        qb64Timer As Long ' We use this to store the QB64 timer handle
     End Type
     '-----------------------------------------------------------------------------------------------------
 
@@ -134,8 +104,7 @@ $If MODPLAYER_BI = UNDEFINED Then
     Dim Shared Song As SongType
     Dim Shared Order(0 To ORDER_TABLE_MAX) As Unsigned Byte ' Order list
     ReDim Shared Pattern(0 To 0, 0 To 0, 0 To 0) As NoteType ' Pattern data strored as (pattern, row, channel)
-    ReDim Shared Sample(1 To 1) As SampleType ' Sample info array. One based because sample 0 means nothing (well something :) in the pattern data
-    ReDim Shared SampleData(1 To 1) As String ' Sample data array. Again one based for same reason above
+    ReDim Shared Sample(0 To 0) As SampleType ' Sample info array
     ReDim Shared Channel(0 To 0) As ChannelType ' Channel info array
     ReDim Shared PeriodTable(0 To 0) As Unsigned Integer ' Amiga period table
     ReDim Shared SineTable(0 To 0) As Unsigned Byte ' Sine table used for effects

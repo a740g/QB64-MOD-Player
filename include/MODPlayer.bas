@@ -13,22 +13,19 @@ $If MODPLAYER_BM = UNDEFINED Then
     $Let MODPLAYER_BM = TRUE
 
     '-----------------------------------------------------------------------------------------------------
-    ' Small test code for debugging the library. Comment the line below to disable debugging
+    ' Small test code for debugging the library
     '-----------------------------------------------------------------------------------------------------
-    '$Let MODPLAYER_DEBUG = TRUE
-    $If MODPLAYER_DEBUG = DEFINED Then
-            '$Debug
-            If LoadMODFile("C:\Users\samue\OneDrive\Documents\GitHub\QB64-MOD-Player\mods\rez-monday.mod") Then
-            StartMODPlayer
-            Do
-            Locate 1, 1
-            Print Using "Order: ### / ###    Pattern: ### / ###    Row: ## / 64    BPM: ###    Speed: ###"; Song.orderPosition + 1; Song.orders; Order(Song.orderPosition) + 1; Song.highestPattern + 1; Song.patternRow + 1; Song.bpm; Song.speed;
-            Limit 60
-            Loop While KeyHit <> 27 Or Song.isPlaying
-            StopMODPlayer
-            End If
-            End
-    $End If
+    '$Debug
+    'If LoadMODFile("C:\Users\samue\OneDrive\Documents\GitHub\QB64-MOD-Player\mods\rez-monday.mod") Then
+    '    StartMODPlayer
+    '    Do
+    '        Locate 1, 1
+    '        Print Using "Order: ### / ###    Pattern: ### / ###    Row: ## / 64    BPM: ###    Speed: ###"; Song.orderPosition + 1; Song.orders; Order(Song.orderPosition) + 1; Song.highestPattern + 1; Song.patternRow + 1; Song.bpm; Song.speed;
+    '        Limit 60
+    '    Loop While KeyHit <> 27 And Song.isPlaying
+    '    StopMODPlayer
+    'End If
+    'End
 
     '-----------------------------------------------------------------------------------------------------
     ' FUNCTIONS & SUBROUTINES
@@ -39,10 +36,10 @@ $If MODPLAYER_BM = UNDEFINED Then
         Song.bpm = nBPM
 
         ' Calculate the mixer buffer update size
-        Song.mixerBufferSize = (Song.mixerRate * 5) / (2 * Song.bpm)
+        Song.mixerBufferSize = (SoftSynth.mixerRate * 5) / SHL(Song.bpm, 1)
 
         ' S / (2 * B / 5) (where S is second and B is BPM)
-        On Timer(Song.qb64Timer, 5 / (2 * Song.bpm)) MODPlayerTimerHandler
+        On Timer(Song.qb64Timer, 5 / SHL(Song.bpm, 1)) MODPlayerTimerHandler
     End Sub
 
 
@@ -121,12 +118,12 @@ $If MODPLAYER_BM = UNDEFINED Then
             Exit Function
         End If
 
-        ' Resize the sample array
-        ReDim Sample(1 To Song.samples) As SampleType
+        ' Initialize the sample manager
+        ReDim Sample(0 To Song.samples - 1) As SampleType
         Dim As Unsigned Byte byte1, byte2
 
         ' Load the sample headers
-        For i = 1 To Song.samples
+        For i = 0 To Song.samples - 1
             ' Read the sample name
             Get fileHandle, , Sample(i).sampleName
 
@@ -229,13 +226,13 @@ $If MODPLAYER_BM = UNDEFINED Then
             Next
         Next
 
-        ' Resize the sample data array
-        ReDim SampleData(1 To Song.samples) As String
+        ' Initialize the softsynth sample manager
+        InitializeSampleManager Song.samples
 
         ' Load the samples
-        For i = 1 To Song.samples
-            ' Read and load sample size bytes of data. Also allocate 32 bytes more than needed for mixer runoff
-            SampleData(i) = Input$(Sample(i).length, fileHandle) + String$(32, NULL)
+        For i = 0 To Song.samples - 1
+            ' Load sample size bytes of data and send it to our softsynth sample manager
+            StoreSample i, Input$(Sample(i).length, fileHandle)
         Next
 
         Close fileHandle
@@ -256,15 +253,14 @@ $If MODPLAYER_BM = UNDEFINED Then
             Read SineTable(i)
         Next
 
-        ' Set the mix rate to match that of the system
-        Song.mixerRate = SndRate
+        ' Initialize the softsynth sample mixer
+        InitializeMixer Song.channels
 
         ' Initialize some important stuff
         Song.orderPosition = 0
         Song.patternRow = 0
         Song.speed = SONG_SPEED_DEFAULT
         Song.tick = Song.speed
-        Song.volume = SONG_VOLUME_MAX
         Song.isPaused = FALSE
 
         ' Setup the channel array
@@ -274,24 +270,19 @@ $If MODPLAYER_BM = UNDEFINED Then
         ' I hope I did this right. But I don't care even if it not the classic way. This is cooler :)
         For i = 0 To Song.channels - 1 - (Song.channels Mod 2)
             If i Mod 2 = 0 Then
-                Channel(i).panningPosition = SAMPLE_PAN_LEFT + SAMPLE_PAN_CENTER / 2
+                SetVoicePanning i, SAMPLE_PAN_LEFT + SAMPLE_PAN_CENTER / 2
             Else
-                Channel(i).panningPosition = SAMPLE_PAN_RIGHT - SAMPLE_PAN_CENTER / 2
+                SetVoicePanning i, SAMPLE_PAN_RIGHT - SAMPLE_PAN_CENTER / 2
             End If
         Next
         ' Set the last channel to center. This also works for single channel
         If Song.channels Mod 2 = 1 Then
-            Channel(Song.channels - 1).panningPosition = SAMPLE_PAN_CENTER
+            SetVoicePanning Song.channels - 1, SAMPLE_PAN_CENTER
         End If
-
-        ' Allocate a QB64 sound pipe
-        Song.qb64SoundPipe = SndOpenRaw
 
         ' Feed some amount of silent samples to the QB64 sound pipe
         ' This helps reduce initial buffer underrun hiccups
-        For i = 1 To BUFFER_UNDERRUN_PROTECTION * 60 ' since sample rate is per second
-            SndRaw NULL, NULL, Song.qb64SoundPipe
-        Next
+        UpdateMixerSilence BUFFER_UNDERRUN_PROTECTION * 60 ' since sample rate is per second
 
         ' Allocate a QB64 Timer
         Song.qb64Timer = FreeTimer
@@ -308,8 +299,8 @@ $If MODPLAYER_BM = UNDEFINED Then
         Timer(Song.qb64Timer) Off
         Timer(Song.qb64Timer) Free
 
-        SndRawDone Song.qb64SoundPipe ' Sumbit whatever is remaining in the raw buffer for playback
-        SndClose Song.qb64SoundPipe ' Close QB64 sound pipe
+        ' Tell softsynth we are done
+        FinalizeMixer
 
         Song.isPlaying = FALSE
     End Sub
@@ -326,12 +317,7 @@ $If MODPLAYER_BM = UNDEFINED Then
         ' If song is paused simply feed silence to the QB64 sound pipe and exit
         ' Again, this helps use avoid stuttering and hiccups when playback is resumed
         If Song.isPaused Then
-            Dim i As Long
-
-            For i = 1 To Song.mixerBufferSize
-                SndRaw NULL, NULL, Song.qb64SoundPipe
-            Next
-
+            UpdateMixerSilence Song.mixerBufferSize
             Exit Sub
         End If
 
@@ -379,7 +365,7 @@ $If MODPLAYER_BM = UNDEFINED Then
         End If
 
         ' Mix the current tick
-        MixMODFrame
+        UpdateMixer Song.mixerBufferSize
 
         ' Increment song tick on each update
         Song.tick = Song.tick + 1
@@ -388,36 +374,37 @@ $If MODPLAYER_BM = UNDEFINED Then
 
     ' Updates a row of notes and play them out on tick 0
     Sub UpdateMODRow
-        Dim As Unsigned Byte nChannel, nNote, nSample, nVolume, nEffect, nOperand, nOpX, nOpY
-        Dim nPatternRow As Integer
-        Dim As Bit jumpEffectFlag, breakEffectFlag ' This is set to true when a pattern jump effect and pattern break effect are triggered
-
-        ' We need this so that we don't start accessing -1 elements in the pattern array when there is a pattern jump
-        nPatternRow = Song.patternRow
+        Dim As Unsigned Byte nChannel, nNote, nSample, nVolume, nEffect, nOperand, nOpX, nOpY, lastChannel
+        ' The effect flags below are set to true when a pattern jump effect and pattern break effect are triggered
+        Dim As Bit jumpEffectFlag, breakEffectFlag, noFrequency
 
         ' Process all channels
         For nChannel = 0 To Song.channels - 1
-            nNote = Pattern(Song.tickPattern, nPatternRow, nChannel).note
-            nSample = Pattern(Song.tickPattern, nPatternRow, nChannel).sample
-            nVolume = Pattern(Song.tickPattern, nPatternRow, nChannel).volume
-            nEffect = Pattern(Song.tickPattern, nPatternRow, nChannel).effect
-            nOperand = Pattern(Song.tickPattern, nPatternRow, nChannel).operand
+            nNote = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).note
+            nSample = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).sample
+            nVolume = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).volume
+            nEffect = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).effect
+            nOperand = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).operand
             nOpX = SHR(nOperand, 4)
             nOpY = nOperand And &HF
+            noFrequency = FALSE
 
             ' Set volume. We never play if sample number is zero. Our sample array is 1 based
             ' ONLY RESET VOLUME IF THERE IS A SAMPLE NUMBER
             If nSample > 0 Then
-                Channel(nChannel).sample = nSample
+                Channel(nChannel).sample = nSample - 1
                 ' Don't get the volume if delay note, set it when the delay note actually happens
                 If Not (nEffect = &HE And nOpX = &HD) Then
-                    Channel(nChannel).volume = Sample(nSample).volume
+                    Channel(nChannel).volume = Sample(Channel(nChannel).sample).volume
                 End If
             End If
 
-            If nNote < NOTE_NONE And Channel(nChannel).sample > 0 Then
-                Channel(nChannel).period = 8363 * PeriodTable(nNote) / Sample(Channel(nChannel).sample).c2SPD
+            If nNote < NOTE_NONE Then
+                Channel(nChannel).lastPeriod = 8363~& * PeriodTable(nNote) / Sample(Channel(nChannel).sample).c2SPD
                 Channel(nChannel).note = nNote
+                Channel(nChannel).restart = TRUE
+                Channel(nChannel).startPosition = 0
+                lastChannel = nChannel
 
                 ' Retrigger tremolo and vibrato waveforms
                 If Channel(nChannel).waveControl And &HF < 4 Then Channel(nChannel).vibratoPosition = 0
@@ -425,11 +412,10 @@ $If MODPLAYER_BM = UNDEFINED Then
 
                 ' ONLY RESET FREQUENCY IF THERE IS A NOTE VALUE AND PORTA NOT SET
                 If nEffect <> &H3 And nEffect <> &H5 Then
-                    Channel(nChannel).frequency = Channel(nChannel).period
-                    Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).frequency)
-                    Channel(nChannel).samplePosition = 0
-                    Channel(nChannel).isPlaying = TRUE
+                    Channel(nChannel).period = Channel(nChannel).lastPeriod
                 End If
+            Else
+                Channel(nChannel).restart = FALSE
             End If
 
             If nVolume <= SAMPLE_VOLUME_MAX Then Channel(nChannel).volume = nVolume
@@ -439,10 +425,12 @@ $If MODPLAYER_BM = UNDEFINED Then
             Select Case nEffect
                 Case &H3 ' 3: Porta To Note
                     If nOperand > 0 Then Channel(nChannel).portamentoSpeed = nOperand
-                    If nNote >= 0 Then Channel(nChannel).portamentoTo = Channel(nChannel).period
+                    If nNote >= 0 Then Channel(nChannel).portamentoTo = Channel(nChannel).lastPeriod
+                    Channel(nChannel).restart = FALSE
 
                 Case &H5 ' 5: Tone Portamento + Volume Slide
-                    If nNote >= 0 Then Channel(nChannel).portamentoTo = Channel(nChannel).period
+                    If nNote >= 0 Then Channel(nChannel).portamentoTo = Channel(nChannel).lastPeriod
+                    Channel(nChannel).restart = FALSE
 
                 Case &H4 ' 4: Vibrato
                     If nOpX > 0 Then Channel(nChannel).vibratoSpeed = nOpX
@@ -454,10 +442,10 @@ $If MODPLAYER_BM = UNDEFINED Then
 
                 Case &H8 ' 8: Set Panning Position
                     ' Don't care about DMP panning BS. We are doing this Fasttracker style
-                    Channel(nChannel).panningPosition = nOperand
+                    SetVoicePanning nChannel, nOperand
 
                 Case &H9 ' 9: Set Sample Offset
-                    If nOperand > 0 Then Channel(nChannel).samplePosition = nOperand * 256
+                    If nOperand > 0 Then Channel(nChannel).startPosition = SHL(nOperand, 8)
 
                 Case &HB ' 11: Jump To Pattern
                     Song.orderPosition = nOperand
@@ -481,15 +469,13 @@ $If MODPLAYER_BM = UNDEFINED Then
                 Case &HE ' 14: Extended Effects
                     Select Case nOpX
                         Case &H0 ' 0: Set Filter
-                            Song.useHQMixer = nOpY <> 0
+                            EnableHQMixer nOpY
 
                         Case &H1 ' 1: Fine Portamento Up
-                            Channel(nChannel).frequency = Channel(nChannel).frequency - nOpY * 4
-                            Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).frequency)
+                            Channel(nChannel).period = Channel(nChannel).period - SHL(nOpY, 2)
 
                         Case &H2 ' 2: Fine Portamento Down
-                            Channel(nChannel).frequency = Channel(nChannel).frequency + nOpY * 4
-                            Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).frequency)
+                            Channel(nChannel).period = Channel(nChannel).period + SHL(nOpY, 2)
 
                         Case &H3 ' 3: Glissando Control
                             Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
@@ -503,7 +489,7 @@ $If MODPLAYER_BM = UNDEFINED Then
 
                         Case &H6 ' 6: Pattern Loop
                             If nOpY = 0 Then
-                                Channel(nChannel).patternLoopRow = nPatternRow
+                                Channel(nChannel).patternLoopRow = Song.tickPatternRow
                             Else
                                 If Channel(nChannel).patternLoopRowCounter = 0 Then
                                     Channel(nChannel).patternLoopRowCounter = nOpY
@@ -520,7 +506,7 @@ $If MODPLAYER_BM = UNDEFINED Then
                         Case &H8 ' 8: 16 position panning
                             If nOpY > 15 Then nOpY = 15
                             ' Why does this kind of stuff bother me so much. We just could have written "/ 17" XD
-                            Channel(nChannel).panningPosition = nOpY * ((SAMPLE_PAN_RIGHT - SAMPLE_PAN_LEFT) / 15)
+                            SetVoicePanning nChannel, nOpY * ((SAMPLE_PAN_RIGHT - SAMPLE_PAN_LEFT) / 15)
 
                         Case &HA ' 10: Fine Volume Slide Up
                             Channel(nChannel).volume = Channel(nChannel).volume + nOpY
@@ -531,7 +517,7 @@ $If MODPLAYER_BM = UNDEFINED Then
                             If Channel(nChannel).volume < 0 Then Channel(nChannel).volume = 0
 
                         Case &HD ' 13: Delay Note
-                            Channel(nChannel).isPlaying = FALSE
+                            noFrequency = TRUE
 
                         Case &HE ' 14: Pattern Delay
                             Song.patternDelay = nOpY
@@ -547,6 +533,22 @@ $If MODPLAYER_BM = UNDEFINED Then
                         UpdateMODTimer nOperand
                     End If
             End Select
+
+            If Not noFrequency Then
+                If nEffect <> 7 Then SetVoiceVolume nChannel, Channel(nChannel).volume
+                If Channel(nChannel).period > 0 Then SetVoiceFrequency nChannel, GetFrequencyFromPeriod(Channel(nChannel).period)
+            End If
+        Next
+
+        ' Now play all samples that needs to be played
+        For nChannel = 0 To lastChannel
+            If Channel(nChannel).restart Then
+                If Sample(Channel(nChannel).sample).loopLength > 0 Then
+                    LoopVoice nChannel, Channel(nChannel).sample, Channel(nChannel).startPosition, Sample(Channel(nChannel).sample).loopStart, Sample(Channel(nChannel).sample).loopEnd
+                Else
+                    PlayVoice nChannel, Channel(nChannel).sample, Channel(nChannel).startPosition, Sample(Channel(nChannel).sample).length
+                End If
+            End If
         Next
     End Sub
 
@@ -558,7 +560,7 @@ $If MODPLAYER_BM = UNDEFINED Then
         ' Process all channels
         For nChannel = 0 To Song.channels - 1
             ' Only process if we have a period set
-            If Not Channel(nChannel).frequency = 0 Then
+            If Channel(nChannel).period > 0 Then
                 ' We are not processing a new row but tick 1+ effects
                 ' So we pick these using tickPattern and tickPatternRow
                 nVolume = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).volume
@@ -570,24 +572,24 @@ $If MODPLAYER_BM = UNDEFINED Then
                 Select Case nEffect
                     Case &H0 ' 0: Arpeggio
                         If (nOperand > 0) Then
-                            Select Case Song.tick Mod 3 ' TODO: Check why this sounds wierd with 0, 1, 2
-                                Case 2
-                                    Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).frequency)
-                                Case 1
-                                    Channel(nChannel).pitch = GetPitchFromPeriod(PeriodTable(Channel(nChannel).note + nOpX))
+                            Select Case Song.tick Mod 3
                                 Case 0
-                                    Channel(nChannel).pitch = GetPitchFromPeriod(PeriodTable(Channel(nChannel).note + nOpY))
+                                    SetVoiceFrequency nChannel, GetFrequencyFromPeriod(Channel(nChannel).period)
+                                Case 1
+                                    SetVoiceFrequency nChannel, GetFrequencyFromPeriod(PeriodTable(Channel(nChannel).note + nOpX))
+                                Case 2
+                                    SetVoiceFrequency nChannel, GetFrequencyFromPeriod(PeriodTable(Channel(nChannel).note + nOpY))
                             End Select
                         End If
 
                     Case &H1 ' 1: Porta Up
-                        Channel(nChannel).frequency = Channel(nChannel).frequency - nOperand * 4
-                        Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).frequency)
-                        If Channel(nChannel).frequency < 56 Then Channel(nChannel).frequency = 56
+                        Channel(nChannel).period = Channel(nChannel).period - SHL(nOperand, 2)
+                        SetVoiceFrequency nChannel, GetFrequencyFromPeriod(Channel(nChannel).period)
+                        If Channel(nChannel).period < 56 Then Channel(nChannel).period = 56
 
                     Case &H2 ' 2: Porta Down
-                        Channel(nChannel).frequency = Channel(nChannel).frequency + nOperand * 4
-                        Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).frequency)
+                        Channel(nChannel).period = Channel(nChannel).period + SHL(nOperand, 2)
+                        SetVoiceFrequency nChannel, GetFrequencyFromPeriod(Channel(nChannel).period)
 
                     Case &H3 ' 3: Porta To Note
                         DoPortamento nChannel
@@ -614,21 +616,31 @@ $If MODPLAYER_BM = UNDEFINED Then
                             Case &H9 ' 9: Retrigger Note
                                 If nOpY <> 0 Then
                                     If Song.tick Mod nOpY = 0 Then
-                                        Channel(nChannel).isPlaying = TRUE
-                                        Channel(nChannel).samplePosition = 0
+                                        If Sample(Channel(nChannel).sample).loopLength > 0 Then
+                                            LoopVoice nChannel, Channel(nChannel).sample, Channel(nChannel).startPosition, Sample(Channel(nChannel).sample).loopStart, Sample(Channel(nChannel).sample).loopEnd
+                                        Else
+                                            PlayVoice nChannel, Channel(nChannel).sample, Channel(nChannel).startPosition, Sample(Channel(nChannel).sample).length
+                                        End If
                                     End If
                                 End If
 
                             Case &HC ' 12: Cut Note
-                                If Song.tick = nOpY Then Channel(nChannel).volume = 0
+                                If Song.tick = nOpY Then
+                                    Channel(nChannel).volume = 0
+                                    SetVoiceVolume nChannel, Channel(nChannel).volume
+                                End If
 
                             Case &HD ' 13: Delay Note
                                 If Song.tick = nOpY Then
                                     If Channel(nChannel).sample > 0 Then Channel(nChannel).volume = Sample(Channel(nChannel).sample).volume
                                     If nVolume <= SAMPLE_VOLUME_MAX Then Channel(nChannel).volume = nVolume
-                                    Channel(nChannel).pitch = GetPitchFromPeriod(Channel(nChannel).frequency)
-                                    Channel(nChannel).samplePosition = 0
-                                    Channel(nChannel).isPlaying = TRUE
+                                    SetVoiceFrequency nChannel, GetFrequencyFromPeriod(Channel(nChannel).period)
+                                    SetVoiceVolume nChannel, Channel(nChannel).volume
+                                    If Sample(Channel(nChannel).sample).loopLength > 0 Then
+                                        LoopVoice nChannel, Channel(nChannel).sample, Channel(nChannel).startPosition, Sample(Channel(nChannel).sample).loopStart, Sample(Channel(nChannel).sample).loopEnd
+                                    Else
+                                        PlayVoice nChannel, Channel(nChannel).sample, Channel(nChannel).startPosition, Sample(Channel(nChannel).sample).length
+                                    End If
                                 End If
                         End Select
                 End Select
@@ -637,119 +649,17 @@ $If MODPLAYER_BM = UNDEFINED Then
     End Sub
 
 
-    ' Mixes and queues a frame/tick worth of samples
-    ' All mixing calculations are done using floating-point math (it's 2022 :)
-    Sub MixMODFrame
-        Dim As Long c, i, nPos, nSample, nVolume
-        Dim As Single fPan, fPos, fSam, fPitch
-        Dim As Byte bSam1, bSam2
-        Dim As Bit isLooping
-
-        ' Allocate a temporary mixer buffer that will hold sample data for both channels
-        ' This is conveniently zeroed by QB64, so that is nice. We don't have to do it
-        ' Here 1 is the left channnel and 2 is the right channel
-        Dim mixerBuffer(1 To 2, 1 To Song.mixerBufferSize) As Single
-
-        ' We will iterate through each channel completely rather than jumping from channel to channel
-        ' We are doing this because it is easier for the CPU to access adjacent memory rather than something far away
-        ' Also because we do not have to fetch stuff from multiple arrays too many times
-        For c = 0 To Song.channels - 1
-            ' Get the sample number we need to work with
-            nSample = Channel(c).sample
-
-            ' Only proceed if we have a valid sample number (> 0)
-            If Not nSample = 0 Then
-                isLooping = (Sample(nSample).loopLength > 0)
-
-                ' Proceed further if we have not completed or are looping
-                If Channel(c).isPlaying Or isLooping Then
-                    ' Get some values we need frequently during the mixing interation below
-                    ' Note that these do not change at all during the mixing process
-                    nVolume = Channel(c).volume
-                    fPan = Channel(c).panningPosition
-                    fPitch = Channel(c).pitch
-
-                    ' Next we go through the channel sample data and mix it to our mixerBuffer
-                    For i = 1 To Song.mixerBufferSize
-                        ' We need these too many times
-                        fPos = Channel(c).samplePosition
-
-                        ' Check if we are looping
-                        If isLooping Then
-                            ' Reset loop position if we reached the end of the loop
-                            If fPos >= Sample(nSample).loopEnd Then
-                                fPos = Sample(nSample).loopStart
-                            End If
-                        Else
-                            ' For non-looping sample simply set the isplayed flag as false if we reached the end
-                            If fPos >= Sample(nSample).length Then
-                                Channel(c).isPlaying = FALSE
-                                ' The below two lines may not be required but are here for good measure to deal with problematic mods
-                                Channel(c).samplePosition = 0
-                                Channel(c).pitch = 0
-                                ' Exit the for mixing loop as we have no more samples to mix for this channel
-                                Exit For
-                            End If
-                        End If
-
-                        ' We don't want anything below 0
-                        If fPos < 0 Then fPos = 0
-
-                        ' Samples are stored in a string and strings are 1 based
-                        If Song.useHQMixer Then
-                            ' Apply interpolation
-                            nPos = Fix(fPos)
-                            bSam1 = Asc(SampleData(nSample), 1 + nPos) ' This will convert the unsigned byte (the way it is stored) to signed byte
-                            bSam2 = Asc(SampleData(nSample), 2 + nPos) ' This will convert the unsigned byte (the way it is stored) to signed byte
-                            fSam = bSam1 + (bSam2 - bSam1) * (fPos - nPos)
-                        Else
-                            bSam1 = Asc(SampleData(nSample), 1 + fPos) ' This will convert the unsigned byte (the way it is stored) to signed byte
-                            fSam = bSam1
-                        End If
-
-                        ' The following two lines does volume & panning
-                        ' The below expressions were simplified and rearranged to reduce the number of divisions
-                        mixerBuffer(1, i) = mixerBuffer(1, i) + (fSam * nVolume * (SAMPLE_PAN_RIGHT - fPan)) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
-                        mixerBuffer(2, i) = mixerBuffer(2, i) + (fSam * nVolume * fPan) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
-
-                        ' Move to the next sample position based on the pitch
-                        Channel(c).samplePosition = fPos + fPitch
-                    Next
-                End If
-            End If
-        Next
-
-        Dim As Single fsamLT, fsamRT
-        ' Feed the samples to the QB64 sound pipe
-        For i = 1 To Song.mixerBufferSize
-            ' Apply global volume and scale sample to QB64 sound pipe specs
-            fSam = Song.volume / (256 * SONG_VOLUME_MAX) ' TODO: 256? Is this right?
-            fsamLT = mixerBuffer(1, i) * fSam
-            fsamRT = mixerBuffer(2, i) * fSam
-
-            ' Clip samples to QB64 range
-            If fsamLT < -1 Then fsamLT = -1
-            If fsamLT > 1 Then fsamLT = 1
-            If fsamRT < -1 Then fsamRT = -1
-            If fsamRT > 1 Then fsamRT = 1
-
-            ' Feed the samples to the QB64 sound pipe
-            SndRaw fsamLT, fsamRT, Song.qb64SoundPipe
-        Next
-    End Sub
-
-
     ' Carry out a tone portamento to a certain note
     Sub DoPortamento (chan As Unsigned Byte)
-        If Channel(chan).frequency < Channel(chan).portamentoTo Then
-            Channel(chan).frequency = Channel(chan).frequency + Channel(chan).portamentoSpeed * 4
-            If Channel(chan).frequency > Channel(chan).portamentoTo Then Channel(chan).frequency = Channel(chan).portamentoTo
-        ElseIf Channel(chan).frequency > Channel(chan).portamentoTo Then
-            Channel(chan).frequency = Channel(chan).frequency - Channel(chan).portamentoSpeed * 4
-            If Channel(chan).frequency < Channel(chan).portamentoTo Then Channel(chan).frequency = Channel(chan).portamentoTo
+        If Channel(chan).period < Channel(chan).portamentoTo Then
+            Channel(chan).period = Channel(chan).period + SHL(Channel(chan).portamentoSpeed, 2)
+            If Channel(chan).period > Channel(chan).portamentoTo Then Channel(chan).period = Channel(chan).portamentoTo
+        ElseIf Channel(chan).period > Channel(chan).portamentoTo Then
+            Channel(chan).period = Channel(chan).period - SHL(Channel(chan).portamentoSpeed, 2)
+            If Channel(chan).period < Channel(chan).portamentoTo Then Channel(chan).period = Channel(chan).portamentoTo
         End If
 
-        Channel(chan).pitch = GetPitchFromPeriod(Channel(chan).frequency)
+        SetVoiceFrequency chan, GetFrequencyFromPeriod(Channel(chan).period)
     End Sub
 
 
@@ -758,6 +668,8 @@ $If MODPLAYER_BM = UNDEFINED Then
         Channel(chan).volume = Channel(chan).volume + x - y
         If Channel(chan).volume < 0 Then Channel(chan).volume = 0
         If Channel(chan).volume > SAMPLE_VOLUME_MAX Then Channel(chan).volume = SAMPLE_VOLUME_MAX
+
+        SetVoiceVolume chan, Channel(chan).volume
     End Sub
 
 
@@ -784,12 +696,12 @@ $If MODPLAYER_BM = UNDEFINED Then
                 delta = SineTable(temp)
         End Select
 
-        delta = SHR(delta * Channel(chan).vibratoDepth, 5) ' SHR 7 SHL 2
+        delta = SHR(delta * Channel(chan).vibratoDepth, 5) ' TODO: SHR 7 SHL 2
 
         If Channel(chan).vibratoPosition >= 0 Then
-            Channel(chan).pitch = GetPitchFromPeriod(Channel(chan).frequency + delta)
+            SetVoiceFrequency chan, GetFrequencyFromPeriod(Channel(chan).period + delta)
         Else
-            Channel(chan).pitch = GetPitchFromPeriod(Channel(chan).frequency - delta)
+            SetVoiceFrequency chan, GetFrequencyFromPeriod(Channel(chan).period - delta)
         End If
 
         Channel(chan).vibratoPosition = Channel(chan).vibratoPosition + Channel(chan).vibratoSpeed
@@ -824,10 +736,10 @@ $If MODPLAYER_BM = UNDEFINED Then
 
         If Channel(chan).tremoloPosition >= 0 Then
             If Channel(chan).volume + delta > SAMPLE_VOLUME_MAX Then delta = SAMPLE_VOLUME_MAX - Channel(chan).volume
-            Channel(chan).volume = Channel(chan).volume + delta
+            SetVoiceVolume chan, Channel(chan).volume + delta
         Else
             If Channel(chan).volume - delta < 0 Then delta = Channel(chan).volume
-            Channel(chan).volume = Channel(chan).volume - delta
+            SetVoiceVolume chan, Channel(chan).volume - delta
         End If
 
         Channel(chan).tremoloPosition = Channel(chan).tremoloPosition + Channel(chan).tremoloSpeed
@@ -835,9 +747,9 @@ $If MODPLAYER_BM = UNDEFINED Then
     End Sub
 
 
-    ' This gives us the sample pitch based on the period for mixing
-    Function GetPitchFromPeriod! (period As Unsigned Integer)
-        GetPitchFromPeriod = AMIGA_CONSTANT / (period * Song.mixerRate)
+    ' This gives us the frequency in khz based on the period
+    Function GetFrequencyFromPeriod& (period As Unsigned Integer)
+        GetFrequencyFromPeriod = 14317056& / period
     End Function
 
 
@@ -883,4 +795,10 @@ $If MODPLAYER_BM = UNDEFINED Then
     '-----------------------------------------------------------------------------------------------------
 $End If
 '---------------------------------------------------------------------------------------------------------
+
+'-----------------------------------------------------------------------------------------------------
+' MODULE FILES
+'-----------------------------------------------------------------------------------------------------
+'$Include:'SoftSynth.bas'
+'-----------------------------------------------------------------------------------------------------
 
