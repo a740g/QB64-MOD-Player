@@ -49,7 +49,7 @@ Why a MOD player in QB64?
 
 Will you add S3M, XM, IT support?
 
-- Not sure. Probably. This will require some work. Mainly modularization. But you are free to fork and do it yourself.
+- Not sure. Probably. This will require a lot of work. But you are free to fork and do it yourself.
 
 I found a bug. How can I help?
 

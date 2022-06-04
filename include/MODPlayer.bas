@@ -16,7 +16,7 @@ $If MODPLAYER_BM = UNDEFINED Then
     ' Small test code for debugging the library
     '-----------------------------------------------------------------------------------------------------
     '$Debug
-    'If LoadMODFile("C:\Users\samue\OneDrive\Documents\GitHub\QB64-MOD-Player\mods\rez-monday.mod") Then
+    'If LoadMODFile("C:\Users\samue\OneDrive\Documents\GitHub\QB64-MOD-Player\mods\tests\0xy-Arpeggio.mod") Then
     '    StartMODPlayer
     '    Do
     '        Locate 1, 1
@@ -572,12 +572,12 @@ $If MODPLAYER_BM = UNDEFINED Then
                 Select Case nEffect
                     Case &H0 ' 0: Arpeggio
                         If (nOperand > 0) Then
-                            Select Case Song.tick Mod 3
-                                Case 0
+                            Select Case Song.tick Mod 3 'TODO: Check why 0, 1, 2 sounds wierd
+                                Case 2
                                     SetVoiceFrequency nChannel, GetFrequencyFromPeriod(Channel(nChannel).period)
                                 Case 1
                                     SetVoiceFrequency nChannel, GetFrequencyFromPeriod(PeriodTable(Channel(nChannel).note + nOpX))
-                                Case 2
+                                Case 0
                                     SetVoiceFrequency nChannel, GetFrequencyFromPeriod(PeriodTable(Channel(nChannel).note + nOpY))
                             End Select
                         End If
@@ -692,11 +692,11 @@ $If MODPLAYER_BM = UNDEFINED Then
             Case 2 ' Square
                 delta = 255
 
-            Case 3 ' TODO: Random?
-                delta = SineTable(temp)
+            Case 3 ' Random
+                delta = Int(Rnd * 256)
         End Select
 
-        delta = SHR(delta * Channel(chan).vibratoDepth, 5) ' TODO: SHR 7 SHL 2
+        delta = SHR(delta * Channel(chan).vibratoDepth, 5)
 
         If Channel(chan).vibratoPosition >= 0 Then
             SetVoiceFrequency chan, GetFrequencyFromPeriod(Channel(chan).period + delta)
@@ -728,8 +728,8 @@ $If MODPLAYER_BM = UNDEFINED Then
             Case 2 ' Square
                 delta = 255
 
-            Case 3 ' TODO: Random?
-                delta = SineTable(temp)
+            Case 3 ' Random
+                delta = Fix(Rnd * 256)
         End Select
 
         delta = SHR(delta * Channel(chan).tremoloDepth, 6)
