@@ -1,6 +1,5 @@
 '---------------------------------------------------------------------------------------------------------
-' A really simple sample-based software synthesizers
-' Why call this a softsynth? Well it does the mixing and also manages our samples
+' A really simple sample-based software synthesizer
 ' Copyright (c) 2022 Samuel Gomes
 '---------------------------------------------------------------------------------------------------------
 
@@ -227,7 +226,7 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
     Sub StopVoice (nVoice As Unsigned Byte)
         Voice(nVoice).sample = -1
         Voice(nVoice).pitch = 0
-        Voice(nVoice).volume = 0
+        Voice(nVoice).volume = SAMPLE_VOLUME_MAX
         Voice(nVoice).position = 0
         Voice(nVoice).length = 0
         Voice(nVoice).isLooping = FALSE

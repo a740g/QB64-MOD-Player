@@ -100,7 +100,7 @@ $If MODPLAYER_BM = UNDEFINED Then
                 Else
                     ' Extra checks for 15 sample MOD
                     For i = 1 To Len(Song.songName)
-                        If isprint(Asc(Song.songName, i)) = 0 And Asc(Song.songName, i) <> NULL Then
+                        If Asc(Song.songName, i) < Asc(" ") And Asc(Song.songName, i) <> NULL Then
                             ' This is probably not a 15 sample MOD file
                             Close fileHandle
                             Exit Function

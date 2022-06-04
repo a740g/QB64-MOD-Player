@@ -1,6 +1,5 @@
 '---------------------------------------------------------------------------------------------------------
-' A really simple sample-based software synthesizers
-' Why call this a softsynth? Well it does the mixing and also manages our samples
+' A really simple sample-based software synthesizer
 ' Copyright (c) 2022 Samuel Gomes
 '---------------------------------------------------------------------------------------------------------
 
