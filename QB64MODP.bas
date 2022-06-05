@@ -22,7 +22,7 @@ $VersionInfo:OriginalFilename='QB64MODP.exe'
 $VersionInfo:ProductName='QB64 MOD Player'
 $VersionInfo:Web='https://github.com/a740g'
 $VersionInfo:Comments='https://github.com/a740g'
-$VersionInfo:FILEVERSION#=1,1,0,0
+$VersionInfo:FILEVERSION#=1,1,0,1
 $VersionInfo:PRODUCTVERSION#=1,1,0,0
 '-----------------------------------------------------------------------------------------------------
 
@@ -102,7 +102,7 @@ Sub PrintMODInfo
                 Color 13, 1
             End If
         Next
-        Print Using " ###: & ####### ##### ###### ########### ########## ########   "; i; Sample(i).sampleName; Sample(i).volume; Sample(i).c2SPD; Sample(i).length; Sample(i).loopLength; Sample(i).loopStart; Sample(i).loopEnd
+        Print Using " ###: & ####### ##### ###### ########### ########## ########   "; i + 1; Sample(i).sampleName; Sample(i).volume; Sample(i).c2SPD; Sample(i).length; Sample(i).loopLength; Sample(i).loopStart; Sample(i).loopEnd
     Next
     Color , 0
 End Sub

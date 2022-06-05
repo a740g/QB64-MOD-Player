@@ -309,7 +309,11 @@ $If MODPLAYER_BM = UNDEFINED Then
     ' Called by the QB64 timer at a specified rate
     Sub MODPlayerTimerHandler
         ' Check conditions for which we should just exit and not process anything
-        If Song.orderPosition >= Song.orders Then Exit Sub
+        If Song.orderPosition >= Song.orders Then
+            ' This will help push out any valid samples waiting in the queue at the end of the song
+            UpdateMixerSilence Song.mixerBufferSize
+            Exit Sub
+        End If
 
         ' Set the playing flag to true
         Song.isPlaying = TRUE
@@ -425,11 +429,11 @@ $If MODPLAYER_BM = UNDEFINED Then
             Select Case nEffect
                 Case &H3 ' 3: Porta To Note
                     If nOperand > 0 Then Channel(nChannel).portamentoSpeed = nOperand
-                    If nNote >= 0 Then Channel(nChannel).portamentoTo = Channel(nChannel).lastPeriod
+                    Channel(nChannel).portamentoTo = Channel(nChannel).lastPeriod
                     Channel(nChannel).restart = FALSE
 
                 Case &H5 ' 5: Tone Portamento + Volume Slide
-                    If nNote >= 0 Then Channel(nChannel).portamentoTo = Channel(nChannel).lastPeriod
+                    Channel(nChannel).portamentoTo = Channel(nChannel).lastPeriod
                     Channel(nChannel).restart = FALSE
 
                 Case &H4 ' 4: Vibrato
@@ -517,6 +521,7 @@ $If MODPLAYER_BM = UNDEFINED Then
                             If Channel(nChannel).volume < 0 Then Channel(nChannel).volume = 0
 
                         Case &HD ' 13: Delay Note
+                            Channel(nChannel).restart = FALSE
                             noFrequency = TRUE
 
                         Case &HE ' 14: Pattern Delay
@@ -573,11 +578,11 @@ $If MODPLAYER_BM = UNDEFINED Then
                     Case &H0 ' 0: Arpeggio
                         If (nOperand > 0) Then
                             Select Case Song.tick Mod 3 'TODO: Check why 0, 1, 2 sounds wierd
-                                Case 2
+                                Case 0
                                     SetVoiceFrequency nChannel, GetFrequencyFromPeriod(Channel(nChannel).period)
                                 Case 1
                                     SetVoiceFrequency nChannel, GetFrequencyFromPeriod(PeriodTable(Channel(nChannel).note + nOpX))
-                                Case 0
+                                Case 2
                                     SetVoiceFrequency nChannel, GetFrequencyFromPeriod(PeriodTable(Channel(nChannel).note + nOpY))
                             End Select
                         End If
@@ -651,6 +656,7 @@ $If MODPLAYER_BM = UNDEFINED Then
 
     ' Carry out a tone portamento to a certain note
     Sub DoPortamento (chan As Unsigned Byte)
+        ' Slide up/down and clamp to destination
         If Channel(chan).period < Channel(chan).portamentoTo Then
             Channel(chan).period = Channel(chan).period + SHL(Channel(chan).portamentoSpeed, 2)
             If Channel(chan).period > Channel(chan).portamentoTo Then Channel(chan).period = Channel(chan).portamentoTo
@@ -693,7 +699,7 @@ $If MODPLAYER_BM = UNDEFINED Then
                 delta = 255
 
             Case 3 ' Random
-                delta = Int(Rnd * 256)
+                delta = Fix(Rnd * 256)
         End Select
 
         delta = SHR(delta * Channel(chan).vibratoDepth, 5)
