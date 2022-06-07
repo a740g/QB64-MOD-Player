@@ -167,7 +167,7 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
         ' Feed the samples to the QB64 sound pipe
         For i = 1 To nSamples
             ' Apply global volume and scale sample to QB64 sound pipe specs
-            fSam = SoftSynth.volume / (256 * GLOBAL_VOLUME_MAX) ' TODO: 256? Is this right?
+            fSam = SoftSynth.volume / (256 * GLOBAL_VOLUME_MAX)
             fsamLT = mixerBuffer(1, i) * fSam
             fsamRT = mixerBuffer(2, i) * fSam
 

@@ -108,7 +108,7 @@ $If MODPLAYER_BM = UNDEFINED Then
                     Next
                     Song.channels = 4
                     Song.samples = 15
-                    Song.subtype = "MO15" ' Change subtype to reflect 15-sample mod, otherwise it will contain garbage
+                    Song.subtype = "MODF" ' Change subtype to reflect 15 (Fh) sample mod, otherwise it will contain garbage
                 End If
         End Select
 
@@ -699,7 +699,7 @@ $If MODPLAYER_BM = UNDEFINED Then
                 delta = 255
 
             Case 3 ' Random
-                delta = Fix(Rnd * 256)
+                delta = Rnd * 255
         End Select
 
         delta = SHR(delta * Channel(chan).vibratoDepth, 5)
@@ -735,7 +735,7 @@ $If MODPLAYER_BM = UNDEFINED Then
                 delta = 255
 
             Case 3 ' Random
-                delta = Fix(Rnd * 256)
+                delta = Rnd * 255
         End Select
 
         delta = SHR(delta * Channel(chan).tremoloDepth, 6)
