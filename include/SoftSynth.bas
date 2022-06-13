@@ -88,10 +88,10 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
         Dim As Single fPan, fPos, fSam, fPitch
         Dim As Byte bSam1, bSam2
 
-        ' Allocate a temporary mixer buffer that will hold sample data for both channels
+        ' Reallocate the mixer buffer that will hold sample data for both channels
         ' This is conveniently zeroed by QB64, so that is nice. We don't have to do it
         ' Here 1 is the left channnel and 2 is the right channel
-        Dim mixerBuffer(1 To 2, 1 To nSamples) As Single
+        ReDim MixerBuffer(1 To 2, 1 To nSamples) As Single
 
         ' Set the active voice count to zero
         SoftSynth.activeVoices = 0
@@ -154,8 +154,8 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
 
                     ' The following two lines mixes the sample and also does volume & stereo panning
                     ' The below expressions were simplified and rearranged to reduce the number of divisions
-                    mixerBuffer(1, i) = mixerBuffer(1, i) + (fSam * nVolume * (SAMPLE_PAN_RIGHT - fPan)) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
-                    mixerBuffer(2, i) = mixerBuffer(2, i) + (fSam * nVolume * fPan) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
+                    MixerBuffer(1, i) = MixerBuffer(1, i) + (fSam * nVolume * (SAMPLE_PAN_RIGHT - fPan)) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
+                    MixerBuffer(2, i) = MixerBuffer(2, i) + (fSam * nVolume * fPan) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
 
                     ' Move to the next sample position based on the pitch
                     Voice(v).position = fPos + fPitch
@@ -168,8 +168,8 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
         For i = 1 To nSamples
             ' Apply global volume and scale sample to QB64 sound pipe specs
             fSam = SoftSynth.volume / (256 * GLOBAL_VOLUME_MAX)
-            fsamLT = mixerBuffer(1, i) * fSam
-            fsamRT = mixerBuffer(2, i) * fSam
+            fsamLT = MixerBuffer(1, i) * fSam
+            fsamRT = MixerBuffer(2, i) * fSam
 
             ' Clip samples to QB64 range
             If fsamLT < -1 Then fsamLT = -1

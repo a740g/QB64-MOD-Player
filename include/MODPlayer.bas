@@ -9,8 +9,8 @@
 '$Include:'MODPlayer.bi'
 '---------------------------------------------------------------------------------------------------------
 
-$If MODPLAYER_BM = UNDEFINED Then
-    $Let MODPLAYER_BM = TRUE
+$If MODPLAYER_BAS = UNDEFINED Then
+    $Let MODPLAYER_BAS = TRUE
 
     '-----------------------------------------------------------------------------------------------------
     ' Small test code for debugging the library
@@ -44,7 +44,7 @@ $If MODPLAYER_BM = UNDEFINED Then
 
 
     ' Loads the MOD file into memory and prepares all required gobals
-    Function LoadMODFile` (sFileName As String)
+    Function LoadMODFile%% (sFileName As String)
         ' By default we assume a failure
         LoadMODFile = FALSE
 
@@ -380,7 +380,7 @@ $If MODPLAYER_BM = UNDEFINED Then
     Sub UpdateMODRow
         Dim As Unsigned Byte nChannel, nNote, nSample, nVolume, nEffect, nOperand, nOpX, nOpY, lastChannel
         ' The effect flags below are set to true when a pattern jump effect and pattern break effect are triggered
-        Dim As Bit jumpEffectFlag, breakEffectFlag, noFrequency
+        Dim As Byte jumpEffectFlag, breakEffectFlag, noFrequency
 
         ' Process all channels
         For nChannel = 0 To Song.channels - 1

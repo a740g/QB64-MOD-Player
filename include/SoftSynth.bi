@@ -14,11 +14,11 @@ $If SOFTSYNTH_BI = UNDEFINED Then
     '-----------------------------------------------------------------------------------------------------
     ' CONSTANTS
     '-----------------------------------------------------------------------------------------------------
-    Const SAMPLE_VOLUME_MAX~%% = 64~%% ' This is the maximum volume of any sample
-    Const SAMPLE_PAN_LEFT~%% = 0~%% ' Leftmost pannning position
-    Const SAMPLE_PAN_RIGHT~%% = 255~%% ' Rightmost pannning position
-    Const SAMPLE_PAN_CENTER! = (SAMPLE_PAN_RIGHT - SAMPLE_PAN_LEFT) / 2! ' Center panning position
-    Const GLOBAL_VOLUME_MAX~%% = 255~%% ' Max song master volume
+    Const SAMPLE_VOLUME_MAX = 64 ' This is the maximum volume of any sample
+    Const SAMPLE_PAN_LEFT = 0 ' Leftmost pannning position
+    Const SAMPLE_PAN_RIGHT = 255 ' Rightmost pannning position
+    Const SAMPLE_PAN_CENTER = (SAMPLE_PAN_RIGHT - SAMPLE_PAN_LEFT) / 2 ' Center panning position
+    Const GLOBAL_VOLUME_MAX = 255 ' Max song master volume
     '-----------------------------------------------------------------------------------------------------
 
     '-----------------------------------------------------------------------------------------------------
@@ -54,6 +54,7 @@ $If SOFTSYNTH_BI = UNDEFINED Then
     Dim Shared SoftSynth As SoftSynthType
     ReDim Shared SampleData(0 To 0) As String ' Sample data array
     ReDim Shared Voice(0 To 0) As VoiceType ' Voice info array
+    ReDim Shared MixerBuffer(1 To 2, 1 To 1) As Single ' Sample data here can be used for visualization
     '-----------------------------------------------------------------------------------------------------
 $End If
 '---------------------------------------------------------------------------------------------------------

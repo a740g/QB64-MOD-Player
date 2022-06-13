@@ -14,14 +14,14 @@ $If MODPLAYER_BI = UNDEFINED Then
     '-----------------------------------------------------------------------------------------------------
     ' CONSTANTS
     '-----------------------------------------------------------------------------------------------------
-    Const PATTERN_ROW_MAX~%% = 63~%% ' Max row number in a pattern
-    Const NOTE_NONE~%% = 132~%% ' Note will be set to this when there is nothing
-    Const NOTE_KEY_OFF~%% = 133~%% ' We'll use this in a future version
-    Const NOTE_NO_VOLUME~%% = 255~%% ' When a note has no volume, then it will be set to this
-    Const ORDER_TABLE_MAX~%% = 127~%% ' Max position in the order table
-    Const SONG_SPEED_DEFAULT~%% = 6~%% ' This is the default speed for song where it is not specified
-    Const SONG_BPM_DEFAULT~%% = 125~%% ' Default song BPM
-    Const BUFFER_UNDERRUN_PROTECTION~%% = 128~%% ' This prevents audio pops and glitches due to QB64 timer inaccuracy
+    Const PATTERN_ROW_MAX = 63 ' Max row number in a pattern
+    Const NOTE_NONE = 132 ' Note will be set to this when there is nothing
+    Const NOTE_KEY_OFF = 133 ' We'll use this in a future version
+    Const NOTE_NO_VOLUME = 255 ' When a note has no volume, then it will be set to this
+    Const ORDER_TABLE_MAX = 127 ' Max position in the order table
+    Const SONG_SPEED_DEFAULT = 6 ' This is the default speed for song where it is not specified
+    Const SONG_BPM_DEFAULT = 125 ' Default song BPM
+    Const BUFFER_UNDERRUN_PROTECTION = 128 ' This prevents audio pops and glitches due to QB64 timer inaccuracy
     '-----------------------------------------------------------------------------------------------------
 
     '-----------------------------------------------------------------------------------------------------
