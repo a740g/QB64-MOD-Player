@@ -27,10 +27,24 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
         SoftSynth.mixerRate = SndRate
 
         ' Allocate a QB64 sound pipe
-        SoftSynth.qb64SoundPipe = SndOpenRaw
+        SoftSynth.soundHandle = SndOpenRaw
 
         ' Reset the global volume
         SoftSynth.volume = GLOBAL_VOLUME_MAX
+
+        Dim i As Unsigned Byte
+
+        ' Set all voice defaults
+        For i = 0 To nVoices - 1
+            Voice(i).sample = -1
+            Voice(i).volume = SAMPLE_VOLUME_MAX
+            Voice(i).panning = SAMPLE_PAN_CENTER
+            Voice(i).pitch = 0
+            Voice(i).position = 0
+            Voice(i).playType = SAMPLE_PLAY_SINGLE
+            Voice(i).startPosition = 0
+            Voice(i).endPosition = 0
+        Next
     End Sub
 
 
@@ -45,30 +59,10 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
     End Sub
 
 
-    ' Increase the number of mixer voices
-    Sub AddVoices (nCount As Unsigned Byte)
-        ' Increment the number of voices
-        SoftSynth.voices = SoftSynth.voices + nCount
-
-        ' Resize the voice array preserving elements
-        ReDim Preserve Voice(0 To SoftSynth.voices - 1) As VoiceType
-    End Sub
-
-
-    ' Increase the number of samples slots
-    Sub AddSamples (nCount As Unsigned Byte)
-        ' Increment the number of samples
-        SoftSynth.samples = SoftSynth.samples + nCount
-
-        ' Resize the sample data array preserving elements
-        ReDim Preserve SampleData(0 To SoftSynth.samples - 1) As String
-    End Sub
-
-
     ' Close the mixer - free all allocated resources
     Sub FinalizeMixer
-        SndRawDone SoftSynth.qb64SoundPipe ' Sumbit whatever is remaining in the raw buffer for playback
-        SndClose SoftSynth.qb64SoundPipe ' Close QB64 sound pipe
+        SndRawDone SoftSynth.soundHandle ' Sumbit whatever is remaining in the raw buffer for playback
+        SndClose SoftSynth.soundHandle ' Close QB64 sound pipe
     End Sub
 
 
@@ -76,7 +70,7 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
     Sub UpdateMixerSilence (nSamples As Unsigned Integer)
         Dim i As Unsigned Integer
         For i = 1 To nSamples
-            SndRaw NULL, NULL, SoftSynth.qb64SoundPipe
+            SndRaw NULL, NULL, SoftSynth.soundHandle
         Next
     End Sub
 
@@ -84,8 +78,8 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
     ' This should be called by code using the mixer at regular intervals
     ' All mixing calculations are done using floating-point math (it's 2022 :)
     Sub UpdateMixer (nSamples As Unsigned Integer)
-        Dim As Long v, i, nSample, nPos, nVolume, nLength, isLooping, nLoopStart, nLoopEnd
-        Dim As Single fPan, fPos, fSam, fPitch
+        Dim As Long v, s, nSample, nPos, nPlayType
+        Dim As Single fVolume, fPan, fPitch, fPos, fStartPos, fEndPos, fSam
         Dim As Byte bSam1, bSam2
 
         ' Reallocate the mixer buffer that will hold sample data for both channels
@@ -108,32 +102,31 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
 
                 ' Get some values we need frequently during the mixing interation below
                 ' Note that these do not change at all during the mixing process
-                nVolume = Voice(v).volume
+                fVolume = Voice(v).volume
                 fPan = Voice(v).panning
                 fPitch = Voice(v).pitch
-                isLooping = Voice(v).isLooping
-                nLength = Voice(v).length
-                nLoopStart = Voice(v).loopStart
-                nLoopEnd = Voice(v).loopEnd
+                nPlayType = Voice(v).playType
+                fStartPos = Voice(v).startPosition
+                fEndPos = Voice(v).endPosition
 
                 ' Next we go through the channel sample data and mix it to our mixerBuffer
-                For i = 1 To nSamples
+                For s = 1 To nSamples
                     ' We need these too many times
                     ' And this is inside the loop becuase "position" changes
                     fPos = Voice(v).position
 
                     ' Check if we are looping
-                    If isLooping Then
-                        ' Reset loop position if we reached the end of the loop
-                        If fPos >= nLoopEnd Then
-                            fPos = nLoopStart
-                        End If
-                    Else
+                    If nPlayType = SAMPLE_PLAY_SINGLE Then
                         ' For non-looping sample simply set the isplayed flag as false if we reached the end
-                        If fPos >= nLength Then
+                        If fPos >= fEndPos Then
                             StopVoice v
                             ' Exit the for mixing loop as we have no more samples to mix for this channel
                             Exit For
+                        End If
+                    Else
+                        ' Reset loop position if we reached the end of the loop
+                        If fPos >= fEndPos Then
+                            fPos = fStartPos
                         End If
                     End If
 
@@ -154,8 +147,8 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
 
                     ' The following two lines mixes the sample and also does volume & stereo panning
                     ' The below expressions were simplified and rearranged to reduce the number of divisions
-                    MixerBuffer(1, i) = MixerBuffer(1, i) + (fSam * nVolume * (SAMPLE_PAN_RIGHT - fPan)) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
-                    MixerBuffer(2, i) = MixerBuffer(2, i) + (fSam * nVolume * fPan) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
+                    MixerBuffer(1, s) = MixerBuffer(1, s) + (fSam * fVolume * (SAMPLE_PAN_RIGHT - fPan)) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
+                    MixerBuffer(2, s) = MixerBuffer(2, s) + (fSam * fVolume * fPan) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
 
                     ' Move to the next sample position based on the pitch
                     Voice(v).position = fPos + fPitch
@@ -165,11 +158,11 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
 
         Dim As Single fsamLT, fsamRT
         ' Feed the samples to the QB64 sound pipe
-        For i = 1 To nSamples
+        For s = 1 To nSamples
             ' Apply global volume and scale sample to QB64 sound pipe specs
             fSam = SoftSynth.volume / (256 * GLOBAL_VOLUME_MAX)
-            fsamLT = MixerBuffer(1, i) * fSam
-            fsamRT = MixerBuffer(2, i) * fSam
+            fsamLT = MixerBuffer(1, s) * fSam
+            fsamRT = MixerBuffer(2, s) * fSam
 
             ' Clip samples to QB64 range
             If fsamLT < -1 Then fsamLT = -1
@@ -178,7 +171,7 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
             If fsamRT > 1 Then fsamRT = 1
 
             ' Feed the samples to the QB64 sound pipe
-            SndRaw fsamLT, fsamRT, SoftSynth.qb64SoundPipe
+            SndRaw fsamLT, fsamRT, SoftSynth.soundHandle
         Next
     End Sub
 
@@ -192,7 +185,7 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
 
 
     ' Set the volume for a voice (0 - 64)
-    Sub SetVoiceVolume (nVoice As Unsigned Byte, nVolume As Integer)
+    Sub SetVoiceVolume (nVoice As Unsigned Byte, nVolume As Single)
         If nVolume < 0 Then
             Voice(nVoice).volume = 0
         ElseIf nVolume > SAMPLE_VOLUME_MAX Then
@@ -225,41 +218,28 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
     ' Stops playback for a voice
     Sub StopVoice (nVoice As Unsigned Byte)
         Voice(nVoice).sample = -1
-        Voice(nVoice).pitch = 0
         Voice(nVoice).volume = SAMPLE_VOLUME_MAX
+        ' Voice(nVoice).panning is intentionally left out
+        Voice(nVoice).pitch = 0
         Voice(nVoice).position = 0
-        Voice(nVoice).length = 0
-        Voice(nVoice).isLooping = FALSE
-        Voice(nVoice).loopStart = 0
-        Voice(nVoice).loopEnd = 0
+        Voice(nVoice).playType = SAMPLE_PLAY_SINGLE
+        Voice(nVoice).startPosition = 0
+        Voice(nVoice).endPosition = 0
     End Sub
 
 
     ' Starts playback of a sample
-    ' The sample will just play once
-    ' This can be used to playback a sample from a particular offset
-    Sub PlayVoice (nVoice As Unsigned Byte, nSample As Unsigned Byte, nStart As Unsigned Long, nEnd As Unsigned Long)
+    ' This can be used to playback a sample from a particular offset or loop the sample
+    Sub PlayVoice (nVoice As Unsigned Byte, nSample As Unsigned Byte, nPosition As Single, nPlayType As Unsigned Byte, nStart As Single, nEnd As Single)
         Voice(nVoice).sample = nSample
-        Voice(nVoice).position = nStart
-        Voice(nVoice).length = nEnd
-        Voice(nVoice).isLooping = FALSE
-        Voice(nVoice).loopStart = nStart
-        Voice(nVoice).loopEnd = nEnd
-    End Sub
-
-    ' Loops a sample
-    ' The sample will loop forever until StopVoice or another PlayVoice or LoopVoice is used
-    Sub LoopVoice (nVoice As Unsigned Byte, nSample As Unsigned Byte, nStart As Unsigned Long, nLoopStart As Unsigned Long, nLoopEnd As Unsigned Long)
-        Voice(nVoice).sample = nSample
-        Voice(nVoice).position = nStart
-        Voice(nVoice).length = nLoopEnd
-        Voice(nVoice).isLooping = TRUE
-        Voice(nVoice).loopStart = nLoopStart
-        Voice(nVoice).loopEnd = nLoopEnd
+        Voice(nVoice).position = nPosition
+        Voice(nVoice).playType = nPlayType
+        Voice(nVoice).startPosition = nStart
+        Voice(nVoice).endPosition = nEnd
     End Sub
 
     ' Set the global volume for a voice (0 - 255)
-    Sub SetGlobalVolume (nVolume As Integer)
+    Sub SetGlobalVolume (nVolume As Single)
         If nVolume < 0 Then
             SoftSynth.volume = 0
         ElseIf nVolume > GLOBAL_VOLUME_MAX Then

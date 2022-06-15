@@ -18,34 +18,34 @@ $If SOFTSYNTH_BI = UNDEFINED Then
     Const SAMPLE_PAN_LEFT = 0 ' Leftmost pannning position
     Const SAMPLE_PAN_RIGHT = 255 ' Rightmost pannning position
     Const SAMPLE_PAN_CENTER = (SAMPLE_PAN_RIGHT - SAMPLE_PAN_LEFT) / 2 ' Center panning position
-    Const GLOBAL_VOLUME_MAX = 255 ' Max song master volume
+    Const SAMPLE_PLAY_SINGLE = 0 ' Single-shot playback
+    Const SAMPLE_PLAY_LOOP = 1 ' Forward-looping playback
+    Const GLOBAL_VOLUME_MAX = 255 ' Max global volume
     '-----------------------------------------------------------------------------------------------------
 
     '-----------------------------------------------------------------------------------------------------
     ' USER DEFINED TYPES
     '-----------------------------------------------------------------------------------------------------
+    Type SoftSynthType
+        voices As Unsigned Byte ' Number of mixer voices requested
+        samples As Unsigned Byte ' Number of samples slots requested
+        mixerRate As Long ' This is always set by QB64 internal audio engine
+        soundHandle As Long ' QB64 sound pipe that we will use to stream the mixed audio
+        volume As Single ' Global volume (0 - 255) (fp32)
+        useHQMixer As Byte ' If this is set to true, then we are using linear interpolation mixing
+        activeVoices As Unsigned Byte ' Just a count of voices we really mixed
+    End Type
+
     Type VoiceType
         sample As Integer ' Sample number to be mixed. This is set to -1 once the mixer is done with the sample
-        volume As Unsigned Byte ' Voice volume (0 - 64)
+        volume As Single ' Voice volume (0 - 64) (fp32)
         panning As Single ' Position 0 is leftmost ... 255 is rightmost (fp32)
         pitch As Single ' Sample pitch. The mixer code uses this to step through the sample correctly (fp32)
         position As Single ' Where are we in the sample buffer (fp32)
-        length As Unsigned Long ' "Play" length (at what point it should stop)
-        isLooping As Byte ' Is the sample a looping sample
-        loopStart As Unsigned Long ' Loop start point
-        loopEnd As Unsigned Long ' Loop end point
+        playType As Unsigned Byte ' How should the sample be played
+        startPosition As Single ' Start poistion. This can be loop start or just start depending on play type
+        endPosition As Single ' End position. This can be loop end or just end depending on play type
     End Type
-
-    Type SoftSynthType
-        voices As Unsigned Integer ' Number of mixer voices requested
-        samples As Unsigned Integer ' Number of samples slots requested
-        mixerRate As Long ' This is always set by QB64 internal audio engine
-        qb64SoundPipe As Long ' QB64 sound pipe that we will use to stream the mixed audio
-        volume As Unsigned Byte ' Global volume (0 - 255)
-        useHQMixer As Byte ' If this is set to true, then we are using linear interpolation mixing
-        activeVoices As Unsigned Integer ' Just a count of voices we really mixed
-    End Type
-
     '-----------------------------------------------------------------------------------------------------
 
     '-----------------------------------------------------------------------------------------------------

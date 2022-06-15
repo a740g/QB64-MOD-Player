@@ -39,7 +39,7 @@ $If MODPLAYER_BAS = UNDEFINED Then
         Song.mixerBufferSize = (SoftSynth.mixerRate * 5) / SHL(Song.bpm, 1)
 
         ' S / (2 * B / 5) (where S is second and B is BPM)
-        On Timer(Song.qb64Timer, 5 / SHL(Song.bpm, 1)) MODPlayerTimerHandler
+        On Timer(Song.timerHandle, 5 / SHL(Song.bpm, 1)) MODPlayerTimerHandler
     End Sub
 
 
@@ -134,7 +134,7 @@ $If MODPLAYER_BAS = UNDEFINED Then
             If Sample(i).length = 2 Then Sample(i).length = 0 ' Sanity check
 
             ' Read finetune
-            Sample(i).c2SPD = GetC2SPD(Asc(Input$(1, fileHandle))) ' Convert finetune to c2spd
+            Sample(i).c2Spd = GetC2Spd(Asc(Input$(1, fileHandle))) ' Convert finetune to c2spd
 
             ' Read volume
             Sample(i).volume = Asc(Input$(1, fileHandle))
@@ -285,9 +285,9 @@ $If MODPLAYER_BAS = UNDEFINED Then
         UpdateMixerSilence BUFFER_UNDERRUN_PROTECTION * 60 ' since sample rate is per second
 
         ' Allocate a QB64 Timer
-        Song.qb64Timer = FreeTimer
+        Song.timerHandle = FreeTimer
         UpdateMODTimer SONG_BPM_DEFAULT
-        Timer(Song.qb64Timer) On
+        Timer(Song.timerHandle) On
 
         Song.isPlaying = TRUE
     End Sub
@@ -296,8 +296,8 @@ $If MODPLAYER_BAS = UNDEFINED Then
     ' Frees all allocated resources, stops the timer and hence song playback
     Sub StopMODPlayer
         ' Free QB64 timer
-        Timer(Song.qb64Timer) Off
-        Timer(Song.qb64Timer) Free
+        Timer(Song.timerHandle) Off
+        Timer(Song.timerHandle) Free
 
         ' Tell softsynth we are done
         FinalizeMixer
@@ -404,7 +404,7 @@ $If MODPLAYER_BAS = UNDEFINED Then
             End If
 
             If nNote < NOTE_NONE Then
-                Channel(nChannel).lastPeriod = 8363~& * PeriodTable(nNote) / Sample(Channel(nChannel).sample).c2SPD
+                Channel(nChannel).lastPeriod = 8363~& * PeriodTable(nNote) / Sample(Channel(nChannel).sample).c2Spd
                 Channel(nChannel).note = nNote
                 Channel(nChannel).restart = TRUE
                 Channel(nChannel).startPosition = 0
@@ -489,7 +489,7 @@ $If MODPLAYER_BAS = UNDEFINED Then
                             Channel(nChannel).waveControl = Channel(nChannel).waveControl Or nOpY
 
                         Case &H5 ' 5: Set Finetune
-                            Sample(Channel(nChannel).sample).c2SPD = GetC2SPD(nOpY)
+                            Sample(Channel(nChannel).sample).c2Spd = GetC2Spd(nOpY)
 
                         Case &H6 ' 6: Pattern Loop
                             If nOpY = 0 Then
@@ -549,9 +549,9 @@ $If MODPLAYER_BAS = UNDEFINED Then
         For nChannel = 0 To lastChannel
             If Channel(nChannel).restart Then
                 If Sample(Channel(nChannel).sample).loopLength > 0 Then
-                    LoopVoice nChannel, Channel(nChannel).sample, Channel(nChannel).startPosition, Sample(Channel(nChannel).sample).loopStart, Sample(Channel(nChannel).sample).loopEnd
+                    PlayVoice nChannel, Channel(nChannel).sample, Channel(nChannel).startPosition, SAMPLE_PLAY_LOOP, Sample(Channel(nChannel).sample).loopStart, Sample(Channel(nChannel).sample).loopEnd
                 Else
-                    PlayVoice nChannel, Channel(nChannel).sample, Channel(nChannel).startPosition, Sample(Channel(nChannel).sample).length
+                    PlayVoice nChannel, Channel(nChannel).sample, Channel(nChannel).startPosition, SAMPLE_PLAY_SINGLE, 0, Sample(Channel(nChannel).sample).length
                 End If
             End If
         Next
@@ -622,9 +622,9 @@ $If MODPLAYER_BAS = UNDEFINED Then
                                 If nOpY <> 0 Then
                                     If Song.tick Mod nOpY = 0 Then
                                         If Sample(Channel(nChannel).sample).loopLength > 0 Then
-                                            LoopVoice nChannel, Channel(nChannel).sample, Channel(nChannel).startPosition, Sample(Channel(nChannel).sample).loopStart, Sample(Channel(nChannel).sample).loopEnd
+                                            PlayVoice nChannel, Channel(nChannel).sample, Channel(nChannel).startPosition, SAMPLE_PLAY_LOOP, Sample(Channel(nChannel).sample).loopStart, Sample(Channel(nChannel).sample).loopEnd
                                         Else
-                                            PlayVoice nChannel, Channel(nChannel).sample, Channel(nChannel).startPosition, Sample(Channel(nChannel).sample).length
+                                            PlayVoice nChannel, Channel(nChannel).sample, Channel(nChannel).startPosition, SAMPLE_PLAY_SINGLE, 0, Sample(Channel(nChannel).sample).length
                                         End If
                                     End If
                                 End If
@@ -642,9 +642,9 @@ $If MODPLAYER_BAS = UNDEFINED Then
                                     SetVoiceFrequency nChannel, GetFrequencyFromPeriod(Channel(nChannel).period)
                                     SetVoiceVolume nChannel, Channel(nChannel).volume
                                     If Sample(Channel(nChannel).sample).loopLength > 0 Then
-                                        LoopVoice nChannel, Channel(nChannel).sample, Channel(nChannel).startPosition, Sample(Channel(nChannel).sample).loopStart, Sample(Channel(nChannel).sample).loopEnd
+                                        PlayVoice nChannel, Channel(nChannel).sample, Channel(nChannel).startPosition, SAMPLE_PLAY_LOOP, Sample(Channel(nChannel).sample).loopStart, Sample(Channel(nChannel).sample).loopEnd
                                     Else
-                                        PlayVoice nChannel, Channel(nChannel).sample, Channel(nChannel).startPosition, Sample(Channel(nChannel).sample).length
+                                        PlayVoice nChannel, Channel(nChannel).sample, Channel(nChannel).startPosition, SAMPLE_PLAY_SINGLE, 0, Sample(Channel(nChannel).sample).length
                                     End If
                                 End If
                         End Select
@@ -760,42 +760,42 @@ $If MODPLAYER_BAS = UNDEFINED Then
 
 
     ' Return C2 speed for a finetune
-    Function GetC2SPD~% (ft As Unsigned Byte)
+    Function GetC2Spd~% (ft As Unsigned Byte)
         Select Case ft
             Case 0
-                GetC2SPD = 8363
+                GetC2Spd = 8363
             Case 1
-                GetC2SPD = 8413
+                GetC2Spd = 8413
             Case 2
-                GetC2SPD = 8463
+                GetC2Spd = 8463
             Case 3
-                GetC2SPD = 8529
+                GetC2Spd = 8529
             Case 4
-                GetC2SPD = 8581
+                GetC2Spd = 8581
             Case 5
-                GetC2SPD = 8651
+                GetC2Spd = 8651
             Case 6
-                GetC2SPD = 8723
+                GetC2Spd = 8723
             Case 7
-                GetC2SPD = 8757
+                GetC2Spd = 8757
             Case 8
-                GetC2SPD = 7895
+                GetC2Spd = 7895
             Case 9
-                GetC2SPD = 7941
+                GetC2Spd = 7941
             Case 10
-                GetC2SPD = 7985
+                GetC2Spd = 7985
             Case 11
-                GetC2SPD = 8046
+                GetC2Spd = 8046
             Case 12
-                GetC2SPD = 8107
+                GetC2Spd = 8107
             Case 13
-                GetC2SPD = 8169
+                GetC2Spd = 8169
             Case 14
-                GetC2SPD = 8232
+                GetC2Spd = 8232
             Case 15
-                GetC2SPD = 8280
+                GetC2Spd = 8280
             Case Else
-                GetC2SPD = 8363
+                GetC2Spd = 8363
         End Select
     End Function
     '-----------------------------------------------------------------------------------------------------

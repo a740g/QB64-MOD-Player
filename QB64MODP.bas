@@ -60,15 +60,15 @@ InitializeNoteTable ' Initialize note string table
 AdjustWindowSize ' Set the initial window size
 ProcessCommandLine ' Check if any files were specified in the command line
 
-Dim k As String
+Dim k As Long
 
 ' Main loop
 Do
     ProcessDroppedFiles
     PrintWelcomeScreen
-    k = InKey$
+    k = KeyHit
     Limit 120
-Loop Until k = Chr$(27)
+Loop Until k = 27
 
 System 0
 '-----------------------------------------------------------------------------------------------------
@@ -101,7 +101,7 @@ Sub PrintMODInfo
                 Color 13, 1
             End If
         Next
-        Print Using " ###: & ####### ##### ###### ########### ########## ########   "; i + 1; Sample(i).sampleName; Sample(i).volume; Sample(i).c2SPD; Sample(i).length; Sample(i).loopLength; Sample(i).loopStart; Sample(i).loopEnd
+        Print Using " ###: & ####### ##### ###### ########### ########## ########   "; i + 1; Sample(i).sampleName; Sample(i).volume; Sample(i).c2Spd; Sample(i).length; Sample(i).loopLength; Sample(i).loopStart; Sample(i).loopEnd
     Next
     Color , 0
 End Sub
@@ -273,7 +273,8 @@ Sub PlaySong (fileName As String)
     StartMODPlayer
     AdjustWindowSize
 
-    Dim k As String
+    Dim k As Long, vol As Integer, hq As Byte
+    vol = GLOBAL_VOLUME_MAX
 
     Do
         If InfoMode Then
@@ -282,45 +283,50 @@ Sub PlaySong (fileName As String)
             PrintPatternInfo
         End If
 
-        k = InKey$
+        k = KeyHit
 
         Select Case k
-            Case " "
+            Case 32
                 Song.isPaused = Not Song.isPaused
 
-            Case "=", "+"
-                SoftSynth.volume = SoftSynth.volume + 1
+            Case 43, 61
+                vol = vol + 1
+                If vol > GLOBAL_VOLUME_MAX Then vol = GLOBAL_VOLUME_MAX
+                SetGlobalVolume vol
 
-            Case "-", "_"
-                SoftSynth.volume = SoftSynth.volume - 1
+            Case 45, 95
+                vol = vol - 1
+                If vol < 0 Then vol = 0
+                SetGlobalVolume vol
 
-            Case "l", "L"
+            Case 76, 108
                 Song.isLooping = Not Song.isLooping
 
-            Case "q", "Q"
-                SoftSynth.useHQMixer = Not SoftSynth.useHQMixer
+            Case 81, 113
+                hq = Not hq
+                EnableHQMixer hq
 
-            Case ",", "<"
+            Case 44, 60
                 Song.orderPosition = Song.orderPosition - 1
                 If Song.orderPosition < 0 Then Song.orderPosition = Song.orders - 1
                 Song.patternRow = 0
 
-            Case ".", ">"
+            Case 46, 62
                 Song.orderPosition = Song.orderPosition + 1
                 If Song.orderPosition >= Song.orders Then Song.orderPosition = 0
                 Song.patternRow = 0
 
-            Case "i", "I"
+            Case 73, 105
                 InfoMode = TRUE
                 AdjustWindowSize
 
-            Case "v", "V"
+            Case 86, 118
                 InfoMode = FALSE
                 AdjustWindowSize
         End Select
 
         Limit 120
-    Loop Until Not Song.isPlaying Or k = Chr$(27) Or TotalDroppedFiles > 0
+    Loop Until Not Song.isPlaying Or k = 27 Or TotalDroppedFiles > 0
 
     StopMODPlayer
     AdjustWindowSize

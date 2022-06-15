@@ -38,7 +38,7 @@ $If MODPLAYER_BI = UNDEFINED Then
     Type SampleType
         sampleName As String * 22 ' Sample name or message
         length As Long ' Sample length in bytes
-        c2SPD As Unsigned Integer ' Sample finetune is converted to c2spd
+        c2Spd As Unsigned Integer ' Sample finetune is converted to c2spd
         volume As Unsigned Byte ' Volume: 0 - 64
         loopStart As Long ' Loop start in bytes
         loopLength As Long ' Loop length in bytes
@@ -86,7 +86,7 @@ $If MODPLAYER_BI = UNDEFINED Then
         bpm As Unsigned Byte ' Current song BPM
         tick As Unsigned Byte ' Current song tick
         mixerBufferSize As Unsigned Long ' This is the amount of samples we have to mix based on mixerRate & bpm
-        qb64Timer As Long ' We use this to store the QB64 timer handle
+        timerHandle As Long ' We use this to store the QB64 timer handle
     End Type
     '-----------------------------------------------------------------------------------------------------
 
