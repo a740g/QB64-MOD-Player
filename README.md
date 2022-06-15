@@ -20,7 +20,7 @@ A [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](
 ## API
 
 ```VB
-Function LoadMODFile` (sFileName As String)
+Function LoadMODFile%% (sFileName As String)
 Sub StartMODPlayer
 Sub StopMODPlayer
 ```

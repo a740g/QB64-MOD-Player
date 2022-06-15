@@ -217,7 +217,7 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
 
     ' Set a frequency for a voice
     ' This will be responsible for correctly setting the mixer sample pitch
-    Sub SetVoiceFrequency (nVoice As Unsigned Byte, nFrequency As Long)
+    Sub SetVoiceFrequency (nVoice As Unsigned Byte, nFrequency As Single)
         Voice(nVoice).pitch = nFrequency / SoftSynth.mixerRate
     End Sub
 

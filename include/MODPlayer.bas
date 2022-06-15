@@ -754,8 +754,8 @@ $If MODPLAYER_BAS = UNDEFINED Then
 
 
     ' This gives us the frequency in khz based on the period
-    Function GetFrequencyFromPeriod& (period As Unsigned Integer)
-        GetFrequencyFromPeriod = 14317056& / period
+    Function GetFrequencyFromPeriod! (period As Unsigned Integer)
+        GetFrequencyFromPeriod = 14317056 / period
     End Function
 
 

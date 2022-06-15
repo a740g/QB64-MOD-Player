@@ -37,7 +37,7 @@ Const APP_NAME = "QB64 MOD Player"
 '-----------------------------------------------------------------------------------------------------
 ReDim Shared NoteTable(0 To 0) As String * 2
 Dim Shared InfoMode As Byte
-Dim Shared windowWidthChar As Unsigned Integer
+Dim Shared WindowWidthChar As Unsigned Integer
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -155,7 +155,7 @@ Sub PrintPatternInfo
 
             Color , 0
         Else
-            Print Space$(windowWidthChar);
+            Print Space$(WindowWidthChar);
         End If
 
         startRow = startRow + 1
@@ -245,13 +245,13 @@ End Sub
 ' Automatically selects, sets the window size and saves the text width
 Sub AdjustWindowSize
     If Song.channels < 5 Or Not Song.isPlaying Or InfoMode Then
-        windowWidthChar = 84 ' we don't want the width to be too small
+        WindowWidthChar = 84 ' we don't want the width to be too small
     Else
-        windowWidthChar = 8 + Song.channels * 19
+        WindowWidthChar = 8 + Song.channels * 19
     End If
 
     ' We need 43 lines minimum
-    Width windowWidthChar, 43
+    Width WindowWidthChar, 43
     ' Clear the screen
     Cls
 End Sub
