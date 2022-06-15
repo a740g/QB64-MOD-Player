@@ -50,12 +50,12 @@ $If MODPLAYER_BI = UNDEFINED Then
         volume As Integer ' Channel volume. This is a signed int because we need -ve values & to clip properly
         restart As Byte ' Set this to true to retrigger the sample
         note As Unsigned Byte ' Last note set in channel
-        period As Unsigned Integer ' This is the period of the playing sample used by various effects
-        lastPeriod As Unsigned Integer ' Last period set in channel
-        startPosition As Unsigned Long ' This is starting position of the sample. Usually zero else value from sample offset effect
+        period As Long ' This is the period of the playing sample used by various effects
+        lastPeriod As Long ' Last period set in channel
+        startPosition As Long ' This is starting position of the sample. Usually zero else value from sample offset effect
         patternLoopRow As Integer ' This (signed) is the beginning of the loop in the pattern for effect E6x
         patternLoopRowCounter As Unsigned Byte ' This is a loop counter for effect E6x
-        portamentoTo As Unsigned Integer ' Frequency to porta to value for E3x
+        portamentoTo As Long ' Frequency to porta to value for E3x
         portamentoSpeed As Unsigned Byte ' Porta speed for E3x
         vibratoPosition As Byte ' Vibrato position in the sine table for E4x (signed)
         vibratoSpeed As Unsigned Byte ' Vibrato speed

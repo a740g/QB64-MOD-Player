@@ -404,7 +404,7 @@ $If MODPLAYER_BAS = UNDEFINED Then
             End If
 
             If nNote < NOTE_NONE Then
-                Channel(nChannel).lastPeriod = 8363~& * PeriodTable(nNote) / Sample(Channel(nChannel).sample).c2Spd
+                Channel(nChannel).lastPeriod = 8363 * PeriodTable(nNote) / Sample(Channel(nChannel).sample).c2Spd
                 Channel(nChannel).note = nNote
                 Channel(nChannel).restart = TRUE
                 Channel(nChannel).startPosition = 0
@@ -754,7 +754,7 @@ $If MODPLAYER_BAS = UNDEFINED Then
 
 
     ' This gives us the frequency in khz based on the period
-    Function GetFrequencyFromPeriod! (period As Unsigned Integer)
+    Function GetFrequencyFromPeriod! (period As Long)
         GetFrequencyFromPeriod = 14317056 / period
     End Function
 

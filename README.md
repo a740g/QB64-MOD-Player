@@ -13,7 +13,7 @@ A [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](
 - Support all MOD types (1 - 99 channels, 31 samples etc.) - OK
 - Support all MOD effects - WIP (2 remaining; E3 & EF)
 - Easy plug-&-play API - OK
-- Play all the test MODs in the repository correctly - WIP (dope.mod, fountain.mod, gslinger.mod, sgtitle.mod sounds awful)
+- Play all the test MODs in the repository correctly - OK
 - Survive ode2ptk.mod & black_queen.mod - OK
 - Include a demo player to show how to use the library - OK
 
