@@ -16,7 +16,7 @@ $If MODPLAYER_BAS = UNDEFINED Then
     ' Small test code for debugging the library
     '-----------------------------------------------------------------------------------------------------
     '$Debug
-    'If LoadMODFile("C:\Users\samue\OneDrive\Documents\GitHub\QB64-MOD-Player\mods\tests\0xy-Arpeggio.mod") Then
+    'If LoadMODFile("C:\Users\samue\OneDrive\Documents\GitHub\QB64-MOD-Player\mods\dope.mod") Then
     '    StartMODPlayer
     '    Do
     '        Locate 1, 1
@@ -171,22 +171,22 @@ $If MODPLAYER_BAS = UNDEFINED Then
 
         ' Resize pattern data array
         ReDim Pattern(0 To Song.highestPattern, 0 To PATTERN_ROW_MAX, 0 To Song.channels - 1) As NoteType
-        Dim c As Unsigned Integer
 
         ' Skip past the 4 byte marker if this is a 31 sample mod
         If Song.samples = 31 Then Seek fileHandle, Loc(1) + 5
 
-        ' Load the frequency table
+        ' Load the period table
         Restore PeriodTab
-        Read c ' Read the size
-        ReDim PeriodTable(0 To c - 1) As Unsigned Integer ' Allocate size elements
+        Read Song.periodTableMax ' Read the size
+        Song.periodTableMax = Song.periodTableMax - 1 ' Change to ubound
+        ReDim PeriodTable(0 To Song.periodTableMax) As Unsigned Integer ' Allocate size elements
         ' Now read size values
-        For i = 0 To c - 1
+        For i = 0 To Song.periodTableMax
             Read PeriodTable(i)
         Next
 
         Dim As Unsigned Byte byte3, byte4
-        Dim As Unsigned Integer a, b, period
+        Dim As Unsigned Integer a, b, c, period
 
         ' Load the patterns
         ' +-------------------------------------+
@@ -482,7 +482,7 @@ $If MODPLAYER_BAS = UNDEFINED Then
                             Channel(nChannel).period = Channel(nChannel).period + SHL(nOpY, 2)
 
                         Case &H3 ' 3: Glissando Control
-                            Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                            Channel(nChannel).useGlissando = (nOpY <> FALSE)
 
                         Case &H4 ' 4: Set Vibrato Waveform
                             Channel(nChannel).waveControl = Channel(nChannel).waveControl And &HF0
@@ -509,7 +509,7 @@ $If MODPLAYER_BAS = UNDEFINED Then
 
                         Case &H8 ' 8: 16 position panning
                             If nOpY > 15 Then nOpY = 15
-                            ' Why does this kind of stuff bother me so much. We just could have written "/ 17" XD
+                            ' Why does this kind of stuff bother me so much. We could have just written "/ 17" XD
                             SetVoicePanning nChannel, nOpY * ((SAMPLE_PAN_RIGHT - SAMPLE_PAN_LEFT) / 15)
 
                         Case &HA ' 10: Fine Volume Slide Up
@@ -528,7 +528,9 @@ $If MODPLAYER_BAS = UNDEFINED Then
                             Song.patternDelay = nOpY
 
                         Case &HF ' 15: Invert Loop
-                            Title "Extended effect not implemented: " + Str$(nEffect) + "-" + Str$(nOpX)
+                            ' TODO:
+                            Channel(nChannel).funkrepeatSpeed = nOpY
+                            Title "Funkrepeat speed: " + Str$(Channel(nChannel).funkrepeatSpeed)
                     End Select
 
                 Case &HF ' 15: Set Speed
@@ -654,6 +656,37 @@ $If MODPLAYER_BAS = UNDEFINED Then
     End Sub
 
 
+    ' Binary search the period table to find the closest value
+    ' I hope this is the right way to do glissando. Oh well...
+    Function GetClosestPeriod& (target As Long)
+        Dim As Long startPos, endPos, midPos, leftVal, rightVal, finalVal
+
+        startPos = 0
+        endPos = Song.periodTableMax
+        While startPos + 1 < endPos
+            midPos = startPos + (endPos - startPos) / 2
+            If PeriodTable(midPos) <= target Then
+                endPos = midPos
+            Else
+                startPos = midPos
+            End If
+        Wend
+
+        rightVal = Abs(PeriodTable(startPos) - target)
+        leftVal = Abs(PeriodTable(endPos) - target)
+
+        If leftVal <= rightVal Then
+            finalVal = PeriodTable(endPos)
+        Else
+            finalVal = PeriodTable(startPos)
+        End If
+
+        If finalVal < 14 Then finalVal = 13 ' Sanity check
+
+        GetClosestPeriod = finalVal
+    End Function
+
+
     ' Carry out a tone portamento to a certain note
     Sub DoPortamento (chan As Unsigned Byte)
         ' Slide up/down and clamp to destination
@@ -665,7 +698,11 @@ $If MODPLAYER_BAS = UNDEFINED Then
             If Channel(chan).period < Channel(chan).portamentoTo Then Channel(chan).period = Channel(chan).portamentoTo
         End If
 
-        SetVoiceFrequency chan, GetFrequencyFromPeriod(Channel(chan).period)
+        If Channel(chan).useGlissando Then
+            SetVoiceFrequency chan, GetFrequencyFromPeriod(GetClosestPeriod(Channel(chan).period))
+        Else
+            SetVoiceFrequency chan, GetFrequencyFromPeriod(Channel(chan).period)
+        End If
     End Sub
 
 

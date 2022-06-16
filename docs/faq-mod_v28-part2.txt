@@ -1,0 +1,1445 @@
+======================================================= MOD-FAQ part 2 of 2 ==
+     FREQUENTLY ASKED QUESTIONS (FAQ) LIST FOR ALT.BINARIES.SOUNDS.MODS
+                official release v2.8 dated 25.08.96 (DDMMYY)
+
+ READ THIS BEFORE POSTING A QUESTION TO A.B.S.MODS, IT MIGHT BE ANSWERED HERE
+
+THIS IS THE SECOND OF TWO PARTS OF THIS FAQ,  WHICH HAS BEEN SPLIT BECAUSE ITS
+               LENGTH MIGHT OTHERWISE OFFEND SOME NEWSREADERS.
+
+Maintained by jester (Tobias Reckhard),jester@fmr.maschinenbau.th-darmstadt.de
+
+Copyright notice:
+    This FAQ is copyright (c) 1994-1996 by jester (Tobias Reckhard), all
+    rights reserved. Sections not written by myself are copyright (c) by the
+    respective authors.
+    This FAQ may be posted to any Usenet newsgroup, on-line service or BBS as
+    long as it is posted in its entirety, includes this copyright statement
+    and is the most recent version (reasonable effort to obtain this is
+    required).
+    This FAQ may not be distributed for financial gain. It may not be included
+    in commercial collections or compilations without express permission from
+    the maintainer.
+
+Disclaimer: The information contained in this document is believed to be
+    correct, but the originators will not be held responsible for any negative
+    effects of its contents. Anything positive is, of course, our doing ;)
+
+    (Main sections are separated by a line of 78 equal signs (as below),
+     subsections by 78 minusses, sub-subsections by 39 times "- " (corny ;) )
+===========================================================================
+===
+
+[5] Samples
+
+Samples are of crucial importance in mods. Good samples make the difference
+between a quite-good and a great mod. And since custom samples are one of
+mods' greatest advantages, a lot of attention should be paid to a wise choice
+in samples.
+
+It is important to know the main two qualities a sample has, the resolution,
+i.e. number of bits, and its sampling rate. The number of bits in a sample
+denote its ability to distinguish between levels of amplitude, a higher number
+of bits can grasp a sound more accurately than a low one. The sampling rate is
+directly related to the highest frequency that can be reproduced by the
+sample. A sample with a sampling rate of 40kHz, for example (kHz means 1000Hz,
+1Hz is one oscillation per second), can reproduce sounds of up to 20kHz. This
+means that low sampling rates can be used to reproduce low sounds, but
+reproduction of high frequencies (cymbals, but also pianos) require higher
+sampling rates. The theory behind this is known as the Nyquist theorem.
+
+Another aspect of mods is the maximum size a sample is allowed to have. This
+varies in the file formats from 64 Kilobytes to virtually unlimited size. Note
+that some trackers impose harsher limits on sample length than the formats
+they output. The solution offered to the sample size problem is sample
+looping. Well placed loop points make quite a difference in sustained
+instruments, so spend enough time here.
+
+Sample formats seem to be a very confusing subject in the mod community.
+Especially SAM and SMP don't seem to be at all well understood. Keep in mind
+that filename extensions can be arbitrarily chosen and changed in most
+operating systems, so they lose any identifier quality. Thus I consider sample
+formats those files which can be identified by some sort of header. SAM and
+SMP, when meaning MOD (i.e. M.K., xCHN, FLTx, NST, etc.) samples, do not have
+any header. They are simply data assembled in a file. A tracker using them
+decodes them to 8-bit raw signed sample data. But it assumes a playback rate
+to be used. Normally, finetune and loop values can not be stored in MOD
+samples (Fasttracker 1 circumvents this problem by abusing the file's date and
+time stamp). The only safe method to exchange MOD samples is to use these in
+MOD files and exchange these (if there are other safe ways on the Amiga or
+another platform, please correct me). See section 5.1.3 on how to convert to
+"SAM format".
+
+Additional information can be found (and is strongly recommended) in:
+
+The Audio File Formats FAQ by Guido van Rossum <guido@cwi.nl>, posted to
+alt.binaries.sounds.{misc,d} and comp.dsp once a fortnight, and available in
+distributed hypertext form as http://voorn.cwi.nl/audio-formats/a00.html.
+
+PATREF24.ZIP - Windows Help file describing how to convert a variety of
+samples to GUS-usable patches. Most of the information supplied is very handy
+in any type of instrument sample conversion. 2PAT is also supplied, a Windows
+sample conversion utility (great!). This file is available at the GUS sites,
+see section 6.1.
+------------------------------------------------------------------------------
+
+[5.1] Acquisition
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+[5.1.1] Sampling
+
+This section supplied by Andy Church <achurch@goober.mbhs.edu>.
+
+Although the specific methods used for sampling vary from platform to platform
+and program to program, the general procedure is the same. The first thing you
+need to do is connect your sound source, such as an electronic keyboard, to
+the input of your sampler. Then you should start up your sampling program (if
+you haven't done so already). Many programs have a "monitoring mode" where you
+can listen to what you will be recording before you actually record. If
+possible, take advantage of this so that you can adjust the sampler's input
+level and your sound source's volume before sampling to avoid problems with
+volume (see below).
+
+When you have adjusted the volume, or if you do not have a monitoring mode,
+you can actually sample the sound. Usually this just involves clicking on a
+"Start" button, playing the sound on the sound source, and clicking on "Stop".
+Then you will probably be taken to an editor screen where you can see what you
+have recorded. You may discover one of two problems with your sample at this
+point (especially if you couldn't monitor the signal ahead of time):
+
+  - If the overall volume is too low, you lose resolution and clarity in the
+    sample. Generally, if the maximum amplitude of your sample (on a typical
+    waveform display, represented by vertical distance from a central axis) is
+    less than three-quarters of the total window height, your sample is too
+    soft. For sounds that you want to be soft, you can adjust the volume later
+    inside the module.
+
+  - If the volume is too high, you get "clipping" when the input sound exceeds
+    the limits of the sampler. If you see flat lines at the top and/or bottom
+    of your sample display, or if you hear a lot of distortion, your sample is
+    being clipped; you should reduce the volume or the sampler's input level
+    and sample again.
+
+Once you have successfully sampled a sound, what you do next depends on what
+kind of sound you have sampled. If it is a "one-shot" sound - a sound that
+only plays once and does not repeat, such as a drum - you are done, and you
+can save the sample to disk, ready to be loaded into your module. However, if
+the sample is a continuous or repeating sound, like a flute, you will need to
+determine where to place the looping section of the sample.
+
+Determining the loop start and end points is usually a matter of careful
+listening and a lot of trial and error. Sometimes you will be able to look at
+the sample or a part of it and determine what part of the sample is repeating;
+often, however, you will just have to make a guess and play with the begin and
+end points until the sample sounds good. One thing to note when adjusting the
+loop points: since the sample right before the end point is immediately
+followed by the sample at the start point, those two samples should be very
+close if not equal in amplitude. Usually, this can be done by looking for
+"zero points" - places where the sample's waveform crosses the zero-axis - but
+any value will do. If the two samples are very different in amplitude, the
+result will be an audible "click" when the sample reaches the end of the loop.
+This is one easy way to tell whether your loop points are well-placed or not:
+if you hear a click while the sample is playing back which was not in the
+original sound, you need to move your loop points.
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+[5.1.2] 'Ripping'
+
+Using samples made by other people and acquired by saving out of their mods is
+generally known as ripping. I won't debate on the ethical aspects of this
+subject and I suggest nobody does. It has been discussed before.
+
+Just about any tracker enables you to save the samples in a mod. So all you've
+got to do is load the song you want a sample from into a compatible tracker
+and save it. There are other programs that enable you to rip samples from mods
+too, one of them being DMPC, Dual Module Player Companion by Brad Meier of
+Psychic Software, a mod player shell for MS-DOS. While most trackers save
+samples in their own proprietary format or as raw MOD-compatible samples, DMPC
+saves to WAV/VOC/RAW.
+
+  ftp://ftp.cdrom.com/pub/demos/music/programs/frontend/dmpc260.zip
+
+If you don't have a tracker or a ripper, you can still obtain the samples in
+mods by loading the file into a sample editor capable of loading raw sample
+data. You will have to set the number of bits and style (signed or unsigned)
+according to the format you're loading (MOD is signed 8 bit, S3M is unsigned 8
+bit, for example). You will be presented with some static, which is the header
+and pattern data, followed by the samples in the mod. Any decent sample editor
+should enable you to cut out the individual samples. The next step would be to
+get the sampling rate right, otherwise the samples will sound off key when
+used. MOD samples generally use a sampling rate of 8363Hz for a C in the
+second octave, so try this for starters (or an integer multiple). The more
+advanced formats with variable CxSpds pose more of a problem, you're basically
+left with your ears and perhaps a musical instrument to get them right. Note
+that a lot of MOD samples are not tuned to C. Quite often, an A is played
+instead when a C should be. See appendix H for a table of note frequencies to
+help you calculate the appropriate sampling rate for transposing wrongly tuned
+instruments.
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+[5.1.3] Conversion From Other Formats
+
+Sample conversion is covered in detail in the Patch Reference and the Audio
+File Format FAQ (see section 5 on their obtainability).
+
+The most general sample file converter is probably SOX, SOund eXchange
+utility. It is available on most FTP servers as C source code and will run on
+almost any platform. An MS-DOS compiled version exists under the name
+SOX7DOS.ZIP. Note that version 10 is also available, but seems to contain some
+bugs. See the audio file format FAQ for details.
+
+Another MS-DOS utility is CONVERT, it features a wide range of input and
+output formats. An interesting quality for this FAQ is its ability to extract
+samples from mods of various formats. Conversion of samples to mod formats is
+a bit lacking, though, but this is due to the rather large differences in the
+formats concerned (GUS patches don't convert at all well, for example).
+
+  ftp://ftp.cdrom.com/pub/demos/music/programs/converters/convert13.zip
+
+Generally, most trackers read at least some form of raw sample data. If they
+output to some form of MOD format, they most probably read 8-bit signed data,
+while some PC trackers (most notably ST3) prefer unsigned samples. The more
+modern trackers which read 16-bit samples will most probably read some
+standard headered sample format, which makes conversion (with SOX, for
+example) pretty easy, so I won't elaborate on it. See your sample editor's or
+converter's documentation.
+
+To convert a sample from one filetype so that you can use it in a tracker for
+which only raw 8-bit data is suitable, you need:
+- an input file (yeah, why else would you be reading this, but you do need it)
+- a sample converter or editor that can write raw 8-bit data.
+- if this program can't read your input file you need another program to
+  convert it to an interchangeable format type, such as WAV, IFF/S8VX or VOC,
+  which are readable by most converters and editors.
+
+Go about it this way:
+If necessary, convert the input file to the interchange format, leaving its
+attributes untouched, if possible (which are the number of bits, channels and
+sampling rate).
+Now check to see if the sample will be suitable for the tracker. The main
+things to look for are sample size in converted state and the sampling rate.
+A lot of formats still impose limits on the sample size they are willing to
+deal with. Let's assume you have a limit of 64 KB, i.e. 65536 bytes. And that
+the tracker (or rather the format) uses 8-bit sample data. Assuming further
+that you have an input file that is a 16-bit stereo sample, you must divide
+that sample's size by four to estimate its size when converted so that it
+suits your tracker ('s format). Four because you divide by two when converting
+16 to 8 bits, and by two again because your tracker can only use mono samples
+(sorry for having forgotten about this before). If the resulting approximate
+filesize (which is approximate because you haven't accounted for the file
+header in the calculation) is larger than your limit, write down your result
+and look at the sampling rate of the input file and the note that it plays at
+that sampling rate.
+It could well be that your tracker ('s format) uses a fixed sampling rate to
+reproduce a C in a certain octave and calculates the sampling rates to use for
+other notes with reference to this "master C playback sampling rate" (also
+known as CxSpd). So, if you have a sample with a different sampling rate than
+this CxSpd, the sample will sound off tune. Remember that the C is THE
+reference point in the tracker. This is getting too complicated, so I'll give
+an example.
+Say I want to convert this great Kurzweil 2000 patch for use in a M.K.
+tracker, in my case FastTracker 1 (as it imposes even harsher limits than PT).
+I know that FT1 only uses up to 64KB of a sample and that it uses raw 8-bit
+signed mono data. I also know that M.K.'s root C is the C-2 and that the
+playback sampling rate used for that note is 8287Hz for PAL Amiga systems (and
+I'm in Europe and NTSC Amigas are far too rare for me to care about). That's
+all I need to know about the target.
+
+I know that my source KRZ file is a multi-sample with five 16-bit signed mono
+samples in it. I use 2PAT (which has been renamed to AWAVE) or another program
+to tell me the KRZ file's information, which gives me the number of individual
+samples in the file, their note range, playback sampling rate and the note
+this rate represents.
+
+I then use 2PAT to extract the individual samples to WAV files (actually I
+already did that and looked up the information in the description file that
+was generated simultaneously). I like the third of the five samples and want
+to convert this one. The description reveals that it is 16-bit, mono and plays
+an A at a sampling rate of 32kHz. I want to tune my sample to C, so I look up
+appendix I in the MOD-FAQ and find that an A is associated to 440Hz and a C to
+261.7Hz. From this I gather that I have to play the sample at ( 32000 * 261.7
+/ 440 = 19033 )Hz so it sounds like a C. So that's the first thing I do, I
+change the sample's playback rate to 19033Hz (NOTE: only changing the SPEED of
+the sample, no resampling involved).
+
+In my specific case, the sample I'm converting is not well suited to be played
+at more than one octave (this is the case with a lot of real-instrument
+samples). So I allow myself to use only the top M.K. octave (from C-3 to B-3)
+and resample from 19033Hz to 16574Hz (2 * 8287Hz), which represents a C-3 in
+M.K.. I do this while still in the 16 bit domain because of the larger
+precision (aliasing faults are less severe and interpolation is more exact).
+
+Then I convert the sample from 16-bit to 8-bit. If the input sample was pretty
+quiet, I'd probably maximize its volume first, thereby taking advantage of the
+16 bits of resolution and reducing rounding errors.
+
+If my sample is now still larger than 64KB, I have four choices. I can
+resample the sample to 8287Hz (no aliasing errors induced, as this is
+downsampling by an integer) and halve the sample's size at the cost of losing
+high frequencies. I can also resample to a different note somewhere in between
+the C-2 and C-3, at the cost of having to transpose the instrument in the M.K.
+later (i.e. pitch shifting, as the note shown by the tracker isn't correct).
+My third choice is to crop the sample and find a good loop. My final choice is
+to apply a volume envelope to the sample and have it fade out fast enough to
+fit into the limit. Which method I choose depends on the sound I am
+converting. Quite often a combination of several processes will yield the best
+results.
+
+When I've finished the sample editing process, I either save it in an
+interchange format (if the editor doesn't support output in raw signed 8-bit
+mono data) which my converter understands, or I write the sample data to disk
+in raw signed 8-bit mono style. In the first case, I ask my converter to
+perform the just described conversion. Assuming I have written a WAV file and
+want to convert it to FT1-usable, I'd use SOX in the following manner:
+sox -V infile.WAV -ts8 outfile.SMP     <- issued on the command line
+I could then load outfile.SMP into FastTracker 1.
+
+Hope this helps.
+------------------------------------------------------------------------------
+
+[5.2] Sample Editors and Converters
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+[5.2.1] Amiga
+
+NHY
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+[5.2.2] Atari
+
+NHY
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+[5.2.3] Mac
+
+This section by Matthew E Centurion <mashoe+@CMU.EDU>.
+
+Sound Samplers/Editors for the Mac aren't too easy to find.. but the best
+Sound Editor for the Mac is "Macromind SoundEdit" (Versions include:
+SoundEdit, SoundEdit Pro, SoundEdit 16" etc..) This has to be one of the best
+sound recorders and editors for mac.. it has most if not all the options from
+all the other programs listed for other platforms and it can do more stuff..
+It has tons of effects and other options: reverb, bending, speed, pitch,
+flanger, noise, equalizer, mixer, backwards, tone generator, FM Synthesis,
+precision mapping, spectrum/waveform/dots, up to 44kHz sampling rate 8/16 (and
+even 24 methinks) bit recording, notes/tags on specific sections of samples,
+variety of formats AIFF, System 7 Sound, Resources, WAVS, Instrument, au,
+etc.. etc..)
+
+I still think that SoundEdit WITH SoundApp is a good combination because
+SoundApp let's you save in more formats than SE can...
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+[5.2.4] MS-DOS
+
+- Advanced Digiplayer 3.0 by PSI/Future Crew
+  * SB & MS-DOS only sample editor
+  * reads mono raw 8-bit and ST3-compatible samples and writes ST3 samples
+  * features filters (hi- and low-pass), resmpling, volume commands (maximize,
+    set, slide and smooth ends), DC shift, reverse, reverb, echo, cross fade,
+    robotize, flange, chord making
+  * two waveform editing windows
+  * unofficial freeware
+
+  ftp://ftp.cdrom.com/pub/demos/music/programs/samplers/dos/dp30.zip
+------------------------------------------------------------------------------
+
+[5.2.5] OS/2
+
+NHY
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+[5.2.6] UNIX (Sun/Linux/NeXT)
+
+Thanks to Andreas (?) <andreas@karlsberg.usask.ca> for the info on:
+
+- MiXViews
+  X11 sample editor and processor, very powerful and easy to use, supports
+  many data formats.
+  http://www.ccmrc.ucsb.edu/~doug/htmls/MiXViews.html
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+[5.2.7] Windows
+
+- Cool Edit v1.5 by David Johnston <davej67@aol.com> / Syntrillium Software
+    Corporation <syntrill@aol.com> (P.O. Box 60274; Phoenix, AZ 85082-0274;
+    USA)
+
+  Editing functions:
+  * multiple instances (copies of Cool) can be loaded, copied to, and pasted
+    from in any mixture of wave formats
+  * waves of any size can be edited, limited only by hard drive space
+  * supports PCM, MS ADPCM and IMA/DVI ADPCM .WAV, Creative Labs .VOC, raw
+    PCM, SMP, ASCII Text, AU, Apple AIFF and more
+  * batch processor
+  * cue list and play list for playing portions of a wave in any order, with
+    looping (in .WAV)
+  * built-in CD player when MCI CD Audio driver loaded and audio CD in drive
+  * support for unlimited wave formats by user-definable file filters
+  * support for unlimited effects by user-definable effect modules
+  * undo
+  * customizable toolbar
+  * support for (user definable) presets in most functions
+  * high quality sample rate conversion
+  * support for descriptive information and bitmaps in .WAV
+
+  Effects:
+  * flanger
+  * echo, 3D echo chamber and reverb
+  * stretch
+  * delay
+  * compressor (compress/expand/limit dynamic range)
+  * DC bias filter
+  * normalize, fade, (volume) envelope, pan
+  * noise reduction
+  * ring modulation
+  * distortion
+  * 8-band quick filter (equalizer)
+  * FFT filtering and spectral view for audio analysis
+
+  Sound generation:
+  * synthesis of noise and tone signals
+  * music generation
+  * brainwave synchronization
+  * DTMF tone generator
+
+  Cool Edit is three-flavour shareware: $25 for Cool Edit Lite (no 'fancy'
+  effects), $50 for Basic Registration, $100 for Preferred Registration
+  (automatic shareware (?) updates). Unregistered versions may only use a
+  limited number of tools in one session.
+
+  ftp://ftp.ep.se.cool/cool150.zip
+
+  Cool Edit home page:
+  http://www.ep.se/cool/
+
+  Mirrors:
+  ftp://oak.oakland.edu/SimTel/win3/sound/cool150.zip
+  ftp://ftp.switch.ch/mirror/simtel/win3/sound/cool150.zip
+  ftp://ftp.funet.fi/pub/mirrors/oak.oakland.edu/Simtel/win3/sound/cool150.zip
+  ftp://archive.orst.edu/pub/mirrors/simtel/win3/sound/cool150.zip
+
+- GoldWave 2.1 by Chris Craig <chris3@garfield.cs.mun.ca>
+  * up to 5 waveforms editable in one session
+  * undo function for all operations (can be turned off to save time)
+  * support for AU (8/16 bits, U-Law), Amiga 8SVX/IFF, Matlab .MAT, raw or
+    NeXT .SND, Microsoft RIFF .WAV, Creative Labs .VOC (no support for ADPCM
+    compression)
+  * functions include echo, transpose (using notes), filter, volume (fade
+    in/out, shape, pan), mechanize, resample, interpolate, DC shift, invert,
+    reverse
+  * powerful expression evaluator to create new waveforms using mathematical
+    expressions (this makes GoldWave very diverse, as it is thus possible to
+    create own functions, given enough knowledge)
+  * fully operational shareware $25
+
+  ftp://ftp.cdrom.com/pub/demos/music/programs/samplers/gldwav21.zip
+
+- Awave 3.0 by FMJ-Software <f93-maj@nada.kth.se>
+  Audio & wavetable instrument file format converter, editor and player for
+  Windows 95 or Windows 3.1 with Win32s v1.3.
+
+  Import formats: AIFC, AIFF, AIS, ALAW, AMS, ASE, AU, AVI, AVR, C01, CDR,
+    DCM, DEWF, DIG, DMF, DSF, DSM, DTM, EDA, EDE, EDK, EDQ, EDS, EDT, EDV,
+    EFA, EFE (Ensoniq), EFK, EFQ, EFS, EFT, EFV, EMD, ESPS, EUI, F2R, F3R,
+    FAR, FNK, FSM, G721, GKH, HCOM, IFF, INI (MWave), INI (GUS), INRS, INS,
+    IST, IST, IT, KRZ (Kurzweil), MAT, MAUD, MED, MDL, MOD, MPA (MPEG), MP2,
+    MTM, MUS10, NIST,001 (Typhoon), OKT, PAC, PAT (GUS), PLM, PLS, PRG
+    (WAVmaker), PSION, PSM, PTM, RAW, SAM, SB, SBK (AWE32), SD1, SDK (Roland),
+    SDS, SDX, SDW, 669, SF, SF2 (AWE32/EMU), SFD, SFI, SFR, SMP, SND, SNDR,
+    SNDT, SPPACK, SOU, SPL, STM, S3I, S3M, SVX, SW, SYW, TXT, TXW, UB, UDW,
+    ULAW, ULT, UNI, UW, UWF, V8, VAP, VOX, Wxx (Yamaha), WAV, WFB, WFD, WFP
+    (TB WaveFront), XI, XM.
+
+  Export formats: AIFF, ALAW, AU, DES, EFE, G721, IFF, INI, MAT, MWS, UB,
+    ULAW, UW, PAT, PRG, S3I, SB, SBK, SF2, SDS, SND, SW, TXT, VOC, W01, WAV,
+    WFB, WFP, 'Clipboard', 'DigitalAudioCard', 'MidiSDSDump'.
+
+  MIDI autitioning available on Advanced Gravis Ultrasound/MAX/ACE, Turtle
+  Beach Maui/Tropez, Creative Labs Sound Blaster AWE32, any digital audio
+  sound card.
+
+  http://www.nada.kth.se/~f93-maj/fmjsoft.html
+
+  ftp://ftp.orst.edu/pub/packages/gravis/submit/awave30.zip
+  ftp://ftp.cdrom.com/pub/demos/incoming/music/programs/awave30.zip
+------------------------------------------------------------------------------
+
+[5.3] FTP Sites with Samples
+
+Kurzweil 2000: - ftp://ftp.uwp.edu/pub/music/lists/kurzweil/sounds
+
+EMAX: - ftp://sweaty.palm.cri.nz/emax/emax1
+
+SDS (Sample Dump Standard): ftp://alf.uib.no/pub/midi/sds/samples
+                            ftp://sweaty.palm.cri.nz/sds/samples
+
+EPS-16+: - ftp://ftp.reed.edu/eps/samples
+           (these are also available on the WWW at URL:
+           http://www.acs.oakland.edu/oak/eps/eps.html)
+
+TX16W: - ftp://ftp-ls7.informatik.uni-dortmund.de/tx16w/samples
+
+AIFF: - ftp://ftp.reed.edu/eps/samples/aiff
+
+Roland Disk Images: - ftp://lotus.waterloo.ca/pub/sgroups/samples
+
+Yamaha SY-85 and 99: - ftp://louie.udel.edu/pub/midi/patches/SY99
+
+Microsoft WAV: - ftp://ftp.funet.fi/pub/sounds/wav/samples
+                 ftp://doc.ntu.ac.uk/pub/sounds/samples
+===========================================================================
+===
+
+[6] Obtaining Mods
+------------------------------------------------------------------------------
+
+[6.1] FTP Servers
+
+General: The FTP servers mentioned hereafter allow for anonymous FTP. Log into
+the server by specifying 'ftp <server address>', tell it 'ftp' when it asks
+you for a login and supply it with your email address as a password.
+Alternatively, use 'anonymous' as login and your email address as password.
+Please remember that ftp is a privilege, not a right. Restrict your calls to
+(the site's) non-business hours whenever possible.
+
+The largest repository of mods is probably the Aminet. There are numerous FTP
+servers all over the world mirroring it. A list follows:
+
+>These are the members of Aminet and have the files from here.  All mirrors
+>have the new files but most delete old files, however ftp.wustl.edu and
+>ftp.cdrom.se keep all files.  Whenever possible, use the mirror that is the
+>closest to your place.  Most mirrors get updated three times a day.
+>
+>USA (MO)     ftp.wustl.edu         128.252.135.4   pub/aminet/mods
+>USA (CA)     ftp.cdrom.com         192.153.46.2    pub/aminet/mods
+>USA (TX)     ftp.etsu.edu          192.43.199.20   pub/aminet/mods
+>Scandinavia  ftp.luth.se           130.240.18.2    pub/aminet/mods
+>Switzerland  ftp.eunet.ch          146.228.10.16   pub/aminet/mods
+>Switzerland  litamiga.epfl.ch      128.178.151.32  pub/aminet/ (*)
+>Germany      ftp.uni-paderborn.de  131.234.2.32    pub/aminet/mods
+>Germany      ftp.uni-erlangen.de   131.188.3.2     pub/aminet/mods
+>Germany      ftp.uni-bielefeld.de  129.70.4.55     pub/aminet/mods
+>Germany      ftp.uni-oldenburg.de  134.106.40.9    pub/aminet/mods
+>Germany      ftp.uni-kl.de         131.246.9.95    pub/aminet/mods
+>Germany      ftp.uni-stuttgart.de  129.96.8.13     pub/aminet/mods
+>Germany      ftp.uni-siegen.de     141.99.128.1    pub/aminet/mods
+>Germany      ftp.cs.tu-berlin.de   130.149.17.7    pub/aminet/mods
+>UK           ftp.doc.ic.ac.uk      146.169.2.1     pub/aminet/mods
+>   (*) closed 6:30am to 4pm weekdays
+
+Another good site for new mod releases is ftp.cdrom.com (Hornet/Wasp, formerly
+based at ftp.eng.ufl), the main Internet site for PC demos and related
+material. Mods can be found in the /pub/demos/music/songs directory, sorted by
+format type. Note that due to diskspace limitations, mods usually don't stay
+on this site for longer than a month. Hornet is mirrored by ftp.uwp.edu
+(131.210.1.4) USA, ftp.luth.se (130.240.18.2) Sweden, ftp.sun.ac.za
+(146.232.212.21) S.Africa, ftp.uni-erlangen.de (131.188.2.43) Germany,
+ftp.uni-paderborn.de (131.234.10.42) Germany and ftp.cdrom.com
+(192.216.191.11) USA. Hornet also publishes DemoNews on a weekly basis, it
+includes demo-related news and a list of uploads and deletions. To subscribe,
+send email to listserver@oliver.sun.ac.za with "subscribe demuan-list
+YOUR_NAME" (w/o quotes) in the body of the message, substituting YOUR_NAME
+with, guess, yeah, your name. You will then receive DemoNews weekly, it is
+sent out each Sunday morning.
+
+The GUS FTP sites also have a number of mods in their directories. Mods can be
+found in the subdirectories 'sound/*'. The sites are:
+
+Main N.American Site:  archive.orst.edu             pub/packages/gravis
+                       wuarchive.wustl.edu          systems/ibmpc/ultrasound
+Main Asian Site:       nctuccca.edu.tw              PC/ultrasound
+European Callers ONLY: theoris.rz.uni-konstanz.de   pub/sound/gus
+Submissions:           archive.epas.utoronto.ca     pub/pc/ultrasound/submit
+Newly Validated Files: archive.epas.utoronto.ca     pub/pc/ultrasound
+Mirrors:               garbo.uwasa.fi               mirror/ultrasound
+Mailserver for Archive Access: Email to <mail-server@nike.rz.uni-konstanz.de>
+
+Following is a list of ftp servers taken from the MOD Charts list (these have
+not been validated):
+
+archie.au                       /micros/amiga/incoming/mods
+ftp.germany.eu.net              /pub/comp/amiga/mods
+ftp.informatik.uni-rostock.de   /pub/amiga/mods
+ftp.uni-kl.de (131.246.9.95)    /pub/amiga/wuarchive/mods
+                                /incoming/amiga/mods
+ftp.uni-muenster.de             /pub/sounds/
+ftp.uni-oldenburg.de            /pub/amiga/incoming/mods
+ftp.brad.ac.uk                  /misc/mods/  and /incoming/mods/
+ftp.funet.fi (128.214.6.100)    /pub/amiga/audio/modules
+geocub.greco-prog.fr            /pub/incoming/amiga/mods
+ftp.luth.se (130.240.16.3)      /pub/OS/amiga/mods
+lysator.liu.se                  /pub/amiga/mods
+ftp.uwp.edu (cs.uwp.edu)        /pub/music/sounds/mods
+                                /pub/music/lists/btl/mods
+                                /pub/incoming/sounds/mods
+                                /pub/incoming/msdos/modplayer/mods
+ftp.cso.uiuc.edu (128.174.5.59) /pub/amiga
+ftp.mcs.kent.edu                /pub/SB-Adlib/ntmods
+wuarchive.wustl.edu             /systems/amiga/incoming/mods
+    (128.252.135.4)             /systems/amiga/audio/music
+                                /mirrors4/amiga.physik.unizh.ch/amiga/mods
+
+KFMF, formerly KLF, the world's leading PC mod group, has two ftp sites:
+ftp://freedom.wit.com/klf/songs/
+ftp://ftp.luth.se/pub/misc2/kosmic/songs
+
+On hobbes.nmsu.edu/os2/32bit/multimedia/mod is a sizable archive of modules
+(of various formats) available for ftp - Dave Wach
+
+condor.res.cmu.edu maintained by Matthew E Centurion contains some mods from
+a.b.s.mods and ftp sites.
+------------------------------------------------------------------------------
+
+[6.2] BBSs
+
+See Appendix F, the MOD Charts, for a list of BBSs with mods.
+
+You can also check the comments in archives you get, they usually contain some
+BBS adverts.
+
+The Venom BBS has almost 5000 SoundTracker/PT/NoiseTracker MODs in its
+archives: (603) 624-9451   16.8k DS
+          (603) 644-8263   14.4k v32/v42
+Contact: BBS - (603)-624-9451
+         FidoNet - 1:132/155.0
+         Clink - 911:6400/6.0
+         Internet - galf@mv.MV.COM
+------------------------------------------------------------------------------
+
+[6.3] Newsgroups
+
+Naturally, alt.binaries.sounds.mods is THE Usenet newsgroup for mods. Binary
+posts to this group are usually split into several parts and uuencoded. If
+that doesn't make sense to you, that doesn't matter. Just read on. Here's how
+to extract the mods from the text garbage.
+
+How you do it exactly is up to you and the newsreader you're using. I will
+cover NN, RN and TIN here, as well as telling you how to cope with dumb
+uudecoders. Thanks to Stan Greene (Merlin) <sorcerer@netcom.com> for supplying
+the information initially.
+
+NN: Let's assume you have a list of five articles on screen, identified by
+    consecutive letters a through e, of which the last four are the file
+    example.mod. First, tag (i.e. mark) the parts by pressing the appropriate
+    letters (b through e). Then type the following: ':decode'. Choose any
+    directory you wish when prompted for the Decode Directory, this is where
+    the decoded file will go. At the next prompt (Decode test2/ Article
+    (* +):, for example), enter '*' to specify the previously selected
+    articles. NN will then decode the files for you.
+
+RN/TRN: Assuming that the file is in multiple parts, go to the first part and
+    press 'e'. Continue going through all of the parts, pressing 'e' for each.
+    As you do each part, you should see 'Continuing filename.ext:
+    (Continued)'. When you get to the last part and press 'e', you're done. It
+    knows that the file is complete.
+
+TIN: We will assume the same setting as in the NN example. The first thing you
+    do is move the scrollbar to the first part of the file you want, this'd be
+    the 2nd article in the list. Now press 't' to tag the file, the plus sign
+    in front of the article should turn into a '1' and the scrollbar should
+    move to the next line. Tag all the parts of the file in the same manner,
+    watching out so you keep the order correct. When you're done, press 's',
+    which gives you the following prompt: 'Save a)rticle, t)hread, h)ot,
+    p)attern, T)agged articles, q)uit: T'. The default should be a captial T,
+    which is what youy want anyway, so just hit return. TIN will prompt you
+    for a filename, you can use anything, basically, keeping it simple should
+    prove helpful (to you). Done that, TIN asks you for post-processing
+    options. Most of the time, you will want to uudecode the binaries, so
+    press 'u'. Done.
+
+BY HAND: OK, there are two possibilities here. Either you have a smart
+    uudecoder (such as UU, UNPOST or UUMASTER for MS-DOS, or WinCode for
+    Windows), or you're stuck with a basic dumb type.
+    - SMART: This is pretty simple. Just save your articles to a common file
+      and feed it to your smart decoder. Using UU, this'd look like this,
+      after having saved some articled to a file called mods.uue:
+      'uu /i /s mods.uue'. UU will do the rest. Note that it is good to have
+      several smart decoders at hand in case one of them refuses to decode a
+      file. You can then always try the others.
+    - DUMB: This is tedious. Save the articles, preferrably and for your own
+      sanity's sake, to separate files, using some form of numbering scheme so
+      you'll know which part is which later on. Then call your favourite text
+      editor (as in ASCII) and trim out anything from the files that isn't a
+      valid UU line. This includes everything up to, but not including, the
+      line saying 'begin 640 blabla.mod', which should be in the first part,
+      and everything after the line saying 'end', which should be in the last
+      part. You also need to trim out any checksum info, mail/posting headers
+      and signatures (these should be at the end of the files). When you've
+      done all that, concatenate (i.e. join) the files, but keep them in the
+      correct order! Feed the resulting file to your dumb decoder.
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+[6.4] WWW
+
+Zigg (Matt Behrens) <behrensm@river.it.gvsu.edu> told me on 5 Dec 1994:
+Here's a little-known fact concerning the Web (one that I've picked up on and
+sprinkled liberally throughout the links to Aminet): Aminet is available in a
+few spots via HTTP.  The home site, being ftp.wustl.edu, of course, is
+accessible at
+  http://ftp.wustl.edu/~aminet/index.html.
+All aminet files are accessible through wuarchive's http system (eliminating
+the need to wait "for usage to go down") at
+  http://ftp.wustl.edu/systems/amiga/aminet/*.
+Extending this information on 5 May 95, Zigg tells us that another way to
+Aminet via HTTP is by accessing freedom.wit.com at:
+  http://freedom.wit.com/mirrors/amiga/...
+
+Zigg has also set up the Virtual Music Page, which you'll find at:
+  http://www2.gvsu.edu/~behrensm/vmp/index.html.
+
+Dan (Maelcum/KFMF) <dan@bepcp.bowker.com> wrote to the KLF-List on 2 Feb 95:
+The KFMF WWW site will soon be:
+  http://kosmic.wit.com/~kosmic/
+It might (still) be:
+  http://freedom.wit.com/~klf/klfhome.html
+and/or
+  http://ftp.luth.se/pub/misc2/kosmic/www/
+
+And Jason M. Spangler <jasons@cis.ysu.edu> tells us on 31 Oct 1994:
+Just thought I'd tell everyone I updated, re-organized, and moved my
+module FTP site page... it's now at:
+  http://www.ysu.edu/~jasons/mod/index.html
+
+Tim Gerchmez <future@eskimo.com> posted to a.b.s.mods on 28 Apr 95:
+Check out my MOD page on the Worldwide Web. As far as I know, it's now the
+best and most comprehensive source of info on MODs (jester's note: Ahem! ;) )
+and related topics on the Web. It can be accessed via a graphical browser
+(recommended) and is also Lynx-friendly.
+  http://www.eskimo.com/~future/mods.htm
+
+David McConville <id@calypso-2.oit.unc.edu> let us know on 3 Mar 95:
+Just letting you know that we've got a full mirror of the funet.fi mod archive
+at:
+  http://sunsite.unc.edu/pub/multimedia/mods
+------------------------------------------------------------------------------
+[6.5] CD-ROMs
+
+Aminet CD 4
+* Contains 330 MB of software that has appeared since Aminet CD 3 (15-Jun-
+  94), 230 MB of mods, 100 MB of top downloads consisting of 1700 mods, 1600
+  utilities, 250 games, 100 demos and 80 animations.
+* Availability: shipping (whatever that means - jester)
+* Avilable in two versions, Aminet Gold and Aminet Share. The higher priced
+  version includes a donation o the otherwise unpaid makers of the CD, the
+  lower one doesn't (donations are still accepted).
+* Compatible with all Amigas including CDTV/A570. Not compatible with CD32
+  plus Communicator. Compatible with CD32 plus SX1. Compatible with all Amiga
+  OS versions for the access software. Compatible with all operating systems,
+  except some MS-DOS CD-ROM file systems that can't handle mixed case
+  filenames.
+* Ordering (credit cards ok):
+  Germany: Stefan Ossowski                   USA: Fred Fish
+           Tel: +49-201-788778                    Tel:  +1-602-917-0917
+           Fax: +49-201-798447                    Fax:  +1-602-917-0917
+           Email:stefano@tchest.e.eunet.de        Email:fnf@amigalib.com
+
+           Aminet Gold:  DM 29.80                 Aminet Gold:  $19.95
+           Aminet Share: DM 19.80                 Aminet Share: $11.95
+                          (Prices exclude shipping)
+* More information is available in the text file docs/misc/CD-Orders.txt on
+  Aminet. A complete index of Aminet CD 4 is found in
+  disk/cdrom/Aminet-CD-4.lha
+
+
+Aminet CD 5  -  CDTV/CD32/UNIX  (unix music only)
+* contains all the Uploads to Aminet over the last few months, which includes
+  several thousand utilities and Modules (including S3m's). (see also Aminet
+  CD's 1-4 - since although contents differ, they are in the same
+  style/format)
+* Availability:
+  Weird Science       EPIC Marketing         PDSoft
+  1 Rowlandson Close  First Floor Offices    1 Bryant Avenue
+  Leicester           138-139 Victoria Road  Southend-on-Sea
+  Leics. LE4 2SE      Swindon                ESSEX
+  England             Wilts                  SS1 2YD
+                      SN1 3BU                UK
+                      England
+                                             Email: pdsoft@mymagic.demon.co.uk
+  Tel: 0116 234 0682  Tel: 01793 490988      Tel: 01702 466933
+  Fax: 0116 236 4932  Fax: 01793 514187      Fax: 01702 617123
+                      (All Sell the CD at #14.99 (UKP))
+
+
+10,000 Sounds & Songs
+* Volume 0 of the Digital Data Archives
+* this CD contains 850 selected MODs
+* also countless other Multimedia files (.wav, .mid, .avi, .fli, .voc, .sam,
+  and much more)
+* price: $15
+* For more information or to order contact: Walt Perko
+                                            P.O.Box 640608
+                                            San Francisco, CA. 94164-0608
+                                            phone: (415) 771-1788
+                                            email: wperko@netcom.com
+
+
+Mystical MOD Madness
+* Volume 1 of the Digital Data Archives
+* Contains about 3000 MODs, S3Ms and 669s
+* price: $25
+* Contact information (Walt Perko) see "10,000 Sounds & Songs"
+
+
+Sound Site CD-ROM
+* large collection of music files taken from the Saffron archives
+* including over 1350 MOD files
+* nearly 500 MIDI files, and also 669, STM and other files
+* price $19.95 + $5 s/h
+* For more info or to order contact: Island CD Creations
+                                     1960 Kapiolani Blvd. Suite 113-592
+                                     Honolulu, HI 96826
+                                     email: duane@shell.portal.com (Duane
+                                                                    Takamine)
+
+Town of Tunes CD
+* a compilation of the best 820 MOD music and melody files
+* it takes about 70 hours to hear them all
+* carefully picked from approx. 4000 files worldwide in a two-year period
+* includes 21 of the newest and hottest tunes from "THE PARTY" in Denmark
+  Winter 1994
+* also some of the newest S3M music/melody files, 100 MB of the latest
+  spectacular VGA graphic demos, and more
+* price: $35 + $6 s/h
+* For more information or to order contact: Wichman Consult
+                                            Hovmalvej 78-6
+                                            2300 Copenhagen S., Denmark
+                                            phone: +45-3151-3187
+                                            Fax: +45-3122-2744
+                                            email: ecjowh@hp3.cbs.dk
+
+
+The Ultimate MOD Collection
+* contains more than 1700 MODs
+* a bunch of players & utilities (editors, etc.) for all sorts of computers
+* some 669, STM, MED, and other file formats
+* price $29
+* for more information contact: The Marketplace
+                                phone: (800) 289-1766 or (314) 521-4862
+
+
+EuroScene 1  -  CDTV/CD32/UNIX  (unix music only)
+* contains 600 MB of amiga demos and music. This CD is literally loaded with
+  music by author, demo crews etc...there is tonnes of it all packed with Lha.
+  The demos are from all periods in time, though mainly the last few years -
+  1991 onwards.. there are even a few AGA demos on there.
+* availablity: Almathera Systems..17-Bit Software.. a few other places ;-)
+* Almathera Can be reached at: Southerton House
+                               Boundary Business Court
+                               92-94 Church Road
+                               Mitcham
+                               CR4 3TD
+                               England
+
+SoundMOD
+* A 650 meg collection of over 3,700 sound files in 669, MOD, S3M, MTM, FAR
+  and ULT formats.
+* This disc has files.bbs and 4DOS descript.ion files with the song name and
+  track count of each module.
+* Play the files right from your CD-ROM or place them onyline for your BBS
+  callers.
+* Released 1-6-95
+* Price: $20
+* Contact orders@fourstar.mi.org or (517)865-8075  10:00 AM to 5:00 PM  EST
+===========================================================================
+===
+
+[7] Distributing Mods
+
+When you're sick of listening to other people's creations, have mastered a
+tracker and finally come up with something you consider brilliant or at least
+good enough for other people to enjoy, you want to spread it.
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+[7.0.1] Compression
+
+Thanks to Rich La Bonte <flatrich@aol.com> for suggestions concerning this
+section.
+
+It is always a good idea to compress a module before you distribute it.
+Especially when using telecommunications systems (i.e. telephone lines or
+networks), data compression can reduce a lot of transmission time and
+bandwidth. The two main archivers used in compressing mods are LHA/LHarc and
+PKZIP. LHA is used mainly on Amigas, but compatible archivers/dearchivers
+exist on just about any platform. The same goes for the MS-DOS originated
+PKZIP. Other archivers may perform better compression, but aren't a good
+choice if you want your file to be decodable by as many people as possible.
+
+Note though that even though LHA/LHarc's archiving is generally compatible
+across platforms, users should be aware of the limitations of other systems.
+While flipped orders of filename and extension is rather easy to fix and is
+not a problem (by which I want to express that I discourage discussions about
+efficiencies and deficiencies of the various platforms), there are several
+incompatibilities which hinder distribution.
+
+LHA/LHarc for Amiga can store attributes that prevent MS-DOS LHA from
+dearchiving the files contained. A filename beginning with a period has the
+same effect, as MS-DOS uses the period to symbolize the current directory
+only. Mac files include a header containing a resource and a data fork. The
+resource fork is absolutely Mac-specific and is incompatible with any other
+system (AFAIK).
+
+Please prove netiquette - compress your mods with LHA, PKZIP or compatible
+compressors and use a method which will enable your recipients to dearchive
+them.
+
+See appendix H for a list of sites for these programs.
+------------------------------------------------------------------------------
+
+[7.1] Usenet Posting (to a.b.s.mods)
+
+This being the FAQ for the group, it is natural that postings to it should
+find a place here. Usenet poses some difficulties concerning the transmission
+of binary data, as mods are. Only 7-bit ASCII is transmitted, while binaries
+are 8-bit files. This means that mods need to be encoded before they can be
+posted to Usenet. There are several encoding methods, the most common being
+uuencoding. Others include MIME, XX and a few others, but these are not
+recommended (you want as many people as possible to hear your creations, don't
+you?). Don't even attempt to post a binary to usenet without having encoded it
+to ASCII.
+
+Use of encoding methods other than uuencoding is strongly discouraged.
+Uuencoding is the de-facto Usenet standard and tools exist to deal with it on
+virtually all platforms, while other standards, while perhaps being better in
+some respects, are bound to cause problems for a lot of users.
+
+Another problem is that some news servers don't read more than a certain
+amount of lines in usenet postings. This is why most posts are split into
+'small' chunks. A maximum of 1000 lines seems sensible (this is roughly
+64 KBytes).
+
+It is considered good netiquette and STRONGLY RECOMMENDED to supply a part
+zero of howevermany including a description of the posted file. I hereby
+declare the following as the FAQ-standard part zero for a.b.s.mods:
+
+- example cut here - - - - - - - - - - -
+FILE NAME: example.mod
+SONG NAME: The exemplary Song
+ARCHIVE: PkZip 2.04g
+MOD TYPE: 8CHN
+COMPOSER: Nobody
+METHOD: Original
+MUSICAL STYLE: ambient deep techno house
+POSTER: Nobody too <nobody@nothing.not>
+UPLOADED TO: ftp.cdrom.com/pub/demos/music/incoming/example.zip
+COMMENTS: This is just an example
+- - - - - - - - - - - - - - - -cut here-
+
+Explanation of the above:
+- FILE NAME: This is pretty clear. I suggest the original mod's extension be
+  stated, as the archiver is stated further down.
+- SONG NAME: The name given to the song in the mod's songname field. Or the
+  full name of the song if that field didn't suffice (example: "I'm gonna be
+  infectious" by Romeo Knight)
+- ARCHIVE: The name of the archiver used. Only LHA/Lharc and PkZip and
+  compatible programs are encouraged. It is important to specify the version
+  number here.
+- MOD TYPE: The exact mod type. MOD is not exact! See section 2 for a list of
+  exact mod type definitions.
+- COMPOSER: The person who made the mod, if known.
+- METHOD: The method with which the mod was made. There are four categories
+  here, Original, Conversion, Transcribed and Sampled.
+  + An Original is any original composition, music that originated in a mod
+    type. Pieces originated in one mod type and then transferred to another
+    also qualify for this term.
+  + A Conversion is a composition that has been converted from another type of
+    music format (e.g. MIDI, ROL, CMF) to a mod type format. Slight re-edits
+    of the mod file are still to be considered Conversions.
+  + A Transcribed mod is a transcription of music that originated in a
+    non-computer form, such as sheet music or as music on CDs and/or
+    cassettes.
+  + Sampled mods are pieces of music strung together in a mod format by
+    sampling parts of a song (usually from CD or cassette) and playing them at
+    a constant speed.
+- MUSICAL STYLE: A rough approximation of the style the song is in. No attempt
+  should be made to try to fill this entry out exactly, as it just isn't
+  absolutely possible. However, an estimation of the style should be supplied,
+  as this is possible in most cases.
+- POSTER: This is you. Your name and/or handle and/or email address should go
+  here.
+- UPLOADED TO: Where else the mod is available, per ftp for example.
+- COMMENTS: Write anything you feel should be said about your posting and/or
+  its contents here.
+
+Use subject lines that include the filename of your posting and the part
+number, the latter either in brackets (recommended) or in the form "part x of
+y".
+
+If you feel like it, put a very short description in the subject line.
+However, if you follow this guideline, a subject line saying simply
+"EXAMPLE.abc (x/y)" should suffice.
+
+The above example would have the following subjects, assuming that the
+uuencoded data took four parts:
+Subject: EXAMPLE.MOD (0/4)
+Subject: EXAMPLE.MOD (1/4)
+Subject: EXAMPLE.MOD (2/4)
+Subject: EXAMPLE.MOD (3/4)
+Subject: EXAMPLE.MOD (4/4)
+------------------------------------------------------------------------------
+
+[7.2] FTP Uploads
+
+Most of the ftp servers you can download mods from will accept uploads too.
+These usually go in an /incoming directory somewhere. Be sure to upload a text
+file with a short description (similar to part zero in section 7.1) along with
+the mod. Also remember to specify 'bin' for binary transfer, or your mod might
+be transmitted as a 7-bit file, thereby completely corrupting it. Making an
+announcement in a.b.s.mods about your upload will most probably be welcome.
+See section 6.1 for a list of ftp servers with mods.
+------------------------------------------------------------------------------
+
+[7.3] BBS Uploads
+
+I don't know anything about this (except some BBS names). But if you managed
+to download something from a BBS, you probably know how to upload something
+too.
+===========================================================================
+===
+
+Appendix A: Contributors and Credits
+
+This FAQ is maintained and mainly written by myself, jester (Tobias Reckhard).
+
+Thanks go to (in no particular order):
+Harald Zappe                 Todd Walsh                    Barry Nathan
+Matt Behrens (Zigg)          Dan Nicholson                 Rich "Akira" Pizor
+Jens Puchert (Jensi)         Jason M. Spangler             Aaron J. Luz
+Dave Wach                    Matthew E. Centurion (Mashoe) Dan
+John Roland                  Christian Stieber             Steven Innell
+Tim Fries (Frenchy)          Rich La Bonte                 Heikki Kantola
+Lyman Green                  Sir Fitz                      Ryan Kyle
+Henry Huang                  Jeffrey L. Hayes              Eric Lowe
+Peter F. Handel              Andreas Schiffler
+===========================================================================
+===
+
+Appendix B: Common Properties of Module File Formats
+
+They're all chunks of bytes. Heh heh. ;) OK, seriously now.
+
+All mod files contain a header identifying the file and its format. It also
+mentions song name and number of patterns in the song. The header is usually
+followed by the pattern and sequencing information. Finally, the file also
+contains the sample data. This usually takes up most of the space in a mod.
+With today's file formats advancing more and more, those are just about all
+the common properties worth mentioning, IMHO. For further information on
+particular mod types, refer to the format description. This is usually found
+in the same archive as the tracker it is connected to. You can also check
+
+  ftp.cdrom.com/pub/demos/music/text
+
+for some docs. Following format specs are available there:
+
+MOD - modform.zip     FTK - musfmt10.zip    SSS - musfmt10.zip
+PSM - psm-form.zip    MED - musfmt10.zip    STAR- musfmt10.zip
+S3M - s3mformat.zip   MOD - musfmt10.zip    TT  - musfmt10.zip
+ULT - ultform.zip     MTM - musfmt10.zip    ULT - musfmt10.zip
+669 - musfmt10.zip    OKT - musfmt10.zip    WOW - musfmt10.zip
+DMF - musfmt10.zip    P16 - musfmt10.zip
+FAR - musfmt10.zip    S3M - musfmt10.zip
+===========================================================================
+===
+
+Appendix C: Mods and MIDI
+
+Here is a good posting made by Jens Puchert on the subject, slightly edited by
+myself to retain the FAQ's terminology. Supplied to me by Harald Zappe.
+
+In article <CtsoDr.G86@dorsai.org> oneshot@dorsai.org (jason_wong) writes:
+
+>Pls, No flames.  What format is better?  Which sounds better and is more 
+>popular?  I'm not choosing one over another but I do like whole songs in 
+>MIDI then the usual re-mixes as mods.  But you don't have to shell out
+>$$$ for a wave-table sound card to play mods.
+
+This discussion seems to be older than "What was there first, the chicken
+or the egg?"  Anyway, we can't answer either of those important 
+philosophical questions to the full satisfaction of everybody.  You should 
+realize that mod and MIDI are inherently different things that cannot be
+compared easily with each other (a famous phrase about two fist-sized
+fruits comes to mind).  The major difference is that digital music 
+modules (also popularly known as mods) contain sampled instruments while
+MIDI files don't contain any instruments at all and rather rely on your
+sound hardware to synthesize them (by various means of course).  So that
+yields another big difference.  Modules are hardware independent, they
+(should) sound the same on just about every piece of hardware (excluding
+cases in which the player screws up and doesn't do what it's supposed to,
+cases where playback is attempted on totally inappropriate devices such
+as the PC squeaker, and cases where playback is attempted on devices that
+don't provide sufficient quality such as a mono Sound Blaster).  On the
+other hand, MIDI devices are free to generate instruments to their 
+liking, some of those will sound better (Roland Sound Canvas) and others
+will sound unbearable (AdLib comes to mind).  Both devices however are
+perfectly fine MIDI compliant.  Also, those MIDI instruments are
+standardized into a set called General MIDI.  With most MIDI devices 
+you'll be limited to use the 128 pre-defined instruments from this GM
+set.  A plus for MIDI is the availability of very professional,
+sophisticated composition tools that are not available in this variety
+and quality to create modules.  As far as remixes, cover versions, and
+original creations concerns, all of them can be done and found in either
+the MIDI or the module format, so there's no inherent connection between
+format and musical style and origin.
+
+So to sum this up, if sophisticated composing software and professional
+quality is important to you go for MIDI, if device independance and
+therefore easy exchangability, custom instruments and voices, and lower
+cost are important to you then you should go for modules.
+
+Hope this helps...
+
+Jensi
+===========================================================================
+===
+
+Appendix D: Musicians
+
+Note: This list reflects the opinions of the contributors and is guaranteed
+    not to be objective. If you've contributed or want to contribute to the
+    FAQ, feel free to send a note along with your all-time faves. They'll be
+    included, as long as they take no more than two lines. This thing is way
+    too big as it is. (Note: If you supply me with more than two lines, I'll
+    strip any group names first, then start removing names, putting them into
+    the notables section if that's what they are)
+
+jester's favourite composers: Purple Motion, Nuke, RuffKut, Skaven, Romeo
+    Knight, Lizardking, Zane, Weasel, Maelcum.
+
+Steven Innell's fave musos: Jester/Sanity, Mantronix&Tip, U4IA, Sidewinder,
+    Jogeir Liljedahl, Strobe, (me heh ;-)), Nuke&4-mat, Chris Huelsbeck
+
+other notables: Ng Pei Sin, Moby, Captain, pkk, Firelight, tR/\Sh. The world
+    leading PC mod group today is KLF, consisting of (musician-wise) Maelcum,
+    iNSPEKDAH DECk, I.Q., the Hacker, Phoenix, Balrog, Basehead, Maral,
+    Krystall, Lurch, Necros, Khyron, Nemesis, Mental Floss and Piromaniak.
+===========================================================================
+===
+
+Appendix E: All-Time Faves
+
+Note: This list reflects the opinions of the contributors and is guaranteed
+    not to be objective. If you've contributed or want to contribute to the
+    FAQ, feel free to send a note along with your all-time faves. They'll be
+    included, as long as they take no more than five lines. This thing is way
+    too big as it is.
+
+jester: Boesendorfer P.S.S./Romeo Knight, World of Plastic/PM, Shhh.../pkk,
+    Serenity/jester, Mercury Rain/Skaven, Space Trax/Maelcum, Underwater
+    Breathing/PM, Trans Atlantic/Lizardking, Waiting for Rain/RuffKut,
+    Gold Return/Nuke, Space Debris/Captain, Joyride/tip, Daisy Chain 2/uncle
+    tom, When The Heavens Fall/PM, Dreaming of the Girl/Fencer
+
+Jensi: Estranged/Khyron, Defloration/emax, Crystalline Tears/Nemesis, Here It
+    Is For You/Maelcum, Poetry In Motion/Basehead, Tribal Quest/Inspekdah
+    Deck, Amazonas/Skaven, Adrenalin/tR/\Sh, Backwards/Firelight, When The
+    Heavens Fall/Purple Motion, Knulla Kuk !!!/moby, Face Another Day/Jogeir
+    Liljedahl, Now What 3/Dr. Awesome
+===========================================================================
+===
+
+Appendix F: the MOD Charts
+
+The MOD Charts are a Top 100 list of mods, maintained by Oliver
+(oliver@math.uni-muenster.de, a.k.a. HITMAN on IRC, #modcharts). Multitrack
+formats have recently been allowed into the charts. For further details,
+connect to your nearest supporting site (see list below) and download the
+informational files. I am aware of this list being from last year, I don't
+plan to update it every time it is released anew. If you notice incorrect
+information, tell me (jester) about it and I'll grab the newest info and
+update this section.
+
+MODCHARTS SITE LIST                                    November 1994
+
+AUSTRALIA:
+archie.au                       /micros/amiga/aminet/mods/chart
+
+GERMANY:
+ftp.uni-muenster.de             /pub/sounds/modcharts, /MODPLAYER (pc)
+ftp.cs.tu-berlin.de             /pub/aminet/mods/chart
+ftp.informatik.uni-rostock.de   /pub/amiga/mods/charts
+ftp.th-darmstadt.de             /pub/aminet/mods/chart
+ftp.uni-erlangen.de             /pub/aminet/mods/chart
+ftp.uni-kl.de                   /pub/aminet/mods/chart
+ftp.uni-paderborn.de            /pub/aminet/mods/chart
+
+SWEDEN:
+ftp.luth.se                     /pub/aminet/mods/chart
+
+SWITZERLAND:
+ftp.eunet.ch                    /pub/aminet/mods/chart
+litamiga.epfl.ch                /pub/aminet/mods/chart
+
+GREAT BRITAIN:
+src.doc.ic.ac.uk                /computing/systems/amiga/mods/chart
+
+U.S.A.:
+ftp.etsu.edu                    /pub/aminet/mods/chart
+ftp.wustl.edu                   /pub/aminet/mods/chart
+wasp.eng.ufl.edu                /pub/msdos/demos/music/MOD_CHARTS
+wuarchive.wustl.edu             /pub/aminet/mods/chart
+
+
+BBS'es:
+
+Art-Line        (Wuppertal, D)          /---Art-Line---/musik/charts
+                (@wupper.de)            Top10 + newcomer dl-free
+                ++49-(0)202-595055      2400-19200/ZyXEL MNP5/V42.bis
+                ++49-(0)202-596003      2400-19200/ZyXEL MNP5/V42.bis
+                ++49-(0)202-2456013     64000      ISDN  X.75 V.110
+
+BeetleJuice     (Duelmen, D)            /modules/modcharts
+                ++49-(0)2594-89861      2400-14400/V42.bis
+
+MicroBe         (Weert, Netherlands)    /soundblaster/modcharts
+                ++31-4950-46180         1200-28800
+
+Music Power     (Bischheim, France)     /modcharts, all chartfiles dl-free
+                +33 - 88.83.63.59       2400-14400/ZyXEL MNP5/V42.bis
+
+Portal          (Winnindoo, Australien) /modules
+                                        all chartfiles download-free
+                +61-(0)51-992869        1200-28800 MNP5/MNP10/V42.bis
+
+Proton Palace   (Ottawa, Ontario)       /?
+                613-829-0909            14400-19200
+
+SAC             (Bratislava, Slovakia)  /Modchart
+                42-7-2048232            19200/ZyXEL MNP5/V42.bis
+
+Stardate        (Telgte, D)             /Box-Ebene/Binaer/Musik/Mod-Charts
+                ++49-(0)2504-5107       1200-14400/V42.bis
+
+The Abyss       (Stuttgart, D)          /Gallery/Modcharts
+                ++49-(0)711-617291      9600-19200/ZyXEL   MNP5/V42.bis
+                ++49-(0)711-6159399     2400-14400/V32.bis MNP5/V42.bis
+
+Tup-Off-Box     (Goeppingen, D)         all newcomer-mods download-free
+                ++49-(0)7161-57382
+                ++49-(0)7161-57869
+                ++49-(0)7161-57960      2400 bps
+
+Visitor         (Muenster, D)           /modcharts, all chartfiles dl-free
+                (@westfalen.de)
+                ++49-(0)251-295014      9600-16800/V32.bis/V42.bis
+                                        38400-64000/V.110/X.75
+                ++49-(0)251-922227      1200-2400/V24.bis
+                ++49-(0)251-922229      9600-28800/U.S.R./V34.bis
+                                        9600-14400/V32.bis/V42.bis
+
+
+FIDOs:
+
+Linie13         2:241/595               flags: zyx,xa,cm
+                (@demon.escape.de)      online: 24h except zmh
+
+Portal          3:632/345               Request: ModList
+
+SAC             2:422/80
+
+Star Fortress   2:2494/340              Flags: ZYX, XA, MO
+                                        online: 00:00-09:00 CET
+                                        Request: FILES, MODCHART
+===========================================================================
+===
+
+Appendix G: Availability of Compressors/Archivers
+
+from the comp.compression FAQ
+
+lha for MS-DOS:
+  ftp://oak.oakland.edu/pub/msdos/archiver/lha213.exe   (exe)
+  ftp://oak.oakland.edu/pub/msdos/archiver/lha211sr.zip (sources)
+  ftp://garbo.uwasa.fi/pc/arcers/lha255b.exe
+
+lharc for Unix (can only extract from version 1.xx .lzh files):
+  ftp://wuarchive.wustl.edu/mirrors/misc/unix/lharc102a.tar-z
+  ftp://garbo.uwasa.fi/unix/arcers/lha101u.tar.Z
+
+lha for Unix (docs in Japanese):
+  ftp://wuarchive.wustl.edu/mirrors/misc/unix/lha101u.tar-z
+  ftp://garbo.uwasa.fi/unix/arcers/lha-1.00.tar.Z
+
+lha for Mac:
+  ftp://mac.archive.umich.edu/mac/utilities/compressionapps/maclha2.0.cpt.hqx
+  ftp://mirrors.aol.com/pub/info-mac/cmp/mac-lha-213.hqx
+  (note: the first section of the 2nd URL can be replaced with any of the
+  multitude of info mac shadows)
+
+lha for Amiga:
+  ftp://ftp.funet.fi/pub/amiga/utilities/archivers/LhA_e138.run
+
+pkzip 2.04g for MS-DOS:
+  ftp://oak.oakland.edu/pub/msdos/zip/pkz204g.exe
+  ftp://garbo.uwasa.fi/pc/arcers/pkz204g.exe
+
+zip 2.0.1 and unzip 5.12 for Unix, MS-DOS, VMS, OS/2, Amiga,...(compatible
+  with pkzip 2.04g):
+  ftp://ftp.uu.net/pub/archiving/zip/zip201.zip          (source)
+  ftp://ftp.uu.net/pub/archiving/zip/unzip512.tar.Z      (source)
+  ftp://ftp.uu.net/pub/archiving/zip/MSDOS/zip20x.zip    (MSDOS exe)
+  ftp://ftp.uu.net/pub/archiving/zip/MSDOS/unz512x*.exe  (MSDOS exe)
+  ftp://ftp.uu.net/pub/archiving/zip/VMS/zip20x-vms.zip  (Vax/VMS exe)
+  ftp://ftp.uu.net/pub/archiving/zip/VMS/unz512x-vax.exe (Vax/VMS exe)
+  ftp://ftp.uu.net/pub/archiving/zip/OS2/*               (OS/2 exe 16&32 bit)
+     See also AMIGA, ATARI, MAC, NT, SCO_UNIX, LINUX, Ultrix-MIPS, WINDOWS
+     and SOLARIS2 subdirectories.
+  ftp://garbo.uwasa.fi/unix/arcers/zip201.zip     (source)
+  ftp://garbo.uwasa.fi/unix/arcers/unzip512.tar.Z (source)
+  ftp://garbo.uwasa.fi/pc/arcers/zip20x.zip       (MSDOS exe)
+  ftp://garbo.uwasa.fi/pc/arcers/unz512x3.exe     (MSDOS exe)
+
+  for Macintosh:
+  ftp://mac.archive.umich.edu/mac/util/compression/unzip2.01.cpt.hqx
+  ftp://mac.archive.umich.edu/mac/util/compression/zipit1.2.cpt.hqx
+  ftp://ftp.uu.net/pub/archiving/zip/MAC/unz512.hqx
+===========================================================================
+===
+
+Appendix H: Table of Note Frequencies
+
+Use this to calculate sampling rates for mistuned instruments. For example, if
+you have an instrument at 8363Hz that plays an A-2 but you want it to play a
+C-2, the appropriate sampling rate is 8363 * 261.7 / 440 Hz = 4974 Hz
+All values are given in Hz.
+
+(supplied by Chris Craig, author of GoldWave)
+
+C  - 261.7    E  - 329.6    G# - 415.3
+C# - 277.2    F  - 349.2    A  - 440.0
+D  - 293.7    F# - 370.0    A# - 466.2
+D# - 311.1    G  - 392.0    B  - 493.9
+
+Bear in mind that doubling the sampling rate raises a sound by one octave,
+halving the rate lowers the note by one octave.
+===========================================================================
+===
+
+Appendix I: Overview of Effects Used in Digital Music Modules
+
+This section supplied by Jens Puchert.
+
+The following covers all ProTracker and ScreamTracker 3 effects.  The 
+effect commands are given for ProTracker first, and then for Scream
+Tracker.  Fast-, Take-, and MultiTracker also use the ProTracker
+command set.  The parameters are given as "x", "xx", or "xy".  "x"
+means there's a single parater for this effect.  "xx" means there's
+a single parameter composed of two digits.  "xy" means there are
+two independent parameters for this effect.
+
+
+                                PT effect      S3M effect
+
+1. Effects that change the pitch of the currently playing note
+
+* Arpeggio                      0xy             Jxy
+* Portamento Up/Down            1xx/2xx         Fxx/Exx
+* Fine Portamento Up/Down       E1x/E2x         FFx/EFx
+* Extra Fine Portamento Up/Down    -            FEx/EEx
+* Portamento To Note            3xx             Gxx
+* Vibrato                       4xy             Hxy
+
+2. Effects that change the volume or pan position of one or more channels
+
+* Set Volume                    Cxx             <vol. column>
+* Volume Slide                  Axy             Dxy
+* Fine Volume Up/Down           EAx/EBx         DxF/DFx
+* Set Global Volume             -               Vxy
+* Set Panning (finesteps)       8xx             Xxx
+* Set Panning                   E8x             S8x
+* Stereo Control                -               SAx
+* Tremolo                       7xy             Rxy
+* Tremor                        -               Ixy
+
+3. Effects to influence flow control and speed
+
+* Set Speed                     Fxx (x < 20h)   Axx
+* Set Tempo                     Fxx (x > 1Fh)   Txx
+* Pattern Break                 Dxx             Cxx
+* Pattern Jump                  Bxx             Bxx
+* Pattern Loop                  E6x             SBx
+* Pattern Delay                 EEx             SEx
+
+4. Miscellaneous effects to influence playback of a single note
+
+* Set Finetune                  E5x             S2x
+* Sample Offset                 9xx             Oxx
+* Regrigger Note                E9x             Q0x
+* Cut Note                      ECx             SCx
+* Note Delay                    EDx             SDx
+* Invert Loop                   EFx             SFx
+
+5. Miscellaneous effects to set global variables
+
+* Set Filter                    E0x             S0x
+* Glissando Control             E3x             S1x
+* Vibrato Waveform              E4x             S3x
+* Tremolo Waveform              E7x             S4x
+
+6. Combinations of other effects
+
+* Portamento + Volume Slide     5xy             Lxy
+* Vibrato + Volume Slide        6xy             Kxy
+* Retrigger + Volume Slide      -               Qxy
+===========================================================================
+===
+
+Appendix J: Answers to as yet Unanswered FAQs
+
+This section is still under construction and will probably always stay that
+way. FAQs that don't quite fit into any other section will be assembled here.
+Because of this, this appendix will appear very unsorted and messy.
+Suggestions for additions, corrections or deletions are welcome.
+
+1) How is MOD played back correctly
+
+   One would think that MOD is a standard format. Unfortunately, it isn't
+   anymore. While the only real reference for this format remains the Amiga's
+   ProTracker, even in the early stages of MOD, incompatibilities came around
+   through the different timing methods in PAL and NTSC Amigas.
+   The advent of all sorts of trackers writing in MOD formats, by which I mean
+   all formats complying to PT's way of storing header, pattern info (not
+   restricted to 4-track though), sequencing list and sample data, have
+   brought about more complications since a lot of their players prove to be
+   PT-incompatible.
+   The problem is that the composer of a MOD relies on his song's sound using
+   his tracker (even though some tailor theirs for certain players), so,
+   assuming tracker XX is not PT-compliant in its player, a song made in
+   tracker XX will not sound the way its composer wanted it to when played in
+   ProTracker, which is accepted as THE standard for MODs.
+   As it is, ProTracker remains the only reference for MOD playing. A decent
+   documentation on the exact specifics of MOD is not available yet, to my
+   knowledge. All (I dare to say this) PC players, and probably those on all
+   systems save the Amiga which benefits from MOD being designed around its
+   hardware, play MODs wrong in some way or the other. The main two points to
+   look for are accuracy and sound quality. Absolute accuracy isn't there yet,
+   but there exist vast differences.
+   BTW, even the format specs on MOD vary in a lot of cases. Don't believe any
+   specification but the ProTracker one to be correct.
+
+2) How do I calculate mod playback speeds
+
+   This applies to MOD and S3M (and probably to most other module types).
+
+   There are two playback speed settings in mods, one being the ticks-per-row
+   (hereafter referred to as TPR) and the other the BPM (beats per minute)
+   setting.
+
+   The BPM statement denotes the amount of time that is to be spent on one
+   tick. At default BPM speed of 125 decimal (7D hex), one tick equals to 0.02
+   seconds. Thus, tick-time = (0.02 * 125 / BPM) seconds = (2.5 / BPM)
+   seconds.
+
+   The TPR speed groups a specified number of ticks into a row. Specifying a
+   TPR speed of four groups four ticks into a row, for example.
+
+   So, if you set a BPM speed of 150 and a TPR speed of 4, one tick will last
+   for 1/60th of a second and four such ticks will be one row. Thus a row will
+   last for 4/60ths of a second and a 64-row pattern will take 64/15 (=4.2667)
+   seconds to play.
+
+   MOD speeds are set using the Fxx command, where xx is a hexadecimal. Where
+   xx ranges from 01 to 1F (in hex), TPR speed is set. F20 to FFF denotes BPM
+   speed. A speed setting of zero should be ignored. The corresponding S3M
+   commands are Axx (TPR speed) and Txx (BPM speed).
+
+============================================================= end of part 2 ==

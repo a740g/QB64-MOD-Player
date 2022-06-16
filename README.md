@@ -11,7 +11,7 @@ A [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](
 - No dependency on third party libraries - OK
 - No OS specific code in the Loader, Player & Mixer - OK
 - Support all MOD types (1 - 99 channels, 31 samples etc.) - OK
-- Support all MOD effects - WIP (2 remaining; E3 & EF)
+- Support all MOD effects - WIP (1 remaining - EF)
 - Easy plug-&-play API - OK
 - Play all the test MODs in the repository correctly - OK
 - Survive ode2ptk.mod & black_queen.mod - OK

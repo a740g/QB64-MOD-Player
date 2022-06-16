@@ -64,6 +64,8 @@ $If MODPLAYER_BI = UNDEFINED Then
         tremoloSpeed As Unsigned Byte ' Tremolo speed
         tremoloDepth As Unsigned Byte ' Tremolo depth
         waveControl As Unsigned Byte ' Waveform type for vibrato and tremolo (4 bits each)
+        useGlissando As Byte ' Flag to enable glissando for subsequent porta to notes for E3x
+        funkrepeatSpeed As Unsigned Byte ' Invert loop speed for EFx
     End Type
 
     Type SongType
@@ -76,12 +78,13 @@ $If MODPLAYER_BI = UNDEFINED Then
         highestPattern As Unsigned Byte ' The highest pattern number read from the MOD file
         orderPosition As Integer ' The position in the order list. Signed so that we can properly wrap
         patternRow As Integer ' Points to the pattern row to be played. This is signed because sometimes we need to set it to -1
-        patternDelay As Unsigned Byte ' Number of times to delay pattern for effect EE
         tickPattern As Unsigned Byte ' Pattern number for UpdateMODRow() & UpdateMODTick()
         tickPatternRow As Integer ' Pattern row number for UpdateMODRow() & UpdateMODTick() (signed)
         isLooping As Byte ' Set this to true to loop the song once we reach the max order specified in the song
         isPlaying As Byte ' This is set to true as long as the song is playing
         isPaused As Byte ' Set this to true to pause playback
+        patternDelay As Unsigned Byte ' Number of times to delay pattern for effect EE
+        periodTableMax As Unsigned Byte ' We need this for searching through the period table for E3x
         speed As Unsigned Byte ' Current song speed
         bpm As Unsigned Byte ' Current song BPM
         tick As Unsigned Byte ' Current song tick
