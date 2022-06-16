@@ -659,7 +659,15 @@ $If MODPLAYER_BAS = UNDEFINED Then
     ' Binary search the period table to find the closest value
     ' I hope this is the right way to do glissando. Oh well...
     Function GetClosestPeriod& (target As Long)
-        Dim As Long startPos, endPos, midPos, leftVal, rightVal, finalVal
+        Dim As Long startPos, endPos, midPos, leftVal, rightVal
+
+        If target > 27392 Then
+            GetClosestPeriod = target
+            Exit Function
+        ElseIf target < 14 Then
+            GetClosestPeriod = target
+            Exit Function
+        End If
 
         startPos = 0
         endPos = Song.periodTableMax
@@ -676,14 +684,10 @@ $If MODPLAYER_BAS = UNDEFINED Then
         leftVal = Abs(PeriodTable(endPos) - target)
 
         If leftVal <= rightVal Then
-            finalVal = PeriodTable(endPos)
+            GetClosestPeriod = PeriodTable(endPos)
         Else
-            finalVal = PeriodTable(startPos)
+            GetClosestPeriod = PeriodTable(startPos)
         End If
-
-        If finalVal < 14 Then finalVal = 13 ' Sanity check
-
-        GetClosestPeriod = finalVal
     End Function
 
 

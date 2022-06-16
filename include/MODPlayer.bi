@@ -64,7 +64,7 @@ $If MODPLAYER_BI = UNDEFINED Then
         tremoloSpeed As Unsigned Byte ' Tremolo speed
         tremoloDepth As Unsigned Byte ' Tremolo depth
         waveControl As Unsigned Byte ' Waveform type for vibrato and tremolo (4 bits each)
-        useGlissando As Byte ' Flag to enable glissando for subsequent porta to notes for E3x
+        useGlissando As Byte ' Flag to enable glissando (E3x) for subsequent porta to notes effect
         funkrepeatSpeed As Unsigned Byte ' Invert loop speed for EFx
     End Type
 
