@@ -65,15 +65,10 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
         SndClose SoftSynth.soundHandle ' Close QB64 sound pipe
     End Sub
 
-
-    ' This can be used to queue in silence effectively pausing playback
-    Sub UpdateMixerSilence (nSamples As Unsigned Integer)
-        Dim i As Unsigned Integer
-        For i = 1 To nSamples
-            SndRaw NULL, NULL, SoftSynth.soundHandle
-        Next
-    End Sub
-
+    ' Returns true if more samples needs to be mixed
+    Function NeedsSoundRefill%%
+        NeedsSoundRefill = (SndRawLen(SoftSynth.soundHandle) < SOUND_TIME_MIN)
+    End Function
 
     ' This should be called by code using the mixer at regular intervals
     ' All mixing calculations are done using floating-point math (it's 2022 :)
@@ -85,7 +80,7 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
         ' Reallocate the mixer buffer that will hold sample data for both channels
         ' This is conveniently zeroed by QB64, so that is nice. We don't have to do it
         ' Here 1 is the left channnel and 2 is the right channel
-        ReDim MixerBuffer(1 To 2, 1 To nSamples) As Single
+        ReDim MixerBuffer(1 To MIXER_CHANNELS, 1 To nSamples) As Single
 
         ' Set the active voice count to zero
         SoftSynth.activeVoices = 0

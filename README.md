@@ -22,6 +22,7 @@ A [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](
 ```VB
 Function LoadMODFile%% (sFileName As String)
 Sub StartMODPlayer
+Sub UpdateMODPlayer
 Sub StopMODPlayer
 ```
 

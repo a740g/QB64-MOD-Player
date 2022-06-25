@@ -21,7 +21,6 @@ $If MODPLAYER_BI = UNDEFINED Then
     Const ORDER_TABLE_MAX = 127 ' Max position in the order table
     Const SONG_SPEED_DEFAULT = 6 ' This is the default speed for song where it is not specified
     Const SONG_BPM_DEFAULT = 125 ' Default song BPM
-    Const BUFFER_UNDERRUN_PROTECTION = 128 ' This prevents audio pops and glitches due to QB64 timer inaccuracy
     '-----------------------------------------------------------------------------------------------------
 
     '-----------------------------------------------------------------------------------------------------
@@ -88,8 +87,9 @@ $If MODPLAYER_BI = UNDEFINED Then
         speed As Unsigned Byte ' Current song speed
         bpm As Unsigned Byte ' Current song BPM
         tick As Unsigned Byte ' Current song tick
-        mixerBufferSize As Unsigned Long ' This is the amount of samples we have to mix based on mixerRate & bpm
-        timerHandle As Long ' We use this to store the QB64 timer handle
+        tempoTimerValue As Unsigned Long ' (mixer_sample_rate * default_bpm) / 50
+        samplesPerTick As Unsigned Long ' This is the amount of samples we have to mix per tick based on mixerRate & bpm
+        activeChannels As Unsigned Byte ' Just a count of channels that are "active"
     End Type
     '-----------------------------------------------------------------------------------------------------
 

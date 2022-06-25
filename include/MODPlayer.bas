@@ -16,9 +16,10 @@ $If MODPLAYER_BAS = UNDEFINED Then
     ' Small test code for debugging the library
     '-----------------------------------------------------------------------------------------------------
     '$Debug
-    'If LoadMODFile("C:\Users\samue\OneDrive\Documents\GitHub\QB64-MOD-Player\mods\dope.mod") Then
+    'If LoadMODFile("C:\Users\samue\OneDrive\Documents\GitHub\QB64-MOD-Player\mods\rez-monday.mod") Then
     '    StartMODPlayer
     '    Do
+    '        UpdateMODPlayer
     '        Locate 1, 1
     '        Print Using "Order: ### / ###    Pattern: ### / ###    Row: ## / 64    BPM: ###    Speed: ###"; Song.orderPosition + 1; Song.orders; Order(Song.orderPosition) + 1; Song.highestPattern + 1; Song.patternRow + 1; Song.bpm; Song.speed;
     '        Limit 60
@@ -30,19 +31,6 @@ $If MODPLAYER_BAS = UNDEFINED Then
     '-----------------------------------------------------------------------------------------------------
     ' FUNCTIONS & SUBROUTINES
     '-----------------------------------------------------------------------------------------------------
-    ' Calculates and sets the timer speed and also the mixer buffer update size
-    ' We always set the global BPM using this and never directly
-    Sub UpdateMODTimer (nBPM As Unsigned Byte)
-        Song.bpm = nBPM
-
-        ' Calculate the mixer buffer update size
-        Song.mixerBufferSize = (SoftSynth.mixerRate * 5) / SHL(Song.bpm, 1)
-
-        ' S / (2 * B / 5) (where S is second and B is BPM)
-        On Timer(Song.timerHandle, 5 / SHL(Song.bpm, 1)) MODPlayerTimerHandler
-    End Sub
-
-
     ' Loads the MOD file into memory and prepares all required gobals
     Function LoadMODFile%% (sFileName As String)
         ' By default we assume a failure
@@ -260,11 +248,16 @@ $If MODPLAYER_BAS = UNDEFINED Then
         InitializeMixer Song.channels
 
         ' Initialize some important stuff
+        Song.tempoTimerValue = (SoftSynth.mixerRate * SONG_BPM_DEFAULT) / 50
+        Song.activeChannels = 0
         Song.orderPosition = 0
         Song.patternRow = 0
         Song.speed = SONG_SPEED_DEFAULT
         Song.tick = Song.speed
         Song.isPaused = FALSE
+
+        ' Set default BPM
+        SetBPM SONG_BPM_DEFAULT
 
         ' Setup the channel array
         ReDim Channel(0 To Song.channels - 1) As ChannelType
@@ -283,25 +276,12 @@ $If MODPLAYER_BAS = UNDEFINED Then
             SetVoicePanning Song.channels - 1, SAMPLE_PAN_CENTER
         End If
 
-        ' Feed some amount of silent samples to the QB64 sound pipe
-        ' This helps reduce initial buffer underrun hiccups
-        UpdateMixerSilence BUFFER_UNDERRUN_PROTECTION * 60 ' since sample rate is per second
-
-        ' Allocate a QB64 Timer
-        Song.timerHandle = FreeTimer
-        UpdateMODTimer SONG_BPM_DEFAULT
-        Timer(Song.timerHandle) On
-
         Song.isPlaying = TRUE
     End Sub
 
 
     ' Frees all allocated resources, stops the timer and hence song playback
     Sub StopMODPlayer
-        ' Free QB64 timer
-        Timer(Song.timerHandle) Off
-        Timer(Song.timerHandle) Free
-
         ' Tell softsynth we are done
         FinalizeMixer
 
@@ -309,24 +289,17 @@ $If MODPLAYER_BAS = UNDEFINED Then
     End Sub
 
 
-    ' Called by the QB64 timer at a specified rate
-    Sub MODPlayerTimerHandler
+    ' This should be called at regular intervals to run the mod player and mixer code
+    ' You can call this as frequenctly as you want. The routine will simply exit if nothing is to be done
+    Sub UpdateMODPlayer
         ' Check conditions for which we should just exit and not process anything
-        If Song.orderPosition >= Song.orders Then
-            ' This will help push out any valid samples waiting in the queue at the end of the song
-            UpdateMixerSilence Song.mixerBufferSize
-            Exit Sub
-        End If
+        If Song.orderPosition >= Song.orders Then Exit Sub
 
         ' Set the playing flag to true
         Song.isPlaying = TRUE
 
-        ' If song is paused simply feed silence to the QB64 sound pipe and exit
-        ' Again, this helps use avoid stuttering and hiccups when playback is resumed
-        If Song.isPaused Then
-            UpdateMixerSilence Song.mixerBufferSize
-            Exit Sub
-        End If
+        ' If song is paused or we already have enough samples to play then exit
+        If Song.isPaused Or Not NeedsSoundRefill Then Exit Sub
 
         If Song.tick >= Song.speed Then
             ' Reset song tick
@@ -372,7 +345,7 @@ $If MODPLAYER_BAS = UNDEFINED Then
         End If
 
         ' Mix the current tick
-        UpdateMixer Song.mixerBufferSize
+        UpdateMixer Song.samplesPerTick
 
         ' Increment song tick on each update
         Song.tick = Song.tick + 1
@@ -381,7 +354,7 @@ $If MODPLAYER_BAS = UNDEFINED Then
 
     ' Updates a row of notes and play them out on tick 0
     Sub UpdateMODRow
-        Dim As Unsigned Byte nChannel, nNote, nSample, nVolume, nEffect, nOperand, nOpX, nOpY, lastChannel
+        Dim As Unsigned Byte nChannel, nNote, nSample, nVolume, nEffect, nOperand, nOpX, nOpY
         ' The effect flags below are set to true when a pattern jump effect and pattern break effect are triggered
         Dim As Byte jumpEffectFlag, breakEffectFlag, noFrequency
 
@@ -411,7 +384,7 @@ $If MODPLAYER_BAS = UNDEFINED Then
                 Channel(nChannel).note = nNote
                 Channel(nChannel).restart = TRUE
                 Channel(nChannel).startPosition = 0
-                lastChannel = nChannel
+                Song.activeChannels = nChannel
 
                 ' Retrigger tremolo and vibrato waveforms
                 If Channel(nChannel).waveControl And &HF < 4 Then Channel(nChannel).vibratoPosition = 0
@@ -540,7 +513,7 @@ $If MODPLAYER_BAS = UNDEFINED Then
                     If nOperand < 32 Then
                         Song.speed = nOperand
                     Else
-                        UpdateMODTimer nOperand
+                        SetBPM nOperand
                     End If
             End Select
 
@@ -551,7 +524,7 @@ $If MODPLAYER_BAS = UNDEFINED Then
         Next
 
         ' Now play all samples that needs to be played
-        For nChannel = 0 To lastChannel
+        For nChannel = 0 To Song.activeChannels
             If Channel(nChannel).restart Then
                 If Sample(Channel(nChannel).sample).loopLength > 0 Then
                     PlayVoice nChannel, Channel(nChannel).sample, Channel(nChannel).startPosition, SAMPLE_PLAY_LOOP, Sample(Channel(nChannel).sample).loopStart, Sample(Channel(nChannel).sample).loopEnd
@@ -659,6 +632,15 @@ $If MODPLAYER_BAS = UNDEFINED Then
     End Sub
 
 
+    ' We always set the global BPM using this and never directly
+    Sub SetBPM (nBPM As Unsigned Byte)
+        Song.bpm = nBPM
+
+        ' Calculate the number of samples we have to mix per tick
+        Song.samplesPerTick = Song.tempoTimerValue / nBPM
+    End Sub
+
+
     ' Binary search the period table to find the closest value
     ' I hope this is the right way to do glissando. Oh well...
     Function GetClosestPeriod& (target As Long)
@@ -746,7 +728,7 @@ $If MODPLAYER_BAS = UNDEFINED Then
                 delta = Rnd * 255
         End Select
 
-        delta = SHR(delta * Channel(chan).vibratoDepth, 5)
+        delta = SHL(SHR(delta * Channel(chan).vibratoDepth, 7), 2)
 
         If Channel(chan).vibratoPosition >= 0 Then
             SetVoiceFrequency chan, GetFrequencyFromPeriod(Channel(chan).period + delta)

@@ -80,8 +80,9 @@ System 0
 Sub PrintMODInfo
     Locate 1, 1
     Color 15
-    Print Using "Order: ### / ###    Pattern: ### / ###    Row: ## / 64    BPM: ###    Speed: ###"; Song.orderPosition + 1; Song.orders; Order(Song.orderPosition) + 1; Song.highestPattern + 1; Song.patternRow + 1; Song.bpm; Song.speed
-    Print
+    Print Using "Ord: ### / ### | Pat: ### / ### | Row: ## / 64 | Chn: ### / ### | Voc: ### / ###"; Song.orderPosition + 1; Song.orders; Order(Song.orderPosition) + 1; Song.highestPattern + 1; Song.patternRow + 1; Song.activeChannels; Song.channels; SoftSynth.activeVoices; SoftSynth.voices
+    Print Using "BPM: ###       | Spd: ###"; Song.bpm; Song.speed
+
     Color 10
     Print Song.subtype; ": "; Song.songName
     Print
@@ -111,7 +112,9 @@ End Sub
 Sub PrintPatternInfo
     Color 15
     Locate 1, 1
-    Print Using "Order: ### / ###    Pattern: ### / ###    Row: ## / 64    BPM: ###    Speed: ###"; Song.orderPosition + 1; Song.orders; Order(Song.orderPosition) + 1; Song.highestPattern + 1; Song.patternRow + 1; Song.bpm; Song.speed;
+    Print Using "Ord: ### / ### | Pat: ### / ### | Row: ## / 64 | Chn: ### / ### | Voc: ### / ###"; Song.orderPosition + 1; Song.orders; Order(Song.orderPosition) + 1; Song.highestPattern + 1; Song.patternRow + 1; Song.activeChannels; Song.channels; SoftSynth.activeVoices; SoftSynth.voices;
+    If Song.channels < 6 Then Print Else Print " | ";
+    Print Using "BPM: ###       | Spd: ###"; Song.bpm; Song.speed
 
     Dim As Integer startRow, startPat, nNote, nChan, i
 
@@ -278,6 +281,8 @@ Sub PlaySong (fileName As String)
     vol = GLOBAL_VOLUME_MAX
 
     Do
+        UpdateMODPlayer
+
         If InfoMode Then
             PrintMODInfo
         Else
