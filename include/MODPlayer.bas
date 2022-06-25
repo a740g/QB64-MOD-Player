@@ -249,7 +249,6 @@ $If MODPLAYER_BAS = UNDEFINED Then
 
         ' Initialize some important stuff
         Song.tempoTimerValue = (SoftSynth.mixerRate * SONG_BPM_DEFAULT) / 50
-        Song.activeChannels = 0
         Song.orderPosition = 0
         Song.patternRow = 0
         Song.speed = SONG_SPEED_DEFAULT
@@ -357,6 +356,9 @@ $If MODPLAYER_BAS = UNDEFINED Then
         Dim As Unsigned Byte nChannel, nNote, nSample, nVolume, nEffect, nOperand, nOpX, nOpY
         ' The effect flags below are set to true when a pattern jump effect and pattern break effect are triggered
         Dim As Byte jumpEffectFlag, breakEffectFlag, noFrequency
+
+        ' Set the active channel count to zero
+        Song.activeChannels = 0
 
         ' Process all channels
         For nChannel = 0 To Song.channels - 1
