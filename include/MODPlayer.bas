@@ -230,9 +230,12 @@ $If MODPLAYER_BAS = UNDEFINED Then
         InitializeSampleManager Song.samples
 
         ' Load the samples
+        ' TODO: For funkrepeat load a another copy of the inverted looped samples into a 31 + n slot
+        '   Check which sample needs this by quickly checking the pattern data above
+        '   Then during playback use the 31 + n sample when the effect is encountered
         For i = 0 To Song.samples - 1
             ' Load sample size bytes of data and send it to our softsynth sample manager
-            StoreSample i, Input$(Sample(i).length, fileHandle)
+            LoadSample i, Input$(Sample(i).length, fileHandle)
         Next
 
         Close fileHandle
@@ -843,9 +846,9 @@ $If MODPLAYER_BAS = UNDEFINED Then
 $End If
 '---------------------------------------------------------------------------------------------------------
 
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------
 ' MODULE FILES
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------
 '$Include:'SoftSynth.bas'
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------
 

@@ -178,10 +178,26 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
 
     ' Stores a sample in the sample data array
     ' Note this will also add some silence samples at the end
-    Sub StoreSample (nSample As Unsigned Byte, sData As String)
+    ' TODO: LoadSample(nSample as Unsigned Byte, sData as string, nLength as long, nStart as long, nEnd as long, is16Bit as byte)
+    '   Save more stuff like length, loop start and loop end
+    '   If looping sample then anti-click by copying a couple of samples from the beginning to the end of the loop
+    '   Convert all samples to 16-bit for internal use
+    '   Samples will be stored using MEM
+    '   Samples to be address using "sample unit" internally, i.e. 16-bits (integer) per sample unit
+    Sub LoadSample (nSample As Unsigned Byte, sData As String)
         ' Allocate 32 bytes more than needed for mixer runoff
         SampleData(nSample) = sData + String$(32, NULL)
     End Sub
+
+
+    ' Get a sample value for a sample from position
+    'Function PeekSample% (nSample As Unsigned Byte, nPosition As Long)
+    'End Function
+
+
+    ' Writes a sample value to a sample at position
+    'Sub PokeSample (nSample As Unsigned Byte, nPosition As Long, nValue As Integer)
+    'End Sub
 
 
     ' Set the volume for a voice (0 - 64)
@@ -219,7 +235,7 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
     Sub StopVoice (nVoice As Unsigned Byte)
         Voice(nVoice).sample = -1
         Voice(nVoice).volume = SAMPLE_VOLUME_MAX
-        ' Voice(nVoice).panning is intentionally left out
+        ' Voice(nVoice).panning is intentionally left out to respect the pan positions set by the loader
         Voice(nVoice).pitch = 0
         Voice(nVoice).position = 0
         Voice(nVoice).playType = SAMPLE_PLAY_SINGLE
@@ -252,7 +268,7 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
 
     ' Enables or disable HQ mixer
     Sub EnableHQMixer (nFlag As Byte)
-        SoftSynth.useHQMixer = Not (nFlag = FALSE) ' This will accept all kinds of garbage :)
+        SoftSynth.useHQMixer = (nFlag <> FALSE) ' This will accept all kinds of garbage :)
     End Sub
     '-----------------------------------------------------------------------------------------------------
 $End If

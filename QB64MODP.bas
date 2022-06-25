@@ -274,6 +274,7 @@ Sub PlaySong (fileName As String)
     AdjustWindowSize
 
     Dim k As Long, vol As Integer, hq As Byte
+
     vol = GLOBAL_VOLUME_MAX
 
     Do
@@ -373,7 +374,7 @@ Function GetFileNameFromPath$ (pathName As String)
 
     ' Retrieve the position of the first / or \ in the parameter from the
     For i = Len(pathName) To 1 Step -1
-        If Asc(pathName, i) = Asc("/") Or Asc(pathName, i) = Asc("\") Then Exit For
+        If Asc(pathName, i) = 47 Or Asc(pathName, i) = 92 Then Exit For
     Next
 
     ' Return the full string if pathsep was not found

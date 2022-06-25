@@ -1,0 +1,148 @@
+PROTRACKER 2.3A SONG/MODULE FILE FORMAT
+
+This document is provided as an introduction to the Commodore Amiga MOD audio
+format and doesn't go too much into details. Due to its origins, MOD files are
+big-endian. To obtain "proper" values under little-endian CPUs, invert the low
+and high bytes of WORD fields.
+
+The format was introduced by Karsten Obarski's Ultimate SoundTracker and
+supports 4 channels each with one voice.
+
+
+1.0 OVERALL STRUCTURE
+
+  The MOD file format is structured as follows:
+    TITLE                         required    20 bytes
+    SAMPLE DESCRIPTORS            required    930 bytes
+    GENERAL INFO                  required    134 bytes
+    PATTERN DATA                  required    variable (1024 bytes per pattern)
+    SAMPLE DATA                   required    variable
+
+
+2.0 HEADER
+
+  There's no strict specification for the MOD format and variations may exist.
+  The file doesn't include a magic number or version field. The very first 20
+  bytes of the file provide the song title (ProTracker would only output
+  uppercase song names:)
+
+      BYTE      sngName[20];        // Song title, NULL-padded.
+
+  Right after the song name field appears a table of 31 sample descriptors of 30
+  bytes each. Entries are commonly defined as indices 1 to 31, as index 0 is
+  reserved for "blank" or "no sound." Each entry is structured as follows:
+
+      BYTE      smpName[22];        // Sample name.
+      WORD      smpSize;            // Length of sample, in WORDs.
+      BYTE      fineTune;           // Finetune value.
+      BYTE      volume;             // Sample playback volume.
+      WORD      loopCue;            // Repeat starting offset, in WORDs.
+      WORD      loopLen;            // Repeat length, in WORDs.
+
+  Here is a discussion of various fields:
+      smpName
+        22-byte long NULL-padded string. Contains the name of the sample. Since
+        IntuiTracker, it is common for artists to use smpName to insert comments
+        by starting the field with character # (0x23.)
+
+      smpSize
+        Big-endian unsigned 16-bit integer. Length of the sample, in WORDs
+        (multiply by 2 to obtain the sample length in BYTEs.)
+
+      fineTune
+        Signed 8-bit integer. The lower four bits are the actual value while the
+        upper four bits should be ignored. The lower four bits hold a signed
+        integer, in range -8 to 7.
+
+      volume
+        Unsigned 8-bit integer. Sample playback volume, holds a value in range
+        0 to 64.
+
+      loopCue
+        Big-endian unsigned 16-bit integer. Loop starting offset from the
+        beginning of the sample data, in WORDs. Multiply the value by 2 to
+        obtain the offset in BYTEs.
+
+      loopLen
+        Big-endian unsigned 16-bit integer. Length in WORDs of the loop starting
+        from the beginning of the loop. Multiply the value by 2 to obtain the
+        length in BYTEs.
+
+  Finally, a 134-byte block provides information for the pattern to play and a
+  pseudo-signature hints at file specifics.
+
+      BYTE      sngLen;             // Song length.
+      BYTE      flags;              // Reset flag.
+      BYTE      pattern[128];       // Pattern to play.
+      BYTE      magic[4];           // Pseudo-signature.
+
+    Here is a discussion of various fields:
+      sngLen
+        Unsigned 8-bit integer. Length of the song, a value between 1 and 128.
+
+      flags
+        Unsigned 8-bit integer. If bit 7 (value 127) is set, forces old trackers
+        to search through all patterns when loading. NoiseTracker uses this byte
+        for restart, while ProTracker doesn't.
+
+      pattern
+        Unsigned 8-bit integer. Each entry should hold a number between 0 and 63
+        (or 0 and 127,) which is the index of the pattern to play when the
+        tracker reaches that position in the song.
+
+      magic
+        4-byte string. May contain "M.K." (Mahoney & Kaktus,) to indicate that
+        the MOD file contains 31 samples instead of 15. If the field contains
+        "M!K!" then the file has more than 64 patterns (ProTracker 2.3) Other
+        strings include "FLT4" and "FLT8".
+
+
+3.0 PATTERN DATA
+
+  Each pattern is 1024 bytes long and is stored contiguously in the file after
+  that point. The total number of patterns is not explicitly provided, but can
+  be obtained by searching for the highest value found in the pattern[] array.
+  Each pattern contains 64 notes for all 4 channels and each note is stored as
+  4 bytes, structured as follows:
+
+    Bits        Meaning
+    31-28       Upper four bits of sample number.
+    27-16       Note period.
+    15-12       Lower four bits of sample number.
+    11-0        Effect command.
+
+  3.1 Effect Commands
+
+    Effect command is provided as a 12-bit field in each note. The first 4 bits
+    provides the type of effect to apply to the note, while the following 8 bits
+    are used to configure the effect. Some effects use all 8 bits as one field,
+    while others use 2x 4 bits.
+
+    Bits 11-8                          Bits 7-0
+    0: Normal play or Arpeggio         xy: x-first half note add, y-second
+    1: Slide up                        xx: up speed
+    2: Slide down                      xx: down speed
+    3: Tone Portamento                 xx: up/down speed
+    4: Vibrato                         xy: x-speed, y-depth
+    5: Tone Portamento + Volume Slide  xy: x-up speed, y-down speed
+    6: Vibrato + Volume Slide          xy: x-up speed, y-down speed
+    7: Tremolo                         xy: x-speed, y-depth
+    9: Set SampleOffset                xx: offset (23 -> 2300)
+    A: VolumeSlide                     xy: x-up speed, y-down speed
+    B: Position Jump                   xx: song position
+    C: Set Volume                      xx: volume, 0x00-0x40
+    D: Pattern Break                   xx: break position in next pattern
+    F: Set Speed                       xx: speed (0x00-0x1F) / tempo (0x20/0xFF)
+    E: Retrig Note                     9x: retrig from note + x vblanks
+
+
+4.0 SAMPLE DATA
+
+  Samples are raw chunks of data identical to the .SAM sound format. In Amiga
+  fashion, bytes are signed: if bit 7 is set, the value is negative. If bit 7 is
+  clear, the value is positive. To convert a signed byte to an unsigned byte,
+  simply add 128 to the value.
+
+  The length (in WORDs) of each audio sample is found in the sample descriptor
+  table. Each chunk is stored contiguously at the end of the file, in the same
+  order as they appear in the sample descriptor table.
