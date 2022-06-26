@@ -1,6 +1,6 @@
-# QB64 MOD Player
+# What is this?
 
-A [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player library written entirely in [QB64](https://github.com/QB64-Phoenix-Edition/QB64pe). Yes, this does __not use any__ third party libraries!
+This is a [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player library written entirely in [QB64](https://github.com/QB64-Phoenix-Edition/QB64pe). Yes, this does __not use any__ third party libraries!
 
 ![Screenshot](screenshots/qb64mp_mainscreen.png)
 ![Screenshot](screenshots/qb64mp_infoscreen.png)
@@ -24,6 +24,8 @@ Function LoadMODFile%% (sFileName As String)
 Sub StartMODPlayer
 Sub UpdateMODPlayer
 Sub StopMODPlayer
+Sub SetGlobalVolume (nVolume As Single)
+Sub EnableHQMixer (nFlag As Byte)
 ```
 
 ## Bibliography
