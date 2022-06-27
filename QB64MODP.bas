@@ -38,6 +38,8 @@ Const APP_NAME = "QB64 MOD Player"
 ReDim Shared NoteTable(0 To 0) As String * 2
 Dim Shared InfoMode As Byte
 Dim Shared WindowWidthChar As Unsigned Integer
+Dim Shared Volume As Integer
+Dim Shared HighQuality As Byte
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -59,6 +61,7 @@ AcceptFileDrop ' Enable drag and drop of files
 InitializeNoteTable ' Initialize note string table
 AdjustWindowSize ' Set the initial window size
 AllowFullScreen SquarePixels , Smooth ' All the user to press Alt+Enter to go fullscreen
+Volume = GLOBAL_VOLUME_MAX ' Set global volume to maximum
 ProcessCommandLine ' Check if any files were specified in the command line
 
 Dim k As Long
@@ -77,14 +80,19 @@ System 0
 '-----------------------------------------------------------------------------------------------------
 ' FUNCTIONS & SUBROUTINES
 '-----------------------------------------------------------------------------------------------------
+Sub PrintInfoHeader
+    Color 0, 3
+    Locate 1, 2
+    Print Using " Ord: ### / ### | Pat: ### / ### | Row: ## / 63 | Chn: ### / ### | Voc: ### / ### "; Song.orderPosition; Song.orders - 1; Order(Song.orderPosition); Song.highestPattern; Song.patternRow; Song.activeChannels; Song.channels; SoftSynth.activeVoices; SoftSynth.voices;
+    Locate 2, 2
+    Print Using " BPM: ###       | Spd: ###       | Vol: ###     |  HQ: ###       | Rep: ###       "; Song.bpm; Song.speed, Volume, HighQuality; Song.isLooping;
+End Sub
+
 ' Dumps MOD info along with the channel that is playing
 Sub PrintMODInfo
-    Locate 1, 1
-    Color 15
-    Print Using "Ord: ### / ### | Pat: ### / ### | Row: ## / 64 | Chn: ### / ### | Voc: ### / ###"; Song.orderPosition + 1; Song.orders; Order(Song.orderPosition) + 1; Song.highestPattern + 1; Song.patternRow + 1; Song.activeChannels; Song.channels; SoftSynth.activeVoices; SoftSynth.voices
-    Print Using "BPM: ###       | Spd: ###"; Song.bpm; Song.speed
+    PrintInfoHeader
 
-    Color 10
+    Color 10, 0
     Print Song.subtype; ": "; Song.songName
     Print
     Color 15
@@ -111,11 +119,7 @@ End Sub
 
 ' Dumps current pattern information on the screen
 Sub PrintPatternInfo
-    Color 15
-    Locate 1, 1
-    Print Using "Ord: ### / ### | Pat: ### / ### | Row: ## / 64 | Chn: ### / ### | Voc: ### / ###"; Song.orderPosition + 1; Song.orders; Order(Song.orderPosition) + 1; Song.highestPattern + 1; Song.patternRow + 1; Song.activeChannels; Song.channels; SoftSynth.activeVoices; SoftSynth.voices;
-    If Song.channels < 6 Then Print Else Print " | ";
-    Print Using "BPM: ###       | Spd: ###"; Song.bpm; Song.speed
+    PrintInfoHeader
 
     Dim As Integer startRow, startPat, nNote, nChan, i
 
@@ -125,6 +129,8 @@ Sub PrintPatternInfo
         startRow = 1 + PATTERN_ROW_MAX + startRow
         startPat = startPat - 1
     End If
+
+    Color , 0
 
     For i = 3 To 42
         Locate i, 1
@@ -141,17 +147,17 @@ Sub PrintPatternInfo
             For nChan = 0 To Song.channels - 1
                 Color 14
                 Print Using " (##)"; nChan + 1;
-                Color 13
-                Print Using " ## "; Pattern(startPat, startRow, nChan).sample;
                 nNote = Pattern(startPat, startRow, nChan).note
                 Color 10
                 If nNote = NOTE_NONE Then
-                    Print "--- ";
+                    Print "  -  ";
                 ElseIf nNote = NOTE_KEY_OFF Then
-                    Print "^^^ ";
+                    Print " ^^^ ";
                 Else
-                    Print Using "&# "; NoteTable(nNote Mod 12); nNote \ 12;
+                    Print Using " &# "; NoteTable(nNote Mod 12); nNote \ 12;
                 End If
+                Color 13
+                Print Using "## "; Pattern(startPat, startRow, nChan).sample;
                 Color 11
                 Print Right$(" " + Hex$(Pattern(startPat, startRow, nChan).effect), 2); " ";
                 Print Right$(" " + Hex$(Pattern(startPat, startRow, nChan).operand), 2); " ";
@@ -277,9 +283,10 @@ Sub PlaySong (fileName As String)
     StartMODPlayer
     AdjustWindowSize
 
-    Dim k As Long, vol As Integer, hq As Byte
+    Dim k As Long
 
-    vol = GLOBAL_VOLUME_MAX
+    SetGlobalVolume Volume
+    EnableHQMixer HighQuality
 
     Do
         UpdateMODPlayer
@@ -297,21 +304,21 @@ Sub PlaySong (fileName As String)
                 Song.isPaused = Not Song.isPaused
 
             Case 43, 61
-                vol = vol + 1
-                If vol > GLOBAL_VOLUME_MAX Then vol = GLOBAL_VOLUME_MAX
-                SetGlobalVolume vol
+                Volume = Volume + 1
+                SetGlobalVolume Volume
+                Volume = SoftSynth.volume
 
             Case 45, 95
-                vol = vol - 1
-                If vol < 0 Then vol = 0
-                SetGlobalVolume vol
+                Volume = Volume - 1
+                SetGlobalVolume Volume
+                Volume = SoftSynth.volume
 
             Case 76, 108
                 Song.isLooping = Not Song.isLooping
 
             Case 81, 113
-                hq = Not hq
-                EnableHQMixer hq
+                HighQuality = Not HighQuality
+                EnableHQMixer HighQuality
 
             Case 44, 60
                 Song.orderPosition = Song.orderPosition - 1
@@ -331,6 +338,8 @@ Sub PlaySong (fileName As String)
                 InfoMode = FALSE
                 AdjustWindowSize
         End Select
+
+        HighQuality = SoftSynth.useHQMixer ' Since this can be changed by the playing MOD
 
         Limit 120
     Loop Until Not Song.isPlaying Or k = 27 Or TotalDroppedFiles > 0
@@ -396,5 +405,6 @@ End Function
 ' MODULE FILES
 '-----------------------------------------------------------------------------------------------------
 '$Include:'./include/MODPlayer.bas'
+'-----------------------------------------------------------------------------------------------------
 '-----------------------------------------------------------------------------------------------------
 
