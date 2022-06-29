@@ -262,12 +262,16 @@ $If MODPLAYER_BAS = UNDEFINED Then
         ReDim Channel(0 To Song.channels - 1) As ChannelType
 
         ' Setup panning for all channels except last one if we have an odd number
-        ' I hope I did this right. But I don't care even if it not the classic way. This is cooler :)
+        ' I hope I did this right...
+        ' TODO: No, this is not right. Paula's panning setup is hard LLRR and we are doing LRLR. This needs to change? What about 2 channel MODs?
+        '       Also, until QB64 SndRaw stereo bug is resolved, we'll do maximum stereo seperation
         For i = 0 To Song.channels - 1 - (Song.channels Mod 2)
             If i Mod 2 = 0 Then
-                SetVoicePanning i, SAMPLE_PAN_LEFT + SAMPLE_PAN_CENTER / 2
+                ' TODO: SetVoicePanning i, SAMPLE_PAN_LEFT + SAMPLE_PAN_CENTER / 2
+                SetVoicePanning i, SAMPLE_PAN_LEFT
             Else
-                SetVoicePanning i, SAMPLE_PAN_RIGHT - SAMPLE_PAN_CENTER / 2
+                ' TODO: SetVoicePanning i, SAMPLE_PAN_RIGHT - SAMPLE_PAN_CENTER / 2
+                SetVoicePanning i, SAMPLE_PAN_RIGHT
             End If
         Next
         ' Set the last channel to center. This also works for single channel
