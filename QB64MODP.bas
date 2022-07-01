@@ -54,7 +54,7 @@ Data "C-","C#","D-","D#","E-","F-","F#","G-","G#","A-","A#","B-"
 '-----------------------------------------------------------------------------------------------------
 ' PROGRAM ENTRY POINT - Frankenstein retro TUI with drag & drop support
 '-----------------------------------------------------------------------------------------------------
-Title APP_NAME ' Set the program name in the titlebar
+Title APP_NAME + " " + OS$ ' Set the program name in the titlebar
 ChDir StartDir$ ' Change to the directory specifed by the environment
 ControlChr Off ' Turn off control characters
 AcceptFileDrop ' Enable drag and drop of files
@@ -85,7 +85,7 @@ Sub PrintInfoHeader
     Locate 1, 2
     Print Using " Ord: ### / ### | Pat: ### / ### | Row: ## / 63 | Chn: ### / ### | Voc: ### / ### "; Song.orderPosition; Song.orders - 1; Order(Song.orderPosition); Song.highestPattern; Song.patternRow; Song.activeChannels; Song.channels; SoftSynth.activeVoices; SoftSynth.voices;
     Locate 2, 2
-    Print Using " BPM: ###       | Spd: ###       | Vol: ###     |  HQ: ###       | Rep: ###       "; Song.bpm; Song.speed, Volume, HighQuality; Song.isLooping;
+    Print Using " BPM: ###       | Spd: ###       | Vol: \\ / FF |  HQ: \       \ | Rep: \       \ "; Song.bpm; Song.speed, Right$("0" + Hex$(Volume), 2), BoolToStr(HighQuality, 1); BoolToStr(Song.isLooping, 2);
 End Sub
 
 ' Dumps MOD info along with the channel that is playing
@@ -347,7 +347,7 @@ Sub PlaySong (fileName As String)
     StopMODPlayer
     AdjustWindowSize
 
-    Title APP_NAME ' Set app title to the way it was
+    Title APP_NAME + " " + OS$  ' Set app title to the way it was
 End Sub
 
 
@@ -398,6 +398,36 @@ Function GetFileNameFromPath$ (pathName As String)
     Else
         GetFileNameFromPath = Right$(pathName, Len(pathName) - i)
     End If
+End Function
+
+' Gets a string form of the boolean value passed
+Function BoolToStr$ (v As Long, t As Unsigned Byte)
+    Select Case t
+        Case 1
+            If v Then
+                BoolToStr = "On"
+            Else
+                BoolToStr = "Off"
+            End If
+        Case 2
+            If v Then
+                BoolToStr = "Enabled"
+            Else
+                BoolToStr = "Disabled"
+            End If
+        Case 3
+            If v Then
+                BoolToStr = "1"
+            Else
+                BoolToStr = "0"
+            End If
+        Case Else
+            If v Then
+                BoolToStr = "True"
+            Else
+                BoolToStr = "False"
+            End If
+    End Select
 End Function
 '-----------------------------------------------------------------------------------------------------
 
