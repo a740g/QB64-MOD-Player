@@ -124,7 +124,7 @@ Sub PrintPatternInfo
     Dim As Integer startRow, startPat, nNote, nChan, i
 
     ' Subscript out of range bugfix for player when song is 128 orders long and the song reaches the end
-    ' In this case if the sub is allowed to proceed then Order(Song.orderPosition) will case "subscript out of range"
+    ' In this case if the sub is allowed to proceed then Order(Song.orderPosition) will cause "subscript out of range"
     ' Note this is only a problem with this demo and not the actual library since we are trying to access internal stuff directly
     If Song.orderPosition >= Song.orders Then Exit Sub
 
