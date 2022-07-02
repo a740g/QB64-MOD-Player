@@ -123,6 +123,11 @@ Sub PrintPatternInfo
 
     Dim As Integer startRow, startPat, nNote, nChan, i
 
+    ' Subscript out of range bugfix for player when song is 128 orders long and the song reaches the end
+    ' In this case if the sub is allowed to proceed then Order(Song.orderPosition) will case "subscript out of range"
+    ' Note this is only a problem with this demo and not the actual library since we are trying to access internal stuff directly
+    If Song.orderPosition >= Song.orders Then Exit Sub
+
     startPat = Order(Song.orderPosition)
     startRow = Song.patternRow - 19
     If startRow < 0 Then
@@ -347,7 +352,7 @@ Sub PlaySong (fileName As String)
     StopMODPlayer
     AdjustWindowSize
 
-    Title APP_NAME + " " + OS$  ' Set app title to the way it was
+    Title APP_NAME + " " + OS$ ' Set app title to the way it was
 End Sub
 
 
