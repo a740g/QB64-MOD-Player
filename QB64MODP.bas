@@ -86,13 +86,14 @@ Sub PrintInfoHeader
     Print Using " Ord: ### / ### | Pat: ### / ### | Row: ## / 63 | Chn: ### / ### | Voc: ### / ### "; Song.orderPosition; Song.orders - 1; Order(Song.orderPosition); Song.highestPattern; Song.patternRow; Song.activeChannels; Song.channels; SoftSynth.activeVoices; SoftSynth.voices;
     Locate 2, 2
     Print Using " BPM: ###       | Spd: ###       | Vol: \\ / FF |  HQ: \       \ | Rep: \       \ "; Song.bpm; Song.speed, Right$("0" + Hex$(Volume), 2), BoolToStr(HighQuality, 1); BoolToStr(Song.isLooping, 2);
+    Color , 0
 End Sub
 
 ' Dumps MOD info along with the channel that is playing
 Sub PrintMODInfo
     PrintInfoHeader
 
-    Color 10, 0
+    Color 10
     Print Song.subtype; ": "; Song.songName
     Print
     Color 15
@@ -134,8 +135,6 @@ Sub PrintPatternInfo
         startRow = 1 + PATTERN_ROW_MAX + startRow
         startPat = startPat - 1
     End If
-
-    Color , 0
 
     For i = 3 To 42
         Locate i, 1
@@ -212,33 +211,33 @@ Sub PrintWelcomeScreen
     Print " |                                                                                | "
     Print " |                                                                                | "
     Print " |                       ";: Color 11: Print "ESC";: Color 8: Print " .................... ";: Color 13: Print "NEXT/QUIT";: Color 14: Print "                       | "
-    Print " |                                                                                |"
+    Print " |                                                                                | "
     Print " |                       ";: Color 11: Print "SPC";: Color 8: Print " ........................ ";: Color 13: Print "PAUSE";: Color 14: Print "                       | "
-    Print " |                                                                                |"
+    Print " |                                                                                | "
     Print " |                       ";: Color 11: Print "=|+";: Color 8: Print " .............. ";: Color 13: Print "INCREASE VOLUME";: Color 14: Print "                       | "
-    Print " |                                                                                |"
+    Print " |                                                                                | "
     Print " |                       ";: Color 11: Print "-|_";: Color 8: Print " .............. ";: Color 13: Print "DECREASE VOLUME";: Color 14: Print "                       | "
-    Print " |                                                                                |"
+    Print " |                                                                                | "
     Print " |                       ";: Color 11: Print "L|l";: Color 8: Print " ......................... ";: Color 13: Print "LOOP";: Color 14: Print "                       | "
-    Print " |                                                                                |"
+    Print " |                                                                                | "
     Print " |                       ";: Color 11: Print "Q|q";: Color 8: Print " ................ ";: Color 13: Print "INTERPOLATION";: Color 14: Print "                       | "
-    Print " |                                                                                |"
+    Print " |                                                                                | "
     Print " |                       ";: Color 11: Print "<|,";: Color 8: Print " ....................... ";: Color 13: Print "REWIND";: Color 14: Print "                       | "
-    Print " |                                                                                |"
+    Print " |                                                                                | "
     Print " |                       ";: Color 11: Print ">|.";: Color 8: Print " ...................... ";: Color 13: Print "FORWARD";: Color 14: Print "                       | "
-    Print " |                                                                                |"
+    Print " |                                                                                | "
     Print " |                       ";: Color 11: Print "I|i";: Color 8: Print " ............. ";: Color 13: Print "INFORMATION VIEW";: Color 14: Print "                       | "
-    Print " |                                                                                |"
+    Print " |                                                                                | "
     Print " |                       ";: Color 11: Print "V|v";: Color 8: Print " ................. ";: Color 13: Print "PATTERN VIEW";: Color 14: Print "                       | "
-    Print " |                                                                                |"
-    Print " |                                                                                |"
-    Print " |                                                                                |"
+    Print " |                                                                                | "
+    Print " |                                                                                | "
+    Print " |                                                                                | "
     Print " |   ";: Color 9: Print "DRAG AND DROP MULTIPLE MOD FILES ON THIS WINDOW TO PLAY THEM SEQUENTIALLY.";: Color 14: Print "   | "
-    Print " |                                                                                |"
+    Print " |                                                                                | "
     Print " |   ";: Color 9: Print "YOU CAN ALSO START THE PROGRAM WITH MULTIPLE FILES FROM THE COMMAND LINE.";: Color 14: Print "    | "
-    Print " |                                                                                |"
+    Print " |                                                                                | "
     Print " |  ";: Color 9: Print "THIS WAS WRITTEN PURELY IN QB64 AND THE SOURCE CODE IS AVAILABLE ON GITHUB.";: Color 14: Print "   | "
-    Print " |                                                                                |"
+    Print " |                                                                                | "
     Print " |                   ";: Color 9: Print "https://github.com/a740g/QB64-MOD-Player";: Color 14: Print "                     | "
     Print "_|_                                                                              _|_"
     Print " `/_______________________________________________________________________________\'";
@@ -309,13 +308,11 @@ Sub PlaySong (fileName As String)
                 Song.isPaused = Not Song.isPaused
 
             Case 43, 61
-                Volume = Volume + 1
-                SetGlobalVolume Volume
+                SetGlobalVolume Volume + 1
                 Volume = SoftSynth.volume
 
             Case 45, 95
-                Volume = Volume - 1
-                SetGlobalVolume Volume
+                SetGlobalVolume Volume - 1
                 Volume = SoftSynth.volume
 
             Case 76, 108
