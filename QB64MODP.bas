@@ -364,7 +364,7 @@ Sub ProcessCommandLine
 End Sub
 
 
-' Processes the command line one file at a time
+' Processes dropped files one file at a time
 Sub ProcessDroppedFiles
     If TotalDroppedFiles > 0 Then
         ' Make a copy of the dropped file and clear the list
@@ -403,32 +403,16 @@ Function GetFileNameFromPath$ (pathName As String)
 End Function
 
 ' Gets a string form of the boolean value passed
-Function BoolToStr$ (v As Long, t As Unsigned Byte)
-    Select Case t
+Function BoolToStr$ (expression As Long, style As Unsigned Byte)
+    Select Case style
         Case 1
-            If v Then
-                BoolToStr = "On"
-            Else
-                BoolToStr = "Off"
-            End If
+            If Not expression Then BoolToStr = "Off" Else BoolToStr = "On"
         Case 2
-            If v Then
-                BoolToStr = "Enabled"
-            Else
-                BoolToStr = "Disabled"
-            End If
+            If Not expression Then BoolToStr = "Disabled" Else BoolToStr = "Enabled"
         Case 3
-            If v Then
-                BoolToStr = "1"
-            Else
-                BoolToStr = "0"
-            End If
+            If Not expression Then BoolToStr = "0" Else BoolToStr = "1"
         Case Else
-            If v Then
-                BoolToStr = "True"
-            Else
-                BoolToStr = "False"
-            End If
+            If Not expression Then BoolToStr = "False" Else BoolToStr = "True"
     End Select
 End Function
 '-----------------------------------------------------------------------------------------------------
