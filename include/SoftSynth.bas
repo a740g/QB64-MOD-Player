@@ -154,16 +154,10 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
         Dim As Single fsamLT, fsamRT
         ' Feed the samples to the QB64 sound pipe
         For s = 1 To nSamples
-            ' Apply global volume and scale sample to QB64 sound pipe specs
-            fSam = SoftSynth.volume / (256 * GLOBAL_VOLUME_MAX)
+            ' Apply global volume and scale sample to FP32 sample spec.
+            fSam = SoftSynth.volume / (128 * GLOBAL_VOLUME_MAX)
             fsamLT = MixerBuffer(1, s) * fSam
             fsamRT = MixerBuffer(2, s) * fSam
-
-            ' Clip samples to QB64 range
-            If fsamLT < -1 Then fsamLT = -1
-            If fsamLT > 1 Then fsamLT = 1
-            If fsamRT < -1 Then fsamRT = -1
-            If fsamRT > 1 Then fsamRT = 1
 
             ' Feed the samples to the QB64 sound pipe
             SndRaw fsamLT, fsamRT, SoftSynth.soundHandle

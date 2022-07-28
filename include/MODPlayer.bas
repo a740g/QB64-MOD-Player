@@ -262,21 +262,28 @@ $If MODPLAYER_BAS = UNDEFINED Then
         ReDim Channel(0 To Song.channels - 1) As ChannelType
 
         ' Setup panning for all channels except last one if we have an odd number
-        ' I hope I did this right...
-        ' TODO: No, this is not right. Paula's panning setup is hard LLRR and we are doing LRLR. This needs to change? What about 2 channel MODs?
-        '       Also, until QB64 SndRaw stereo bug is resolved, we'll do maximum stereo seperation
-        For i = 0 To Song.channels - 1 - (Song.channels Mod 2)
-            If i Mod 2 = 0 Then
-                ' TODO: SetVoicePanning i, SAMPLE_PAN_LEFT + SAMPLE_PAN_CENTER / 2
-                SetVoicePanning i, SAMPLE_PAN_LEFT
-            Else
-                ' TODO: SetVoicePanning i, SAMPLE_PAN_RIGHT - SAMPLE_PAN_CENTER / 2
-                SetVoicePanning i, SAMPLE_PAN_RIGHT
-            End If
-        Next
-        ' Set the last channel to center. This also works for single channel
-        If Song.channels Mod 2 = 1 Then
-            SetVoicePanning Song.channels - 1, SAMPLE_PAN_CENTER
+        ' This is done per AMIGA PAULA's panning setup - LLRRLLRR...
+        ' If we have < 4 channels, then 0 & 1 are set as left & right
+        ' Any channels that are left out are simply centered by the SoftSynth
+        ' We will also not do hard left or hard right. ~25% of sound from each channel is blended with the other
+        If Song.channels = 2 Or Song.channels = 3 Then
+            ' Just setup channels 0 and 1
+            ' If we have a 3rd channel it will be handle by the SoftSynth
+            SetVoicePanning 0, SAMPLE_PAN_LEFT + SAMPLE_PAN_CENTER / 2
+            SetVoicePanning 1, SAMPLE_PAN_RIGHT - SAMPLE_PAN_CENTER / 2
+        Else
+            s = TRUE
+            For i = 0 To Song.channels - 1 - (Song.channels Mod 4) Step 2
+                If s Then
+                    SetVoicePanning i, SAMPLE_PAN_LEFT + SAMPLE_PAN_CENTER / 2
+                    SetVoicePanning i + 1, SAMPLE_PAN_LEFT + SAMPLE_PAN_CENTER / 2
+                Else
+                    SetVoicePanning i, SAMPLE_PAN_RIGHT - SAMPLE_PAN_CENTER / 2
+                    SetVoicePanning i + 1, SAMPLE_PAN_RIGHT - SAMPLE_PAN_CENTER / 2
+                End If
+
+                s = Not s
+            Next
         End If
 
         Song.isPlaying = TRUE
