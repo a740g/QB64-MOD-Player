@@ -107,7 +107,7 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
                 ' Next we go through the channel sample data and mix it to our mixerBuffer
                 For s = 1 To nSamples
                     ' We need these too many times
-                    ' And this is inside the loop becuase "position" changes
+                    ' And this is inside the loop because "position" changes
                     fPos = Voice(v).position
 
                     ' Check if we are looping
@@ -158,6 +158,11 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
             fSam = SoftSynth.volume / (128 * GLOBAL_VOLUME_MAX)
             fsamLT = MixerBuffer(1, s) * fSam
             fsamRT = MixerBuffer(2, s) * fSam
+
+            ' We do not clip samples anymore because miniaudio does that for us
+            ' It makes no sense to clip samples twice
+            ' Obviously, this means that the quality of OpenAL version will suffer
+            ' But that's ok, it is on it's way to sunset :)
 
             ' Feed the samples to the QB64 sound pipe
             SndRaw fsamLT, fsamRT, SoftSynth.soundHandle
