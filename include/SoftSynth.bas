@@ -155,14 +155,19 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
         ' Feed the samples to the QB64 sound pipe
         For s = 1 To nSamples
             ' Apply global volume and scale sample to FP32 sample spec.
-            fSam = SoftSynth.volume / (128 * GLOBAL_VOLUME_MAX)
+            fSam = SoftSynth.volume / (256 * GLOBAL_VOLUME_MAX) ' (128 * GLOBAL_VOLUME_MAX)
             fsamLT = MixerBuffer(1, s) * fSam
             fsamRT = MixerBuffer(2, s) * fSam
 
-            ' We do not clip samples anymore because miniaudio does that for us
+            ' TODO: We do not clip samples anymore because miniaudio does that for us
             ' It makes no sense to clip samples twice
             ' Obviously, this means that the quality of OpenAL version will suffer
             ' But that's ok, it is on it's way to sunset :)
+            ' Clip samples to QB64 range. TODO: This will go away soon!
+            If fsamLT < -1 Then fsamLT = -1
+            If fsamLT > 1 Then fsamLT = 1
+            If fsamRT < -1 Then fsamRT = -1
+            If fsamRT > 1 Then fsamRT = 1
 
             ' Feed the samples to the QB64 sound pipe
             SndRaw fsamLT, fsamRT, SoftSynth.soundHandle
