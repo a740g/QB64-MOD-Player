@@ -218,12 +218,13 @@ $If MODPLAYER_BAS = UNDEFINED Then
         InitializeSampleManager Song.samples
 
         ' Load the samples
-        ' TODO: For funkrepeat load a another copy of the inverted looped samples into a 31 + n slot
+        ' TODO: For funkrepeat load a another copy of the inverted looped samples into a 31 + n slot?
         '   Check which sample needs this by quickly checking the pattern data above
         '   Then during playback use the 31 + n sample when the effect is encountered
+        '   As it is clear, I currently have no clue how funkrepeat effect works. XD
         For i = 0 To Song.samples - 1
             ' Load sample size bytes of data and send it to our softsynth sample manager
-            LoadSample i, Input$(Sample(i).length, fileHandle)
+            LoadSample i, Input$(Sample(i).length, fileHandle), Sample(i).loopLength > 0, Sample(i).loopStart, Sample(i).loopEnd
         Next
 
         Close fileHandle
@@ -266,6 +267,7 @@ $If MODPLAYER_BAS = UNDEFINED Then
         ' If we have < 4 channels, then 0 & 1 are set as left & right
         ' Any channels that are left out are simply centered by the SoftSynth
         ' We will also not do hard left or hard right. ~25% of sound from each channel is blended with the other
+        ' This sounds so much better IMO
         If Song.channels = 2 Or Song.channels = 3 Then
             ' Just setup channels 0 and 1
             ' If we have a 3rd channel it will be handle by the SoftSynth

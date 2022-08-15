@@ -67,12 +67,15 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
 
     ' Returns true if more samples needs to be mixed
     Function NeedsSoundRefill%%
+        $Checking:Off
         NeedsSoundRefill = (SndRawLen(SoftSynth.soundHandle) < SOUND_TIME_MIN)
+        $Checking:On
     End Function
 
     ' This should be called by code using the mixer at regular intervals
     ' All mixing calculations are done using floating-point math (it's 2022 :)
     Sub UpdateMixer (nSamples As Unsigned Integer)
+        $Checking:Off
         Dim As Long v, s, nSample, nPos, nPlayType
         Dim As Single fVolume, fPan, fPitch, fPos, fStartPos, fEndPos, fSam
         Dim As Byte bSam1, bSam2
@@ -155,48 +158,51 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
         ' Feed the samples to the QB64 sound pipe
         For s = 1 To nSamples
             ' Apply global volume and scale sample to FP32 sample spec.
-            fSam = SoftSynth.volume / (256 * GLOBAL_VOLUME_MAX) ' (128 * GLOBAL_VOLUME_MAX)
+            fSam = SoftSynth.volume / (128 * GLOBAL_VOLUME_MAX)
             fsamLT = MixerBuffer(1, s) * fSam
             fsamRT = MixerBuffer(2, s) * fSam
 
-            ' TODO: We do not clip samples anymore because miniaudio does that for us
+            ' We do not clip samples anymore because miniaudio does that for us
             ' It makes no sense to clip samples twice
             ' Obviously, this means that the quality of OpenAL version will suffer
             ' But that's ok, it is on it's way to sunset :)
-            ' Clip samples to QB64 range. TODO: This will go away soon!
-            If fsamLT < -1 Then fsamLT = -1
-            If fsamLT > 1 Then fsamLT = 1
-            If fsamRT < -1 Then fsamRT = -1
-            If fsamRT > 1 Then fsamRT = 1
 
             ' Feed the samples to the QB64 sound pipe
             SndRaw fsamLT, fsamRT, SoftSynth.soundHandle
         Next
+        $Checking:On
     End Sub
 
 
-    ' Stores a sample in the sample data array
-    ' Note this will also add some silence samples at the end
-    ' TODO: LoadSample(nSample as Unsigned Byte, sData as string, nLength as long, nStart as long, nEnd as long, is16Bit as byte)
-    '   Save more stuff like length, loop start and loop end
-    '   If looping sample then anti-click by copying a couple of samples from the beginning to the end of the loop
-    '   Convert all samples to 16-bit for internal use
-    '   Samples will be stored using MEM
-    '   Samples to be address using "sample unit" internally, i.e. 16-bits (integer) per sample unit
-    Sub LoadSample (nSample As Unsigned Byte, sData As String)
+    ' Stores a sample in the sample data array. This will add some silence samples at the end
+    ' If the sample is looping then it will anti-click by copying a couple of samples from the beginning to the end of the loop
+    Sub LoadSample (nSample As Unsigned Byte, sData As String, isLooping As Byte, nLoopStart As Long, nLoopEnd As Long)
         ' Allocate 32 bytes more than needed for mixer runoff
         SampleData(nSample) = sData + String$(32, NULL)
+
+        ' If the sample is looping then make it anti-click by copying a few samples from loop start to loop end
+        If isLooping Then
+            Dim i As Integer
+            ' We'll just copy 4 samples
+            For i = 1 To 4
+                Asc(SampleData(nSample), nLoopEnd + i) = Asc(SampleData(nSample), nLoopStart + i)
+            Next
+        End If
     End Sub
 
 
     ' Get a sample value for a sample from position
-    'Function PeekSample% (nSample As Unsigned Byte, nPosition As Long)
-    'End Function
+    Function PeekSample%% (nSample As Unsigned Byte, nPosition As Long)
+        PeekSample = Asc(SampleData(nSample), 1 + nPosition)
+    End Function
 
 
     ' Writes a sample value to a sample at position
-    'Sub PokeSample (nSample As Unsigned Byte, nPosition As Long, nValue As Integer)
-    'End Sub
+    ' Don't worry about the nValue being unsigned. Just feed signed 8-bit sample values to it
+    ' It's unsigned to prevent Asc from throwing up XD
+    Sub PokeSample (nSample As Unsigned Byte, nPosition As Long, nValue As Unsigned Byte)
+        Asc(SampleData(nSample), 1 + nPosition) = nValue
+    End Sub
 
 
     ' Set the volume for a voice (0 - 64)

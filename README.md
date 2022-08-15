@@ -1,6 +1,6 @@
 # What is this?
 
-This is a [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player library written entirely in [QB64](https://github.com/QB64-Phoenix-Edition/QB64pe). Yes, this does __not use any__ third party libraries!
+This is a [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player library written entirely in [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe). Yes, this does __not use any__ third party libraries!
 
 ![Screenshot](screenshots/qb64mp_mainscreen.png)
 ![Screenshot](screenshots/qb64mp_infoscreen.png)
@@ -44,6 +44,10 @@ Sub EnableHQMixer (nFlag As Byte)
 
 - [Icon](https://iconarchive.com/artist/tsukasa-tux.html) by Tsukasa-Tux (Azrael Jackie Lockheart)
 
+## Important note
+
+This will sound like absolute grabage if used with QB64 / QB64-PE with OpenAL backend. The OpenAL code in all versions of QB64 and QB64-PE has `SndRaw` mixing and clipping bugs. You've been warned. In that past, I worked around these bugs by using several hacks. Ever since I re-wrote the QB64-PE audio backend to use [miniaudio](https://miniaud.io/), I removed all those hacks. So, this sounds best when used with [QB64-PE with miniaudio backend](https://github.com/a740g/QBPE/tree/combined).
+
 ## FAQ
 
 Why a MOD player in QB64?
@@ -61,3 +65,11 @@ I found a bug. How can I help?
 Can this be used in a game / demo?
 
 - Absolutely. The player UI code included in a great example.
+
+You keep saying [QB64-PE with miniaudio backend](https://github.com/a740g/QBPE/tree/combined), where is it?
+
+- Glad you asked! You can find the latest version in my [QB64-PE fork](https://github.com/a740g/QBPE/tree/combined). I have submitted a [pull request](https://github.com/QB64-Phoenix-Edition/QB64pe/pull/133) for this and hopefully, it will become a part of QB64-PE soon!
+
+I see that your miniaudio backend version of QB64-PE already has MOD, S3M, XM, IT, RADv2 & MIDI support. Why should I care about this?
+
+- Honestly, you should not! The MOD re-player in QB64-PE with miniaudio backend uses [Libxmp-lite](https://github.com/libxmp/libxmp/tree/master/lite) and as such is good enough for most use cases. This is just something that I made just to see what can be done using just QB64. If you want to see what MOD files are made of and what makes them tick, then by all means, have at it. There is a ton of interesting stuff in the code for people who care about this kind of stuff. Also, my MOD re-player is more accurate than the one in Libxmp-lite... I hope. 😉

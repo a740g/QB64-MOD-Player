@@ -60,8 +60,9 @@ ControlChr Off ' Turn off control characters
 AcceptFileDrop ' Enable drag and drop of files
 InitializeNoteTable ' Initialize note string table
 AdjustWindowSize ' Set the initial window size
-AllowFullScreen SquarePixels , Smooth ' All the user to press Alt+Enter to go fullscreen
+AllowFullScreen SquarePixels , Smooth ' Allow the user to press Alt+Enter to go fullscreen
 Volume = GLOBAL_VOLUME_MAX ' Set global volume to maximum
+HighQuality = TRUE ' Enable interpolated mixing by default
 ProcessCommandLine ' Check if any files were specified in the command line
 
 Dim k As Long
