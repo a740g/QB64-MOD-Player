@@ -46,7 +46,7 @@ Sub EnableHQMixer (nFlag As Byte)
 
 ## Important note
 
-This will sound like absolute garbage if used with QB64 / QB64-PE with OpenAL backend. The OpenAL code in all versions of QB64 and QB64-PE has `SndRaw` mixing and clipping bugs. You've been warned. If you absolutely must use QB64 with OpenAL, then set the `player` volume to < 75% for something bearable. In that past, I worked around these bugs by using several hacks. Ever since I re-wrote the QB64-PE audio backend to use [miniaudio](https://miniaud.io/), I removed all those hacks. So, this sounds best when used with versions of [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe/releases/) >= v3.1.0 with the default miniaudio backend selected.
+This will sound like absolute garbage if used with QB64 / QB64-PE with OpenAL backend. The OpenAL code in all versions of QB64 and QB64-PE has `SndRaw` mixing and clipping bugs. You've been warned. If you absolutely must use QB64 with OpenAL, then set the `player` volume to < 75% for something bearable. In the past, I worked around these bugs by using several hacks. Ever since I re-wrote the QB64-PE audio backend to use [miniaudio](https://miniaud.io/), I removed all those hacks. So, this sounds best when used with versions of [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe/releases/) >= v3.1.0 with the default miniaudio backend selected.
 
 ## FAQ
 

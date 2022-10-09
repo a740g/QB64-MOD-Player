@@ -37,7 +37,7 @@ Const APP_NAME = "QB64 MOD Player"
 '-----------------------------------------------------------------------------------------------------
 ReDim Shared NoteTable(0 To 0) As String * 2
 Dim Shared InfoMode As Byte
-Dim Shared WindowWidthChar As Unsigned Integer
+Dim Shared WindowWidth As Unsigned Integer
 Dim Shared Volume As Integer
 Dim Shared HighQuality As Byte
 '-----------------------------------------------------------------------------------------------------
@@ -81,7 +81,7 @@ System 0
 '-----------------------------------------------------------------------------------------------------
 ' FUNCTIONS & SUBROUTINES
 '-----------------------------------------------------------------------------------------------------
-Sub PrintInfoHeader
+Sub PrintHeaderInfo
     Color 0, 3
     Locate 1, 2
     Print Using " Ord: ### / ### | Pat: ### / ### | Row: ## / 63 | Chn: ### / ### | Voc: ### / ### "; Song.orderPosition; Song.orders - 1; Order(Song.orderPosition); Song.highestPattern; Song.patternRow; Song.activeChannels; Song.channels; SoftSynth.activeVoices; SoftSynth.voices;
@@ -96,7 +96,7 @@ Sub PrintMODInfo
     ' In this case if the sub is allowed to proceed then Order(Song.orderPosition) will cause "subscript out of range"
     ' Note this is only a problem with this demo and not the actual library since we are trying to access internal stuff directly
     If Song.orderPosition >= Song.orders Then Exit Sub
-    PrintInfoHeader
+    PrintHeaderInfo
 
     Color 10
     Print Song.subtype; ": "; Song.songName
@@ -131,7 +131,7 @@ Sub PrintPatternInfo
     ' In this case if the sub is allowed to proceed then Order(Song.orderPosition) will cause "subscript out of range"
     ' Note this is only a problem with this demo and not the actual library since we are trying to access internal stuff directly
     If Song.orderPosition >= Song.orders Then Exit Sub
-    PrintInfoHeader
+    PrintHeaderInfo
 
     startPat = Order(Song.orderPosition)
     startRow = Song.patternRow - 19
@@ -173,7 +173,7 @@ Sub PrintPatternInfo
 
             Color , 0
         Else
-            Print Space$(WindowWidthChar);
+            Print Space$(WindowWidth);
         End If
 
         startRow = startRow + 1
@@ -263,13 +263,14 @@ End Sub
 ' Automatically selects, sets the window size and saves the text width
 Sub AdjustWindowSize
     If Song.channels < 5 Or Not Song.isPlaying Or InfoMode Then
-        WindowWidthChar = 84 ' we don't want the width to be too small
+        WindowWidth = 84 ' we don't want the width to be too small
     Else
-        WindowWidthChar = 8 + Song.channels * 19
+        WindowWidth = 8 + Song.channels * 19
     End If
 
     ' We need 43 lines minimum
-    Width WindowWidthChar, 43
+    Width WindowWidth, 43
+
     ' Clear the screen
     Cls
 End Sub
