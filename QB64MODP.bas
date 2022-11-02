@@ -411,13 +411,13 @@ End Function
 Function BoolToStr$ (expression As Long, style As Unsigned Byte)
     Select Case style
         Case 1
-            If Not expression Then BoolToStr = "Off" Else BoolToStr = "On"
+            If expression Then BoolToStr = "On" Else BoolToStr = "Off"
         Case 2
-            If Not expression Then BoolToStr = "Disabled" Else BoolToStr = "Enabled"
+            If expression Then BoolToStr = "Enabled" Else BoolToStr = "Disabled"
         Case 3
-            If Not expression Then BoolToStr = "0" Else BoolToStr = "1"
+            If expression Then BoolToStr = "1" Else BoolToStr = "0"
         Case Else
-            If Not expression Then BoolToStr = "False" Else BoolToStr = "True"
+            If expression Then BoolToStr = "True" Else BoolToStr = "False"
     End Select
 End Function
 '-----------------------------------------------------------------------------------------------------

@@ -46,7 +46,7 @@ Sub EnableHQMixer (nFlag As Byte)
 
 ## Important note
 
-This will sound like absolute garbage if used with QB64 / QB64-PE with OpenAL backend. The OpenAL code in all versions of QB64 and QB64-PE has `SndRaw` mixing and clipping bugs. You've been warned. If you absolutely must use QB64 with OpenAL, then set the `player` volume to < 75% for something bearable. In the past, I worked around these bugs by using several hacks. Ever since I re-wrote the QB64-PE audio backend to use [miniaudio](https://miniaud.io/), I removed all those hacks. So, this sounds best when used with versions of [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe/releases/) >= v3.1.0 with the default miniaudio backend selected.
+This will sound like absolute garbage if used with QB64 / QB64-PE with OpenAL backend. The OpenAL code in all versions of QB64 and QB64-PE has `SndRaw` mixing and clipping bugs. You've been warned. If you absolutely must use QB64 with OpenAL, then set the `player` volume to < 75% for something bearable. In the past, I worked around these bugs using several hacks. Ever since I re-wrote the QB64-PE audio backend to use [miniaudio](https://miniaud.io/), I removed all those hacks. So, this sounds best when used with versions of [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe/releases/) >= v3.1.0 with the default miniaudio backend selected.
 
 ## FAQ
 
@@ -68,7 +68,7 @@ Can this be used in a game / demo?
 
 You keep saying QB64-PE with miniaudio backend. Where is it?
 
-- Glad you asked! IT, XM, S3M & MOD support will be built into [QB64-PE v3.1.0+](https://github.com/QB64-Phoenix-Edition/QB64pe). If you can always compile the development branch yourself if you cannot wait for the latest release.
+- Glad you asked! IT, XM, S3M & MOD support will be built into [QB64-PE v3.1.0+](https://github.com/QB64-Phoenix-Edition/QB64pe/releases/). If you can always compile the development branch yourself if you cannot wait for the latest release.
 
 I see that your miniaudio backend version of QB64-PE already has MOD, S3M, XM, IT, RADv2 & MIDI support. Why should I care about this?
 
