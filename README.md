@@ -2,10 +2,9 @@
 
 This is a [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player library written entirely in [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe). Yes, this does __not use any__ third party libraries!
 
-[![QB64 MOD Player - rez-monday.mod](https://img.youtube.com/vi/HTW2cy-Su08/0.jpg)](https://www.youtube.com/watch?v=HTW2cy-Su08)
-![Screenshot](screenshots/qb64mp_mainscreen.png)
-![Screenshot](screenshots/qb64mp_infoscreen.png)
-![Screenshot](screenshots/qb64mp_patternscreen.png)
+[![Screenshot](screenshots/qb64mp_mainscreen.png)](screenshots/qb64mp_demo.mp4)
+[![Screenshot](screenshots/qb64mp_infoscreen.png)](screenshots/qb64mp_demo.mp4)
+[![Screenshot](screenshots/qb64mp_patternscreen.png)](screenshots/qb64mp_demo.mp4)
 
 ## Goals
 
