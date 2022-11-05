@@ -96,43 +96,13 @@ $If MODPLAYER_BI = UNDEFINED Then
     '-----------------------------------------------------------------------------------------------------
     ' GLOBAL VARIABLES
     '-----------------------------------------------------------------------------------------------------
-    Dim Shared Song As SongType
-    Dim Shared Order(0 To ORDER_TABLE_MAX) As Unsigned Byte ' Order list
-    ReDim Shared Pattern(0 To 0, 0 To 0, 0 To 0) As NoteType ' Pattern data strored as (pattern, row, channel)
-    ReDim Shared Sample(0 To 0) As SampleType ' Sample info array
-    ReDim Shared Channel(0 To 0) As ChannelType ' Channel info array
-    ReDim Shared PeriodTable(0 To 0) As Unsigned Integer ' Amiga period table
-    ReDim Shared SineTable(0 To 0) As Unsigned Byte ' Sine table used for effects
-    '-----------------------------------------------------------------------------------------------------
-
-    '-----------------------------------------------------------------------------------------------------
-    ' PROGRAM DATA
-    '-----------------------------------------------------------------------------------------------------
-    ' Amiga period table data for 11 octaves
-    PeriodTab:
-    Data 134
-    Data 27392,25856,24384,23040,21696,20480,19328,18240,17216,16256,15360,14496
-    Data 13696,12928,12192,11520,10848,10240,9664,9120,8608,8128,7680,7248
-    Data 6848,6464,6096,5760,5424,5120,4832,4560,4304,4064,3840,3624
-    Data 3424,3232,3048,2880,2712,2560,2416,2280,2152,2032,1920,1812
-    Data 1712,1616,1524,1440,1356,1280,1208,1140,1076,1016,960,906
-    Data 856,808,762,720,678,640,604,570,538,508,480,453
-    Data 428,404,381,360,339,320,302,285,269,254,240,226
-    Data 214,202,190,180,170,160,151,143,135,127,120,113
-    Data 107,101,95,90,85,80,75,71,67,63,60,56
-    Data 53,50,47,45,42,40,37,35,33,31,30,28
-    Data 26,25,23,22,21,20,18,17,16,15,15,14
-    Data 0,0
-    Data NaN
-
-    ' Sine table for tremolo & vibrato
-    SineTab:
-    Data 32
-    Data 0,24,49,74,97,120,141,161
-    Data 180,197,212,224,235,244,250,253
-    Data 255,253,250,244,235,224,212,197
-    Data 180,161,141,120,97,74,49,24
-    Data NaN
+    Dim Song As SongType
+    Dim Order(0 To ORDER_TABLE_MAX) As Unsigned Byte ' Order list
+    ReDim Pattern(0 To 0, 0 To 0, 0 To 0) As NoteType ' Pattern data strored as (pattern, row, channel)
+    ReDim Sample(0 To 0) As SampleType ' Sample info array
+    ReDim Channel(0 To 0) As ChannelType ' Channel info array
+    ReDim PeriodTable(0 To 0) As Unsigned Integer ' Amiga period table
+    ReDim SineTable(0 To 0) As Unsigned Byte ' Sine table used for effects
     '-----------------------------------------------------------------------------------------------------
 $End If
 '---------------------------------------------------------------------------------------------------------

@@ -53,10 +53,10 @@ $If SOFTSYNTH_BI = UNDEFINED Then
     '-----------------------------------------------------------------------------------------------------
     ' GLOBAL VARIABLES
     '-----------------------------------------------------------------------------------------------------
-    Dim Shared SoftSynth As SoftSynthType
-    ReDim Shared SampleData(0 To 0) As String ' Sample data array
-    ReDim Shared Voice(0 To 0) As VoiceType ' Voice info array
-    ReDim Shared MixerBuffer(1 To MIXER_CHANNELS, 1 To 1) As Single ' Sample data here can be used for visualization
+    Dim SoftSynth As SoftSynthType
+    ReDim SampleData(0 To 0) As String ' Sample data array
+    ReDim Voice(0 To 0) As VoiceType ' Voice info array
+    ReDim MixerBuffer(1 To MIXER_CHANNELS, 1 To 1) As Single ' Sample data here can be used for visualization
     '-----------------------------------------------------------------------------------------------------
 $End If
 '---------------------------------------------------------------------------------------------------------

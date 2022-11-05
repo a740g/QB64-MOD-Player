@@ -2,9 +2,8 @@
 
 This is a [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player library written entirely in [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe). Yes, this does __not use any__ third party libraries!
 
-[![Screenshot](screenshots/qb64mp_mainscreen.png)](screenshots/qb64mp_demo.mp4)
-[![Screenshot](screenshots/qb64mp_infoscreen.png)](screenshots/qb64mp_demo.mp4)
-[![Screenshot](screenshots/qb64mp_patternscreen.png)](screenshots/qb64mp_demo.mp4)
+[![Screenshot](screenshots/qb64mp_intro.png)](screenshots/qb64mp_demo.mp4)
+[![Screenshot](screenshots/qb64mp_playing.png)](screenshots/qb64mp_demo.mp4)
 
 ## Goals
 
@@ -60,7 +59,7 @@ Will you add S3M, XM, IT support?
 
 I found a bug. How can I help?
 
-- Let me know using GitHub issues or fix it yourself and let me know!
+- Let me know using GitHub issues or fix it yourself and send me a PR!
 
 Can this be used in a game / demo?
 
@@ -68,8 +67,8 @@ Can this be used in a game / demo?
 
 You keep saying QB64-PE with miniaudio backend. Where is it?
 
-- Glad you asked! IT, XM, S3M & MOD support will be built into [QB64-PE v3.1.0+](https://github.com/QB64-Phoenix-Edition/QB64pe/releases/). If you can always compile the development branch yourself if you cannot wait for the latest release.
+- Glad you asked! IT, XM, S3M & MOD support is built into [QB64-PE v3.1.0+](https://github.com/QB64-Phoenix-Edition/QB64pe/releases/).
 
-I see that your miniaudio backend version of QB64-PE already has MOD, S3M, XM, IT, RADv2 & MIDI support. Why should I care about this?
+I see that the miniaudio backend version of QB64-PE already has MOD, S3M, XM, IT, RADv2 & MIDI support. Why should I care about this?
 
 - Honestly, you should not! The MOD re-player in QB64-PE with miniaudio backend uses [Libxmp-lite](https://github.com/libxmp/libxmp/tree/master/lite) and as such is good enough for most use cases. This is just something that I made just to see what can be done using just QB64-PE. If you want to see what MOD files are made of and what makes them tick, then by all means, have at it. There are some interesting things in the code for people who care about this kind of stuff. Also, my MOD re-player is more accurate than the one in Libxmp-lite... I hope. 😉

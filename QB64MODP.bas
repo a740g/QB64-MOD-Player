@@ -22,33 +22,33 @@ $VersionInfo:OriginalFilename='QB64MODP.exe'
 $VersionInfo:ProductName='QB64 MOD Player'
 $VersionInfo:Web='https://github.com/a740g'
 $VersionInfo:Comments='https://github.com/a740g'
-$VersionInfo:FILEVERSION#=1,2,0,11
-$VersionInfo:PRODUCTVERSION#=1,2,0,0
+$VersionInfo:FILEVERSION#=1,5,0,11
+$VersionInfo:PRODUCTVERSION#=1,5,0,0
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
 ' CONSTANTS
 '-----------------------------------------------------------------------------------------------------
-Const APP_NAME = "QB64 MOD Player"
+Const APP_NAME = "QB64 MOD Player" ' application name
+Const TEXT_LINE_MAX = 75 ' this the number of lines we need
+Const TEXT_WIDTH_MIN = 120 ' minimum width we need
+Const TEXT_WIDTH_HEADER = 84 ' width of the main header on the vis screen
+Const FRAME_RATE_MAX = 120 ' maximum frame rate we'll allow
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
 ' GLOBAL VARIABLES
 '-----------------------------------------------------------------------------------------------------
-ReDim Shared NoteTable(0 To 0) As String * 2
-Dim Shared InfoMode As Byte
-Dim Shared WindowWidth As Unsigned Integer
-Dim Shared Volume As Integer
-Dim Shared HighQuality As Byte
-'-----------------------------------------------------------------------------------------------------
-
-'-----------------------------------------------------------------------------------------------------
-' PROGRAM DATA
-'-----------------------------------------------------------------------------------------------------
-' Note string table for UI
-NoteTab:
-Data 12
-Data "C-","C#","D-","D#","E-","F-","F#","G-","G#","A-","A#","B-"
+ReDim Shared NoteTable(0 To 0) As String * 2 ' this contains the note stings
+Dim Shared WindowWidth As Long ' the width of our windows in characters
+Dim Shared PatternDisplayWidth As Long ' the width of the pattern display in characters
+Dim Shared SpectrumAnalyzerWidth As Long ' the width of the spectrum analyzer
+Dim Shared SpectrumAnalyzerHeight As Long ' the height of the spectrum analyzer
+Dim Shared Volume As Integer ' this is needed because the replayer can reset volume across songs
+Dim Shared HighQuality As Byte ' this is needed because the replayer can reset quality across songs
+' FFT arrays
+ReDim Shared As Single lSig(0 To 0), rSig(0 To 0)
+ReDim Shared As Single FFTr(0 To 0), FFTi(0 To 0)
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -56,7 +56,6 @@ Data "C-","C#","D-","D#","E-","F-","F#","G-","G#","A-","A#","B-"
 '-----------------------------------------------------------------------------------------------------
 Title APP_NAME + " " + OS$ ' Set the program name in the titlebar
 ChDir StartDir$ ' Change to the directory specifed by the environment
-ControlChr Off ' Turn off control characters
 AcceptFileDrop ' Enable drag and drop of files
 InitializeNoteTable ' Initialize note string table
 AdjustWindowSize ' Set the initial window size
@@ -72,7 +71,7 @@ Do
     ProcessDroppedFiles
     PrintWelcomeScreen
     k = KeyHit
-    Limit 120
+    Limit FRAME_RATE_MAX
 Loop Until k = 27
 
 System 0
@@ -81,35 +80,38 @@ System 0
 '-----------------------------------------------------------------------------------------------------
 ' FUNCTIONS & SUBROUTINES
 '-----------------------------------------------------------------------------------------------------
-Sub PrintHeaderInfo
-    Color 0, 3
-    Locate 1, 2
-    Print Using " Ord: ### / ### | Pat: ### / ### | Row: ## / 63 | Chn: ### / ### | Voc: ### / ### "; Song.orderPosition; Song.orders - 1; Order(Song.orderPosition); Song.highestPattern; Song.patternRow; Song.activeChannels; Song.channels; SoftSynth.activeVoices; SoftSynth.voices;
-    Locate 2, 2
-    Print Using " BPM: ###       | Spd: ###       | Vol: \\ / FF |  HQ: \       \ | Rep: \       \ "; Song.bpm; Song.speed, Right$("0" + Hex$(Volume), 2), BoolToStr(HighQuality, 1); BoolToStr(Song.isLooping, 2);
-    Color , 0
-End Sub
+' This "prints" the current playing MODs visualization on the screen
+Sub PrintVisualization
+    Shared Song As SongType
+    Shared Order() As Unsigned Byte
+    Shared Pattern() As NoteType
+    Shared Sample() As SampleType
+    Shared SoftSynth As SoftSynthType
+    Shared MixerBuffer() As Single
 
-' Dumps MOD info along with the channel that is playing
-Sub PrintMODInfo
     ' Subscript out of range bugfix for player when song is 128 orders long and the song reaches the end
     ' In this case if the sub is allowed to proceed then Order(Song.orderPosition) will cause "subscript out of range"
     ' Note this is only a problem with this demo and not the actual library since we are trying to access internal stuff directly
     If Song.orderPosition >= Song.orders Then Exit Sub
-    PrintHeaderInfo
 
-    Color 10
-    Print Song.subtype; ": "; Song.songName
-    Print
-    Color 15
-    Print "_.________________________________________________________________________________._"
-    Print " |                                                                                |"
-    Print " |";: Color 12: Print " #  SAMPLE-NAME             VOLUME C2SPD LENGTH LOOP-LENGTH LOOP-START LOOP-END";: Color 15: Print " |"
-    Print "_|_                                                                              _|_"
-    Print " `/______________________________________________________________________________\'"
-    Print
+    Dim x As Long
+    x = 1 + WindowWidth \ 2 - TEXT_WIDTH_HEADER \ 2 ' find x so that we can center everything
 
-    Dim As Unsigned Byte i, j
+    ' Print song type and name
+    Color 15, 5
+    Locate 1, x: Print Using "  \  \: \                                                                        \  "; Song.subtype; Song.songName
+
+    ' Print the header
+    Color 16, 15
+    Locate , x: Print Using "  ORD: ### / ### | PAT: ### / ### | ROW: ## / 63 | CHN: ### / ### | VOC: ### / ###  "; Song.orderPosition; Song.orders - 1; Order(Song.orderPosition); Song.highestPattern; Song.patternRow; Song.activeChannels; Song.channels; SoftSynth.activeVoices; SoftSynth.voices
+    Locate , x: Print Using "  BPM: ###       | SPD: ###       | VOL: \\ / FF |  HQ: \       \ | REP: \       \  "; Song.bpm; Song.speed; Right$("0" + Hex$(Volume), 2); BoolToStr(HighQuality, 1); BoolToStr(Song.isLooping, 2)
+
+    ' Print the sample list header
+    Color 16, 3
+    Locate , x: Print "  S#  SAMPLE-NAME              VOLUME C2SPD LENGTH LOOP-LENGTH LOOP-START LOOP-END  "
+
+    ' Print the sample information
+    Dim As Long i, j
     For i = 0 To Song.samples - 1
         Color 14, 0
         For j = 0 To Song.channels - 1
@@ -117,37 +119,40 @@ Sub PrintMODInfo
                 Color 13, 1
             End If
         Next
-        Print Using " ###: & ####### ##### ###### ########### ########## ########   "; i + 1; Sample(i).sampleName; Sample(i).volume; Sample(i).c2Spd; Sample(i).length; Sample(i).loopLength; Sample(i).loopStart; Sample(i).loopEnd
+        Locate , x: Print Using " ###: \                    \ ######## ##### ###### ########### ########## ########  "; i + 1; Sample(i).sampleName; Sample(i).volume; Sample(i).c2Spd; Sample(i).length; Sample(i).loopLength; Sample(i).loopStart; Sample(i).loopEnd
     Next
-    Color , 0
-End Sub
 
+    x = 1 + WindowWidth \ 2 - PatternDisplayWidth \ 2 ' find x so that we can center everything
 
-' Dumps current pattern information on the screen
-Sub PrintPatternInfo
-    Dim As Integer startRow, startPat, nNote, nChan, i
+    ' Print the pattern header
+    Color 16, 3
+    Locate , x: Print " PAT RW ";
+    For i = 1 To Song.channels
+        Print " CHAN NOT S# FX OP ";
+    Next
+    Print
 
-    ' Subscript out of range bugfix for player when song is 128 orders long and the song reaches the end
-    ' In this case if the sub is allowed to proceed then Order(Song.orderPosition) will cause "subscript out of range"
-    ' Note this is only a problem with this demo and not the actual library since we are trying to access internal stuff directly
-    If Song.orderPosition >= Song.orders Then Exit Sub
-    PrintHeaderInfo
+    Dim As Long startRow, startPat, nNote, nChan
 
+    ' Get the current line number
+    j = CsrLin
+
+    ' Find thw pattern and row we print
     startPat = Order(Song.orderPosition)
-    startRow = Song.patternRow - 19
+    startRow = Song.patternRow - (1 + TEXT_LINE_MAX - j) \ 2
     If startRow < 0 Then
         startRow = 1 + PATTERN_ROW_MAX + startRow
         startPat = startPat - 1
     End If
 
-    For i = 3 To 42
-        Locate i, 1
+    ' Now just dump everything top to the screen
+    For i = j To TEXT_LINE_MAX
+        Locate i, x
+        Color 15, 0
 
         If startPat >= 0 And startPat <= Song.highestPattern Then
-            If i = 22 Then
+            If i = j + (1 + TEXT_LINE_MAX - j) \ 2 Then
                 Color 15, 1
-            Else
-                Color 15, 0
             End If
 
             Print Using " ### ##:"; startPat; startRow;
@@ -170,17 +175,48 @@ Sub PrintPatternInfo
                 Print Right$(" " + Hex$(Pattern(startPat, startRow, nChan).effect), 2); " ";
                 Print Right$(" " + Hex$(Pattern(startPat, startRow, nChan).operand), 2); " ";
             Next
-
-            Color , 0
         Else
-            Print Space$(WindowWidth);
+            Print Space$(PatternDisplayWidth);
         End If
 
         startRow = startRow + 1
+        ' Wrap if needed
         If startRow > PATTERN_ROW_MAX Then
             startRow = 0
             startPat = startPat + 1
         End If
+    Next
+
+    Dim samples As Long
+
+    samples = RoundDownPower2(Song.samplesPerTick) ' we need power of 2 for our FFT function
+
+    ' Setup the FFT arrays
+    ReDim As Single lSig(0 To samples - 1), rSig(0 To samples - 1)
+    ReDim As Single FFTr(0 To samples - 1), FFTi(0 To samples - 1)
+
+    ' Fill the FFT arrays with sample data
+    For i = 1 To samples
+        lSig(i - 1) = MixerBuffer(1, i)
+        rSig(i - 1) = MixerBuffer(2, i)
+    Next
+
+    RFFT FFTr(), FFTi(), lSig(), samples ' the left sample first
+
+    For i = 0 To SpectrumAnalyzerHeight - 1
+        x = i * (samples \ 6) \ SpectrumAnalyzerHeight
+        j = Clamp(Sqr((FFTr(x) * FFTr(x)) + (FFTi(x) * FFTi(x))) * 0.4, 0, SpectrumAnalyzerWidth - 1)
+        Locate 1 + i, 1: Print Space$(SpectrumAnalyzerWidth);
+        TextHLine SpectrumAnalyzerWidth - j, 1 + i, SpectrumAnalyzerWidth
+    Next
+
+    RFFT FFTr(), FFTi(), rSig(), samples ' and now the right
+
+    For i = 0 To SpectrumAnalyzerHeight - 1
+        x = i * (samples \ 6) \ SpectrumAnalyzerHeight
+        j = Clamp(Sqr((FFTr(x) * FFTr(x)) + (FFTi(x) * FFTi(x))) * 0.4, 0, SpectrumAnalyzerWidth - 1)
+        Locate 1 + i, 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER: Print Space$(SpectrumAnalyzerWidth);
+        TextHLine 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER, 1 + i, 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER + j
     Next
 End Sub
 
@@ -188,63 +224,85 @@ End Sub
 ' Print the welcome screen
 Sub PrintWelcomeScreen
     Locate 1, 1
-    Color 12, 0
-    Print "   _____ ___   _____ _  _           _____ ___     ___   _                           "
-    Color 12
-    If Timer Mod 7 = 0 Then
-        Print "  (  _  )  _ \(  ___) )( )   / \_/ \  _  )  _ \  (  _ \(_ )                    (+_+)"
-    ElseIf Timer Mod 13 = 0 Then
-        Print "  (  _  )  _ \(  ___) )( )   / \_/ \  _  )  _ \  (  _ \(_ )                    (*_*)"
-    Else
-        Print "  (  _  )  _ \(  ___) )( )   / \_/ \  _  )  _ \  (  _ \(_ )                    (ù_ù)"
-    End If
-    Color 12
-    Print "  | ( ) | (_) ) (__ | || |   |     | ( ) | | ) | | |_) )| |   _ _ _   _   __  _ __  "
-    Color 15
-    Print "  | | | |  _ (|  _  \ || |_  | (_) | | | | | | ) |  __/ | | / _  ) ) ( )/ __ \  __) "
-    Color 15
-    Print "  | (( \| (_) ) (_) |__  __) | | | | (_) | |_) | | |    | |( (_| | (_) |  ___/ |    "
-    Color 10
-    Print "_.(___\_)____/ \___/   (_)   (_) (_)_____)____/  (_)   (___)\__ _)\__  |\____)_)__._"
-    Color 10
-    Print " |                                                               ( )_| |          | "
-    Color 10
-    Print " |                                                                \___/           | "
+    If Timer Mod 2 = 0 Then Color 6, 0 Else Color 4, 0
+    Print "                                                 *        )  (       (                                                  "
+    Print "                       (     (   (         )   (  `    ( /(  )\ )    )\ )  (                                            "
+    Print "                     ( )\  ( )\  )\ )   ( /(   )\))(   )\())(()/(   (()/(  )\    )  (       (   (                       "
+    If Timer Mod 3 = 0 Then Color 12 Else Color 6
+    Print "                     )((_) )((_)(()/(   )\()) ((_)()\ ((_)\  /(_))   /(_))((_)( /(  )\ )   ))\  )(                      "
+    Print "                    ((_)_ ((_)_  /(_)) ((_)\  (_()((_)  ((_)(_))_   (_))   _  )(_))(()/(  /((_)(()\                     "
+    Print "                     / _ \ | _ )(_) / | | (_) |  \/  | / _ \ |   \  | _ \ | |((_)_  )(_))(_))   ((_)                    "
+    If Timer Mod 4 = 0 Then Color 14 Else Color 12
+    Print "                    | (_) || _ \ / _ \|_  _|  | |\/| || (_) || |) | |  _/ | |/ _` || || |/ -_) | '_|                    "
     Color 14
-    Print " |                                                                                | "
-    Print " |                                                                                | "
-    Print " |                                                                                | "
-    Print " |                       ";: Color 11: Print "ESC";: Color 8: Print " .................... ";: Color 13: Print "NEXT/QUIT";: Color 14: Print "                       | "
-    Print " |                                                                                | "
-    Print " |                       ";: Color 11: Print "SPC";: Color 8: Print " ........................ ";: Color 13: Print "PAUSE";: Color 14: Print "                       | "
-    Print " |                                                                                | "
-    Print " |                       ";: Color 11: Print "=|+";: Color 8: Print " .............. ";: Color 13: Print "INCREASE VOLUME";: Color 14: Print "                       | "
-    Print " |                                                                                | "
-    Print " |                       ";: Color 11: Print "-|_";: Color 8: Print " .............. ";: Color 13: Print "DECREASE VOLUME";: Color 14: Print "                       | "
-    Print " |                                                                                | "
-    Print " |                       ";: Color 11: Print "L|l";: Color 8: Print " ......................... ";: Color 13: Print "LOOP";: Color 14: Print "                       | "
-    Print " |                                                                                | "
-    Print " |                       ";: Color 11: Print "Q|q";: Color 8: Print " ................ ";: Color 13: Print "INTERPOLATION";: Color 14: Print "                       | "
-    Print " |                                                                                | "
-    Print " |                       ";: Color 11: Print "<|,";: Color 8: Print " ....................... ";: Color 13: Print "REWIND";: Color 14: Print "                       | "
-    Print " |                                                                                | "
-    Print " |                       ";: Color 11: Print ">|.";: Color 8: Print " ...................... ";: Color 13: Print "FORWARD";: Color 14: Print "                       | "
-    Print " |                                                                                | "
-    Print " |                       ";: Color 11: Print "I|i";: Color 8: Print " ............. ";: Color 13: Print "INFORMATION VIEW";: Color 14: Print "                       | "
-    Print " |                                                                                | "
-    Print " |                       ";: Color 11: Print "V|v";: Color 8: Print " ................. ";: Color 13: Print "PATTERN VIEW";: Color 14: Print "                       | "
-    Print " |                                                                                | "
-    Print " |                                                                                | "
-    Print " |                                                                                | "
-    Print " |   ";: Color 9: Print "DRAG AND DROP MULTIPLE MOD FILES ON THIS WINDOW TO PLAY THEM SEQUENTIALLY.";: Color 14: Print "   | "
-    Print " |                                                                                | "
-    Print " |   ";: Color 9: Print "YOU CAN ALSO START THE PROGRAM WITH MULTIPLE FILES FROM THE COMMAND LINE.";: Color 14: Print "    | "
-    Print " |                                                                                | "
-    Print " |  ";: Color 9: Print "THIS WAS WRITTEN PURELY IN QB64 AND THE SOURCE CODE IS AVAILABLE ON GITHUB.";: Color 14: Print "   | "
-    Print " |                                                                                | "
-    Print " |                   ";: Color 9: Print "https://github.com/a740g/QB64-MOD-Player";: Color 14: Print "                     | "
-    Print "_|_                                                                              _|_"
-    Print " `/_______________________________________________________________________________\'";
+    Print "_.___________________\__\_\|___/ \___/  |_|   |_|  |_| \___/ |___/  |_|   |_|\__,_| \_, |\___| |_|____________________._"
+    Print "                                                                                    |__/                                "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                         ";: Color 11: Print "ESC";: Color 8: Print " .................... ";: Color 13: Print "NEXT/QUIT";: Color 14: Print "                                         | "
+    Print " |                                                                                                                    | "
+    Print " |                                         ";: Color 11: Print "SPC";: Color 8: Print " ........................ ";: Color 13: Print "PAUSE";: Color 14: Print "                                         | "
+    Print " |                                                                                                                    | "
+    Print " |                                         ";: Color 11: Print "=|+";: Color 8: Print " .............. ";: Color 13: Print "INCREASE VOLUME";: Color 14: Print "                                         | "
+    Print " |                                                                                                                    | "
+    Print " |                                         ";: Color 11: Print "-|_";: Color 8: Print " .............. ";: Color 13: Print "DECREASE VOLUME";: Color 14: Print "                                         | "
+    Print " |                                                                                                                    | "
+    Print " |                                         ";: Color 11: Print "L|l";: Color 8: Print " ......................... ";: Color 13: Print "LOOP";: Color 14: Print "                                         | "
+    Print " |                                                                                                                    | "
+    Print " |                                         ";: Color 11: Print "Q|q";: Color 8: Print " ................ ";: Color 13: Print "INTERPOLATION";: Color 14: Print "                                         | "
+    Print " |                                                                                                                    | "
+    Print " |                                         ";: Color 11: Print "<|,";: Color 8: Print " ....................... ";: Color 13: Print "REWIND";: Color 14: Print "                                         | "
+    Print " |                                                                                                                    | "
+    Print " |                                         ";: Color 11: Print ">|.";: Color 8: Print " ...................... ";: Color 13: Print "FORWARD";: Color 14: Print "                                         | "
+    Print " |                                                                                                                    | "
+    Print " |                                         ";: Color 11: Print "I|i";: Color 8: Print " ............. ";: Color 13: Print "INFORMATION VIEW";: Color 14: Print "                                         | "
+    Print " |                                                                                                                    | "
+    Print " |                                         ";: Color 11: Print "V|v";: Color 8: Print " ................. ";: Color 13: Print "PATTERN VIEW";: Color 14: Print "                                         | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
+    Print " |                     ";: Color 9: Print "DRAG AND DROP MULTIPLE MOD FILES ON THIS WINDOW TO PLAY THEM SEQUENTIALLY.";: Color 14: Print "                     | "
+    Print " |                                                                                                                    | "
+    Print " |                     ";: Color 9: Print "YOU CAN ALSO START THE PROGRAM WITH MULTIPLE FILES FROM THE COMMAND LINE.";: Color 14: Print "                      | "
+    Print " |                                                                                                                    | "
+    Print " |                    ";: Color 9: Print "THIS WAS WRITTEN PURELY IN QB64 AND THE SOURCE CODE IS AVAILABLE ON GITHUB.";: Color 14: Print "                     | "
+    Print " |                                                                                                                    | "
+    Print " |                                     ";: Color 9: Print "https://github.com/a740g/QB64-MOD-Player";: Color 14: Print "                                       | "
+    Print "_|_                                                                                                                  _|_"
+    Print " `/__________________________________________________________________________________________________________________\' ";
 End Sub
 
 
@@ -257,28 +315,50 @@ Sub InitializeNoteTable
     For n = 0 To v - 1
         Read NoteTable(n)
     Next
+
+    ' Note string table for UI
+    NoteTab:
+    Data 12
+    Data "C-","C#","D-","D#","E-","F-","F#","G-","G#","A-","A#","B-"
 End Sub
 
 
 ' Automatically selects, sets the window size and saves the text width
 Sub AdjustWindowSize
-    If Song.channels < 5 Or Not Song.isPlaying Or InfoMode Then
-        WindowWidth = 84 ' we don't want the width to be too small
+    Shared Song As SongType
+
+    If Song.isPlaying Then
+        PatternDisplayWidth = 8 + Song.channels * 19 ' find the actual width
+        WindowWidth = PatternDisplayWidth
+        If WindowWidth < TEXT_WIDTH_MIN Then WindowWidth = TEXT_WIDTH_MIN ' we don't want the width to be too small
+        SpectrumAnalyzerWidth = (WindowWidth - TEXT_WIDTH_HEADER) \ 2
+        If PatternDisplayWidth <= TEXT_WIDTH_HEADER Then
+            SpectrumAnalyzerHeight = TEXT_LINE_MAX
+        Else
+            SpectrumAnalyzerHeight = 4 + Song.samples
+        End If
     Else
-        WindowWidth = 8 + Song.channels * 19
+        PatternDisplayWidth = 0
+        WindowWidth = TEXT_WIDTH_MIN ' we don't want the width to be too small
+        SpectrumAnalyzerWidth = 0
+        SpectrumAnalyzerHeight = 0
     End If
 
-    ' We need 43 lines minimum
-    Width WindowWidth, 43
-
-    ' Clear the screen
-    Cls
+    Width WindowWidth, TEXT_LINE_MAX ' we need 52 lines for the vizualization stuff
+    ControlChr Off ' turn off control characters
+    Font 8 ' force 8x8 pixel font
+    Blink Off ' we want high intensity colors
+    Cls ' clear the screen
+    Locate , , FALSE ' turn cursor off
 End Sub
 
 
 ' Initializes, loads and plays a mod file
 ' Also checks for input, shows info etc
 Sub PlaySong (fileName As String)
+    Shared Song As SongType
+    Shared SoftSynth As SoftSynthType
+
     If Not LoadMODFile(fileName) Then
         Color 12
         Print: Print "Failed to load "; fileName; "!"
@@ -299,12 +379,7 @@ Sub PlaySong (fileName As String)
 
     Do
         UpdateMODPlayer
-
-        If InfoMode Then
-            PrintMODInfo
-        Else
-            PrintPatternInfo
-        End If
+        PrintVisualization
 
         k = KeyHit
 
@@ -336,19 +411,11 @@ Sub PlaySong (fileName As String)
                 Song.orderPosition = Song.orderPosition + 1
                 If Song.orderPosition >= Song.orders Then Song.orderPosition = 0
                 Song.patternRow = 0
-
-            Case 73, 105
-                InfoMode = TRUE
-                AdjustWindowSize
-
-            Case 86, 118
-                InfoMode = FALSE
-                AdjustWindowSize
         End Select
 
         HighQuality = SoftSynth.useHQMixer ' Since this can be changed by the playing MOD
 
-        Limit 120
+        Limit FRAME_RATE_MAX
     Loop Until Not Song.isPlaying Or k = 27 Or TotalDroppedFiles > 0
 
     StopMODPlayer
@@ -407,6 +474,7 @@ Function GetFileNameFromPath$ (pathName As String)
     End If
 End Function
 
+
 ' Gets a string form of the boolean value passed
 Function BoolToStr$ (expression As Long, style As Unsigned Byte)
     Select Case style
@@ -420,6 +488,117 @@ Function BoolToStr$ (expression As Long, style As Unsigned Byte)
             If expression Then BoolToStr = "True" Else BoolToStr = "False"
     End Select
 End Function
+
+
+' Vince's FFT routine - https://qb64phoenix.com/forum/showthread.php?tid=270&pid=2005#pid2005
+' Modified for efficiency and performance
+Sub RFFT (xx_r() As Single, xx_i() As Single, x_r() As Single, n As Long)
+    Dim As Single w_r, w_i, wm_r, wm_i, u_r, u_i, v_r, v_i, xpr, xpi, xmr, xmi
+    Dim As Long log2n, rev, i, j, k, m, p, q
+
+    log2n = Log(n \ 2) / Log(2)
+
+    For i = 0 To n \ 2 - 1
+        rev = 0
+        For j = 0 To log2n - 1
+            If i And (2 ^ j) Then rev = rev + (2 ^ (log2n - 1 - j))
+        Next
+
+        xx_r(i) = x_r(2 * rev)
+        xx_i(i) = x_r(2 * rev + 1)
+    Next
+
+    For i = 1 To log2n
+        m = 2 ^ i
+        wm_r = Cos(-2 * Pi / m)
+        wm_i = Sin(-2 * Pi / m)
+
+        For j = 0 To n \ 2 - 1 Step m
+            w_r = 1
+            w_i = 0
+
+            For k = 0 To m \ 2 - 1
+                p = j + k
+                q = p + (m \ 2)
+
+                u_r = w_r * xx_r(q) - w_i * xx_i(q)
+                u_i = w_r * xx_i(q) + w_i * xx_r(q)
+                v_r = xx_r(p)
+                v_i = xx_i(p)
+
+                xx_r(p) = v_r + u_r
+                xx_i(p) = v_i + u_i
+                xx_r(q) = v_r - u_r
+                xx_i(q) = v_i - u_i
+
+                u_r = w_r
+                u_i = w_i
+                w_r = u_r * wm_r - u_i * wm_i
+                w_i = u_r * wm_i + u_i * wm_r
+            Next
+        Next
+    Next
+
+    xx_r(n \ 2) = xx_r(0)
+    xx_i(n \ 2) = xx_i(0)
+
+    For i = 1 To n \ 2 - 1
+        xx_r(n \ 2 + i) = xx_r(n \ 2 - i)
+        xx_i(n \ 2 + i) = xx_i(n \ 2 - i)
+    Next
+
+    For i = 0 To n \ 2 - 1
+        xpr = (xx_r(i) + xx_r(n \ 2 + i)) / 2
+        xpi = (xx_i(i) + xx_i(n \ 2 + i)) / 2
+
+        xmr = (xx_r(i) - xx_r(n \ 2 + i)) / 2
+        xmi = (xx_i(i) - xx_i(n \ 2 + i)) / 2
+
+        xx_r(i) = xpr + xpi * Cos(2 * Pi * i / n) - xmr * Sin(2 * Pi * i / n)
+        xx_i(i) = xmi - xpi * Sin(2 * Pi * i / n) - xmr * Cos(2 * Pi * i / n)
+    Next
+
+    ' symmetry, complex conj
+    For i = 0 To n \ 2 - 1
+        xx_r(n \ 2 + i) = xx_r(n \ 2 - 1 - i)
+        xx_i(n \ 2 + i) = -xx_i(n \ 2 - 1 - i)
+    Next
+End Sub
+
+
+' Rounds down a number to a lower power of 2
+Function RoundDownPower2~& (i As Unsigned Long)
+    Dim j As Unsigned Long
+    j = i
+    j = j Or ShR(j, 1)
+    j = j Or ShR(j, 2)
+    j = j Or ShR(j, 4)
+    j = j Or ShR(j, 8)
+    j = j Or ShR(j, 16)
+    RoundDownPower2 = j - ShR(j, 1)
+End Function
+
+
+' Clamps v between lo and hi
+Function Clamp& (v As Long, lo As Long, hi As Long)
+    If v < lo Then
+        Clamp = lo
+    ElseIf v > hi Then
+        Clamp = hi
+    Else
+        Clamp = v
+    End If
+End Function
+
+
+' Draw a horizontal line using text and colors it too! Sweet! XD
+Sub TextHLine (xs As Long, y As Long, xe As Long)
+    Dim l As Long
+    l = 1 + xe - xs
+    Color 9 + l Mod 7
+    Locate y, xs
+    Print String$(l, 254);
+End Sub
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
