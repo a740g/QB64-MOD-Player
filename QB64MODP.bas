@@ -97,6 +97,9 @@ Sub PrintVisualization
     ' Note this is only a problem with this demo and not the actual library since we are trying to access internal stuff directly
     If Song.orderPosition >= Song.orders Then Exit Sub
 
+    Screen , , 1, 0 ' we'll do all writes to an invisible page and then simply copy that page once we are done
+    Cls ' clear the page
+
     Dim x As Long
     x = 1 + WindowWidth \ 2 - TEXT_WIDTH_HEADER \ 2 ' find x so that we can center everything
 
@@ -204,12 +207,15 @@ Sub PrintVisualization
         rSig(i) = MixerBuffer(MIXER_CHANNEL_RIGHT, i)
     Next
 
+    ' TODO: The scaling (* 0.4) and frequency (\ 6) factors are hard coded and this not good
+    '   Esp. since the width and height of the spectrum alalyzers can change
+    '   So, these hard coded values should be dynamic based on the width and height
+
     RFFT FFTr(), FFTi(), lSig(), samples ' the left samples first
 
     For i = 0 To SpectrumAnalyzerHeight - 1
         x = i * (samples \ 6) \ SpectrumAnalyzerHeight
         j = Clamp(Sqr((FFTr(x) * FFTr(x)) + (FFTi(x) * FFTi(x))) * 0.4, 0, SpectrumAnalyzerWidth - 1)
-        Locate 1 + i, 1: Print Space$(SpectrumAnalyzerWidth);
         TextHLine SpectrumAnalyzerWidth - j, 1 + i, SpectrumAnalyzerWidth
     Next
 
@@ -218,9 +224,11 @@ Sub PrintVisualization
     For i = 0 To SpectrumAnalyzerHeight - 1
         x = i * (samples \ 6) \ SpectrumAnalyzerHeight
         j = Clamp(Sqr((FFTr(x) * FFTr(x)) + (FFTi(x) * FFTi(x))) * 0.4, 0, SpectrumAnalyzerWidth - 1)
-        Locate 1 + i, 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER: Print Space$(SpectrumAnalyzerWidth);
         TextHLine 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER, 1 + i, 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER + j
     Next
+
+    PCopy 1, 0 ' now just copy the working page to the visual page
+    Screen , , 0, 0 ' set the the visual page as the working page
 End Sub
 
 
@@ -309,7 +317,7 @@ Sub PrintWelcomeScreen
     Print "_|_                                                                                                                  _|_"
     Print " `/__________________________________________________________________________________________________________________\' ";
 
-    ' Text mode starfield. Yeah!
+    ' Text mode starfield. Hell yeah!
     Dim i As Long
     For i = 1 To TEXT_LINE_MAX
         If starX(i) < 1 Or starX(i) > WindowWidth Or starY(i) < 1 Or starY(i) > TEXT_LINE_MAX Then
