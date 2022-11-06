@@ -71,6 +71,9 @@ Do
     ProcessDroppedFiles
     PrintWelcomeScreen
     k = KeyHit
+
+    If k = 15104 Then ProcessSelectedFiles ' Shows open file dialog
+
     Limit FRAME_RATE_MAX
 Loop Until k = 27
 
@@ -196,12 +199,12 @@ Sub PrintVisualization
     ReDim As Single FFTr(0 To samples - 1), FFTi(0 To samples - 1)
 
     ' Fill the FFT arrays with sample data
-    For i = 1 To samples
-        lSig(i - 1) = MixerBuffer(1, i)
-        rSig(i - 1) = MixerBuffer(2, i)
+    For i = 0 To samples - 1
+        lSig(i) = MixerBuffer(MIXER_CHANNEL_LEFT, i)
+        rSig(i) = MixerBuffer(MIXER_CHANNEL_RIGHT, i)
     Next
 
-    RFFT FFTr(), FFTi(), lSig(), samples ' the left sample first
+    RFFT FFTr(), FFTi(), lSig(), samples ' the left samples first
 
     For i = 0 To SpectrumAnalyzerHeight - 1
         x = i * (samples \ 6) \ SpectrumAnalyzerHeight
@@ -210,7 +213,7 @@ Sub PrintVisualization
         TextHLine SpectrumAnalyzerWidth - j, 1 + i, SpectrumAnalyzerWidth
     Next
 
-    RFFT FFTr(), FFTi(), rSig(), samples ' and now the right
+    RFFT FFTr(), FFTi(), rSig(), samples ' and now the right ones
 
     For i = 0 To SpectrumAnalyzerHeight - 1
         x = i * (samples \ 6) \ SpectrumAnalyzerHeight
@@ -223,18 +226,21 @@ End Sub
 
 ' Print the welcome screen
 Sub PrintWelcomeScreen
+    Static As Single starX(1 To TEXT_LINE_MAX), starY(1 To TEXT_LINE_MAX)
+    Static As Long starZ(1 To TEXT_LINE_MAX), starC(1 To TEXT_LINE_MAX)
+
+    Screen , , 1, 0 ' this is for the starfield stuff
+    Cls ' same as above
     Locate 1, 1
-    If Timer Mod 2 = 0 Then Color 6, 0 Else Color 4, 0
+    Color 14, 0
+
     Print "                                                 *        )  (       (                                                  "
     Print "                       (     (   (         )   (  `    ( /(  )\ )    )\ )  (                                            "
     Print "                     ( )\  ( )\  )\ )   ( /(   )\))(   )\())(()/(   (()/(  )\    )  (       (   (                       "
-    If Timer Mod 3 = 0 Then Color 12 Else Color 6
     Print "                     )((_) )((_)(()/(   )\()) ((_)()\ ((_)\  /(_))   /(_))((_)( /(  )\ )   ))\  )(                      "
     Print "                    ((_)_ ((_)_  /(_)) ((_)\  (_()((_)  ((_)(_))_   (_))   _  )(_))(()/(  /((_)(()\                     "
     Print "                     / _ \ | _ )(_) / | | (_) |  \/  | / _ \ |   \  | _ \ | |((_)_  )(_))(_))   ((_)                    "
-    If Timer Mod 4 = 0 Then Color 14 Else Color 12
     Print "                    | (_) || _ \ / _ \|_  _|  | |\/| || (_) || |) | |  _/ | |/ _` || || |/ -_) | '_|                    "
-    Color 14
     Print "_.___________________\__\_\|___/ \___/  |_|   |_|  |_| \___/ |___/  |_|   |_|\__,_| \_, |\___| |_|____________________._"
     Print "                                                                                    |__/                                "
     Print " |                                                                                                                    | "
@@ -254,7 +260,7 @@ Sub PrintWelcomeScreen
     Print " |                                                                                                                    | "
     Print " |                                                                                                                    | "
     Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
+    Print " |                                         ";: Color 11: Print " F1";: Color 8: Print " ........... ";: Color 13: Print "MULTI-SELECT FILES";: Color 14: Print "                                         | "
     Print " |                                                                                                                    | "
     Print " |                                         ";: Color 11: Print "ESC";: Color 8: Print " .................... ";: Color 13: Print "NEXT/QUIT";: Color 14: Print "                                         | "
     Print " |                                                                                                                    | "
@@ -293,7 +299,6 @@ Sub PrintWelcomeScreen
     Print " |                                                                                                                    | "
     Print " |                                                                                                                    | "
     Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
     Print " |                     ";: Color 9: Print "DRAG AND DROP MULTIPLE MOD FILES ON THIS WINDOW TO PLAY THEM SEQUENTIALLY.";: Color 14: Print "                     | "
     Print " |                                                                                                                    | "
     Print " |                     ";: Color 9: Print "YOU CAN ALSO START THE PROGRAM WITH MULTIPLE FILES FROM THE COMMAND LINE.";: Color 14: Print "                      | "
@@ -303,6 +308,29 @@ Sub PrintWelcomeScreen
     Print " |                                     ";: Color 9: Print "https://github.com/a740g/QB64-MOD-Player";: Color 14: Print "                                       | "
     Print "_|_                                                                                                                  _|_"
     Print " `/__________________________________________________________________________________________________________________\' ";
+
+    ' Text mode starfield. Yeah!
+    Dim i As Long
+    For i = 1 To TEXT_LINE_MAX
+        If starX(i) < 1 Or starX(i) > WindowWidth Or starY(i) < 1 Or starY(i) > TEXT_LINE_MAX Then
+
+            starX(i) = RandomBetween(1 + WindowWidth \ 4, WindowWidth - WindowWidth \ 4)
+            starY(i) = RandomBetween(1 + TEXT_LINE_MAX \ 4, TEXT_LINE_MAX - TEXT_LINE_MAX \ 4)
+            starZ(i) = 4096
+            starC(i) = RandomBetween(9, 15)
+        End If
+
+        Locate starY(i), starX(i)
+        Color starC(i)
+        Print "*";
+
+        starZ(i) = starZ(i) + 1
+        starX(i) = ((starX(i) - (WindowWidth / 2)) * (starZ(i) / 4096)) + (WindowWidth / 2)
+        starY(i) = ((starY(i) - (TEXT_LINE_MAX / 2)) * (starZ(i) / 4096)) + (TEXT_LINE_MAX / 2)
+    Next
+
+    PCopy 1, 0 ' now just copy the working page to the visual page
+    Screen , , 0, 0 ' set the the visual page as the working page
 End Sub
 
 
@@ -457,6 +485,26 @@ Sub ProcessDroppedFiles
 End Sub
 
 
+' Processes a list of files selected by the user
+Sub ProcessSelectedFiles
+    Dim ofdList As String
+
+    ofdList = OpenFileDialog$(APP_NAME, "", "*.mod|*.MOD|*.Mod", "Music Tracker Files", TRUE)
+
+    If ofdList = NULLSTRING Then Exit Sub
+
+    ReDim fileNames(0 To 0) As String
+    Dim As Long i, j
+
+    j = ParseOpenFileDialogList(ofdList, fileNames())
+
+    For i = 0 To j - 1
+        PlaySong fileNames(i)
+        If TotalDroppedFiles > 0 Then Exit For ' Exit the loop if we have dropped files
+    Next
+End Sub
+
+
 ' Gets the filename portion from a file path
 Function GetFileNameFromPath$ (pathName As String)
     Dim i As Unsigned Long
@@ -591,6 +639,12 @@ Function Clamp& (v As Long, lo As Long, hi As Long)
 End Function
 
 
+' Generates a random number between lo & hi
+Function RandomBetween& (lo As Long, hi As Long)
+    RandomBetween = lo + Rnd * (hi - lo)
+End Function
+
+
 ' Draw a horizontal line using text and colors it too! Sweet! XD
 Sub TextHLine (xs As Long, y As Long, xe As Long)
     Dim l As Long
@@ -599,6 +653,34 @@ Sub TextHLine (xs As Long, y As Long, xe As Long)
     Locate y, xs
     Print String$(l, 254);
 End Sub
+
+
+' This is a simple text parser that can take an input string from OpenFileDialog$ and spit out discrete filepaths in an array
+' Returns the number of strings parsed
+Function ParseOpenFileDialogList& (ofdList As String, ofdArray() As String)
+    Dim As Long p, c
+    Dim ts As String
+
+    ReDim ofdArray(0 To 0) As String
+    ts = ofdList
+
+    Do
+        p = InStr(ts, "|")
+
+        If p = 0 Then
+            ofdArray(c) = ts
+
+            ParseOpenFileDialogList& = c + 1
+            Exit Function
+        End If
+
+        ofdArray(c) = Left$(ts, p - 1)
+        ts = Mid$(ts, p + 1)
+
+        c = c + 1
+        ReDim Preserve ofdArray(0 To c) As String
+    Loop
+End Function
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------

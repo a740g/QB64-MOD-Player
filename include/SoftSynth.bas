@@ -97,8 +97,8 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
 
         ' Reallocate the mixer buffer that will hold sample data for both channels
         ' This is conveniently zeroed by QB64, so that is nice. We don't have to do it
-        ' Here 1 is the left channnel and 2 is the right channel
-        ReDim MixerBuffer(1 To MIXER_CHANNELS, 1 To nSamples) As Single
+        ' Here 0 is the left channnel and 1 is the right channel
+        ReDim MixerBuffer(0 To MIXER_CHANNEL_RIGHT, 0 To nSamples - 1) As Single
 
         ' Set the active voice count to zero
         SoftSynth.activeVoices = 0
@@ -123,7 +123,7 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
                 fEndPos = Voice(v).endPosition
 
                 ' Next we go through the channel sample data and mix it to our mixerBuffer
-                For s = 1 To nSamples
+                For s = 0 To nSamples - 1
                     ' We need these too many times
                     ' And this is inside the loop because "position" changes
                     fPos = Voice(v).position
@@ -159,9 +159,9 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
                     End If
 
                     ' The following two lines mixes the sample and also does volume & stereo panning
-                    ' The below expressions were simplified and rearranged to reduce the number of divisions
-                    MixerBuffer(1, s) = MixerBuffer(1, s) + (fSam * fVolume * (SAMPLE_PAN_RIGHT - fPan)) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
-                    MixerBuffer(2, s) = MixerBuffer(2, s) + (fSam * fVolume * fPan) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
+                    ' The below expressions were simplified and rearranged to reduce the number of divisions. Divisions are slow
+                    MixerBuffer(MIXER_CHANNEL_LEFT, s) = MixerBuffer(MIXER_CHANNEL_LEFT, s) + (fSam * fVolume * (SAMPLE_PAN_RIGHT - fPan)) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
+                    MixerBuffer(MIXER_CHANNEL_RIGHT, s) = MixerBuffer(MIXER_CHANNEL_RIGHT, s) + (fSam * fVolume * fPan) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
 
                     ' Move to the next sample position based on the pitch
                     Voice(v).position = fPos + fPitch
@@ -170,17 +170,17 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
         Next
 
         ' Feed the samples to the QB64 sound pipe
-        For s = 1 To nSamples
+        For s = 0 To nSamples - 1
             ' Apply global volume and scale sample to FP32 sample spec.
-            fSam = SoftSynth.volume / (130 * GLOBAL_VOLUME_MAX)
-            MixerBuffer(1, s) = MixerBuffer(1, s) * fSam
-            MixerBuffer(2, s) = MixerBuffer(2, s) * fSam
+            fSam = SoftSynth.volume / (130 * GLOBAL_VOLUME_MAX) ' 128 should have been ok. But lets add 2 to just make it just a little softer :)
+            MixerBuffer(MIXER_CHANNEL_LEFT, s) = MixerBuffer(MIXER_CHANNEL_LEFT, s) * fSam
+            MixerBuffer(MIXER_CHANNEL_RIGHT, s) = MixerBuffer(MIXER_CHANNEL_RIGHT, s) * fSam
 
             ' We do not clip samples anymore because miniaudio does that for us. It makes no sense to clip samples twice
             ' Obviously, this means that the quality of OpenAL version will suffer. But that's ok, it is on it's way to sunset :)
 
             ' Feed the samples to the QB64 sound pipe
-            SndRaw MixerBuffer(1, s), MixerBuffer(2, s), SoftSynth.soundHandle
+            SndRaw MixerBuffer(0, s), MixerBuffer(1, s), SoftSynth.soundHandle
         Next
         $Checking:On
     End Sub

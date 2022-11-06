@@ -21,7 +21,8 @@ $If SOFTSYNTH_BI = UNDEFINED Then
     Const SAMPLE_PLAY_SINGLE = 0 ' Single-shot playback
     Const SAMPLE_PLAY_LOOP = 1 ' Forward-looping playback
     Const GLOBAL_VOLUME_MAX = 255 ' Max global volume
-    Const MIXER_CHANNELS = 2 ' 2 channels (stereo)
+    Const MIXER_CHANNEL_LEFT = 0 ' Left channel ID
+    Const MIXER_CHANNEL_RIGHT = 1 ' Rigth channel ID
     Const SOUND_TIME_MIN = 0.2 ' We will check that we have this amount of time left in the playback buffer
     '-----------------------------------------------------------------------------------------------------
 
@@ -56,7 +57,7 @@ $If SOFTSYNTH_BI = UNDEFINED Then
     Dim SoftSynth As SoftSynthType
     ReDim SampleData(0 To 0) As String ' Sample data array
     ReDim Voice(0 To 0) As VoiceType ' Voice info array
-    ReDim MixerBuffer(1 To MIXER_CHANNELS, 1 To 1) As Single ' Sample data here can be used for visualization
+    ReDim MixerBuffer(0 To MIXER_CHANNEL_RIGHT, 0 To 0) As Single ' Sample data here can be used for visualization
     '-----------------------------------------------------------------------------------------------------
 $End If
 '---------------------------------------------------------------------------------------------------------
