@@ -34,6 +34,13 @@ Const TEXT_LINE_MAX = 75 ' this the number of lines we need
 Const TEXT_WIDTH_MIN = 120 ' minimum width we need
 Const TEXT_WIDTH_HEADER = 84 ' width of the main header on the vis screen
 Const FRAME_RATE_MAX = 120 ' maximum frame rate we'll allow
+' Program events
+Const EVENT_NONE = 0 ' idle
+Const EVENT_QUIT = 1 ' user wants to quit
+Const EVENT_CMDS = 2 ' process command line
+Const EVENT_LOAD = 3 ' user want to load files
+Const EVENT_DROP = 4 ' user dropped files
+Const EVENT_PLAY = 5 ' play next song
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -62,22 +69,40 @@ AdjustWindowSize ' Set the initial window size
 AllowFullScreen SquarePixels , Smooth ' Allow the user to press Alt+Enter to go fullscreen
 Volume = GLOBAL_VOLUME_MAX ' Set global volume to maximum
 HighQuality = TRUE ' Enable interpolated mixing by default
-ProcessCommandLine ' Check if any files were specified in the command line
 
-Dim k As Long
+Dim k As Long, event As Unsigned Byte
+
+event = EVENT_CMDS ' default to command line event first
 
 ' Main loop
 Do
-    ProcessDroppedFiles
     PrintWelcomeScreen
+
+    Select Case event
+        Case EVENT_DROP
+            event = ProcessDroppedFiles
+
+        Case EVENT_LOAD
+            event = ProcessSelectedFiles
+
+        Case EVENT_CMDS
+            event = ProcessCommandLine
+    End Select
+
     k = KeyHit
 
-    If k = 15104 Then ProcessSelectedFiles ' Shows open file dialog
+    If k = 27 Then
+        event = EVENT_QUIT
+    ElseIf TotalDroppedFiles > 0 Then
+        event = EVENT_DROP
+    ElseIf k = 15104 Then
+        event = EVENT_LOAD
+    End If
 
     Limit FRAME_RATE_MAX
-Loop Until k = 27
+Loop Until event = EVENT_QUIT
 
-System 0
+System
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -391,15 +416,18 @@ End Sub
 
 ' Initializes, loads and plays a mod file
 ' Also checks for input, shows info etc
-Sub PlaySong (fileName As String)
+Function PlaySong~%% (fileName As String)
     Shared Song As SongType
     Shared SoftSynth As SoftSynthType
+
+    PlaySong = EVENT_PLAY ' default event is to play next song
 
     If Not LoadMODFile(fileName) Then
         Color 12
         Print: Print "Failed to load "; fileName; "!"
         Sleep 5
-        Exit Sub
+
+        Exit Function
     End If
 
     ' Set the app title to display the file name
@@ -447,59 +475,84 @@ Sub PlaySong (fileName As String)
                 Song.orderPosition = Song.orderPosition + 1
                 If Song.orderPosition >= Song.orders Then Song.orderPosition = 0
                 Song.patternRow = 0
+
+            Case 15104
+                PlaySong = EVENT_LOAD
+                Exit Do
         End Select
+
+        If TotalDroppedFiles > 0 Then
+            PlaySong = EVENT_DROP
+            Exit Do
+        End If
 
         HighQuality = SoftSynth.useHQMixer ' Since this can be changed by the playing MOD
 
         Limit FRAME_RATE_MAX
-    Loop Until Not Song.isPlaying Or k = 27 Or TotalDroppedFiles > 0
+    Loop Until Not Song.isPlaying Or k = 27
 
     StopMODPlayer
     AdjustWindowSize
 
     Title APP_NAME + " " + OS$ ' Set app title to the way it was
-End Sub
+End Function
 
 
 ' Processes the command line one file at a time
-Sub ProcessCommandLine
+Function ProcessCommandLine~%%
     Dim i As Unsigned Long
+    Dim event As Unsigned Byte
 
-    For i = 1 To CommandCount
-        PlaySong Command$(i)
-        If TotalDroppedFiles > 0 Then Exit For ' Exit the loop if we have dropped files
-    Next
-End Sub
+    event = EVENT_NONE
+
+    If (Command$(1) = "/?" Or Command$(1) = "-?") Then
+        MessageBox APP_NAME, APP_NAME + Chr$(13) + "Syntax: QB64MODP [modfile.mod]" + Chr$(13) + "    /?: Shows this message" + String$(2, 13) + "Copyright (c) 2022, Samuel Gomes" + String$(2, 13) + "https://github.com/a740g/", "info"
+        ProcessCommandLine = EVENT_QUIT
+    Else
+        For i = 1 To CommandCount
+            event = PlaySong(Command$(i))
+            If event <> EVENT_PLAY Then Exit For
+        Next
+    End If
+
+    ProcessCommandLine = event
+End Function
 
 
 ' Processes dropped files one file at a time
-Sub ProcessDroppedFiles
-    If TotalDroppedFiles > 0 Then
-        ' Make a copy of the dropped file and clear the list
-        ReDim fileNames(1 To TotalDroppedFiles) As String
-        Dim i As Unsigned Long
+Function ProcessDroppedFiles~%%
+    ' Make a copy of the dropped file and clear the list
+    ReDim fileNames(1 To TotalDroppedFiles) As String
+    Dim i As Unsigned Long
+    Dim event As Unsigned Byte
 
-        For i = 1 To TotalDroppedFiles
-            fileNames(i) = DroppedFile(i)
-        Next
-        FinishDrop ' This is critical
+    event = EVENT_NONE
 
-        ' Now play the dropped file one at a time
-        For i = LBound(fileNames) To UBound(fileNames)
-            PlaySong fileNames(i)
-            If TotalDroppedFiles > 0 Then Exit For ' Exit the loop if we have dropped files
-        Next
-    End If
-End Sub
+    For i = 1 To TotalDroppedFiles
+        fileNames(i) = DroppedFile(i)
+    Next
+    FinishDrop ' This is critical
+
+    ' Now play the dropped file one at a time
+    For i = LBound(fileNames) To UBound(fileNames)
+        event = PlaySong(fileNames(i))
+        If event <> EVENT_PLAY Then Exit For
+    Next
+
+    ProcessDroppedFiles = event
+End Function
 
 
 ' Processes a list of files selected by the user
-Sub ProcessSelectedFiles
+Function ProcessSelectedFiles~%%
     Dim ofdList As String
+    Dim event As Unsigned Byte
+
+    event = EVENT_NONE
 
     ofdList = OpenFileDialog$(APP_NAME, "", "*.mod|*.MOD|*.Mod", "Music Tracker Files", TRUE)
 
-    If ofdList = NULLSTRING Then Exit Sub
+    If ofdList = NULLSTRING Then Exit Function
 
     ReDim fileNames(0 To 0) As String
     Dim As Long i, j
@@ -507,10 +560,12 @@ Sub ProcessSelectedFiles
     j = ParseOpenFileDialogList(ofdList, fileNames())
 
     For i = 0 To j - 1
-        PlaySong fileNames(i)
-        If TotalDroppedFiles > 0 Then Exit For ' Exit the loop if we have dropped files
+        event = PlaySong(fileNames(i))
+        If event <> EVENT_PLAY Then Exit For
     Next
-End Sub
+
+    ProcessSelectedFiles = event
+End Function
 
 
 ' Gets the filename portion from a file path
