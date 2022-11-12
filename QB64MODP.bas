@@ -34,6 +34,7 @@ Const TEXT_LINE_MAX = 75 ' this the number of lines we need
 Const TEXT_WIDTH_MIN = 120 ' minimum width we need
 Const TEXT_WIDTH_HEADER = 84 ' width of the main header on the vis screen
 Const FRAME_RATE_MAX = 120 ' maximum frame rate we'll allow
+Const ANALYZER_SCALE = 2048
 ' Program events
 Const EVENT_NONE = 0 ' idle
 Const EVENT_QUIT = 1 ' user wants to quit
@@ -41,6 +42,17 @@ Const EVENT_CMDS = 2 ' process command line
 Const EVENT_LOAD = 3 ' user want to load files
 Const EVENT_DROP = 4 ' user dropped files
 Const EVENT_PLAY = 5 ' play next song
+'-----------------------------------------------------------------------------------------------------
+
+'-----------------------------------------------------------------------------------------------------
+' EXTERNAL LIBRARIES
+'-----------------------------------------------------------------------------------------------------
+Declare CustomType Library "./fft"
+    Sub fft_analyze_short (ByVal ana As Offset, Byval samp As Offset, Byval inc As Long, Byval bits As Long)
+    Sub fft_analyze_float (ByVal ana As Offset, Byval samp As Offset, Byval inc As Long, Byval bits As Long)
+    Function fft_previous_power_of_two~& (ByVal x As Unsigned Long)
+    Function fft_left_shift_one_count~& (ByVal x As Unsigned Long)
+End Declare
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -53,9 +65,7 @@ Dim Shared SpectrumAnalyzerWidth As Long ' the width of the spectrum analyzer
 Dim Shared SpectrumAnalyzerHeight As Long ' the height of the spectrum analyzer
 Dim Shared Volume As Integer ' this is needed because the replayer can reset volume across songs
 Dim Shared HighQuality As Byte ' this is needed because the replayer can reset quality across songs
-' FFT arrays
-ReDim Shared As Single lSig(0 To 0), rSig(0 To 0)
-ReDim Shared As Single FFTr(0 To 0), FFTi(0 To 0)
+ReDim Shared SpectrumAnalyzer(0 To 0) As Unsigned Integer ' FFT array
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -91,11 +101,11 @@ Do
 
     k = KeyHit
 
-    If k = 27 Then
+    If k = KEY_ESCAPE Then
         event = EVENT_QUIT
     ElseIf TotalDroppedFiles > 0 Then
         event = EVENT_DROP
-    ElseIf k = 15104 Then
+    ElseIf k = KEY_F1 Then
         event = EVENT_LOAD
     End If
 
@@ -115,7 +125,8 @@ Sub PrintVisualization
     Shared Pattern() As NoteType
     Shared Sample() As SampleType
     Shared SoftSynth As SoftSynthType
-    Shared MixerBuffer() As Single
+    Shared MixerBufferLeft() As Single
+    Shared MixerBufferRight() As Single
 
     ' Subscript out of range bugfix for player when song is 128 orders long and the song reaches the end
     ' In this case if the sub is allowed to proceed then Order(Song.orderPosition) will cause "subscript out of range"
@@ -218,37 +229,36 @@ Sub PrintVisualization
         End If
     Next
 
-    Dim samples As Long
+    Dim As Long fftSamples, fftSamplesHalf, fftBits
 
-    samples = RoundDownPower2(Song.samplesPerTick) ' we need power of 2 for our FFT function
+    fftSamples = fft_previous_power_of_two(Song.samplesPerTick) ' we need power of 2 for our FFT function
+    fftSamplesHalf = fftSamples \ 2
+    fftBits = fft_left_shift_one_count(fftSamples) ' Get the count of bits that the FFT routine will need
 
-    ' Setup the FFT arrays
-    ReDim As Single lSig(0 To samples - 1), rSig(0 To samples - 1)
-    ReDim As Single FFTr(0 To samples - 1), FFTi(0 To samples - 1)
+    ' Setup the FFT arrays (half of fftSamples)
+    ReDim SpectrumAnalyzer(0 To fftSamplesHalf - 1) As Unsigned Integer
 
-    ' Fill the FFT arrays with sample data
-    For i = 0 To samples - 1
-        lSig(i) = MixerBuffer(MIXER_CHANNEL_LEFT, i)
-        rSig(i) = MixerBuffer(MIXER_CHANNEL_RIGHT, i)
-    Next
-
-    ' TODO: The scaling (* 0.4) and frequency (\ 6) factors are hard coded and this not good
-    '   Esp. since the width and height of the spectrum alalyzers can change
-    '   So, these hard coded values should be dynamic based on the width and height
-
-    RFFT FFTr(), FFTi(), lSig(), samples ' the left samples first
+    fft_analyze_float Offset(SpectrumAnalyzer(0)), Offset(MixerBufferLeft(0)), 1, fftBits ' the left samples first
 
     For i = 0 To SpectrumAnalyzerHeight - 1
-        x = i * (samples \ 6) \ SpectrumAnalyzerHeight
-        j = Clamp(Sqr((FFTr(x) * FFTr(x)) + (FFTi(x) * FFTi(x))) * 0.4, 0, SpectrumAnalyzerWidth - 1)
+        x = (i * fftSamplesHalf) \ SpectrumAnalyzerHeight
+        If SpectrumAnalyzer(x) >= ANALYZER_SCALE Then
+            j = SpectrumAnalyzerWidth - 1
+        Else
+            j = (SpectrumAnalyzer(x) * (SpectrumAnalyzerWidth - 1)) \ ANALYZER_SCALE
+        End If
         TextHLine SpectrumAnalyzerWidth - j, 1 + i, SpectrumAnalyzerWidth
     Next
 
-    RFFT FFTr(), FFTi(), rSig(), samples ' and now the right ones
+    fft_analyze_float Offset(SpectrumAnalyzer(0)), Offset(MixerBufferRight(0)), 1, fftBits ' and now the right ones
 
     For i = 0 To SpectrumAnalyzerHeight - 1
-        x = i * (samples \ 6) \ SpectrumAnalyzerHeight
-        j = Clamp(Sqr((FFTr(x) * FFTr(x)) + (FFTi(x) * FFTi(x))) * 0.4, 0, SpectrumAnalyzerWidth - 1)
+        x = (i * fftSamplesHalf) \ SpectrumAnalyzerHeight
+        If SpectrumAnalyzer(x) >= ANALYZER_SCALE Then
+            j = SpectrumAnalyzerWidth - 1
+        Else
+            j = (SpectrumAnalyzer(x) * (SpectrumAnalyzerWidth - 1)) \ ANALYZER_SCALE
+        End If
         TextHLine 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER, 1 + i, 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER + j
     Next
 
@@ -307,9 +317,9 @@ Sub PrintWelcomeScreen
     Print " |                                                                                                                    | "
     Print " |                                         ";: Color 11: Print "Q|q";: Color 8: Print " ................ ";: Color 13: Print "INTERPOLATION";: Color 14: Print "                                         | "
     Print " |                                                                                                                    | "
-    Print " |                                         ";: Color 11: Print "<|,";: Color 8: Print " ....................... ";: Color 13: Print "REWIND";: Color 14: Print "                                         | "
+    Print " |                                         ";: Color 11: Print " <-";: Color 8: Print " ....................... ";: Color 13: Print "REWIND";: Color 14: Print "                                         | "
     Print " |                                                                                                                    | "
-    Print " |                                         ";: Color 11: Print ">|.";: Color 8: Print " ...................... ";: Color 13: Print "FORWARD";: Color 14: Print "                                         | "
+    Print " |                                         ";: Color 11: Print " ->";: Color 8: Print " ...................... ";: Color 13: Print "FORWARD";: Color 14: Print "                                         | "
     Print " |                                                                                                                    | "
     Print " |                                         ";: Color 11: Print "I|i";: Color 8: Print " ............. ";: Color 13: Print "INFORMATION VIEW";: Color 14: Print "                                         | "
     Print " |                                                                                                                    | "
@@ -448,35 +458,35 @@ Function PlaySong~%% (fileName As String)
         k = KeyHit
 
         Select Case k
-            Case 32
+            Case KEY_SPACE_BAR
                 Song.isPaused = Not Song.isPaused
 
-            Case 43, 61
+            Case KEY_PLUS, KEY_EQUALS
                 SetGlobalVolume Volume + 1
                 Volume = SoftSynth.volume
 
-            Case 45, 95
+            Case KEY_MINUS, KEY_UNDERSCORE
                 SetGlobalVolume Volume - 1
                 Volume = SoftSynth.volume
 
-            Case 76, 108
+            Case KEY_UPPER_L, KEY_LOWER_L
                 Song.isLooping = Not Song.isLooping
 
-            Case 81, 113
+            Case KEY_UPPER_Q, KEY_LOWER_Q
                 HighQuality = Not HighQuality
                 EnableHQMixer HighQuality
 
-            Case 44, 60
+            Case KEY_LEFT_ARROW
                 Song.orderPosition = Song.orderPosition - 1
                 If Song.orderPosition < 0 Then Song.orderPosition = Song.orders - 1
                 Song.patternRow = 0
 
-            Case 46, 62
+            Case KEY_RIGHT_ARROW
                 Song.orderPosition = Song.orderPosition + 1
                 If Song.orderPosition >= Song.orders Then Song.orderPosition = 0
                 Song.patternRow = 0
 
-            Case 15104
+            Case KEY_F1
                 PlaySong = EVENT_LOAD
                 Exit Do
         End Select
@@ -489,7 +499,7 @@ Function PlaySong~%% (fileName As String)
         HighQuality = SoftSynth.useHQMixer ' Since this can be changed by the playing MOD
 
         Limit FRAME_RATE_MAX
-    Loop Until Not Song.isPlaying Or k = 27
+    Loop Until Not Song.isPlaying Or k = KEY_ESCAPE
 
     StopMODPlayer
     AdjustWindowSize
@@ -598,107 +608,6 @@ Function BoolToStr$ (expression As Long, style As Unsigned Byte)
         Case Else
             If expression Then BoolToStr = "True" Else BoolToStr = "False"
     End Select
-End Function
-
-
-' Vince's FFT routine - https://qb64phoenix.com/forum/showthread.php?tid=270&pid=2005#pid2005
-' Modified for efficiency and performance
-Sub RFFT (xx_r() As Single, xx_i() As Single, x_r() As Single, n As Long)
-    Dim As Single w_r, w_i, wm_r, wm_i, u_r, u_i, v_r, v_i, xpr, xpi, xmr, xmi
-    Dim As Long log2n, rev, i, j, k, m, p, q
-
-    log2n = Log(n \ 2) / Log(2)
-
-    For i = 0 To n \ 2 - 1
-        rev = 0
-        For j = 0 To log2n - 1
-            If i And (2 ^ j) Then rev = rev + (2 ^ (log2n - 1 - j))
-        Next
-
-        xx_r(i) = x_r(2 * rev)
-        xx_i(i) = x_r(2 * rev + 1)
-    Next
-
-    For i = 1 To log2n
-        m = 2 ^ i
-        wm_r = Cos(-2 * Pi / m)
-        wm_i = Sin(-2 * Pi / m)
-
-        For j = 0 To n \ 2 - 1 Step m
-            w_r = 1
-            w_i = 0
-
-            For k = 0 To m \ 2 - 1
-                p = j + k
-                q = p + (m \ 2)
-
-                u_r = w_r * xx_r(q) - w_i * xx_i(q)
-                u_i = w_r * xx_i(q) + w_i * xx_r(q)
-                v_r = xx_r(p)
-                v_i = xx_i(p)
-
-                xx_r(p) = v_r + u_r
-                xx_i(p) = v_i + u_i
-                xx_r(q) = v_r - u_r
-                xx_i(q) = v_i - u_i
-
-                u_r = w_r
-                u_i = w_i
-                w_r = u_r * wm_r - u_i * wm_i
-                w_i = u_r * wm_i + u_i * wm_r
-            Next
-        Next
-    Next
-
-    xx_r(n \ 2) = xx_r(0)
-    xx_i(n \ 2) = xx_i(0)
-
-    For i = 1 To n \ 2 - 1
-        xx_r(n \ 2 + i) = xx_r(n \ 2 - i)
-        xx_i(n \ 2 + i) = xx_i(n \ 2 - i)
-    Next
-
-    For i = 0 To n \ 2 - 1
-        xpr = (xx_r(i) + xx_r(n \ 2 + i)) / 2
-        xpi = (xx_i(i) + xx_i(n \ 2 + i)) / 2
-
-        xmr = (xx_r(i) - xx_r(n \ 2 + i)) / 2
-        xmi = (xx_i(i) - xx_i(n \ 2 + i)) / 2
-
-        xx_r(i) = xpr + xpi * Cos(2 * Pi * i / n) - xmr * Sin(2 * Pi * i / n)
-        xx_i(i) = xmi - xpi * Sin(2 * Pi * i / n) - xmr * Cos(2 * Pi * i / n)
-    Next
-
-    ' symmetry, complex conj
-    For i = 0 To n \ 2 - 1
-        xx_r(n \ 2 + i) = xx_r(n \ 2 - 1 - i)
-        xx_i(n \ 2 + i) = -xx_i(n \ 2 - 1 - i)
-    Next
-End Sub
-
-
-' Rounds down a number to a lower power of 2
-Function RoundDownPower2~& (i As Unsigned Long)
-    Dim j As Unsigned Long
-    j = i
-    j = j Or ShR(j, 1)
-    j = j Or ShR(j, 2)
-    j = j Or ShR(j, 4)
-    j = j Or ShR(j, 8)
-    j = j Or ShR(j, 16)
-    RoundDownPower2 = j - ShR(j, 1)
-End Function
-
-
-' Clamps v between lo and hi
-Function Clamp& (v As Long, lo As Long, hi As Long)
-    If v < lo Then
-        Clamp = lo
-    ElseIf v > hi Then
-        Clamp = hi
-    Else
-        Clamp = v
-    End If
 End Function
 
 

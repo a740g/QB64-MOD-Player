@@ -89,16 +89,18 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
         Shared SoftSynth As SoftSynthType
         Shared SampleData() As String
         Shared Voice() As VoiceType
-        Shared MixerBuffer() As Single
+        Shared MixerBufferLeft() As Single
+        Shared MixerBufferRight() As Single
 
-        Dim As Long v, s, nSample, nPos, nPlayType
+        Dim As Long v, s, nSample, nPos, nPlayType, sLen
         Dim As Single fVolume, fPan, fPitch, fPos, fStartPos, fEndPos, fSam
         Dim As Byte bSam1, bSam2
 
-        ' Reallocate the mixer buffer that will hold sample data for both channels
+        ' Reallocate the mixer buffers that will hold sample data for both channels
         ' This is conveniently zeroed by QB64, so that is nice. We don't have to do it
         ' Here 0 is the left channnel and 1 is the right channel
-        ReDim MixerBuffer(0 To MIXER_CHANNEL_RIGHT, 0 To nSamples - 1) As Single
+        ReDim MixerBufferLeft(0 To nSamples - 1) As Single
+        ReDim MixerBufferRight(0 To nSamples - 1) As Single
 
         ' Set the active voice count to zero
         SoftSynth.activeVoices = 0
@@ -121,6 +123,7 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
                 nPlayType = Voice(v).playType
                 fStartPos = Voice(v).startPosition
                 fEndPos = Voice(v).endPosition
+                sLen = Len(SampleData(nSample)) ' real sample length
 
                 ' Next we go through the channel sample data and mix it to our mixerBuffer
                 For s = 0 To nSamples - 1
@@ -147,21 +150,25 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
                     If fPos < 0 Then fPos = 0
 
                     ' Samples are stored in a string and strings are 1 based
-                    If SoftSynth.useHQMixer Then
+                    If SoftSynth.useHQMixer And fPos + 2 <= sLen Then
                         ' Apply interpolation
                         nPos = Fix(fPos)
                         bSam1 = Asc(SampleData(nSample), 1 + nPos) ' This will convert the unsigned byte (the way it is stored) to signed byte
                         bSam2 = Asc(SampleData(nSample), 2 + nPos) ' This will convert the unsigned byte (the way it is stored) to signed byte
                         fSam = bSam1 + (bSam2 - bSam1) * (fPos - nPos)
                     Else
-                        bSam1 = Asc(SampleData(nSample), 1 + fPos) ' This will convert the unsigned byte (the way it is stored) to signed byte
-                        fSam = bSam1
+                        If fPos + 1 <= sLen Then
+                            bSam1 = Asc(SampleData(nSample), 1 + fPos) ' This will convert the unsigned byte (the way it is stored) to signed byte
+                            fSam = bSam1
+                        Else
+                            fSam = 0
+                        End If
                     End If
 
                     ' The following two lines mixes the sample and also does volume & stereo panning
                     ' The below expressions were simplified and rearranged to reduce the number of divisions. Divisions are slow
-                    MixerBuffer(MIXER_CHANNEL_LEFT, s) = MixerBuffer(MIXER_CHANNEL_LEFT, s) + (fSam * fVolume * (SAMPLE_PAN_RIGHT - fPan)) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
-                    MixerBuffer(MIXER_CHANNEL_RIGHT, s) = MixerBuffer(MIXER_CHANNEL_RIGHT, s) + (fSam * fVolume * fPan) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
+                    MixerBufferLeft(s) = MixerBufferLeft(s) + (fSam * fVolume * (SAMPLE_PAN_RIGHT - fPan)) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
+                    MixerBufferRight(s) = MixerBufferRight(s) + (fSam * fVolume * fPan) / (SAMPLE_PAN_RIGHT * SAMPLE_VOLUME_MAX)
 
                     ' Move to the next sample position based on the pitch
                     Voice(v).position = fPos + fPitch
@@ -172,15 +179,15 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
         ' Feed the samples to the QB64 sound pipe
         For s = 0 To nSamples - 1
             ' Apply global volume and scale sample to FP32 sample spec.
-            fSam = SoftSynth.volume / (130 * GLOBAL_VOLUME_MAX) ' 128 should have been ok. But lets add 2 to just make it just a little softer :)
-            MixerBuffer(MIXER_CHANNEL_LEFT, s) = MixerBuffer(MIXER_CHANNEL_LEFT, s) * fSam
-            MixerBuffer(MIXER_CHANNEL_RIGHT, s) = MixerBuffer(MIXER_CHANNEL_RIGHT, s) * fSam
+            fSam = SoftSynth.volume / (128 * GLOBAL_VOLUME_MAX)
+            MixerBufferLeft(s) = MixerBufferLeft(s) * fSam
+            MixerBufferRight(s) = MixerBufferRight(s) * fSam
 
             ' We do not clip samples anymore because miniaudio does that for us. It makes no sense to clip samples twice
             ' Obviously, this means that the quality of OpenAL version will suffer. But that's ok, it is on it's way to sunset :)
 
             ' Feed the samples to the QB64 sound pipe
-            SndRaw MixerBuffer(0, s), MixerBuffer(1, s), SoftSynth.soundHandle
+            SndRaw MixerBufferLeft(s), MixerBufferRight(s), SoftSynth.soundHandle
         Next
         $Checking:On
     End Sub
@@ -191,12 +198,12 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
     Sub LoadSample (nSample As Unsigned Byte, sData As String, isLooping As Byte, nLoopStart As Long, nLoopEnd As Long)
         Shared SampleData() As String
 
-        ' Allocate 32 bytes more than needed for mixer runoff
-        SampleData(nSample) = sData + String$(32, NULL)
+        Dim i As Long
+        If nLoopEnd >= Len(sData) Then i = 32 + nLoopEnd - Len(sData) Else i = 32 ' We allocate 32 samples extra (minimum)
+        SampleData(nSample) = sData + String$(i, NULL)
 
         ' If the sample is looping then make it anti-click by copying a few samples from loop start to loop end
         If isLooping Then
-            Dim i As Integer
             ' We'll just copy 4 samples
             For i = 1 To 4
                 Asc(SampleData(nSample), nLoopEnd + i) = Asc(SampleData(nSample), nLoopStart + i)

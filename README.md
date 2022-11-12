@@ -1,6 +1,6 @@
 # What is this?
 
-This is a [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player library written entirely in [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe). Yes, this does __not use any__ third party libraries!
+This is a [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player library written in [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe).
 
 [![Screenshot](screenshots/qb64mp_intro.png)](screenshots/qb64mp_demo.mp4)
 [![Screenshot](screenshots/qb64mp_playing.png)](screenshots/qb64mp_demo.mp4)
