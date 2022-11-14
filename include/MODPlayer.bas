@@ -224,10 +224,6 @@ $If MODPLAYER_BAS = UNDEFINED Then
         InitializeSampleManager Song.samples
 
         ' Load the samples
-        ' TODO: For funkrepeat load a another copy of the inverted looped samples into a 31 + n slot?
-        '   Check which sample needs this by quickly checking the pattern data above
-        '   Then during playback use the 31 + n sample when the effect is encountered
-        '   As it is clear, I currently have no clue how funkrepeat effect works. XD
         For i = 0 To Song.samples - 1
             ' Load sample size bytes of data and send it to our softsynth sample manager
             LoadSample i, Input$(Sample(i).length, fileHandle), Sample(i).loopLength > 0, Sample(i).loopStart, Sample(i).loopEnd
@@ -261,6 +257,7 @@ $If MODPLAYER_BAS = UNDEFINED Then
         Shared Song As SongType
         Shared Channel() As ChannelType
         Shared SineTable() As Unsigned Byte
+        Shared InvertLoopSpeedTable() As Unsigned Byte
         Shared SoftSynth As SoftSynthType
 
         Dim As Unsigned Integer i, s
@@ -271,6 +268,14 @@ $If MODPLAYER_BAS = UNDEFINED Then
         ReDim SineTable(0 To s - 1) As Unsigned Byte
         For i = 0 To s - 1
             Read SineTable(i)
+        Next
+
+        ' Load the invert loop table
+        Restore ILSpdTab
+        Read s
+        ReDim InvertLoopSpeedTable(0 To s - 1) As Unsigned Byte
+        For i = 0 To s - 1
+            Read InvertLoopSpeedTable(i)
         Next
 
         ' Initialize the softsynth sample mixer
@@ -290,41 +295,37 @@ $If MODPLAYER_BAS = UNDEFINED Then
         ' Setup the channel array
         ReDim Channel(0 To Song.channels - 1) As ChannelType
 
-        ' Setup panning for all channels except last one if we have an odd number
-        ' This is done per AMIGA PAULA's panning setup - LLRRLLRR...
+        ' Setup panning for all channels per AMIGA PAULA's panning setup - LRRLLRRL...
         ' If we have < 4 channels, then 0 & 1 are set as left & right
+        ' If we have > 4 channels all prefect 4 groups are set as LRRL
         ' Any channels that are left out are simply centered by the SoftSynth
         ' We will also not do hard left or hard right. ~25% of sound from each channel is blended with the other
-        ' This sounds so much better IMO
-        If Song.channels = 2 Or Song.channels = 3 Then
+        If Song.channels > 1 And Song.channels < 4 Then
             ' Just setup channels 0 and 1
             ' If we have a 3rd channel it will be handle by the SoftSynth
             SetVoicePanning 0, SAMPLE_PAN_LEFT + SAMPLE_PAN_CENTER / 2
             SetVoicePanning 1, SAMPLE_PAN_RIGHT - SAMPLE_PAN_CENTER / 2
         Else
-            s = TRUE
-            For i = 0 To Song.channels - 1 - (Song.channels Mod 4) Step 2
-                If s Then
-                    SetVoicePanning i, SAMPLE_PAN_LEFT + SAMPLE_PAN_CENTER / 2
-                    SetVoicePanning i + 1, SAMPLE_PAN_LEFT + SAMPLE_PAN_CENTER / 2
-                Else
-                    SetVoicePanning i, SAMPLE_PAN_RIGHT - SAMPLE_PAN_CENTER / 2
-                    SetVoicePanning i + 1, SAMPLE_PAN_RIGHT - SAMPLE_PAN_CENTER / 2
-                End If
-
-                s = Not s
+            For i = 0 To Song.channels - 1 - (Song.channels Mod 4) Step 4
+                SetVoicePanning i + 0, SAMPLE_PAN_LEFT + SAMPLE_PAN_CENTER / 2
+                SetVoicePanning i + 1, SAMPLE_PAN_RIGHT - SAMPLE_PAN_CENTER / 2
+                SetVoicePanning i + 2, SAMPLE_PAN_RIGHT - SAMPLE_PAN_CENTER / 2
+                SetVoicePanning i + 3, SAMPLE_PAN_LEFT + SAMPLE_PAN_CENTER / 2
             Next
         End If
 
         Song.isPlaying = TRUE
 
-        ' Sine table for tremolo & vibrato
+        ' Sine table data for tremolo & vibrato
         SineTab:
         Data 32
-        Data 0,24,49,74,97,120,141,161
-        Data 180,197,212,224,235,244,250,253
-        Data 255,253,250,244,235,224,212,197
-        Data 180,161,141,120,97,74,49,24
+        Data 0,24,49,74,97,120,141,161,180,197,212,224,235,244,250,253,255,253,250,244,235,224,212,197,180,161,141,120,97,74,49,24
+        Data NaN
+
+        ' Invert loop speed table data for EFx
+        ILSpdTab:
+        Data 16
+        Data 0,5,6,7,8,10,11,13,16,19,22,26,32,43,64,128
         Data NaN
     End Sub
 
@@ -567,9 +568,7 @@ $If MODPLAYER_BAS = UNDEFINED Then
                             Song.patternDelay = nOpY
 
                         Case &HF ' 15: Invert Loop
-                            ' TODO:
-                            Channel(nChannel).funkrepeatSpeed = nOpY
-                            Title "Funkrepeat speed: " + Str$(Channel(nChannel).funkrepeatSpeed)
+                            Channel(nChannel).invertLoopSpeed = nOpY
                     End Select
 
                 Case &HF ' 15: Set Speed
@@ -579,6 +578,8 @@ $If MODPLAYER_BAS = UNDEFINED Then
                         SetBPM nOperand
                     End If
             End Select
+
+            DoInvertLoop nChannel ' called every tick
 
             If Not noFrequency Then
                 If nEffect <> 7 Then SetVoiceVolume nChannel, Channel(nChannel).volume
@@ -620,6 +621,8 @@ $If MODPLAYER_BAS = UNDEFINED Then
                 nOperand = Pattern(Song.tickPattern, Song.tickPatternRow, nChannel).operand
                 nOpX = ShR(nOperand, 4)
                 nOpY = nOperand And &HF
+
+                DoInvertLoop nChannel ' called every tick
 
                 Select Case nEffect
                     Case &H0 ' 0: Arpeggio
@@ -684,7 +687,7 @@ $If MODPLAYER_BAS = UNDEFINED Then
 
                             Case &HD ' 13: Delay Note
                                 If Song.tick = nOpY Then
-                                    If Channel(nChannel).sample > 0 Then Channel(nChannel).volume = Sample(Channel(nChannel).sample).volume
+                                    Channel(nChannel).volume = Sample(Channel(nChannel).sample).volume
                                     If nVolume <= SAMPLE_VOLUME_MAX Then Channel(nChannel).volume = nVolume
                                     SetVoiceFrequency nChannel, GetFrequencyFromPeriod(Channel(nChannel).period)
                                     SetVoiceVolume nChannel, Channel(nChannel).volume
@@ -861,6 +864,27 @@ $If MODPLAYER_BAS = UNDEFINED Then
 
         Channel(chan).tremoloPosition = Channel(chan).tremoloPosition + Channel(chan).tremoloSpeed
         If Channel(chan).tremoloPosition > 31 Then Channel(chan).tremoloPosition = Channel(chan).tremoloPosition - 64
+    End Sub
+
+
+    ' Carry out an invert loop (EFx) effect
+    ' This will trash the sample managed by the SoftSynth
+    Sub DoInvertLoop (chan As Unsigned Byte)
+        Shared Channel() As ChannelType
+        Shared Sample() As SampleType
+        Shared InvertLoopSpeedTable() As Unsigned Byte
+
+        Channel(chan).invertLoopDelay = Channel(chan).invertLoopDelay + InvertLoopSpeedTable(Channel(chan).invertLoopSpeed)
+
+        If Sample(Channel(chan).sample).loopLength > 0 And Channel(chan).invertLoopDelay >= 128 Then
+            Channel(chan).invertLoopDelay = 0 ' reset delay
+            If Channel(chan).invertLoopPosition < Sample(Channel(chan).sample).loopStart Then Channel(chan).invertLoopPosition = Sample(Channel(chan).sample).loopStart
+            Channel(chan).invertLoopPosition = Channel(chan).invertLoopPosition + 1 ' increment position by 1
+            If Channel(chan).invertLoopPosition > Sample(Channel(chan).sample).loopEnd Then Channel(chan).invertLoopPosition = Sample(Channel(chan).sample).loopStart
+
+            ' Yeah I know, this is weird. QB64 NOT is bitwise and not logical
+            PokeSample Channel(chan).sample, Channel(chan).invertLoopPosition, Not PeekSample(Channel(chan).sample, Channel(chan).invertLoopPosition)
+        End If
     End Sub
 
 

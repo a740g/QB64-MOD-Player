@@ -10,7 +10,7 @@ This is a [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible
 - No dependency on third party libraries - OK
 - No OS specific code in the Loader, Player & Mixer - OK
 - Support all MOD types (1 - 99 channels, 31 samples etc.) - OK
-- Support all MOD effects - WIP (1 remaining - EF)
+- Support all MOD effects - OK
 - Easy plug-&-play API - OK
 - Play all the test MODs in the repository correctly - OK
 - Survive ode2ptk.mod & black_queen.mod - OK
@@ -46,6 +46,8 @@ Sub EnableHQMixer (nFlag As Byte)
 ## Important note
 
 This will sound like absolute garbage if used with QB64 / QB64-PE with OpenAL backend. The OpenAL code in all versions of QB64 and QB64-PE has `SndRaw` mixing and clipping bugs. You've been warned. If you absolutely must use QB64 with OpenAL, then set the `player` volume to < 75% for something bearable. In the past, I worked around these bugs using several hacks. Ever since I re-wrote the QB64-PE audio backend to use [miniaudio](https://miniaud.io/), I removed all those hacks. So, this sounds best when used with versions of [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe/releases/) >= v3.1.0 with the default miniaudio backend selected.
+
+This uses new features introduced in [QB64-PE v3.4.0+](https://github.com/QB64-Phoenix-Edition/QB64pe/releases) and as such may not work correctly or reliably with older versions of QB64-PE or any version of QB64.
 
 ## FAQ
 

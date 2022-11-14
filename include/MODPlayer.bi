@@ -64,7 +64,9 @@ $If MODPLAYER_BI = UNDEFINED Then
         tremoloDepth As Unsigned Byte ' Tremolo depth
         waveControl As Unsigned Byte ' Waveform type for vibrato and tremolo (4 bits each)
         useGlissando As Byte ' Flag to enable glissando (E3x) for subsequent porta-to-note effect
-        funkrepeatSpeed As Unsigned Byte ' Invert loop speed for EFx
+        invertLoopSpeed As Unsigned Byte ' Invert loop speed for EFx
+        invertLoopDelay As Unsigned Integer ' Invert loop delay for EFx
+        invertLoopPosition As Long ' Position in the sample where we are for the invert loop effect
     End Type
 
     Type SongType
@@ -103,6 +105,7 @@ $If MODPLAYER_BI = UNDEFINED Then
     ReDim Channel(0 To 0) As ChannelType ' Channel info array
     ReDim PeriodTable(0 To 0) As Unsigned Integer ' Amiga period table
     ReDim SineTable(0 To 0) As Unsigned Byte ' Sine table used for effects
+    ReDim InvertLoopSpeedTable(0 To 0) As Unsigned Byte ' Invert loop speed table for EFx
     '-----------------------------------------------------------------------------------------------------
 $End If
 '---------------------------------------------------------------------------------------------------------

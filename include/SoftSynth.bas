@@ -214,9 +214,11 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
 
     ' Get a sample value for a sample from position
     Function PeekSample%% (nSample As Unsigned Byte, nPosition As Long)
+        $Checking:Off
         Shared SampleData() As String
 
         PeekSample = Asc(SampleData(nSample), 1 + nPosition)
+        $Checking:On
     End Function
 
 
@@ -224,14 +226,17 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
     ' Don't worry about the nValue being unsigned. Just feed signed 8-bit sample values to it
     ' It's unsigned to prevent Asc from throwing up XD
     Sub PokeSample (nSample As Unsigned Byte, nPosition As Long, nValue As Unsigned Byte)
+        $Checking:Off
         Shared SampleData() As String
 
         Asc(SampleData(nSample), 1 + nPosition) = nValue
+        $Checking:On
     End Sub
 
 
     ' Set the volume for a voice (0 - 64)
     Sub SetVoiceVolume (nVoice As Unsigned Byte, nVolume As Single)
+        $Checking:Off
         Shared Voice() As VoiceType
 
         If nVolume < 0 Then
@@ -241,11 +246,13 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
         Else
             Voice(nVoice).volume = nVolume
         End If
+        $Checking:On
     End Sub
 
 
     ' Set panning for a voice (0 - 255)
     Sub SetVoicePanning (nVoice As Unsigned Byte, nPanning As Single)
+        $Checking:Off
         Shared Voice() As VoiceType
 
         If nPanning < SAMPLE_PAN_LEFT Then
@@ -255,21 +262,25 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
         Else
             Voice(nVoice).panning = nPanning
         End If
+        $Checking:On
     End Sub
 
 
     ' Set a frequency for a voice
     ' This will be responsible for correctly setting the mixer sample pitch
     Sub SetVoiceFrequency (nVoice As Unsigned Byte, nFrequency As Single)
+        $Checking:Off
         Shared SoftSynth As SoftSynthType
         Shared Voice() As VoiceType
 
         Voice(nVoice).pitch = nFrequency / SoftSynth.mixerRate
+        $Checking:On
     End Sub
 
 
     ' Stops playback for a voice
     Sub StopVoice (nVoice As Unsigned Byte)
+        $Checking:Off
         Shared Voice() As VoiceType
 
         Voice(nVoice).sample = -1
@@ -280,12 +291,14 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
         Voice(nVoice).playType = SAMPLE_PLAY_SINGLE
         Voice(nVoice).startPosition = 0
         Voice(nVoice).endPosition = 0
+        $Checking:On
     End Sub
 
 
     ' Starts playback of a sample
     ' This can be used to playback a sample from a particular offset or loop the sample
     Sub PlayVoice (nVoice As Unsigned Byte, nSample As Unsigned Byte, nPosition As Single, nPlayType As Unsigned Byte, nStart As Single, nEnd As Single)
+        $Checking:Off
         Shared Voice() As VoiceType
 
         Voice(nVoice).sample = nSample
@@ -293,6 +306,7 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
         Voice(nVoice).playType = nPlayType
         Voice(nVoice).startPosition = nStart
         Voice(nVoice).endPosition = nEnd
+        $Checking:On
     End Sub
 
     ' Set the global volume for a voice (0 - 255)

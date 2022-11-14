@@ -1,0 +1,107 @@
+Holy shit!
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+"Invert loop" effect replaces (!) sample data bytes within loop with their bitwise complement (NOT). The parameter sets speed of altering the samples. This effectively trashes the sample data. Because of that this effect was supposed to be removed in the very next ProTracker versions, but it actually survived until ProTracker 3.0 was never removed.
+
+It should go something like this (called every tick)...
+Code: [Select]
+il_speed = parameter_of_EFx;
+...
+il_table = {0,5,6,7,8,10,11,13,16,19,22,26,32,43,64,128};
+
+il_delay += il_table[il_speed];
+
+if (current_sample_has_loop && (il_delay >= 128))
+{
+  il_delay = 0;
+
+  if (++il_pos > current_sample_loop_length)
+    il_pos = 0;
+
+  current_sample_pcm[current_sample_loop_start + il_pos] = ~current_sample_pcm[current_sample_loop_start + il_pos];
+}
+
+This is EFx implementation since ProTracker 1.1A. Prior to this version this effect is called "Funk Repeat" and it moves loop of the instrument (just the loop information - sample data is not altered). The parameter is the speed of moving the loop.
+
+It should go something like this (called every tick)...
+Code: [Select]
+fr_speed = parameter_of_EFx;
+
+...
+
+fr_table = {0,5,6,7,8,10,11,13,16,19,22,26,32,43,64,128};
+
+fr_delay += fr_table[fr_speed];
+
+if (current_sample_has_loop && (fr_delay >= 128))
+{
+  fr_delay = 0;
+
+  current_sample_loop_start += current_sample_loop_length;
+
+  if (current_sample_loop_start > current_sample_length)
+    current_sample_loop_start = original_current_sample_loop_start;
+}
+
+As Ian mentioned, to make things more confusing ProTracker replay routines kept "Funk" label names for "Invert Loop" effect.
+
+Both implementations work best with very short loops, so they are usable mostly for "chiptunes".
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Command EF is the Funk Repeat command (Huge thanks to T-Jay for this
+info!).  The command needs a short loop to work.  It moves the loop through
+the whole length of the sample, e.g.:
+   You have a sample that is 10000 (decimal) bytes long.  You have set the
+sample loop to 0-1000.  When EFx is used, the loop will be moved to 1000-
+2000, then to 2000-3000 etc.  After 9000-10000 the loop is set back to 0-
+1000.  The speed of the loop "movement" is defined by x.  I don't know
+exactly how the speed is specified, but E is two times as slow as F, D is
+three times as slow as F etc.  EF0 will turn the Funk Repeat off and reset
+the loop (to 0-1000).
+   Some information can be slightly wrong, e.g. the loop MAY be moved from 0-
+1000 to 1002-2002, but it isn't important.  Very few trackers actually
+support it.
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+const unsigned char FunkTable[] = {
+  0,5,6,7,8,10,11,13,16,19,22,26,32,43,64,128
+};
+
+unsigned char n_funkspeed = 0, n_funkdelay = 0;
+unsigned short n_funkoffset = 0; // On .MOD, max sample length = 65535 - therefore short
+
+void UpdateFunk();
+
+void UpdateEffects(CHANNEL* ch)
+{
+  UpdateFunk();
+  switch (ch->param)
+  {
+    case EFx:
+    {
+      if (mod_tick == 0)
+      {
+	n_funkspeed = ch->param & 0x0f;
+        UpdateFunk();
+      }
+    }
+  }
+}
+
+void UpdateFunk()
+{
+  if (n_funkspeed == 0) return;
+
+  n_funkdelay += FunkTable[n_funkspeed];
+  if (n_funkdelay < 128) return; // Wait more
+  n_funkdelay = 0;
+
+  if (++n_funkoffset >= (s->loopstart + s->looplen)) n_funkoffset = 0;
+
+  if (s->looplen > 0)
+    s->data[s->loopstart + n_funkoffset] = ~s->data[s->loopstart + n_funkoffset];
+    // Where s->data points to module->sample_data[instrument_number_got_from_EFx->offset]
+}

@@ -137,6 +137,11 @@ static void fft_do86(int32_t (*x)[2], const int n) {
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------
 // PUBLIC LIBRARY FUNCTIONS
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------
+/// @brief The top level FFT function that gets the data for 16-bit samples. This will automatically initialize everything when called the first time
+/// @param ana The array where the resulting data is written. This cannot be NULL
+/// @param samp An array of 16-bit samples
+/// @param inc The number to use to get to the next sample in samp. For stereo interleaved samples use 2, else 1
+/// @param bits The size of the sample data. So if bits = 9, then samples = 1 << 9 or 512
 void fft_analyze_short(uint16_t *ana, const int16_t *samp, const int inc, const int bits) {
     const unsigned int full = 1 << bits;
     const unsigned int half = full >> 1;
@@ -160,17 +165,25 @@ void fft_analyze_short(uint16_t *ana, const int16_t *samp, const int inc, const 
     }
 }
 
+/// @brief This is a variation of fft_analyze_short() for floating point samples. The samples are converted to 16-bit and then sent to fft_analyze_short()
+/// @param ana See fft_analyze_short()
+/// @param samp An array of floating point (FP32) samples
+/// @param inc See fft_analyze_short()
+/// @param bits See fft_analyze_short()
 void fft_analyze_float(uint16_t *ana, const float *samp, const int inc, const int bits) {
-    const unsigned int full = 1 << bits;
+    const unsigned int full = std::min(1 << bits, FFT_SAMPLES);
 
     for (int i = 0; i < full; ++i) {
-        fft_s_temp[i] = (int16_t)((*samp) * 32768.0f);
+        fft_s_temp[i] = (int16_t)((*samp) * SHRT_MAX);
         samp += inc;
     }
 
     fft_analyze_short(ana, fft_s_temp, inc, bits);
 }
 
+/// @brief Returns the previous (floor) power of 2 for x. E.g. x = 600 then returns 512
+/// @param x Any number
+/// @return Previous (floor) power of 2 for x
 uint32_t fft_previous_power_of_two(uint32_t x) {
     x |= (x >> 1);
     x |= (x >> 2);
@@ -180,6 +193,9 @@ uint32_t fft_previous_power_of_two(uint32_t x) {
     return x - (x >> 1);
 }
 
-uint32_t fft_left_shift_one_count(uint32_t x) { return x == 0 ? 0 : (8 * sizeof(x)) - 1 - __builtin_clz(x); }
+/// @brief Returns the number using which we need to shift 1 left to get x
+/// @param x A power of 2 number
+/// @return A number (n) that we use in 1 << n to get x
+uint32_t fft_left_shift_one_count(uint32_t x) { return x == 0 ? 0 : (CHAR_BIT * sizeof(x)) - 1 - __builtin_clz(x); }
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------

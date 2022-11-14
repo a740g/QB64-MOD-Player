@@ -34,7 +34,7 @@ Const TEXT_LINE_MAX = 75 ' this the number of lines we need
 Const TEXT_WIDTH_MIN = 120 ' minimum width we need
 Const TEXT_WIDTH_HEADER = 84 ' width of the main header on the vis screen
 Const FRAME_RATE_MAX = 120 ' maximum frame rate we'll allow
-Const ANALYZER_SCALE = 2048
+Const ANALYZER_SCALE = 4096 ' values after this will be clipped in the analyzer array
 ' Program events
 Const EVENT_NONE = 0 ' idle
 Const EVENT_QUIT = 1 ' user wants to quit
@@ -65,7 +65,8 @@ Dim Shared SpectrumAnalyzerWidth As Long ' the width of the spectrum analyzer
 Dim Shared SpectrumAnalyzerHeight As Long ' the height of the spectrum analyzer
 Dim Shared Volume As Integer ' this is needed because the replayer can reset volume across songs
 Dim Shared HighQuality As Byte ' this is needed because the replayer can reset quality across songs
-ReDim Shared SpectrumAnalyzer(0 To 0) As Unsigned Integer ' FFT array
+ReDim Shared SpectrumAnalyzerLeft(0 To 0) As Unsigned Integer ' left channel FFT data
+ReDim Shared SpectrumAnalyzerRight(0 To 0) As Unsigned Integer ' right channel FFT data
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -187,7 +188,7 @@ Sub PrintVisualization
         startPat = startPat - 1
     End If
 
-    ' Now just dump everything top to the screen
+    ' Now just dump everything to the screen
     For i = j To TEXT_LINE_MAX
         Locate i, x
         Color 15, 0
@@ -236,30 +237,32 @@ Sub PrintVisualization
     fftBits = fft_left_shift_one_count(fftSamples) ' Get the count of bits that the FFT routine will need
 
     ' Setup the FFT arrays (half of fftSamples)
-    ReDim SpectrumAnalyzer(0 To fftSamplesHalf - 1) As Unsigned Integer
+    ReDim SpectrumAnalyzerLeft(0 To fftSamplesHalf - 1) As Unsigned Integer
+    ReDim SpectrumAnalyzerRight(0 To fftSamplesHalf - 1) As Unsigned Integer
 
-    fft_analyze_float Offset(SpectrumAnalyzer(0)), Offset(MixerBufferLeft(0)), 1, fftBits ' the left samples first
+    fft_analyze_float Offset(SpectrumAnalyzerLeft(0)), Offset(MixerBufferLeft(0)), 1, fftBits ' the left samples first
+    fft_analyze_float Offset(SpectrumAnalyzerRight(0)), Offset(MixerBufferRight(0)), 1, fftBits ' and now the right ones
 
-    For i = 0 To SpectrumAnalyzerHeight - 1
-        x = (i * fftSamplesHalf) \ SpectrumAnalyzerHeight
-        If SpectrumAnalyzer(x) >= ANALYZER_SCALE Then
-            j = SpectrumAnalyzerWidth - 1
+    For i = 0 To fftSamplesHalf - 1
+        j = (i * SpectrumAnalyzerHeight) \ fftSamplesHalf ' this is the y location where we need to draw the bar
+
+        ' First calculate and draw a bar on the left
+        If SpectrumAnalyzerLeft(i) >= ANALYZER_SCALE Then
+            x = SpectrumAnalyzerWidth - 1
         Else
-            j = (SpectrumAnalyzer(x) * (SpectrumAnalyzerWidth - 1)) \ ANALYZER_SCALE
+            x = (SpectrumAnalyzerLeft(i) * (SpectrumAnalyzerWidth - 1)) \ ANALYZER_SCALE
         End If
-        TextHLine SpectrumAnalyzerWidth - j, 1 + i, SpectrumAnalyzerWidth
-    Next
 
-    fft_analyze_float Offset(SpectrumAnalyzer(0)), Offset(MixerBufferRight(0)), 1, fftBits ' and now the right ones
+        TextHLine SpectrumAnalyzerWidth - x, 1 + j, SpectrumAnalyzerWidth
 
-    For i = 0 To SpectrumAnalyzerHeight - 1
-        x = (i * fftSamplesHalf) \ SpectrumAnalyzerHeight
-        If SpectrumAnalyzer(x) >= ANALYZER_SCALE Then
-            j = SpectrumAnalyzerWidth - 1
+        ' Next calculate for the one on the right and draw
+        If SpectrumAnalyzerRight(i) >= ANALYZER_SCALE Then
+            x = SpectrumAnalyzerWidth - 1
         Else
-            j = (SpectrumAnalyzer(x) * (SpectrumAnalyzerWidth - 1)) \ ANALYZER_SCALE
+            x = (SpectrumAnalyzerRight(i) * (SpectrumAnalyzerWidth - 1)) \ ANALYZER_SCALE
         End If
-        TextHLine 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER, 1 + i, 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER + j
+
+        TextHLine 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER, 1 + j, 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER + x
     Next
 
     PCopy 1, 0 ' now just copy the working page to the visual page
@@ -301,31 +304,31 @@ Sub PrintWelcomeScreen
     Print " |                                                                                                                    | "
     Print " |                                                                                                                    | "
     Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
     Print " |                                         ";: Color 11: Print " F1";: Color 8: Print " ........... ";: Color 13: Print "MULTI-SELECT FILES";: Color 14: Print "                                         | "
+    Print " |                                                                                                                    | "
     Print " |                                                                                                                    | "
     Print " |                                         ";: Color 11: Print "ESC";: Color 8: Print " .................... ";: Color 13: Print "NEXT/QUIT";: Color 14: Print "                                         | "
     Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
     Print " |                                         ";: Color 11: Print "SPC";: Color 8: Print " ........................ ";: Color 13: Print "PAUSE";: Color 14: Print "                                         | "
+    Print " |                                                                                                                    | "
     Print " |                                                                                                                    | "
     Print " |                                         ";: Color 11: Print "=|+";: Color 8: Print " .............. ";: Color 13: Print "INCREASE VOLUME";: Color 14: Print "                                         | "
     Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
     Print " |                                         ";: Color 11: Print "-|_";: Color 8: Print " .............. ";: Color 13: Print "DECREASE VOLUME";: Color 14: Print "                                         | "
+    Print " |                                                                                                                    | "
     Print " |                                                                                                                    | "
     Print " |                                         ";: Color 11: Print "L|l";: Color 8: Print " ......................... ";: Color 13: Print "LOOP";: Color 14: Print "                                         | "
     Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
     Print " |                                         ";: Color 11: Print "Q|q";: Color 8: Print " ................ ";: Color 13: Print "INTERPOLATION";: Color 14: Print "                                         | "
+    Print " |                                                                                                                    | "
     Print " |                                                                                                                    | "
     Print " |                                         ";: Color 11: Print " <-";: Color 8: Print " ....................... ";: Color 13: Print "REWIND";: Color 14: Print "                                         | "
     Print " |                                                                                                                    | "
+    Print " |                                                                                                                    | "
     Print " |                                         ";: Color 11: Print " ->";: Color 8: Print " ...................... ";: Color 13: Print "FORWARD";: Color 14: Print "                                         | "
-    Print " |                                                                                                                    | "
-    Print " |                                         ";: Color 11: Print "I|i";: Color 8: Print " ............. ";: Color 13: Print "INFORMATION VIEW";: Color 14: Print "                                         | "
-    Print " |                                                                                                                    | "
-    Print " |                                         ";: Color 11: Print "V|v";: Color 8: Print " ................. ";: Color 13: Print "PATTERN VIEW";: Color 14: Print "                                         | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
     Print " |                                                                                                                    | "
     Print " |                                                                                                                    | "
     Print " |                                                                                                                    | "
