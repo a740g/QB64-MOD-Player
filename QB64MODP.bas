@@ -81,15 +81,16 @@ AllowFullScreen SquarePixels , Smooth ' Allow the user to press Alt+Enter to go 
 Volume = GLOBAL_VOLUME_MAX ' Set global volume to maximum
 HighQuality = TRUE ' Enable interpolated mixing by default
 
-Dim k As Long, event As Unsigned Byte
+Dim event As Unsigned Byte
 
 event = EVENT_CMDS ' default to command line event first
 
 ' Main loop
 Do
-    PrintWelcomeScreen
-
     Select Case event
+        Case EVENT_QUIT
+            Exit Do
+
         Case EVENT_DROP
             event = ProcessDroppedFiles
 
@@ -98,20 +99,11 @@ Do
 
         Case EVENT_CMDS
             event = ProcessCommandLine
+
+        Case Else
+            event = DoWelcomeScreen
     End Select
-
-    k = KeyHit
-
-    If k = KEY_ESCAPE Then
-        event = EVENT_QUIT
-    ElseIf TotalDroppedFiles > 0 Then
-        event = EVENT_DROP
-    ElseIf k = KEY_F1 Then
-        event = EVENT_LOAD
-    End If
-
-    Limit FRAME_RATE_MAX
-Loop Until event = EVENT_QUIT
+Loop
 
 System
 '-----------------------------------------------------------------------------------------------------
@@ -270,114 +262,130 @@ Sub PrintVisualization
 End Sub
 
 
-' Print the welcome screen
-Sub PrintWelcomeScreen
+' Welcome screen loop
+Function DoWelcomeScreen~%%
     Static As Single starX(1 To TEXT_LINE_MAX), starY(1 To TEXT_LINE_MAX)
     Static As Long starZ(1 To TEXT_LINE_MAX), starC(1 To TEXT_LINE_MAX)
+    Dim k As Long, e As Unsigned Byte
 
-    Screen , , 1, 0 ' this is for the starfield stuff
-    Cls ' same as above
-    Locate 1, 1
-    Color 14, 0
+    Do
+        Screen , , 1, 0 ' we'll do all writes to an invisible page and then simply copy that page once we are done
+        Cls , 0 ' clear the page
 
-    Print "                                                 *        )  (       (                                                  "
-    Print "                       (     (   (         )   (  `    ( /(  )\ )    )\ )  (                                            "
-    Print "                     ( )\  ( )\  )\ )   ( /(   )\))(   )\())(()/(   (()/(  )\    )  (       (   (                       "
-    Print "                     )((_) )((_)(()/(   )\()) ((_)()\ ((_)\  /(_))   /(_))((_)( /(  )\ )   ))\  )(                      "
-    Print "                    ((_)_ ((_)_  /(_)) ((_)\  (_()((_)  ((_)(_))_   (_))   _  )(_))(()/(  /((_)(()\                     "
-    Print "                     / _ \ | _ )(_) / | | (_) |  \/  | / _ \ |   \  | _ \ | |((_)_  )(_))(_))   ((_)                    "
-    Print "                    | (_) || _ \ / _ \|_  _|  | |\/| || (_) || |) | |  _/ | |/ _` || || |/ -_) | '_|                    "
-    Print "_.___________________\__\_\|___/ \___/  |_|   |_|  |_| \___/ |___/  |_|   |_|\__,_| \_, |\___| |_|____________________._"
-    Print "                                                                                    |__/                                "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                         ";: Color 11: Print " F1";: Color 8: Print " ........... ";: Color 13: Print "MULTI-SELECT FILES";: Color 14: Print "                                         | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                         ";: Color 11: Print "ESC";: Color 8: Print " .................... ";: Color 13: Print "NEXT/QUIT";: Color 14: Print "                                         | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                         ";: Color 11: Print "SPC";: Color 8: Print " ........................ ";: Color 13: Print "PAUSE";: Color 14: Print "                                         | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                         ";: Color 11: Print "=|+";: Color 8: Print " .............. ";: Color 13: Print "INCREASE VOLUME";: Color 14: Print "                                         | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                         ";: Color 11: Print "-|_";: Color 8: Print " .............. ";: Color 13: Print "DECREASE VOLUME";: Color 14: Print "                                         | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                         ";: Color 11: Print "L|l";: Color 8: Print " ......................... ";: Color 13: Print "LOOP";: Color 14: Print "                                         | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                         ";: Color 11: Print "Q|q";: Color 8: Print " ................ ";: Color 13: Print "INTERPOLATION";: Color 14: Print "                                         | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                         ";: Color 11: Print " <-";: Color 8: Print " ....................... ";: Color 13: Print "REWIND";: Color 14: Print "                                         | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                         ";: Color 11: Print " ->";: Color 8: Print " ...................... ";: Color 13: Print "FORWARD";: Color 14: Print "                                         | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                                                                                                                    | "
-    Print " |                     ";: Color 9: Print "DRAG AND DROP MULTIPLE MOD FILES ON THIS WINDOW TO PLAY THEM SEQUENTIALLY.";: Color 14: Print "                     | "
-    Print " |                                                                                                                    | "
-    Print " |                     ";: Color 9: Print "YOU CAN ALSO START THE PROGRAM WITH MULTIPLE FILES FROM THE COMMAND LINE.";: Color 14: Print "                      | "
-    Print " |                                                                                                                    | "
-    Print " |                    ";: Color 9: Print "THIS WAS WRITTEN PURELY IN QB64 AND THE SOURCE CODE IS AVAILABLE ON GITHUB.";: Color 14: Print "                     | "
-    Print " |                                                                                                                    | "
-    Print " |                                     ";: Color 9: Print "https://github.com/a740g/QB64-MOD-Player";: Color 14: Print "                                       | "
-    Print "_|_                                                                                                                  _|_"
-    Print " `/__________________________________________________________________________________________________________________\' ";
+        Locate 1, 1
+        Color 14, 0
+        Print "                                                 *        )  (       (                                                  "
+        Print "                       (     (   (         )   (  `    ( /(  )\ )    )\ )  (                                            "
+        Print "                     ( )\  ( )\  )\ )   ( /(   )\))(   )\())(()/(   (()/(  )\    )  (       (   (                       "
+        Print "                     )((_) )((_)(()/(   )\()) ((_)()\ ((_)\  /(_))   /(_))((_)( /(  )\ )   ))\  )(                      "
+        Print "                    ((_)_ ((_)_  /(_)) ((_)\  (_()((_)  ((_)(_))_   (_))   _  )(_))(()/(  /((_)(()\                     "
+        Print "                     / _ \ | _ )(_) / | | (_) |  \/  | / _ \ |   \  | _ \ | |((_)_  )(_))(_))   ((_)                    "
+        Print "                    | (_) || _ \ / _ \|_  _|  | |\/| || (_) || |) | |  _/ | |/ _` || || |/ -_) | '_|                    "
+        Print "_.___________________\__\_\|___/ \___/  |_|   |_|  |_| \___/ |___/  |_|   |_|\__,_| \_, |\___| |_|____________________._"
+        Print "                                                                                    |__/                                "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                         ";: Color 11: Print " F1";: Color 8: Print " ........... ";: Color 13: Print "MULTI-SELECT FILES";: Color 14: Print "                                         | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                         ";: Color 11: Print "ESC";: Color 8: Print " .................... ";: Color 13: Print "NEXT/QUIT";: Color 14: Print "                                         | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                         ";: Color 11: Print "SPC";: Color 8: Print " ........................ ";: Color 13: Print "PAUSE";: Color 14: Print "                                         | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                         ";: Color 11: Print "=|+";: Color 8: Print " .............. ";: Color 13: Print "INCREASE VOLUME";: Color 14: Print "                                         | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                         ";: Color 11: Print "-|_";: Color 8: Print " .............. ";: Color 13: Print "DECREASE VOLUME";: Color 14: Print "                                         | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                         ";: Color 11: Print "L|l";: Color 8: Print " ......................... ";: Color 13: Print "LOOP";: Color 14: Print "                                         | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                         ";: Color 11: Print "Q|q";: Color 8: Print " ................ ";: Color 13: Print "INTERPOLATION";: Color 14: Print "                                         | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                         ";: Color 11: Print " <-";: Color 8: Print " ....................... ";: Color 13: Print "REWIND";: Color 14: Print "                                         | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                         ";: Color 11: Print " ->";: Color 8: Print " ...................... ";: Color 13: Print "FORWARD";: Color 14: Print "                                         | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                                                                                                                    | "
+        Print " |                     ";: Color 9: Print "DRAG AND DROP MULTIPLE MOD FILES ON THIS WINDOW TO PLAY THEM SEQUENTIALLY.";: Color 14: Print "                     | "
+        Print " |                                                                                                                    | "
+        Print " |                     ";: Color 9: Print "YOU CAN ALSO START THE PROGRAM WITH MULTIPLE FILES FROM THE COMMAND LINE.";: Color 14: Print "                      | "
+        Print " |                                                                                                                    | "
+        Print " |                    ";: Color 9: Print "THIS WAS WRITTEN PURELY IN QB64 AND THE SOURCE CODE IS AVAILABLE ON GITHUB.";: Color 14: Print "                     | "
+        Print " |                                                                                                                    | "
+        Print " |                                     ";: Color 9: Print "https://github.com/a740g/QB64-MOD-Player";: Color 14: Print "                                       | "
+        Print "_|_                                                                                                                  _|_"
+        Print " `/__________________________________________________________________________________________________________________\' ";
 
-    ' Text mode starfield. Hell yeah!
-    Dim i As Long
-    For i = 1 To TEXT_LINE_MAX
-        If starX(i) < 1 Or starX(i) > WindowWidth Or starY(i) < 1 Or starY(i) > TEXT_LINE_MAX Then
+        ' Text mode starfield. Hell yeah!
+        For k = 1 To TEXT_LINE_MAX
+            If starX(k) < 1 Or starX(k) > WindowWidth Or starY(k) < 1 Or starY(k) > TEXT_LINE_MAX Then
 
-            starX(i) = RandomBetween(1 + WindowWidth \ 4, WindowWidth - WindowWidth \ 4)
-            starY(i) = RandomBetween(1 + TEXT_LINE_MAX \ 4, TEXT_LINE_MAX - TEXT_LINE_MAX \ 4)
-            starZ(i) = 4096
-            starC(i) = RandomBetween(9, 15)
+                starX(k) = RandomBetween(1 + WindowWidth \ 4, WindowWidth - WindowWidth \ 4)
+                starY(k) = RandomBetween(1 + TEXT_LINE_MAX \ 4, TEXT_LINE_MAX - TEXT_LINE_MAX \ 4)
+                starZ(k) = 4096
+                starC(k) = RandomBetween(9, 15)
+            End If
+
+            Locate starY(k), starX(k)
+            Color starC(k)
+            Print "*";
+
+            starZ(k) = starZ(k) + 1
+            starX(k) = ((starX(k) - (WindowWidth / 2)) * (starZ(k) / 4096)) + (WindowWidth / 2)
+            starY(k) = ((starY(k) - (TEXT_LINE_MAX / 2)) * (starZ(k) / 4096)) + (TEXT_LINE_MAX / 2)
+        Next
+
+        PCopy 1, 0 ' now just copy the working page to the visual page
+        Screen , , 0, 0 ' set the the visual page as the working page
+
+        Limit FRAME_RATE_MAX
+
+        k = KeyHit
+
+        If k = KEY_ESCAPE Then
+            e = EVENT_QUIT
+        ElseIf TotalDroppedFiles > 0 Then
+            e = EVENT_DROP
+        ElseIf k = KEY_F1 Then
+            e = EVENT_LOAD
         End If
+    Loop While e = EVENT_NONE
 
-        Locate starY(i), starX(i)
-        Color starC(i)
-        Print "*";
-
-        starZ(i) = starZ(i) + 1
-        starX(i) = ((starX(i) - (WindowWidth / 2)) * (starZ(i) / 4096)) + (WindowWidth / 2)
-        starY(i) = ((starY(i) - (TEXT_LINE_MAX / 2)) * (starZ(i) / 4096)) + (TEXT_LINE_MAX / 2)
-    Next
-
-    PCopy 1, 0 ' now just copy the working page to the visual page
-    Screen , , 0, 0 ' set the the visual page as the working page
-End Sub
+    DoWelcomeScreen = e
+End Function
 
 
 ' Loads the note string table
