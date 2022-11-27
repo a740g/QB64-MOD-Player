@@ -1,13 +1,13 @@
 Holy shit!
 
-----------------------------------------------------------------------------------------------------------------------------------------------------------------
-
 "Invert loop" effect replaces (!) sample data bytes within loop with their bitwise complement (NOT). The parameter sets speed of altering the samples. This effectively trashes the sample data. Because of that this effect was supposed to be removed in the very next ProTracker versions, but it actually survived until ProTracker 3.0 was never removed.
 
 It should go something like this (called every tick)...
 Code: [Select]
 il_speed = parameter_of_EFx;
+
 ...
+
 il_table = {0,5,6,7,8,10,11,13,16,19,22,26,32,43,64,128};
 
 il_delay += il_table[il_speed];
@@ -47,6 +47,48 @@ if (current_sample_has_loop && (fr_delay >= 128))
 As Ian mentioned, to make things more confusing ProTracker replay routines kept "Funk" label names for "Invert Loop" effect.
 
 Both implementations work best with very short loops, so they are usable mostly for "chiptunes".
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Funkrepeat. This is rarely implemented because not everyone knows how to use it and those who do generally think it's "nasty" as it overwrites sample data. Some might say this is incredibly rare; however, it appears to be more common than E3x.
+
+What this thing actually does is it, for every tick, increases a counter, and once that counter crosses over a certain point, it "inverts" a byte in the current playing(?) sample's loop (a logical NOT), resets the counter to 0, and moves along to the next byte, wrapping around if necessary. It does not affect samples which don't have loops in them.
+
+(please clarify: when you hit a lone sample which isn't the current one, does it affect that latched sample or the playing sample?)
+
+So, here's a list which can be added to. The bigger this list, the more pressure MOD player authors will get until they finally implement this under-implemented effect.
+
+List of MODs which use EFx
+emax-doz.mod
+emax-seq.mod
+In most cases, a MOD which uses EFx is a chiptune.
+
+In most cases, a MOD which uses EFx needs it (for epicness purposes mostly).
+
+Firstly, you'll want this table. This tells you how much to increment the internal counter by, and is in the ProTracker v1.2 source code.
+
+0,5,6,7,8,10,11,13,16,19,22,26,32,43,64,128
+This roughly correlates to this number of ticks:
+
+  0  1  2  3  4  5  6  7  8  9  A  B  C  D  E   F - x
+  0, 5, 6, 7, 8,10,11,13,16,19,22,26,32,43,64,128 - counter
+inf,26,22,19,16,13,12,10, 8, 7, 6, 5, 4, 3, 2,  1 - ticks
+If x is 0, then reset that channel's funkrepeat counter and funkrepeat position to 0. Otherwise, set that channel's funkrepeat speed to funkrepeat_table[x].
+
+If a channel is not funkrepeating, then you don't need to do what follows for that channel.
+
+For every tick, increment the channel's funkrepeat counter by its funkrepeat speed. If the funkrepeat counter reaches 128, then reset the counter to 0, and then:
+
+sampledata[current_sample][loop_begin_in_bytes + funkrepeat_pos] ^= 0xFF;
+funkrepeat_pos = (funkrepeat_pos + 1) % loop_length_in_bytes;
+^ is the XOR operator in C. There's also ~ for a binary NOT, but ~= probably isn't valid C.
+
+Every time you reach a new sample (?) value, reset that channel's funkrepeat position to 0, and start modifying the new sample (?).
+
+(please clarify: does the funkrepeat sample position retrigger on sample, note, either, or both?)
+
+
+(please clarify: there's probably a lot of mistakes in this.)
 
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
