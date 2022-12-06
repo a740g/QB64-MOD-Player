@@ -2,6 +2,7 @@
 
 This is a [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player library written in [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe).
 
+https://raw.githubusercontent.com/a740g/QB64-MOD-Player/main/screenshots/qb64mp_demo.mp4
 [![Screenshot](screenshots/qb64mp_intro.png)](screenshots/qb64mp_demo.mp4)
 [![Screenshot](screenshots/qb64mp_playing.png)](screenshots/qb64mp_demo.mp4)
 
