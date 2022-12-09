@@ -33,7 +33,7 @@ Const APP_NAME = "QB64 MOD Player" ' application name
 Const TEXT_LINE_MAX = 75 ' this the number of lines we need
 Const TEXT_WIDTH_MIN = 120 ' minimum width we need
 Const TEXT_WIDTH_HEADER = 84 ' width of the main header on the vis screen
-Const FRAME_RATE_MAX = 120 ' maximum frame rate we'll allow
+Const FRAME_RATE_MAX = 60 ' maximum frame rate we'll allow
 Const ANALYZER_SCALE = 4096 ' values after this will be clipped in the analyzer array
 ' Program events
 Const EVENT_NONE = 0 ' idle
@@ -72,14 +72,15 @@ ReDim Shared SpectrumAnalyzerRight(0 To 0) As Unsigned Integer ' right channel F
 '-----------------------------------------------------------------------------------------------------
 ' PROGRAM ENTRY POINT - Frankenstein retro TUI with drag & drop support
 '-----------------------------------------------------------------------------------------------------
-Title APP_NAME + " " + OS$ ' Set the program name in the titlebar
-ChDir StartDir$ ' Change to the directory specifed by the environment
-AcceptFileDrop ' Enable drag and drop of files
-InitializeNoteTable ' Initialize note string table
-AdjustWindowSize ' Set the initial window size
-AllowFullScreen SquarePixels , Smooth ' Allow the user to press Alt+Enter to go fullscreen
-Volume = GLOBAL_VOLUME_MAX ' Set global volume to maximum
-HighQuality = TRUE ' Enable interpolated mixing by default
+Title APP_NAME + " " + OS$ ' set the program name in the titlebar
+ChDir StartDir$ ' change to the directory specifed by the environment
+AcceptFileDrop ' enable drag and drop of files
+InitializeNoteTable ' initialize note string table
+AdjustWindowSize ' set the initial window size
+AllowFullScreen SquarePixels , Smooth ' allow the user to press Alt+Enter to go fullscreen
+Randomize Timer ' seed RNG
+Volume = GLOBAL_VOLUME_MAX ' set global volume to maximum
+HighQuality = TRUE ' enable interpolated mixing by default
 
 Dim event As Unsigned Byte
 
@@ -105,6 +106,7 @@ Do
     End Select
 Loop
 
+AutoDisplay
 System
 '-----------------------------------------------------------------------------------------------------
 
@@ -113,6 +115,7 @@ System
 '-----------------------------------------------------------------------------------------------------
 ' This "prints" the current playing MODs visualization on the screen
 Sub PrintVisualization
+    ' These are internal variables and arrays used by the MODPlayer library
     Shared Song As SongType
     Shared Order() As Unsigned Byte
     Shared Pattern() As NoteType
@@ -126,8 +129,7 @@ Sub PrintVisualization
     ' Note this is only a problem with this demo and not the actual library since we are trying to access internal stuff directly
     If Song.orderPosition >= Song.orders Then Exit Sub
 
-    Screen , , 1, 0 ' we'll do all writes to an invisible page and then simply copy that page once we are done
-    Cls ' clear the page
+    Cls , 0 ' clear the framebuffer to black color
 
     Dim x As Long
     x = 1 + WindowWidth \ 2 - TEXT_WIDTH_HEADER \ 2 ' find x so that we can center everything
@@ -257,20 +259,18 @@ Sub PrintVisualization
         TextHLine 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER, 1 + j, 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER + x
     Next
 
-    PCopy 1, 0 ' now just copy the working page to the visual page
-    Screen , , 0, 0 ' set the the visual page as the working page
+    Display ' flip the framebuffer
 End Sub
 
 
 ' Welcome screen loop
 Function DoWelcomeScreen~%%
-    Static As Single starX(1 To TEXT_LINE_MAX), starY(1 To TEXT_LINE_MAX)
-    Static As Long starZ(1 To TEXT_LINE_MAX), starC(1 To TEXT_LINE_MAX)
+    Dim As Single starX(1 To TEXT_LINE_MAX), starY(1 To TEXT_LINE_MAX)
+    Dim As Long starZ(1 To TEXT_LINE_MAX), starC(1 To TEXT_LINE_MAX)
     Dim k As Long, e As Unsigned Byte
 
     Do
-        Screen , , 1, 0 ' we'll do all writes to an invisible page and then simply copy that page once we are done
-        Cls , 0 ' clear the page
+        Cls , 0 ' clear the framebuffer to black color
 
         Locate 1, 1
         Color 14, 0
@@ -368,11 +368,6 @@ Function DoWelcomeScreen~%%
             starY(k) = ((starY(k) - (TEXT_LINE_MAX / 2)) * (starZ(k) / 4096)) + (TEXT_LINE_MAX / 2)
         Next
 
-        PCopy 1, 0 ' now just copy the working page to the visual page
-        Screen , , 0, 0 ' set the the visual page as the working page
-
-        Limit FRAME_RATE_MAX
-
         k = KeyHit
 
         If k = KEY_ESCAPE Then
@@ -382,6 +377,10 @@ Function DoWelcomeScreen~%%
         ElseIf k = KEY_F1 Then
             e = EVENT_LOAD
         End If
+
+        Display ' flip the framebuffer
+
+        Limit FRAME_RATE_MAX
     Loop While e = EVENT_NONE
 
     DoWelcomeScreen = e
@@ -426,7 +425,7 @@ Sub AdjustWindowSize
         SpectrumAnalyzerHeight = 0
     End If
 
-    Width WindowWidth, TEXT_LINE_MAX ' we need 52 lines for the vizualization stuff
+    Width WindowWidth, TEXT_LINE_MAX ' we need 75 lines for the vizualization stuff
     ControlChr Off ' turn off control characters
     Font 8 ' force 8x8 pixel font
     Blink Off ' we want high intensity colors
@@ -444,9 +443,7 @@ Function PlaySong~%% (fileName As String)
     PlaySong = EVENT_PLAY ' default event is to play next song
 
     If Not LoadMODFile(fileName) Then
-        Color 12
-        Print: Print "Failed to load "; fileName; "!"
-        Sleep 5
+        MessageBox APP_NAME, "Failed to load: " + fileName, "error"
 
         Exit Function
     End If
@@ -457,13 +454,14 @@ Function PlaySong~%% (fileName As String)
     StartMODPlayer
     AdjustWindowSize
 
-    Dim k As Long
-
     SetGlobalVolume Volume
     EnableHQMixer HighQuality
 
+    Dim k As Long
+
     Do
         UpdateMODPlayer
+
         PrintVisualization
 
         k = KeyHit
