@@ -33,8 +33,8 @@ Const APP_NAME = "QB64 MOD Player" ' application name
 Const TEXT_LINE_MAX = 75 ' this the number of lines we need
 Const TEXT_WIDTH_MIN = 120 ' minimum width we need
 Const TEXT_WIDTH_HEADER = 84 ' width of the main header on the vis screen
-Const FRAME_RATE_MAX = 60 ' maximum frame rate we'll allow
 Const ANALYZER_SCALE = 4096 ' values after this will be clipped in the analyzer array
+Const FRAME_RATE_MIN = 60 ' minimum frame rate we'll allow
 ' Program events
 Const EVENT_NONE = 0 ' idle
 Const EVENT_QUIT = 1 ' user wants to quit
@@ -380,7 +380,7 @@ Function DoWelcomeScreen~%%
 
         Display ' flip the framebuffer
 
-        Limit FRAME_RATE_MAX
+        Limit FRAME_RATE_MIN
     Loop While e = EVENT_NONE
 
     DoWelcomeScreen = e
@@ -457,7 +457,7 @@ Function PlaySong~%% (fileName As String)
     SetGlobalVolume Volume
     EnableHQMixer HighQuality
 
-    Dim k As Long
+    Dim As Long k, nFPS
 
     Do
         UpdateMODPlayer
@@ -498,6 +498,12 @@ Function PlaySong~%% (fileName As String)
             Case KEY_F1
                 PlaySong = EVENT_LOAD
                 Exit Do
+
+            Case 21248 ' Shift + Delete - you known what it does
+                If MessageBox(APP_NAME, "Are you sure you want to delete " + fileName + " permanently?", "yesno", "question", 0) = 1 Then
+                    Kill fileName
+                    Exit Do
+                End If
         End Select
 
         If TotalDroppedFiles > 0 Then
@@ -507,7 +513,10 @@ Function PlaySong~%% (fileName As String)
 
         HighQuality = SoftSynth.useHQMixer ' Since this can be changed by the playing MOD
 
-        Limit FRAME_RATE_MAX
+        ' We'll only update at the rate we really need
+        nFPS = (12 * Song.bpm * (31 - Song.speed)) \ 625 ' XD
+        If nFPS < FRAME_RATE_MIN Then nFPS = FRAME_RATE_MIN ' clamp it to 60 min
+        Limit nFPS
     Loop Until Not Song.isPlaying Or k = KEY_ESCAPE
 
     StopMODPlayer
