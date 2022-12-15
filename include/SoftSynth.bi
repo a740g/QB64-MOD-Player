@@ -21,7 +21,7 @@ $If SOFTSYNTH_BI = UNDEFINED Then
     Const SAMPLE_PLAY_SINGLE = 0 ' Single-shot playback
     Const SAMPLE_PLAY_LOOP = 1 ' Forward-looping playback
     Const GLOBAL_VOLUME_MAX = 255 ' Max global volume
-    Const SOUND_TIME_MIN = 0.2 ' We will check that we have this amount of time left in the playback buffer
+    Const SOUND_TIME_MIN = 0.1 ' We will check that we have this amount of time left in the playback buffer
     '-----------------------------------------------------------------------------------------------------
 
     '-----------------------------------------------------------------------------------------------------
