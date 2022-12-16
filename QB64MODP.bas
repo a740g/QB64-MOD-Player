@@ -22,8 +22,8 @@ $VersionInfo:OriginalFilename='QB64MODP.exe'
 $VersionInfo:ProductName='QB64 MOD Player'
 $VersionInfo:Web='https://github.com/a740g'
 $VersionInfo:Comments='https://github.com/a740g'
-$VersionInfo:FILEVERSION#=1,5,0,11
-$VersionInfo:PRODUCTVERSION#=1,5,0,0
+$VersionInfo:FILEVERSION#=1,8,0,0
+$VersionInfo:PRODUCTVERSION#=1,8,0,0
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -33,7 +33,7 @@ Const APP_NAME = "QB64 MOD Player" ' application name
 Const TEXT_LINE_MAX = 75 ' this the number of lines we need
 Const TEXT_WIDTH_MIN = 120 ' minimum width we need
 Const TEXT_WIDTH_HEADER = 84 ' width of the main header on the vis screen
-Const ANALYZER_SCALE = 4096 ' values after this will be clipped in the analyzer array
+Const ANALYZER_SCALE = 5120 ' values after this will be clipped in the analyzer array
 Const FRAME_RATE_MIN = 60 ' minimum frame rate we'll allow
 ' Program events
 Const EVENT_NONE = 0 ' idle
@@ -502,12 +502,14 @@ Function PlaySong~%% (fileName As String)
             Case 21248 ' Shift + Delete - you known what it does
                 If MessageBox(APP_NAME, "Are you sure you want to delete " + fileName + " permanently?", "yesno", "question", 0) = 1 Then
                     Kill fileName
+
                     Exit Do
                 End If
         End Select
 
         If TotalDroppedFiles > 0 Then
             PlaySong = EVENT_DROP
+
             Exit Do
         End If
 

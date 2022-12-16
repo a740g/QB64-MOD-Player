@@ -15,7 +15,8 @@ $If MODPLAYER_BAS = UNDEFINED Then
     ' Small test code for debugging the library
     '-----------------------------------------------------------------------------------------------------
     '$Debug
-    'If LoadMODFile("C:\Users\samue\OneDrive\Documents\GitHub\QB64-MOD-Player\mods\rez-monday.mod") Then
+    'If LoadMODFile("C:\Users\samue\source\repos\a740g\QB64-MOD-Player\mods\dope.mod") Then
+    '    EnableHQMixer TRUE
     '    StartMODPlayer
     '    Do
     '        UpdateMODPlayer
