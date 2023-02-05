@@ -531,21 +531,19 @@ End Function
 ' Processes the command line one file at a time
 Function ProcessCommandLine~%%
     Dim i As Unsigned Long
-    Dim event As Unsigned Byte
-
-    event = EVENT_NONE
+    Dim e As Unsigned Byte: e = EVENT_NONE
 
     If (Command$(1) = "/?" Or Command$(1) = "-?") Then
         MessageBox APP_NAME, APP_NAME + Chr$(13) + "Syntax: QB64MODP [modfile.mod]" + Chr$(13) + "    /?: Shows this message" + String$(2, 13) + "Copyright (c) 2022, Samuel Gomes" + String$(2, 13) + "https://github.com/a740g/", "info"
-        ProcessCommandLine = EVENT_QUIT
+        e = EVENT_QUIT
     Else
         For i = 1 To CommandCount
-            event = PlaySong(Command$(i))
-            If event <> EVENT_PLAY Then Exit For
+            e = PlaySong(Command$(i))
+            If e <> EVENT_PLAY Then Exit For
         Next
     End If
 
-    ProcessCommandLine = event
+    ProcessCommandLine = e
 End Function
 
 
@@ -554,9 +552,7 @@ Function ProcessDroppedFiles~%%
     ' Make a copy of the dropped file and clear the list
     ReDim fileNames(1 To TotalDroppedFiles) As String
     Dim i As Unsigned Long
-    Dim event As Unsigned Byte
-
-    event = EVENT_NONE
+    Dim e As Unsigned Byte: e = EVENT_NONE
 
     For i = 1 To TotalDroppedFiles
         fileNames(i) = DroppedFile(i)
@@ -565,20 +561,18 @@ Function ProcessDroppedFiles~%%
 
     ' Now play the dropped file one at a time
     For i = LBound(fileNames) To UBound(fileNames)
-        event = PlaySong(fileNames(i))
-        If event <> EVENT_PLAY Then Exit For
+        e = PlaySong(fileNames(i))
+        If e <> EVENT_PLAY Then Exit For
     Next
 
-    ProcessDroppedFiles = event
+    ProcessDroppedFiles = e
 End Function
 
 
 ' Processes a list of files selected by the user
 Function ProcessSelectedFiles~%%
     Dim ofdList As String
-    Dim event As Unsigned Byte
-
-    event = EVENT_NONE
+    Dim e As Unsigned Byte: e = EVENT_NONE
 
     ofdList = OpenFileDialog$(APP_NAME, "", "*.mod|*.MOD|*.Mod", "Music Tracker Files", TRUE)
 
@@ -590,11 +584,11 @@ Function ProcessSelectedFiles~%%
     j = ParseOpenFileDialogList(ofdList, fileNames())
 
     For i = 0 To j - 1
-        event = PlaySong(fileNames(i))
-        If event <> EVENT_PLAY Then Exit For
+        e = PlaySong(fileNames(i))
+        If e <> EVENT_PLAY Then Exit For
     Next
 
-    ProcessSelectedFiles = event
+    ProcessSelectedFiles = e
 End Function
 
 
