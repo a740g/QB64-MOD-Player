@@ -1,6 +1,6 @@
 '-----------------------------------------------------------------------------------------------------
 ' QB64 MOD Player
-' Copyright (c) 2022 Samuel Gomes
+' Copyright (c) 2023 Samuel Gomes
 '-----------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------
@@ -121,6 +121,7 @@ Sub PrintVisualization
     Shared Pattern() As NoteType
     Shared Sample() As SampleType
     Shared SoftSynth As SoftSynthType
+    Shared Voice() As VoiceType
     Shared MixerBufferLeft() As Single
     Shared MixerBufferRight() As Single
 
@@ -183,7 +184,7 @@ Sub PrintVisualization
     End If
 
     ' Now just dump everything to the screen
-    For i = j To TEXT_LINE_MAX
+    For i = j To TEXT_LINE_MAX - 1
         Locate i, x
         Color 15, 0
 
@@ -224,6 +225,13 @@ Sub PrintVisualization
         End If
     Next
 
+    ' Print the footer
+    Color 16, 7
+    Locate TEXT_LINE_MAX, x: Print Using " ###### "; Song.samplesPerTick;
+    For i = 0 To Song.channels - 1
+        Print Using " (##) V: ## P: ### "; i + 1, Voice(i).volume; Voice(i).panning;
+    Next
+
     Dim As Long fftSamples, fftSamplesHalf, fftBits
 
     fftSamples = fft_previous_power_of_two(Song.samplesPerTick) ' we need power of 2 for our FFT function
@@ -236,6 +244,8 @@ Sub PrintVisualization
 
     fft_analyze_float Offset(SpectrumAnalyzerLeft(0)), Offset(MixerBufferLeft(0)), 1, fftBits ' the left samples first
     fft_analyze_float Offset(SpectrumAnalyzerRight(0)), Offset(MixerBufferRight(0)), 1, fftBits ' and now the right ones
+
+    Color , 0
 
     For i = 0 To fftSamplesHalf - 1
         j = (i * SpectrumAnalyzerHeight) \ fftSamplesHalf ' this is the y location where we need to draw the bar
@@ -534,7 +544,7 @@ Function ProcessCommandLine~%%
     Dim e As Unsigned Byte: e = EVENT_NONE
 
     If (Command$(1) = "/?" Or Command$(1) = "-?") Then
-        MessageBox APP_NAME, APP_NAME + Chr$(13) + "Syntax: QB64MODP [modfile.mod]" + Chr$(13) + "    /?: Shows this message" + String$(2, 13) + "Copyright (c) 2022, Samuel Gomes" + String$(2, 13) + "https://github.com/a740g/", "info"
+        MessageBox APP_NAME, APP_NAME + Chr$(13) + "Syntax: QB64MODP [modfile.mod]" + Chr$(13) + "    /?: Shows this message" + String$(2, 13) + "Copyright (c) 2023, Samuel Gomes" + String$(2, 13) + "https://github.com/a740g/", "info"
         e = EVENT_QUIT
     Else
         For i = 1 To CommandCount
