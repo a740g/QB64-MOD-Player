@@ -1,4 +1,4 @@
-# What is this?
+# QB64 MOD PLAYER
 
 This is a [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player library written in [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe).
 
