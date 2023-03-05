@@ -45,9 +45,7 @@ Sub EnableHQMixer (nFlag As Byte)
 
 ## Important note
 
-This will sound like absolute garbage if used with QB64 / QB64-PE with OpenAL backend. The OpenAL code in all versions of QB64 and QB64-PE has `SndRaw` mixing and clipping bugs. You've been warned. If you absolutely must use QB64 with OpenAL, then set the `player` volume to < 75% for something bearable. In the past, I worked around these bugs using several hacks. Ever since I re-wrote the QB64-PE audio backend to use [miniaudio](https://miniaud.io/), I removed all those hacks. So, this sounds best when used with versions of [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe/releases/) >= v3.1.0 with the default miniaudio backend selected.
-
-This uses new features introduced in [QB64-PE v3.4.0+](https://github.com/QB64-Phoenix-Edition/QB64pe/releases) and as such may not work correctly or reliably with older versions of QB64-PE or any version of QB64.
+This requires the latest version of [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe/releases).
 
 ## FAQ
 
@@ -55,13 +53,13 @@ Why a MOD player in QB64?
 
 - Just for learning and fun! Long answer: I have seen plenty of MOD players code and libraries in C & C++ but very little in other languages. I know about some JavaScript, Java and C# ones. But, I am not a fan of those languages. I learnt to code on DOS using QuickBASIC and then graduated to C & C++. So, QuickBASIC always had a special place in my heart. Then, I found QB64 on the internet and the rest is history. As far as I know this is the first of it's kind. Let me know if there are any other MOD players written in pure QB64.
 
-Will you add S3M, XM, IT support?
+Can you implment feature x / y?
 
-- Not sure. Probably. This will require a lot of work. But you are free to fork and do it yourself.
+- With the limited time I have between my day job, home and family, there is only so much I can do. I do maintain a list of TODO (see below). However, those do not have any set deadlines. If you need something implemented, submit a GitHub issue about it or do it yourself and submit a PR.
 
 I found a bug. How can I help?
 
-- Let me know using GitHub issues or fix it yourself and send me a PR!
+- Let me know using GitHub issues or fix it yourself and submit a PR!
 
 Can this be used in a game / demo?
 
@@ -74,3 +72,16 @@ You keep saying QB64-PE with miniaudio backend. Where is it?
 I see that the miniaudio backend version of QB64-PE already has MOD, S3M, XM, IT, RADv2 & MIDI support. Why should I care about this?
 
 - Honestly, you should not! The MOD re-player in QB64-PE with miniaudio backend uses [Libxmp-lite](https://github.com/libxmp/libxmp/tree/master/lite) and as such is good enough for most use cases. This is just something that I made just to see what can be done using just QB64-PE. If you want to see what MOD files are made of and what makes them tick, then by all means, have at it. There are some interesting things in the code for people who care about this kind of stuff. Also, my MOD re-player is more accurate than the one in Libxmp-lite... I hope. 😉
+
+## TODO
+
+- Mixer volume ramping
+- OKT loader
+- MTM loader
+- MED loader
+- FAR loader
+- 669 loader
+- STM loader
+- AHX loader (with proper PSG support)
+- S3M loader (with proper FMS support)
+- XM loader
