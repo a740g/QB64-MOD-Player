@@ -227,7 +227,7 @@ Sub PrintVisualization
 
     ' Print the footer
     Color 16, 7
-    Locate TEXT_LINE_MAX, x: Print Using " ###### "; Song.samplesPerTick;
+    Locate TEXT_LINE_MAX, x: Print Using " ####ms "; SndRawLen(SoftSynth.soundHandle) * 1000;
     For i = 0 To Song.channels - 1
         Print Using " (##) V: ## P: ### "; i + 1, Voice(i).volume; Voice(i).panning;
     Next
