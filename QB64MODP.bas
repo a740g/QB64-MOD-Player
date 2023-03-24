@@ -1,34 +1,35 @@
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 ' QB64 MOD Player
 ' Copyright (c) 2023 Samuel Gomes
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 ' HEADER FILES
-'-----------------------------------------------------------------------------------------------------
-'$Include:'./include/MODPlayer.bi'
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'$Include:'include/MODPlayer.bi'
+'$Include:'include/AnalyzerFFT.bi'
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 ' METACOMMANDS
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 $ExeIcon:'./QB64MODP.ico'
-$VersionInfo:CompanyName='Samuel Gomes'
-$VersionInfo:FileDescription='QB64 MOD Player executable'
-$VersionInfo:InternalName='QB64 MOD Player'
-$VersionInfo:LegalCopyright='Copyright (c) 2022, Samuel Gomes'
-$VersionInfo:LegalTrademarks='All trademarks are property of their respective owners'
-$VersionInfo:OriginalFilename='QB64MODP.exe'
-$VersionInfo:ProductName='QB64 MOD Player'
-$VersionInfo:Web='https://github.com/a740g'
-$VersionInfo:Comments='https://github.com/a740g'
-$VersionInfo:FILEVERSION#=1,8,0,0
-$VersionInfo:PRODUCTVERSION#=1,8,0,0
-'-----------------------------------------------------------------------------------------------------
+$VersionInfo:CompanyName=Samuel Gomes
+$VersionInfo:FileDescription=QB64 MOD Player executable
+$VersionInfo:InternalName=QB64 MOD Player
+$VersionInfo:LegalCopyright=Copyright (c) 2023 Samuel Gomes
+$VersionInfo:LegalTrademarks=All trademarks are property of their respective owners
+$VersionInfo:OriginalFilename=QB64MODP.exe
+$VersionInfo:ProductName=QB64 MOD Player
+$VersionInfo:Web=https://github.com/a740g
+$VersionInfo:Comments=https://github.com/a740g
+$VersionInfo:FILEVERSION#=1,9,0,0
+$VersionInfo:PRODUCTVERSION#=1,9,0,0
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 ' CONSTANTS
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 Const APP_NAME = "QB64 MOD Player" ' application name
 Const TEXT_LINE_MAX = 75 ' this the number of lines we need
 Const TEXT_WIDTH_MIN = 120 ' minimum width we need
@@ -42,22 +43,11 @@ Const EVENT_CMDS = 2 ' process command line
 Const EVENT_LOAD = 3 ' user want to load files
 Const EVENT_DROP = 4 ' user dropped files
 Const EVENT_PLAY = 5 ' play next song
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-'-----------------------------------------------------------------------------------------------------
-' EXTERNAL LIBRARIES
-'-----------------------------------------------------------------------------------------------------
-Declare CustomType Library "./fft"
-    Sub fft_analyze_short (ByVal ana As Offset, Byval samp As Offset, Byval inc As Long, Byval bits As Long)
-    Sub fft_analyze_float (ByVal ana As Offset, Byval samp As Offset, Byval inc As Long, Byval bits As Long)
-    Function fft_previous_power_of_two~& (ByVal x As Unsigned Long)
-    Function fft_left_shift_one_count~& (ByVal x As Unsigned Long)
-End Declare
-'-----------------------------------------------------------------------------------------------------
-
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 ' GLOBAL VARIABLES
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 ReDim Shared NoteTable(0 To 0) As String * 2 ' this contains the note stings
 Dim Shared WindowWidth As Long ' the width of our windows in characters
 Dim Shared PatternDisplayWidth As Long ' the width of the pattern display in characters
@@ -67,18 +57,18 @@ Dim Shared Volume As Integer ' this is needed because the replayer can reset vol
 Dim Shared HighQuality As Byte ' this is needed because the replayer can reset quality across songs
 ReDim Shared SpectrumAnalyzerLeft(0 To 0) As Unsigned Integer ' left channel FFT data
 ReDim Shared SpectrumAnalyzerRight(0 To 0) As Unsigned Integer ' right channel FFT data
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 ' PROGRAM ENTRY POINT - Frankenstein retro TUI with drag & drop support
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 Title APP_NAME + " " + OS$ ' set the program name in the titlebar
 ChDir StartDir$ ' change to the directory specifed by the environment
 AcceptFileDrop ' enable drag and drop of files
 InitializeNoteTable ' initialize note string table
 AdjustWindowSize ' set the initial window size
 AllowFullScreen SquarePixels , Smooth ' allow the user to press Alt+Enter to go fullscreen
-Randomize Timer ' seed RNG
+SRand Timer ' seed RNG
 Volume = GLOBAL_VOLUME_MAX ' set global volume to maximum
 HighQuality = TRUE ' enable interpolated mixing by default
 
@@ -108,11 +98,11 @@ Loop
 
 AutoDisplay
 System
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 ' FUNCTIONS & SUBROUTINES
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 ' This "prints" the current playing MODs visualization on the screen
 Sub PrintVisualization
     ' These are internal variables and arrays used by the MODPlayer library
@@ -234,16 +224,16 @@ Sub PrintVisualization
 
     Dim As Long fftSamples, fftSamplesHalf, fftBits
 
-    fftSamples = fft_previous_power_of_two(Song.samplesPerTick) ' we need power of 2 for our FFT function
+    fftSamples = PreviousPowerOfTwo(Song.samplesPerTick) ' we need power of 2 for our FFT function
     fftSamplesHalf = fftSamples \ 2
-    fftBits = fft_left_shift_one_count(fftSamples) ' Get the count of bits that the FFT routine will need
+    fftBits = LShOneCount(fftSamples) ' Get the count of bits that the FFT routine will need
 
     ' Setup the FFT arrays (half of fftSamples)
     ReDim SpectrumAnalyzerLeft(0 To fftSamplesHalf - 1) As Unsigned Integer
     ReDim SpectrumAnalyzerRight(0 To fftSamplesHalf - 1) As Unsigned Integer
 
-    fft_analyze_float Offset(SpectrumAnalyzerLeft(0)), Offset(MixerBufferLeft(0)), 1, fftBits ' the left samples first
-    fft_analyze_float Offset(SpectrumAnalyzerRight(0)), Offset(MixerBufferRight(0)), 1, fftBits ' and now the right ones
+    FFTAanalyzeSingle Offset(SpectrumAnalyzerLeft(0)), Offset(MixerBufferLeft(0)), 1, fftBits ' the left samples first
+    FFTAanalyzeSingle Offset(SpectrumAnalyzerRight(0)), Offset(MixerBufferRight(0)), 1, fftBits ' and now the right ones
 
     Color , 0
 
@@ -635,12 +625,6 @@ Function BoolToStr$ (expression As Long, style As Unsigned Byte)
 End Function
 
 
-' Generates a random number between lo & hi
-Function RandomBetween& (lo As Long, hi As Long)
-    RandomBetween = lo + Rnd * (hi - lo)
-End Function
-
-
 ' Draw a horizontal line using text and colors it too! Sweet! XD
 Sub TextHLine (xs As Long, y As Long, xe As Long)
     Dim l As Long
@@ -677,12 +661,12 @@ Function ParseOpenFileDialogList& (ofdList As String, ofdArray() As String)
         ReDim Preserve ofdArray(0 To c) As String
     Loop
 End Function
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 ' MODULE FILES
-'-----------------------------------------------------------------------------------------------------
-'$Include:'./include/MODPlayer.bas'
-'-----------------------------------------------------------------------------------------------------
-'-----------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'$Include:'include/MODPlayer.bas'
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 

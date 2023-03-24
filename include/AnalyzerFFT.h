@@ -4,24 +4,24 @@
 //
 // Copyright (c) 1994-2005 Niklas Beisert
 // Copyright (c) 2004-2022 Stian Skjelstad
-// Copyright (c) 2022 Samuel Gomes
+// Copyright (c) 2023 Samuel Gomes
 //
-// Adapted from OpenCP Module Player
+// Adapted from OpenCP Module Player (https://github.com/mywave82/opencubicplayer)
 //
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-//--------------------------------------------------------------------------------------------------------------------------------------------------------------
-// CONSTANTS
-//--------------------------------------------------------------------------------------------------------------------------------------------------------------
+#include <algorithm>
+#include <math.h>
+#include <stdint.h>
+#include <stdlib.h>
+
 #define FFT_POW 11
 #define FFT_SAMPLES (1 << FFT_POW)
 #define FFT_SAMPLES2 (1 << (FFT_POW - 1))
-//--------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-//--------------------------------------------------------------------------------------------------------------------------------------------------------------
-// GLOBAL VARIABLES
-//--------------------------------------------------------------------------------------------------------------------------------------------------------------
-static int32_t fft_cossintab86[FFT_SAMPLES2][2] = {
+// clang-format off
+static int32_t fft_cossintab86[FFT_SAMPLES2][2] =
+{
     {268435455, 0},         {268434192, 823548},    {268430402, 1647088},   {268424086, 2470614},   {268415243, 3294115},   {268403873, 4117586},
     {268389978, 4941018},   {268373556, 5764404},   {268354608, 6587735},   {268333134, 7411005},   {268309134, 8234204},   {268282610, 9057326},
     {268253559, 9880363},   {268221985, 10703307},  {268187885, 11526150},  {268151261, 12348885},  {268112113, 13171503},  {268070442, 13993997},
@@ -64,33 +64,35 @@ static int32_t fft_cossintab86[FFT_SAMPLES2][2] = {
     {202182041, 176578639}, {201639354, 177198094}, {201094769, 177815881}, {200548291, 178431994}, {199999926, 179046428}, {199449678, 179659176},
     {198897553, 180270234}, {198343555, 180879594}, {197787691, 181487253}, {197229965, 182093203}, {196670383, 182697439}, {196108950, 183299955},
     {195545670, 183900746}, {194980551, 184499806}, {194413595, 185097130}, {193844811, 185692711}, {193274201, 186286545}, {192701772, 186878625},
-    {192127530, 187468946}, {191551479, 188057503}, {190973625, 188644290}, {190393974, 189229301}, {189812531, 189812531}};
+    {192127530, 187468946}, {191551479, 188057503}, {190973625, 188644290}, {190393974, 189229301}, {189812531, 189812531}
+};
+// clang-format on
 
 static uint16_t fft_permtab[FFT_SAMPLES];
 static bool fft_init_done = false;
 static int32_t fft_x86[FFT_SAMPLES][2];
 static int16_t fft_s_temp[FFT_SAMPLES];
-//--------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-//--------------------------------------------------------------------------------------------------------------------------------------------------------------
-// INTERNAL LIBRARY FUNCTIONS
-//--------------------------------------------------------------------------------------------------------------------------------------------------------------
-static void fft_init() {
+static void fft_init()
+{
     int i, j = 0, k;
 
-    for (i = 0; i < FFT_SAMPLES; ++i) {
+    for (i = 0; i < FFT_SAMPLES; ++i)
+    {
         fft_permtab[i] = j;
         for (k = FFT_SAMPLES2; k && (k <= j); k >>= 1)
             j -= k;
         j += k;
     }
 
-    for (i = FFT_SAMPLES2 / 4 + 1; i <= FFT_SAMPLES2 / 2; ++i) {
+    for (i = FFT_SAMPLES2 / 4 + 1; i <= FFT_SAMPLES2 / 2; ++i)
+    {
         fft_cossintab86[i][0] = fft_cossintab86[FFT_SAMPLES2 / 2 - i][1];
         fft_cossintab86[i][1] = fft_cossintab86[FFT_SAMPLES2 / 2 - i][0];
     }
 
-    for (i = FFT_SAMPLES2 / 2 + 1; i < FFT_SAMPLES2; ++i) {
+    for (i = FFT_SAMPLES2 / 2 + 1; i < FFT_SAMPLES2; ++i)
+    {
         fft_cossintab86[i][0] = -fft_cossintab86[FFT_SAMPLES2 - i][0];
         fft_cossintab86[i][1] = fft_cossintab86[FFT_SAMPLES2 - i][1];
     }
@@ -98,13 +100,15 @@ static void fft_init() {
     fft_init_done = true;
 }
 
-static int fft_imul29(int a, int b) {
+static int fft_imul29(int a, int b)
+{
     double d = (double)a * (double)b;
     d /= (1 << 29);
     return (int)d;
 }
 
-static void fft_calc(int32_t *xi, int32_t *curcossin, uint32_t d2) {
+static void fft_calc(int32_t *xi, int32_t *curcossin, uint32_t d2)
+{
     uint32_t xd[2];
     xd[0] = xi[0] - xi[d2 + 0];
     xi[0] = (xi[0] + xi[d2 + 0]) / 2;
@@ -116,15 +120,18 @@ static void fft_calc(int32_t *xi, int32_t *curcossin, uint32_t d2) {
     xi[d2 + 1] = fft_imul29(xd[0], curcossin[1]) + fft_imul29(xd[1], curcossin[0]);
 }
 
-static void fft_do86(int32_t (*x)[2], const int n) {
+static void fft_do86(int32_t (*x)[2], const int n)
+{
     unsigned int i, j;
     int32_t *xe = x[1 << n];
     int32_t curcossin[2];
     int32_t *xi;
-    for (i = FFT_POW - n; i < FFT_POW; ++i) {
+    for (i = FFT_POW - n; i < FFT_POW; ++i)
+    {
         const uint32_t s2dk = FFT_SAMPLES2 >> i;
         const uint32_t d2 = 2 * s2dk;
-        for (j = 0; j < s2dk; ++j) {
+        for (j = 0; j < s2dk; ++j)
+        {
             curcossin[0] = fft_cossintab86[j << i][0];
             curcossin[1] = fft_cossintab86[j << i][1];
             for (xi = x[j]; xi < xe; xi += 2 * d2)
@@ -132,17 +139,14 @@ static void fft_do86(int32_t (*x)[2], const int n) {
         }
     }
 }
-//--------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-//--------------------------------------------------------------------------------------------------------------------------------------------------------------
-// PUBLIC LIBRARY FUNCTIONS
-//--------------------------------------------------------------------------------------------------------------------------------------------------------------
 /// @brief The top level FFT function that gets the data for 16-bit samples. This will automatically initialize everything when called the first time
 /// @param ana The array where the resulting data is written. This cannot be NULL
 /// @param samp An array of 16-bit samples
 /// @param inc The number to use to get to the next sample in samp. For stereo interleaved samples use 2, else 1
 /// @param bits The size of the sample data. So if bits = 9, then samples = 1 << 9 or 512
-void fft_analyze_short(uint16_t *ana, const int16_t *samp, const int inc, const int bits) {
+void FFTAanalyzeInteger(uint16_t *ana, const int16_t *samp, const int inc, const int bits)
+{
     const unsigned int full = 1 << bits;
     const unsigned int half = full >> 1;
     unsigned int i;
@@ -151,51 +155,36 @@ void fft_analyze_short(uint16_t *ana, const int16_t *samp, const int inc, const 
     if (!fft_init_done)
         fft_init();
 
-    for (i = 0; i < full; ++i) {
+    for (i = 0; i < full; ++i)
+    {
         fft_x86[i][0] = *samp << 12;
         samp += inc;
         fft_x86[i][1] = 0;
     }
     fft_do86(fft_x86, bits);
 
-    for (i = 1; i <= half; ++i) {
+    for (i = 1; i <= half; ++i)
+    {
         xr[0] = fft_x86[fft_permtab[i] >> (FFT_POW - bits)][0] >> 12;
         xr[1] = fft_x86[fft_permtab[i] >> (FFT_POW - bits)][1] >> 12;
         ana[i - 1] = sqrt((xr[0] * xr[0] + xr[1] * xr[1]) * i);
     }
 }
 
-/// @brief This is a variation of fft_analyze_short() for floating point samples. The samples are converted to 16-bit and then sent to fft_analyze_short()
-/// @param ana See fft_analyze_short()
+/// @brief This is a variation of FFTAanalyzeInteger() for floating point samples. The samples are converted to 16-bit and then sent to FFTAanalyzeInteger()
+/// @param ana See FFTAanalyzeInteger()
 /// @param samp An array of floating point (FP32) samples
-/// @param inc See fft_analyze_short()
-/// @param bits See fft_analyze_short()
-void fft_analyze_float(uint16_t *ana, const float *samp, const int inc, const int bits) {
+/// @param inc See FFTAanalyzeInteger()
+/// @param bits See FFTAanalyzeInteger()
+void FFTAanalyzeSingle(uint16_t *ana, const float *samp, const int inc, const int bits)
+{
     const unsigned int full = std::min(1 << bits, FFT_SAMPLES);
 
-    for (int i = 0; i < full; ++i) {
+    for (int i = 0; i < full; ++i)
+    {
         fft_s_temp[i] = (int16_t)((*samp) * SHRT_MAX);
         samp += inc;
     }
 
-    fft_analyze_short(ana, fft_s_temp, inc, bits);
+    FFTAanalyzeInteger(ana, fft_s_temp, inc, bits);
 }
-
-/// @brief Returns the previous (floor) power of 2 for x. E.g. x = 600 then returns 512
-/// @param x Any number
-/// @return Previous (floor) power of 2 for x
-uint32_t fft_previous_power_of_two(uint32_t x) {
-    x |= (x >> 1);
-    x |= (x >> 2);
-    x |= (x >> 4);
-    x |= (x >> 8);
-    x |= (x >> 16);
-    return x - (x >> 1);
-}
-
-/// @brief Returns the number using which we need to shift 1 left to get x
-/// @param x A power of 2 number
-/// @return A number (n) that we use in 1 << n to get x
-uint32_t fft_left_shift_one_count(uint32_t x) { return x == 0 ? 0 : (CHAR_BIT * sizeof(x)) - 1 - __builtin_clz(x); }
-//--------------------------------------------------------------------------------------------------------------------------------------------------------------
-//--------------------------------------------------------------------------------------------------------------------------------------------------------------

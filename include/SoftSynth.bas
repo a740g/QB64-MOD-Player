@@ -6,7 +6,7 @@
 '---------------------------------------------------------------------------------------------------------
 ' HEADER FILES
 '---------------------------------------------------------------------------------------------------------
-'$Include:'./SoftSynth.bi'
+'$Include:'SoftSynth.bi'
 '---------------------------------------------------------------------------------------------------------
 
 $If SOFTSYNTH_BAS = UNDEFINED Then
@@ -153,12 +153,15 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
                     If SoftSynth.useHQMixer And fPos + 2 <= sLen Then
                         ' Apply interpolation
                         nPos = Fix(fPos)
-                        bSam1 = Asc(SampleData(nSample), 1 + nPos) ' This will convert the unsigned byte (the way it is stored) to signed byte
-                        bSam2 = Asc(SampleData(nSample), 2 + nPos) ' This will convert the unsigned byte (the way it is stored) to signed byte
+                        'bSam1 = Asc(SampleData(nSample), 1 + nPos) ' this will convert the unsigned byte (the way it is stored) to signed byte
+                        bSam1 = PeekString(SampleData(nSample), nPos) ' optimization of the above
+                        'bSam2 = Asc(SampleData(nSample), 2 + nPos) ' this will convert the unsigned byte (the way it is stored) to signed byte
+                        bSam2 = PeekString(SampleData(nSample), 1 + nPos) ' optimization of the above
                         fSam = bSam1 + (bSam2 - bSam1) * (fPos - nPos)
                     Else
                         If fPos + 1 <= sLen Then
-                            bSam1 = Asc(SampleData(nSample), 1 + fPos) ' This will convert the unsigned byte (the way it is stored) to signed byte
+                            'bSam1 = Asc(SampleData(nSample), 1 + fPos) ' this will convert the unsigned byte (the way it is stored) to signed byte
+                            bSam1 = PeekString(SampleData(nSample), fPos) ' optimization of the above
                             fSam = bSam1
                         Else
                             fSam = 0
@@ -217,7 +220,8 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
         $Checking:Off
         Shared SampleData() As String
 
-        PeekSample = Asc(SampleData(nSample), 1 + nPosition)
+        'PeekSample = Asc(SampleData(nSample), 1 + nPosition)
+        PeekSample = PeekString(SampleData(nSample), nPosition) ' optimization of the above
         $Checking:On
     End Function
 
@@ -229,7 +233,8 @@ $If SOFTSYNTH_BAS = UNDEFINED Then
         $Checking:Off
         Shared SampleData() As String
 
-        Asc(SampleData(nSample), 1 + nPosition) = nValue
+        'Asc(SampleData(nSample), 1 + nPosition) = nValue
+        PokeString SampleData(nSample), nPosition, nValue ' optimization of the above
         $Checking:On
     End Sub
 
