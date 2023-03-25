@@ -1,13 +1,10 @@
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------
-//
 // FFT routines for spectrum analyzers
-//
 // Copyright (c) 1994-2005 Niklas Beisert
 // Copyright (c) 2004-2022 Stian Skjelstad
 // Copyright (c) 2023 Samuel Gomes
 //
 // Adapted from OpenCP Module Player (https://github.com/mywave82/opencubicplayer)
-//
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 #include <algorithm>
@@ -145,7 +142,7 @@ static void fft_do86(int32_t (*x)[2], const int n)
 /// @param samp An array of 16-bit samples
 /// @param inc The number to use to get to the next sample in samp. For stereo interleaved samples use 2, else 1
 /// @param bits The size of the sample data. So if bits = 9, then samples = 1 << 9 or 512
-void FFTAanalyzeInteger(uint16_t *ana, const int16_t *samp, const int inc, const int bits)
+void AnalyzerFFTInteger(uint16_t *ana, const int16_t *samp, const int inc, const int bits)
 {
     const unsigned int full = 1 << bits;
     const unsigned int half = full >> 1;
@@ -171,12 +168,12 @@ void FFTAanalyzeInteger(uint16_t *ana, const int16_t *samp, const int inc, const
     }
 }
 
-/// @brief This is a variation of FFTAanalyzeInteger() for floating point samples. The samples are converted to 16-bit and then sent to FFTAanalyzeInteger()
-/// @param ana See FFTAanalyzeInteger()
+/// @brief This is a variation of AnalyzerFFTInteger() for floating point samples. The samples are converted to 16-bit and then sent to AnalyzerFFTInteger()
+/// @param ana The array where the resulting data is written. This cannot be NULL
 /// @param samp An array of floating point (FP32) samples
-/// @param inc See FFTAanalyzeInteger()
-/// @param bits See FFTAanalyzeInteger()
-void FFTAanalyzeSingle(uint16_t *ana, const float *samp, const int inc, const int bits)
+/// @param inc The number to use to get to the next sample in samp. For stereo interleaved samples use 2, else 1
+/// @param bits The size of the sample data. So if bits = 9, then samples = 1 << 9 or 512
+void AnalyzerFFTSingle(uint16_t *ana, const float *samp, const int inc, const int bits)
 {
     const unsigned int full = std::min(1 << bits, FFT_SAMPLES);
 
@@ -186,5 +183,5 @@ void FFTAanalyzeSingle(uint16_t *ana, const float *samp, const int inc, const in
         samp += inc;
     }
 
-    FFTAanalyzeInteger(ana, fft_s_temp, inc, bits);
+    AnalyzerFFTInteger(ana, fft_s_temp, inc, bits);
 }

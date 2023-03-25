@@ -18,8 +18,8 @@ $If ANALYZERFFT_BI = UNDEFINED Then
     ' EXTERNAL LIBRARIES
     '-----------------------------------------------------------------------------------------------------------------------------------------------------------
     Declare CustomType Library "AnalyzerFFT"
-        Sub FFTAanalyzeInteger (ByVal ana As Offset, Byval samp As Offset, Byval inc As Long, Byval bits As Long)
-        Sub FFTAanalyzeSingle (ByVal ana As Offset, Byval samp As Offset, Byval inc As Long, Byval bits As Long)
+        Sub AnalyzerFFTInteger (ByVal ana As Offset, Byval samp As Offset, Byval inc As Long, Byval bits As Long)
+        Sub AnalyzerFFTSingle (ByVal ana As Offset, Byval samp As Offset, Byval inc As Long, Byval bits As Long)
     End Declare
     '-----------------------------------------------------------------------------------------------------------------------------------------------------------
 $End If

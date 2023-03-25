@@ -13,18 +13,18 @@
 '---------------------------------------------------------------------------------------------------------------------------------------------------------------
 ' METACOMMANDS
 '---------------------------------------------------------------------------------------------------------------------------------------------------------------
-$ExeIcon:'./QB64MODP.ico'
+$ExeIcon:'./QB64MODPlayer.ico'
 $VersionInfo:CompanyName=Samuel Gomes
 $VersionInfo:FileDescription=QB64 MOD Player executable
-$VersionInfo:InternalName=QB64 MOD Player
+$VersionInfo:InternalName=QB64MODPlayer
 $VersionInfo:LegalCopyright=Copyright (c) 2023 Samuel Gomes
 $VersionInfo:LegalTrademarks=All trademarks are property of their respective owners
-$VersionInfo:OriginalFilename=QB64MODP.exe
+$VersionInfo:OriginalFilename=QB64MODPlayer.exe
 $VersionInfo:ProductName=QB64 MOD Player
 $VersionInfo:Web=https://github.com/a740g
 $VersionInfo:Comments=https://github.com/a740g
-$VersionInfo:FILEVERSION#=1,9,0,0
-$VersionInfo:PRODUCTVERSION#=1,9,0,0
+$VersionInfo:FILEVERSION#=2,0,0,0
+$VersionInfo:PRODUCTVERSION#=2,0,0,0
 '---------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 '---------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -226,14 +226,14 @@ Sub PrintVisualization
 
     fftSamples = PreviousPowerOfTwo(Song.samplesPerTick) ' we need power of 2 for our FFT function
     fftSamplesHalf = fftSamples \ 2
-    fftBits = LShOneCount(fftSamples) ' Get the count of bits that the FFT routine will need
+    fftBits = LeftShiftOneCount(fftSamples) ' Get the count of bits that the FFT routine will need
 
     ' Setup the FFT arrays (half of fftSamples)
     ReDim SpectrumAnalyzerLeft(0 To fftSamplesHalf - 1) As Unsigned Integer
     ReDim SpectrumAnalyzerRight(0 To fftSamplesHalf - 1) As Unsigned Integer
 
-    FFTAanalyzeSingle Offset(SpectrumAnalyzerLeft(0)), Offset(MixerBufferLeft(0)), 1, fftBits ' the left samples first
-    FFTAanalyzeSingle Offset(SpectrumAnalyzerRight(0)), Offset(MixerBufferRight(0)), 1, fftBits ' and now the right ones
+    AnalyzerFFTSingle Offset(SpectrumAnalyzerLeft(0)), Offset(MixerBufferLeft(0)), 1, fftBits ' the left samples first
+    AnalyzerFFTSingle Offset(SpectrumAnalyzerRight(0)), Offset(MixerBufferRight(0)), 1, fftBits ' and now the right ones
 
     Color , 0
 
@@ -449,7 +449,8 @@ Function PlaySong~%% (fileName As String)
     End If
 
     ' Set the app title to display the file name
-    Title APP_NAME + " - " + GetFileNameFromPath(fileName)
+    Dim windowTitle As String: windowTitle = APP_NAME + " - " + GetFileNameFromPath(fileName)
+    Title windowTitle
 
     StartMODPlayer
     AdjustWindowSize
@@ -515,9 +516,9 @@ Function PlaySong~%% (fileName As String)
 
         HighQuality = SoftSynth.useHQMixer ' Since this can be changed by the playing MOD
 
-        ' We'll only update at the rate we really need
-        nFPS = (12 * Song.bpm * (31 - Song.speed)) \ 625 ' XD
-        If nFPS < FRAME_RATE_MIN Then nFPS = FRAME_RATE_MIN ' clamp it to 60 min
+        nFPS = MaxLong(FRAME_RATE_MIN, (12 * Song.bpm * (31 - Song.speed)) \ 625) ' we'll only update at the rate we really need
+        If GetTicks Mod 15 = 0 Then Title windowTitle + " (" + LTrim$(Str$(nFPS)) + " FPS)"
+
         Limit nFPS
     Loop Until Not Song.isPlaying Or k = KEY_ESCAPE
 
