@@ -224,7 +224,7 @@ Sub PrintVisualization
 
     Dim As Long fftSamples, fftSamplesHalf, fftBits
 
-    fftSamples = PreviousPowerOfTwo(Song.samplesPerTick) ' we need power of 2 for our FFT function
+    fftSamples = RoundDownToPowerOf2(Song.samplesPerTick) ' we need power of 2 for our FFT function
     fftSamplesHalf = fftSamples \ 2
     fftBits = LeftShiftOneCount(fftSamples) ' Get the count of bits that the FFT routine will need
 
