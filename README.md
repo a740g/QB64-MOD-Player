@@ -5,16 +5,23 @@ This is a [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible
 [![Screenshot](screenshots/qb64mp_intro.png)](screenshots/qb64mp_demo.mp4)
 [![Screenshot](screenshots/qb64mp_playing.png)](screenshots/qb64mp_demo.mp4)
 
-## Goals
+## FEATURES
 
-- No dependency on third party libraries - OK
-- No OS specific code in the Loader, Player & Mixer - OK
-- Support all MOD types (1 - 99 channels, 31 samples etc.) - OK
-- Support all MOD effects - OK
-- Easy plug-&-play API - OK
-- Play all the test MODs in the repository correctly - OK
-- Survive ode2ptk.mod & black_queen.mod - OK
-- Include a demo player to show how to use the library - OK
+- No dependency on third party libraries
+- Everything is statically linked (no shared library dependency)
+- Easy plug-&-play API optimized for demos & games
+- Cross-platform (works on Windows, Linux & macOS)
+- Support all MOD types (1 - 99 channels, 31 samples etc.)
+- Support all MOD effects
+- Demo player that shows how to use the library
+
+## USAGE
+
+- Clone the repository to a directory of your choice
+- Open Terminal and change to the directory using an appropriate OS command
+- Run `git submodule update --init --recursive` to initialize, fetch and checkout git submodules
+- Open *QB64MODPlayer.bas* in the QB64-PE IDE and press `F5` to compile and run
+- To use the library in your project add the [Toolbox64](https://github.com/a740g/Toolbox64) repositiory as a [Git submodule](https://git-scm.com/book/en/v2/Git-Tools-Submodules)
 
 ## API
 
@@ -26,26 +33,6 @@ Sub StopMODPlayer
 Sub SetGlobalVolume (nVolume As Single)
 Sub EnableHQMixer (nFlag As Byte)
 ```
-
-## Bibliography
-
-- [MOD Player Tutorial](docs/FMODDOC.TXT) by FireLight
-- [S3M Player Tutorial](docs/FS3MDOC.TXT) by FireLight
-- [Noisetracker/Soundtracker/Protracker Module Format](docs/MOD-FORM.TXT) by Andrew Scott
-- [MODFIL10.TXT](docs/MODFIL10.TXT) by Thunder
-- [Protracker Module](https://wiki.multimedia.cx/index.php/Protracker_Module) from MultimediaWiki
-- [MOD Effect Commands](https://wiki.openmpt.org/Manual:_Effect_Reference#MOD_Effect_Commands) from OpenMPT Wiki
-- [Digital Audio Mixing Techniques](docs/FSBDOC.TXT) by jedi / oxygen
-- [Writing Mixing Routines](docs/MIXING10.TXT) by BYTERAVER/TNT
-- [Audio Mixer Tutorial](https://github.com/benhenshaw/mixer_tutorial) by benhenshaw
-
-## Assets
-
-- [Icon](https://iconarchive.com/artist/tsukasa-tux.html) by Tsukasa-Tux (Azrael Jackie Lockheart)
-
-## Important note
-
-This requires the latest version of [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe/releases).
 
 ## FAQ
 
@@ -72,6 +59,28 @@ You keep saying QB64-PE with miniaudio backend. Where is it?
 I see that the miniaudio backend version of QB64-PE already has MOD, S3M, XM, IT, RADv2 & MIDI support. Why should I care about this?
 
 - Honestly, you should not! The MOD re-player in QB64-PE with miniaudio backend uses [Libxmp-lite](https://github.com/libxmp/libxmp/tree/master/lite) and as such is good enough for most use cases. This is just something that I made just to see what can be done using just QB64-PE. If you want to see what MOD files are made of and what makes them tick, then by all means, have at it. There are some interesting things in the code for people who care about this kind of stuff. Also, my MOD re-player is more accurate than the one in Libxmp-lite... I hope. 😉
+
+## NOTES
+
+- This requires the latest version of [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe/releases)
+- When you clone a repository that contains submodules, the submodules are not automatically cloned by default
+- You will need to use the `git submodule update --init --recursive` to initialize, fetch and checkout git submodules
+
+## BIBLIOGRAPHY
+
+- [MOD Player Tutorial](docs/FMODDOC.TXT) by FireLight
+- [S3M Player Tutorial](docs/FS3MDOC.TXT) by FireLight
+- [Noisetracker/Soundtracker/Protracker Module Format](docs/MOD-FORM.TXT) by Andrew Scott
+- [MODFIL10.TXT](docs/MODFIL10.TXT) by Thunder
+- [Protracker Module](https://wiki.multimedia.cx/index.php/Protracker_Module) from MultimediaWiki
+- [MOD Effect Commands](https://wiki.openmpt.org/Manual:_Effect_Reference#MOD_Effect_Commands) from OpenMPT Wiki
+- [Digital Audio Mixing Techniques](docs/FSBDOC.TXT) by jedi / oxygen
+- [Writing Mixing Routines](docs/MIXING10.TXT) by BYTERAVER/TNT
+- [Audio Mixer Tutorial](https://github.com/benhenshaw/mixer_tutorial) by benhenshaw
+
+## ASSETS
+
+- [Icon](https://iconarchive.com/artist/tsukasa-tux.html) by Tsukasa-Tux (Azrael Jackie Lockheart)
 
 ## TODO
 

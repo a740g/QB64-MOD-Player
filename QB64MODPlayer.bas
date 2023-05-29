@@ -8,11 +8,14 @@
 '---------------------------------------------------------------------------------------------------------------------------------------------------------------
 '$Include:'include/MODPlayer.bi'
 '$Include:'include/AnalyzerFFT.bi'
+'$Include:'include/FileOps.bi'
 '---------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 '---------------------------------------------------------------------------------------------------------------------------------------------------------------
 ' METACOMMANDS
 '---------------------------------------------------------------------------------------------------------------------------------------------------------------
+$NoPrefix
+$Resize:Smooth
 $ExeIcon:'./QB64MODPlayer.ico'
 $VersionInfo:CompanyName=Samuel Gomes
 $VersionInfo:FileDescription=QB64 MOD Player executable
@@ -449,7 +452,7 @@ Function PlaySong~%% (fileName As String)
     End If
 
     ' Set the app title to display the file name
-    Dim windowTitle As String: windowTitle = APP_NAME + " - " + GetFileNameFromPath(fileName)
+    Dim windowTitle As String: windowTitle = APP_NAME + " - " + GetFileNameFromPathOrURL(fileName)
     Title windowTitle
 
     StartMODPlayer
@@ -582,7 +585,7 @@ Function ProcessSelectedFiles~%%
     ReDim fileNames(0 To 0) As String
     Dim As Long i, j
 
-    j = ParseOpenFileDialogList(ofdList, fileNames())
+    j = TokenizeString(ofdList, "|", NULLSTRING, FALSE, fileNames())
 
     For i = 0 To j - 1
         e = PlaySong(fileNames(i))
@@ -590,39 +593,6 @@ Function ProcessSelectedFiles~%%
     Next
 
     ProcessSelectedFiles = e
-End Function
-
-
-' Gets the filename portion from a file path
-Function GetFileNameFromPath$ (pathName As String)
-    Dim i As Unsigned Long
-
-    ' Retrieve the position of the first / or \ in the parameter from the
-    For i = Len(pathName) To 1 Step -1
-        If Asc(pathName, i) = 47 Or Asc(pathName, i) = 92 Then Exit For
-    Next
-
-    ' Return the full string if pathsep was not found
-    If i = 0 Then
-        GetFileNameFromPath = pathName
-    Else
-        GetFileNameFromPath = Right$(pathName, Len(pathName) - i)
-    End If
-End Function
-
-
-' Gets a string form of the boolean value passed
-Function BoolToStr$ (expression As Long, style As Unsigned Byte)
-    Select Case style
-        Case 1
-            If expression Then BoolToStr = "On" Else BoolToStr = "Off"
-        Case 2
-            If expression Then BoolToStr = "Enabled" Else BoolToStr = "Disabled"
-        Case 3
-            If expression Then BoolToStr = "1" Else BoolToStr = "0"
-        Case Else
-            If expression Then BoolToStr = "True" Else BoolToStr = "False"
-    End Select
 End Function
 
 
@@ -634,40 +604,13 @@ Sub TextHLine (xs As Long, y As Long, xe As Long)
     Locate y, xs
     Print String$(l, 254);
 End Sub
-
-
-' This is a simple text parser that can take an input string from OpenFileDialog$ and spit out discrete filepaths in an array
-' Returns the number of strings parsed
-Function ParseOpenFileDialogList& (ofdList As String, ofdArray() As String)
-    Dim As Long p, c
-    Dim ts As String
-
-    ReDim ofdArray(0 To 0) As String
-    ts = ofdList
-
-    Do
-        p = InStr(ts, "|")
-
-        If p = 0 Then
-            ofdArray(c) = ts
-
-            ParseOpenFileDialogList& = c + 1
-            Exit Function
-        End If
-
-        ofdArray(c) = Left$(ts, p - 1)
-        ts = Mid$(ts, p + 1)
-
-        c = c + 1
-        ReDim Preserve ofdArray(0 To c) As String
-    Loop
-End Function
 '---------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 '---------------------------------------------------------------------------------------------------------------------------------------------------------------
 ' MODULE FILES
 '---------------------------------------------------------------------------------------------------------------------------------------------------------------
 '$Include:'include/MODPlayer.bas'
+'$Include:'include/StringOps.bas'
+'$Include:'include/FileOps.bas'
 '---------------------------------------------------------------------------------------------------------------------------------------------------------------
 '---------------------------------------------------------------------------------------------------------------------------------------------------------------
-
