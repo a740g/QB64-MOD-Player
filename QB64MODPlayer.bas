@@ -1,19 +1,19 @@
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
 ' QB64 MOD Player
 ' Copyright (c) 2023 Samuel Gomes
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
 
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
 ' HEADER FILES
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
 '$Include:'include/MODPlayer.bi'
 '$Include:'include/AnalyzerFFT.bi'
 '$Include:'include/FileOps.bi'
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
 
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
 ' METACOMMANDS
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
 $NoPrefix
 $Resize:Smooth
 $ExeIcon:'./QB64MODPlayer.ico'
@@ -28,11 +28,11 @@ $VersionInfo:Web=https://github.com/a740g
 $VersionInfo:Comments=https://github.com/a740g
 $VersionInfo:FILEVERSION#=2,0,0,0
 $VersionInfo:PRODUCTVERSION#=2,0,0,0
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
 
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
 ' CONSTANTS
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
 Const APP_NAME = "QB64 MOD Player" ' application name
 Const TEXT_LINE_MAX = 75 ' this the number of lines we need
 Const TEXT_WIDTH_MIN = 120 ' minimum width we need
@@ -46,11 +46,12 @@ Const EVENT_CMDS = 2 ' process command line
 Const EVENT_LOAD = 3 ' user want to load files
 Const EVENT_DROP = 4 ' user dropped files
 Const EVENT_PLAY = 5 ' play next song
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+Const EVENT_HTTP = 6 ' Downloads and plays random MODs from modarchive.org
+'-----------------------------------------------------------------------------------------------------------------------
 
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
 ' GLOBAL VARIABLES
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
 ReDim Shared NoteTable(0 To 0) As String * 2 ' this contains the note stings
 Dim Shared WindowWidth As Long ' the width of our windows in characters
 Dim Shared PatternDisplayWidth As Long ' the width of the pattern display in characters
@@ -60,11 +61,11 @@ Dim Shared Volume As Integer ' this is needed because the replayer can reset vol
 Dim Shared HighQuality As Byte ' this is needed because the replayer can reset quality across songs
 ReDim Shared SpectrumAnalyzerLeft(0 To 0) As Unsigned Integer ' left channel FFT data
 ReDim Shared SpectrumAnalyzerRight(0 To 0) As Unsigned Integer ' right channel FFT data
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
 
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
 ' PROGRAM ENTRY POINT - Frankenstein retro TUI with drag & drop support
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
 Title APP_NAME + " " + OS$ ' set the program name in the titlebar
 ChDir StartDir$ ' change to the directory specifed by the environment
 AcceptFileDrop ' enable drag and drop of files
@@ -94,6 +95,9 @@ Do
         Case EVENT_CMDS
             event = ProcessCommandLine
 
+        Case EVENT_HTTP
+            event = ProcessModArchiveFiles
+
         Case Else
             event = DoWelcomeScreen
     End Select
@@ -101,27 +105,27 @@ Loop
 
 AutoDisplay
 System
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
 
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
 ' FUNCTIONS & SUBROUTINES
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
 ' This "prints" the current playing MODs visualization on the screen
 Sub PrintVisualization
     ' These are internal variables and arrays used by the MODPlayer library
-    Shared Song As SongType
-    Shared Order() As Unsigned Byte
-    Shared Pattern() As NoteType
-    Shared Sample() As SampleType
+    Shared __Song As __SongType
+    Shared __Order() As Unsigned Byte
+    Shared __Pattern() As __NoteType
+    Shared __Sample() As __SampleType
     Shared SoftSynth As SoftSynthType
     Shared Voice() As VoiceType
     Shared MixerBufferLeft() As Single
     Shared MixerBufferRight() As Single
 
     ' Subscript out of range bugfix for player when song is 128 orders long and the song reaches the end
-    ' In this case if the sub is allowed to proceed then Order(Song.orderPosition) will cause "subscript out of range"
+    ' In this case if the sub is allowed to proceed then __Order(__Song.orderPosition) will cause "subscript out of range"
     ' Note this is only a problem with this demo and not the actual library since we are trying to access internal stuff directly
-    If Song.orderPosition >= Song.orders Then Exit Sub
+    If __Song.orderPosition >= __Song.orders Then Exit Sub
 
     Cls , 0 ' clear the framebuffer to black color
 
@@ -130,12 +134,12 @@ Sub PrintVisualization
 
     ' Print song type and name
     Color 15, 5
-    Locate 1, x: Print Using "  \  \: \                                                                        \  "; Song.subtype; Song.songName
+    Locate 1, x: Print Using "  \  \: \                                                                        \  "; __Song.subtype; __Song.songName
 
     ' Print the header
     Color 16, 15
-    Locate , x: Print Using "  ORD: ### / ### | PAT: ### / ### | ROW: ## / 63 | CHN: ### / ### | VOC: ### / ###  "; Song.orderPosition; Song.orders - 1; Order(Song.orderPosition); Song.highestPattern; Song.patternRow; Song.activeChannels; Song.channels; SoftSynth.activeVoices; SoftSynth.voices
-    Locate , x: Print Using "  BPM: ###       | SPD: ###       | VOL: \\ / FF |  HQ: \       \ | REP: \       \  "; Song.bpm; Song.speed; Right$("0" + Hex$(Volume), 2); BoolToStr(HighQuality, 1); BoolToStr(Song.isLooping, 2)
+    Locate , x: Print Using "  ORD: ### / ### | PAT: ### / ### | ROW: ## / 63 | CHN: ### / ### | VOC: ### / ###  "; __Song.orderPosition; __Song.orders - 1; __Order(__Song.orderPosition); __Song.highestPattern; __Song.patternRow; __Song.activeChannels; __Song.channels; SoftSynth.activeVoices; SoftSynth.voices
+    Locate , x: Print Using "  BPM: ###       | SPD: ###       | VOL: \\ / FF |  HQ: \       \ | REP: \       \  "; __Song.bpm; __Song.speed; Right$("0" + Hex$(Volume), 2); BoolToStr(HighQuality, 1); BoolToStr(__Song.isLooping, 2)
 
     ' Print the sample list header
     Color 16, 3
@@ -143,14 +147,14 @@ Sub PrintVisualization
 
     ' Print the sample information
     Dim As Long i, j
-    For i = 0 To Song.samples - 1
+    For i = 0 To __Song.samples - 1
         Color 14, 0
-        For j = 0 To Song.channels - 1
-            If i + 1 = Pattern(Order(Song.orderPosition), Song.patternRow, j).sample Then
+        For j = 0 To __Song.channels - 1
+            If i + 1 = __Pattern(__Order(__Song.orderPosition), __Song.patternRow, j).sample Then
                 Color 13, 1
             End If
         Next
-        Locate , x: Print Using " ###: \                    \ ######## ##### ###### ########### ########## ########  "; i + 1; Sample(i).sampleName; Sample(i).volume; Sample(i).c2Spd; Sample(i).length; Sample(i).loopLength; Sample(i).loopStart; Sample(i).loopEnd
+        Locate , x: Print Using " ###: \                    \ ######## ##### ###### ########### ########## ########  "; i + 1; __Sample(i).sampleName; __Sample(i).volume; __Sample(i).c2Spd; __Sample(i).length; __Sample(i).loopLength; __Sample(i).loopStart; __Sample(i).loopEnd
     Next
 
     x = 1 + WindowWidth \ 2 - PatternDisplayWidth \ 2 ' find x so that we can center everything
@@ -158,7 +162,7 @@ Sub PrintVisualization
     ' Print the pattern header
     Color 16, 3
     Locate , x: Print " PAT RW ";
-    For i = 1 To Song.channels
+    For i = 1 To __Song.channels
         Print " CHAN NOT S# FX OP ";
     Next
     Print
@@ -169,10 +173,10 @@ Sub PrintVisualization
     j = CsrLin
 
     ' Find thw pattern and row we print
-    startPat = Order(Song.orderPosition)
-    startRow = Song.patternRow - (1 + TEXT_LINE_MAX - j) \ 2
+    startPat = __Order(__Song.orderPosition)
+    startRow = __Song.patternRow - (1 + TEXT_LINE_MAX - j) \ 2
     If startRow < 0 Then
-        startRow = 1 + PATTERN_ROW_MAX + startRow
+        startRow = 1 + __PATTERN_ROW_MAX + startRow
         startPat = startPat - 1
     End If
 
@@ -181,30 +185,30 @@ Sub PrintVisualization
         Locate i, x
         Color 15, 0
 
-        If startPat >= 0 And startPat <= Song.highestPattern Then
+        If startPat >= 0 And startPat <= __Song.highestPattern Then
             If i = j + (1 + TEXT_LINE_MAX - j) \ 2 Then
                 Color 15, 1
             End If
 
             Print Using " ### ##:"; startPat; startRow;
 
-            For nChan = 0 To Song.channels - 1
+            For nChan = 0 To __Song.channels - 1
                 Color 14
                 Print Using " (##)"; nChan + 1;
-                nNote = Pattern(startPat, startRow, nChan).note
+                nNote = __Pattern(startPat, startRow, nChan).note
                 Color 10
-                If nNote = NOTE_NONE Then
+                If nNote = __NOTE_NONE Then
                     Print "  -  ";
-                ElseIf nNote = NOTE_KEY_OFF Then
+                ElseIf nNote = __NOTE_KEY_OFF Then
                     Print " ^^^ ";
                 Else
                     Print Using " &# "; NoteTable(nNote Mod 12); nNote \ 12;
                 End If
                 Color 13
-                Print Using "## "; Pattern(startPat, startRow, nChan).sample;
+                Print Using "## "; __Pattern(startPat, startRow, nChan).sample;
                 Color 11
-                Print Right$(" " + Hex$(Pattern(startPat, startRow, nChan).effect), 2); " ";
-                Print Right$(" " + Hex$(Pattern(startPat, startRow, nChan).operand), 2); " ";
+                Print Right$(" " + Hex$(__Pattern(startPat, startRow, nChan).effect), 2); " ";
+                Print Right$(" " + Hex$(__Pattern(startPat, startRow, nChan).operand), 2); " ";
             Next
         Else
             Print Space$(PatternDisplayWidth);
@@ -212,7 +216,7 @@ Sub PrintVisualization
 
         startRow = startRow + 1
         ' Wrap if needed
-        If startRow > PATTERN_ROW_MAX Then
+        If startRow > __PATTERN_ROW_MAX Then
             startRow = 0
             startPat = startPat + 1
         End If
@@ -221,13 +225,13 @@ Sub PrintVisualization
     ' Print the footer
     Color 16, 7
     Locate TEXT_LINE_MAX, x: Print Using " ####ms "; SndRawLen(SoftSynth.soundHandle) * 1000;
-    For i = 0 To Song.channels - 1
+    For i = 0 To __Song.channels - 1
         Print Using " (##) V: ## P: ### "; i + 1, Voice(i).volume; Voice(i).panning;
     Next
 
     Dim As Long fftSamples, fftSamplesHalf, fftBits
 
-    fftSamples = RoundDownToPowerOf2(Song.samplesPerTick) ' we need power of 2 for our FFT function
+    fftSamples = RoundDownToPowerOf2(__Song.samplesPerTick) ' we need power of 2 for our FFT function
     fftSamplesHalf = fftSamples \ 2
     fftBits = LeftShiftOneCount(fftSamples) ' Get the count of bits that the FFT routine will need
 
@@ -300,8 +304,10 @@ Function DoWelcomeScreen~%%
         Print " |                                                                                                                    | "
         Print " |                                                                                                                    | "
         Print " |                                                                                                                    | "
+        Print " |                                         ";: Color 11: Print "F1";: Color 8: Print " ............ ";: Color 13: Print "MULTI-SELECT FILES";: Color 14: Print "                                         | "
         Print " |                                                                                                                    | "
-        Print " |                                         ";: Color 11: Print " F1";: Color 8: Print " ........... ";: Color 13: Print "MULTI-SELECT FILES";: Color 14: Print "                                         | "
+        Print " |                                                                                                                    | "
+        Print " |                                         ";: Color 11: Print "F2";: Color 8: Print " .......... ";: Color 13: Print "PLAY FROM MODARCHIVE";: Color 14: Print "                                         | "
         Print " |                                                                                                                    | "
         Print " |                                                                                                                    | "
         Print " |                                         ";: Color 11: Print "ESC";: Color 8: Print " .................... ";: Color 13: Print "NEXT/QUIT";: Color 14: Print "                                         | "
@@ -322,13 +328,10 @@ Function DoWelcomeScreen~%%
         Print " |                                         ";: Color 11: Print "Q|q";: Color 8: Print " ................ ";: Color 13: Print "INTERPOLATION";: Color 14: Print "                                         | "
         Print " |                                                                                                                    | "
         Print " |                                                                                                                    | "
-        Print " |                                         ";: Color 11: Print " <-";: Color 8: Print " ....................... ";: Color 13: Print "REWIND";: Color 14: Print "                                         | "
+        Print " |                                         ";: Color 11: Print "<-";: Color 8: Print " ........................ ";: Color 13: Print "REWIND";: Color 14: Print "                                         | "
         Print " |                                                                                                                    | "
         Print " |                                                                                                                    | "
-        Print " |                                         ";: Color 11: Print " ->";: Color 8: Print " ...................... ";: Color 13: Print "FORWARD";: Color 14: Print "                                         | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
+        Print " |                                         ";: Color 11: Print "->";: Color 8: Print " ....................... ";: Color 13: Print "FORWARD";: Color 14: Print "                                         | "
         Print " |                                                                                                                    | "
         Print " |                                                                                                                    | "
         Print " |                                                                                                                    | "
@@ -379,6 +382,8 @@ Function DoWelcomeScreen~%%
             e = EVENT_DROP
         ElseIf k = KEY_F1 Then
             e = EVENT_LOAD
+        ElseIf k = KEY_F2 Then
+            e = EVENT_HTTP
         End If
 
         Display ' flip the framebuffer
@@ -409,17 +414,17 @@ End Sub
 
 ' Automatically selects, sets the window size and saves the text width
 Sub AdjustWindowSize
-    Shared Song As SongType
+    Shared __Song As __SongType
 
-    If Song.isPlaying Then
-        PatternDisplayWidth = 8 + Song.channels * 19 ' find the actual width
+    If __Song.isPlaying Then
+        PatternDisplayWidth = 8 + __Song.channels * 19 ' find the actual width
         WindowWidth = PatternDisplayWidth
         If WindowWidth < TEXT_WIDTH_MIN Then WindowWidth = TEXT_WIDTH_MIN ' we don't want the width to be too small
         SpectrumAnalyzerWidth = (WindowWidth - TEXT_WIDTH_HEADER) \ 2
         If PatternDisplayWidth <= TEXT_WIDTH_HEADER Then
             SpectrumAnalyzerHeight = TEXT_LINE_MAX
         Else
-            SpectrumAnalyzerHeight = 4 + Song.samples
+            SpectrumAnalyzerHeight = 4 + __Song.samples
         End If
     Else
         PatternDisplayWidth = 0
@@ -440,12 +445,14 @@ End Sub
 ' Initializes, loads and plays a mod file
 ' Also checks for input, shows info etc
 Function PlaySong~%% (fileName As String)
-    Shared Song As SongType
+    Shared __Song As __SongType
     Shared SoftSynth As SoftSynthType
 
     PlaySong = EVENT_PLAY ' default event is to play next song
 
-    If Not LoadMODFile(fileName) Then
+    Dim buffer As String: buffer = LoadFile(fileName) ' load the whole file to memory
+
+    If Not LoadMODFromMemory(buffer) Then
         MessageBox APP_NAME, "Failed to load: " + fileName, "error"
 
         Exit Function
@@ -472,7 +479,7 @@ Function PlaySong~%% (fileName As String)
 
         Select Case k
             Case KEY_SPACE_BAR
-                Song.isPaused = Not Song.isPaused
+                __Song.isPaused = Not __Song.isPaused
 
             Case KEY_PLUS, KEY_EQUALS
                 SetGlobalVolume Volume + 1
@@ -483,31 +490,37 @@ Function PlaySong~%% (fileName As String)
                 Volume = SoftSynth.volume
 
             Case KEY_UPPER_L, KEY_LOWER_L
-                Song.isLooping = Not Song.isLooping
+                __Song.isLooping = Not __Song.isLooping
 
             Case KEY_UPPER_Q, KEY_LOWER_Q
                 HighQuality = Not HighQuality
                 EnableHQMixer HighQuality
 
             Case KEY_LEFT_ARROW
-                Song.orderPosition = Song.orderPosition - 1
-                If Song.orderPosition < 0 Then Song.orderPosition = Song.orders - 1
-                Song.patternRow = 0
+                __Song.orderPosition = __Song.orderPosition - 1
+                If __Song.orderPosition < 0 Then __Song.orderPosition = __Song.orders - 1
+                __Song.patternRow = 0
 
             Case KEY_RIGHT_ARROW
-                Song.orderPosition = Song.orderPosition + 1
-                If Song.orderPosition >= Song.orders Then Song.orderPosition = 0
-                Song.patternRow = 0
+                __Song.orderPosition = __Song.orderPosition + 1
+                If __Song.orderPosition >= __Song.orders Then __Song.orderPosition = 0
+                __Song.patternRow = 0
 
             Case KEY_F1
                 PlaySong = EVENT_LOAD
                 Exit Do
 
-            Case 21248 ' Shift + Delete - you known what it does
-                If MessageBox(APP_NAME, "Are you sure you want to delete " + fileName + " permanently?", "yesno", "question", 0) = 1 Then
-                    Kill fileName
+            Case KEY_F6 ' quick save for files loaded from ModArchive
+                OnQuickSave buffer, fileName
 
-                    Exit Do
+            Case 21248 ' Shift + Delete - you known what it does
+                If Len(GetDriveOrSchemeFromPathOrURL(fileName)) > 2 Then
+                    MessageBox APP_NAME, "You cannot delete " + fileName + "!", "error"
+                Else
+                    If MessageBox(APP_NAME, "Are you sure you want to delete " + fileName + " permanently?", "yesno", "question", 0) = 1 Then
+                        Kill fileName
+                        Exit Do
+                    End If
                 End If
         End Select
 
@@ -519,11 +532,11 @@ Function PlaySong~%% (fileName As String)
 
         HighQuality = SoftSynth.useHQMixer ' Since this can be changed by the playing MOD
 
-        nFPS = MaxLong(FRAME_RATE_MIN, (12 * Song.bpm * (31 - Song.speed)) \ 625) ' we'll only update at the rate we really need
+        nFPS = MaxLong(FRAME_RATE_MIN, (12 * __Song.bpm * (31 - __Song.speed)) \ 625) ' we'll only update at the rate we really need
         If GetTicks Mod 15 = 0 Then Title windowTitle + " (" + LTrim$(Str$(nFPS)) + " FPS)"
 
         Limit nFPS
-    Loop Until Not Song.isPlaying Or k = KEY_ESCAPE
+    Loop Until Not __Song.isPlaying Or k = KEY_ESCAPE
 
     StopMODPlayer
     AdjustWindowSize
@@ -596,6 +609,39 @@ Function ProcessSelectedFiles~%%
 End Function
 
 
+' Loads and plays random MODs from modarchive.org
+Function ProcessModArchiveFiles~%%
+    Dim e As Unsigned Byte: e = EVENT_NONE
+    Dim modArchiveFileName As String
+
+    Do
+        Do
+            modArchiveFileName = GetRandomModArchiveFileName$
+
+            Title APP_NAME + " - Downloading: " + GetFileNameFromPathOrURL(modArchiveFileName)
+
+            If TotalDroppedFiles > 0 Then
+                e = EVENT_DROP
+                Exit Do
+            End If
+
+            If KeyHit = KEY_F1 Then
+                e = EVENT_LOAD
+                Exit Do
+            End If
+        Loop Until LCase$(GetFileExtensionFromPathOrURL(modArchiveFileName)) = ".mod"
+
+        If e <> EVENT_NONE And e <> EVENT_PLAY Then Exit Do
+
+        e = PlaySong(modArchiveFileName)
+    Loop
+
+    Title APP_NAME + " " + OS$ ' Set app title to the way it was
+
+    ProcessModArchiveFiles = e
+End Function
+
+
 ' Draw a horizontal line using text and colors it too! Sweet! XD
 Sub TextHLine (xs As Long, y As Long, xe As Long)
     Dim l As Long
@@ -604,13 +650,95 @@ Sub TextHLine (xs As Long, y As Long, xe As Long)
     Locate y, xs
     Print String$(l, 254);
 End Sub
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+' Gets a random file URL from www.modarchive.org
+Function GetRandomModArchiveFileName$
+    Const THE_MOD_ARCHIVE_SEARCH_URL = "https://api.modarchive.org/downloads.php?moduleid="
+
+    Dim buffer As String: buffer = LoadFileFromURL("https://modarchive.org/index.php?request=view_random")
+    Dim bufPos As Long: bufPos = InStr(buffer, THE_MOD_ARCHIVE_SEARCH_URL)
+
+    If bufPos > 0 Then
+        GetRandomModArchiveFileName = Mid$(buffer, bufPos, InStr(bufPos, buffer, Chr$(34)) - bufPos)
+    End If
+End Function
+
+
+' Saves a file loaded from the internet
+Sub OnQuickSave (buffer As String, fileName As String)
+    Static savePath As String, alwaysUseSamePath As Byte, stopNagging As Byte
+
+    If Len(GetDriveOrSchemeFromPathOrURL(fileName)) > 2 Then
+        ' This is a file from the web
+        If Not DirExists(savePath) Or Not alwaysUseSamePath Then ' only get the path if path does not exist or user wants to use a new path
+            savePath = SelectFolderDialog$("Select a folder to save the file:", savePath)
+            If savePath = NULLSTRING Then Exit Sub ' exit if user cancelled
+
+            savePath = FixPathDirectoryName(savePath)
+        End If
+
+        Dim saveFileName As String: saveFileName = savePath + GetLegalFileName(fileName)
+
+        If FileExists(saveFileName) Then
+            If MessageBox(APP_NAME, "Overwrite " + saveFileName + "?", "yesno", "warning", 0) = 0 Then Exit Sub
+        End If
+
+        If SaveFile(buffer, saveFileName, TRUE) Then MessageBox APP_NAME, saveFileName + " saved.", "info"
+
+        ' Check if user want to use the same path in the future
+        If Not stopNagging Then
+            Select Case MessageBox(APP_NAME, "Do you want to use " + savePath + " for future saves?", "yesnocancel", "question", 1)
+                Case 0
+                    stopNagging = TRUE
+                Case 1
+                    alwaysUseSamePath = TRUE
+                Case 2
+                    alwaysUseSamePath = FALSE
+            End Select
+        End If
+    Else
+        ' This is a local file - do nothing
+        MessageBox APP_NAME, "You cannot save local file " + fileName + "!", "error"
+    End If
+End Sub
+
+
+' Generates a legal filename from a modarchive download URL
+Function GetLegalFileName$ (url As String)
+    Dim fileName As String: fileName = GetFileNameFromPathOrURL(url)
+    fileName = Mid$(fileName, InStr(fileName, "=") + 1) ' this will get a file name of type: 12312313#filename.mod
+
+    Dim i As Long, s As String, c As Unsigned Byte
+
+    ' Clean any unwanted characters
+    For i = 1 To Len(fileName)
+        c = Asc(fileName, i)
+        Select Case c
+            Case 92, 47, 42, 63, 124
+                s = s + "_"
+            Case 58
+                s = s + "-"
+            Case 60
+                s = s + "{"
+            Case 62
+                s = s + "}"
+            Case 34
+                s = s + "'"
+            Case Else
+                s = s + Chr$(c)
+        End Select
+    Next
+
+    GetLegalFileName = s
+End Function
+'-----------------------------------------------------------------------------------------------------------------------
+
+'-----------------------------------------------------------------------------------------------------------------------
 ' MODULE FILES
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
 '$Include:'include/MODPlayer.bas'
 '$Include:'include/StringOps.bas'
 '$Include:'include/FileOps.bas'
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
-'---------------------------------------------------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
+'-----------------------------------------------------------------------------------------------------------------------
