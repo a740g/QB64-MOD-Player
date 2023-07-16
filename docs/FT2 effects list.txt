@@ -1,0 +1,52 @@
+0xx Arppegio
+1xx Portamento up
+2xx Portamento down
+3xx Portamento to note
+4xx Vibrato
+5xx Tone portamento + Volumeslide
+6xx Vibrato + Volumeslide
+7xx Tremolo
+8xx Set panning position
+9xx Sample offset
+Ax0 Volumeslide up
+A0x Volumeslide down
+Bxx Jump songposition
+Cxx Set volume
+Dxx Pattern break
+E1x Fine portamento up
+E2x Fine portamento down
+E3x Set glissando control
+E4x Set vibrato control
+E5x Set fine-tune
+E6x Pattern loop
+E7x Set tremolo control
+E9x Retrig note
+EAx Fine volumeslide up
+EBx Fine volume slide down
+ECx Note cut
+EDx Note delay
+EEx Pattern delay
+Fxx Set speed / tempo
+Gxx Set global volume
+Hxx Global volume slide
+Lxx Set envelope position
+Pxx Panning slide
+Rxx Multi retrig
+Txx Tremor
+X1x Extra fine portamento up
+X2x Extra fine portamento down
+
+VOLUME COLUMN
+
++x Volumeslide up
+-x Volumeslide down
+Ux Fine volumeslide up
+Dx Fine volumeslide down
+Sx Set vibrato speed
+Vx Vibrato
+Px Set panning position
+Lx Panning slide left 
+Rx Panning slide right
+Mx Tone portamento
+
+

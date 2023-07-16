@@ -1,0 +1,64 @@
+|============================================================================|
+| [AMoRE] - Hippel-COSO <HIPC.*>               <jaegermeister.markus@gmx.de> |
+|           document version 1.00                                            |
+|----------------------------------------------------------------------------|
+| This document is part of the AMoRE (Amiga Module Ripping Encyclopedia)     |
+| package. It is released under the OpenContent license.                     |
+| The OpenContent license can be found at ........... http://opencontent.org |
+| The latest AMoRE package can be found at .... http://amore68k.netfirms.com |
+|----------------------------------------------------------------------------|
+
+
+  FORMAT DESCRIPTION
+  --------------------------------------------------------------------------
+
+     0000       ID      "COSO"
+     0004       dwords  block offsets follow
+     0018       dword   pointer to instruments block
+     001c       dword   pointer to sampledata block
+     0020       ID      "TFMX"
+     0024       words   number of xxx
+     0032       word    number of instrumsnts (NOI)
+     ....
+
+
+  INSTRUMENT BLOCK DESCRIPTION (size $000a, appearing NOI times)
+  --------------------------------------------------------------------------
+
+     0000       dword   sample offset (in sample block, first one is $0000)
+     0004       word    sample length / $02
+     0006       dword   perhaps loop starting point (???)
+
+
+  RIPPING INSTRUCTIONS
+  --------------------------------------------------------------------------
+
+     Very easy to rip, samples are always located at the end of the module
+     and sampledata size plus sampledata offset would be the end address.
+       1. Check the "COSO" and "TFMX" IDs if they really exist
+       2. Get the address of the instruments (not the sampledata) and check
+            the start addresses / sample offsets and the sizes. Build the
+            sample end address and take the highest of all instruments.
+            The resulting value is the size of the sampledata block.
+       3. The modulesize is the value from the sampledata pointer plus
+            sampledata size
+
+
+  DOCUMENT HISTORY
+  --------------------------------------------------------------------------
+
+     * v1.00 - first officially released version
+             - ripping method is accurate but uses both ID-strings, so
+                 modules with overwritten IDs are playable but not rippable
+                 through this method (I'll work on it later...)
+
+
+  CREDITS
+  --------------------------------------------------------------------------
+
+     * Document and amore.pas/amore.exe implementation done by
+         Jaegermeister Markus <jaegermeister.markus@gmx.de>
+
+     * Everything done with the help of the following sites
+         http://exotica.fix.no         (lots of exotic modules to test with)
+         http://www.multimania.com/asle        (amiga mod packers described)

@@ -1,0 +1,71 @@
+KSM file format: (Written on: 11/19/1998)
+
+In C, if you allocate these arrays and do the following reads, that's everything
+you need to do to load a KSM file into memory.  This assumes that the KSM file
+has already been opened with a file handle (infile), and that you will close
+it later.
+-----------------------------------------------------------------
+   char trinst[16], trquant[16], trchan[16], trfut[16], trvol[16];
+   short numnotes;
+   unsigned long note[8192];
+
+   read(infile,trinst,16);
+   read(infile,trquant,16);
+   read(infile,trchan,16);
+   read(infile,trfut,16);
+   read(infile,trvol,16);
+   read(infile,&numnotes,2);
+   read(infile,note,numnotes<<2);
+-----------------------------------------------------------------
+
+trinst: Each musical track can use any of 256 adlib instruments in INSTS.DAT.
+trquant: Each track can quantize differently.  Normally this is:
+   3, 4, 6, 8, 12, or 240 (no noticable quantization)  These values are in
+   notes per second, so tics per note = 240/x.
+trchan: Specifies how many notes are allocated to each track.  The old Adlib
+   chip could play either 9 notes at a time, or 6 notes at a time in
+   percussion mode.  Allocating instruments dynamically would have been cool,
+   but I never got around to it.
+trfut: Originally intended for future expansion, such as a 2nd volume for stereo
+   playback.  Unfortunately, I never got this working with OPL3.
+trvol: Each track can have its own default volume. 0 is silence, 63 is loudest.
+
+numnotes: Tells how many 32-bit notes follow.  The notes are always sorted
+   by time. (not by track).
+
+32-bit Note structure:
+
+3322222222221111111111
+10987654321098765432109876543210
+--------------------------------
+xxxxxxxxxxxxxxxxxxxx............ time (240 tics/second, UNQUANTIZED!)
+....................xxxx........ track (0-15, 11-15 reserved for drums)
+........................xx...... volstat (see table)
+..........................xxxxxx freq (midi frequency - 35)
+
+time: You must quantize the times according to the note's track (trquant)
+   If you don't do this, the song will sound all messed up when playing back.
+   Use this code to quantize:
+
+      //Given note i, get its true quantized time:
+   track = ((note[i]>>8)&15);
+   q = (240/trquant[track]);  //This will always divide evenly
+   true_quantized_time = (((note[i]>>12)+(q>>1)) / q) * q;
+
+track: This tells which instrument the note uses:
+   track = ((note[i]>>8)&15);
+   actual_instrument = trinst[track];
+
+volstat:
+   The volstat bits are kind of unorganized since I wanted to hack in loud &
+   soft notes without having to convert the previous song files:
+
+   volstat=0: NOTE OFF
+   volstat=1: NOTE ON               (actual_vol = trvol[track];)
+   volstat=2: NOTE ON, softer by 4, (actual_vol = max(trvol[track]-4,0);)
+   volstat=3: NOTE ON, louder by 4, (actual_vol = min(trvol[track]+4,63);)
+
+freq:
+   My MIDI synthesizer has 5 octaves, 61 keys (MIDI notes 36-96, 60=middle C).
+   I wanted to fit this in just 6 bits, so I subtracted 35.  25 is middle C
+   in the KSM format.

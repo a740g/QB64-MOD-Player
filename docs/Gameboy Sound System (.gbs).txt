@@ -1,0 +1,253 @@
+GBS FILE SPECIFICATION 1.02
+A file format for ripped GameBoy sound
+By Scott Worley <ripsaw8080@hotmail.com>
+
+GBS files are similar to PSID and NSF files. Code and data that is relevant to
+sound production is ripped from a GameBoy ROM and combined with a descriptive
+header to produce a compact sound module file. A player program that emulates
+some of the hardware of a GameBoy is required to listen to these files.
+
+If you aren't already familiar with the GameBoy's technical particulars, and
+are interested in making GBS files or a player for them, you should read the
+excellent FAQ (GBSPEC.TXT) that was put together by several people. You will
+have to do a web search for the document, and there are several versions with
+info that has been added or updated by people other than the original authors.
+
+
+
+REVISION HISTORY
+
+1.00 11/07/00 Initial release
+1.01 01/28/01 Added section for RAM banks, misc. clarifications
+1.02 07/15/01 Added GBC 2x CPU clock rate support, enhanced RAM bank section
+
+
+
+HEADER FIELDS
+
+Offset Size Description
+====== ==== ==========================
+  00     3  Identifier string ("GBS")
+  03     1  Version (1)
+  04     1  Number of songs (1-255)
+  05     1  First song (usually 1)
+  06     2  Load address ($400-$7fff)
+  08     2  Init address ($400-$7fff)
+  0a     2  Play address ($400-$7fff)
+  0c     2  Stack pointer
+  0e     1  Timer modulo  (see TIMING)
+  0f     1  Timer control (see TIMING)
+  10    32  Title string
+  30    32  Author string
+  50    32  Copyright string
+  70   nnnn Code and Data (see RST VECTORS)
+
+All 2-byte (word) values are little-endian (least-significant byte first). This
+is also referred to as Intel format.
+
+The Load/Init/Play addresses have a lower bound of $400 in order to support the
+hardware-based player. A well-made GBS file will hardly even approach the lower
+addresses, anyway.
+
+The GameBoy defaults the stack pointer to $fffe at startup, using the $7f byte
+region $ff80-$fffe. However, many ROMs don't use this default, and the pointer
+must be set so that stack operation does not interfere with memory used by the
+init or play routines. Ideally, this should be where the original ROM puts it.
+
+The stack pointer and timer fields are in the header as a convenience, because
+they allow the registers to be set without putting code to do it in the module
+init. However, the header settings are only initial settings; the registers are
+set to the header values on init, but init or play code can subsequently change
+the registers. Sound routines sometimes modify the timer modulo for different
+selections.
+
+The Title/Author/Copyright fields are null-filled on the right, however they do
+not require a terminating zero byte if all 32 bytes are used. If any of these
+fields is unknown, they should be set to a single question mark character.
+NOTE: The author field gives credit to the composer, not to the ripper!
+
+
+
+RST VECTORS
+
+The GameBoy CPU has 8 1-byte instructions that call fixed addresses:
+
+RST 00 = CALL $0000  RST 20 = CALL $0020
+RST 08 = CALL $0008  RST 28 = CALL $0028
+RST 10 = CALL $0010  RST 30 = CALL $0030
+RST 18 = CALL $0018  RST 38 = CALL $0038
+
+Basically, these instructions accomplish calls to standard subroutines using a
+1-byte instruction instead of the larger 3-byte CALL instruction. A GBS player
+vectors RSTs to an address relative to the load address of the module. A patch
+area must therefore be prepended to the module for handling any RSTs that are
+used. So if the sound code uses no RSTs, you don't need to make a patch area.
+Example: Load address = $3f00, RST 28 = CALL $3f28
+
+
+
+ROM BANK-SWITCHING
+
+A GameBoy ROM is composed of 16K "pages", the first page being page number 0.
+This first page contains the header information, interrupt handlers, and the
+main routines of the program. The first half of the GameBoy's 64K address space
+is for ROM, the second half for RAM. The ROM area is divided into 2 16K banks:
+Bank 0 ($0000-$3fff) which always contains ROM Page 0, and Bank 1 ($4000-$7fff)
+which contains a selected ROM page. A page is selected into Bank 1 by writing
+the page number as a byte value somewhere in the address range $2000-$3fff. A
+small ROM (32K) has Page 1 permanently loaded into Bank 1, no switching needed.
+Some cartridge memory controllers allow the selection of Page 0; which doesn't
+seem very useful, but it's possible.
+
+A GBS file is similar to the structure of a ROM, except it is loaded starting
+at a particular address (the load address); therefore any pages within it are
+aligned relative to the load address, and not absolute offsets in the file.
+Note that the last page of the GBS file need not be a full 16K, allowing for a
+smaller file if circumstances permit, but the player program should treat the
+missing portion as null-filled when loading the last page.
+
+Example: a GBS file loads at $3f80 because the upper $80 bytes of Page 0 are
+being used to do song sequencing, and to contain some init and bank-switch code
+relocated from elsewhere in Page 0. Page 1 begins at memory address $4000 which
+is offset $80 in the GBS data; Page 2 is at offset $4080, page 3 at $8080, and
+so on. Because the pages that are assembled into the GBS file were originally
+scattered all over the ROM, the page numbers used in the bank-switch code have
+been changed to the correct page numbers in the GBS file.
+
+
+
+RAM BANK-SWITCHING
+
+Some memory controllers support 8K of bank-switchable RAM at $a000-$bfff, and
+others support 4K at $d000-$dfff. However, sound routines don't need a lot of
+memory, so any RAM bank switching going on in the original ROM that is related
+to the sound routine is only to switch to the ONE page that the routine uses.
+
+Player authors: you should disregard writes to $4000-$5fff and $ff70, and just
+implement main RAM from $a000 to $dfff.
+
+Rippers: you should remove any code that writes to $4000-$5fff or $ff70. This
+will not only eliminate a useless operation, it will allow the hardware-based
+ROM player to work with your rip.
+
+
+
+TIMING
+
+The v-blank interrupt rate (~59.7 Hz) is very frequently used to drive sound
+producing code, and this is simply encoded into the header of the GBS file by
+setting both TAC and TMA fields to 0. However, sometimes the timer interrupt
+is used to create different playback rates (generally close to 60 Hz, though).
+The 1-byte registers related to timer interrupt operation are these:
+
+Register Name Description
+======== ==== =============
+  FF05   TIMA Timer Counter
+  FF06   TMA  Timer Modulo
+  FF07   TAC  Timer Control
+
+
+  TAC Field Bits:
+
+            Bit 1 & 0, counter rate
+                00: 4096 Hz
+                01: 262144 Hz
+                10: 65536 Hz
+                11: 16384 Hz
+
+            Bit 2, interrupt type
+                0: Use v-blank
+                1: Use timer
+
+            Bit 6 - 3, reserved for expansion
+                Set them to 0
+
+            Bit 7, CPU clock rate
+                0: Use normal rate
+                1: Use 2x (fast) rate
+
+
+The timer is enabled if bit 2 of TAC is 1. The TIMA register is incremented at
+the rate set by bits 0 & 1 of TAC. When TIMA overflows, it is reloaded with the
+TMA, and the interrupt occurs. The rate of the interrupt is calculated thus:
+
+  interrupt rate = counter rate / (256 - TMA)
+
+In a real GameBoy, the interrupt handler at address $50 is called when the
+interrupt occurs; but a GBS player doesn't need to treat the timer as an
+interrupt in the strict sense, it only needs to call the Play address at the
+rate of the timer interrupt derived from the TAC and TMA settings.
+
+IMPORTANT: The GameBoy Color has two CPU clock rates: 1x and 2x. Modules from
+ROMs using the 2x rate will indicate it with the high order bit of the TAC
+field. In practice, the CPU clock rate doesn't effect music playback all that
+much; however, the best accuracy is obtained by using the correct clock rate.
+Also, the timer counter rates are doubled along with the CPU clock rate, so
+timer-based GBC 2x CPU sound routines will run too slow if the counter rates
+aren't doubled (one could, of course, halve the TMA divisor to compensate;
+which is what the ROM player does for non-GBC hardware, out of necessity).
+
+
+
+PLAYING
+
+There are 3 steps a player program must go through to play GBS files:
+
+LOAD - The ripped code and data is read into the player program's address space
+starting at the load address and proceeding until end-of-file or address $7fff
+is reached. After loading, Page 0 is in Bank 0 (which never changes), and Page
+1 is in Bank 1 (which can be changed during init or play). Finally, the INIT
+is called with the first song defined in the header.
+
+INIT - Called at the end of the LOAD process, or when a new song is selected.
+All of the registers are initialized, RAM is cleared, and the init address is
+called with the song number set in the accumulator. Note that the song number
+in the accumulator is zero-based (the first song is 0). The init code must end
+with a RET instruction.
+
+PLAY - Begins after INIT process is complete. The play address is constantly
+called at the rate established in the header (see TIMING). The play code must
+end with a RET instruction.
+
+
+
+RIPPING
+
+Ripping GBS files can be difficult, and even more difficult to do "correctly".
+The goal of making a GBS file is to produce a sound module that is as compact
+as possible. This sometimes requires finding bits of code that are scattered
+around Page 0 and relocating them as high as possible within the page, thereby
+minimizing the Page 0 portion of the GBS file. Put your sequencing stuff and
+any needed RST jumps immediately in front of the relocated code, and you will
+have made a clean rip.
+
+It is good practice to arrange, or sequence, the songs into meaningful order;
+because the original order of selections may have no real organization, or even
+gaps or redundant items. The music is more interesting than the sound effects,
+so you might want to remove the sfx, or at least place them at the end of your
+sequence so they can be easily disregarded by a listener. There are many ways
+you might organize your sequence; like grouping level music and boss area music
+together, perhaps in the order you encounter them in the game. Sequencing the
+songs is easily accomplished with a few instructions and a table of translation
+values placed in front of the original init routine. Here is a simple example:
+
+        ld      hl,songs        ; point to selection table
+
+        add     a,l             ; add accumulator to L
+        ld      l,a
+
+        jr      nc,$+1          ; increment H on overflow; if all table entries
+        inc     h               ; have same address MSB, you can eliminate this
+
+        ld      a,(hl)          ; read song number from table into accumulator
+
+        jp      init            ; jump to the init routine
+
+songs:  .db     3,1,5,4,2       ; selection sequence table
+
+The above example assumes that there is only a song selection number needed to
+init; however, you might find init routines that need to have selection numbers
+written to different memory locations, and those locations should be looked up
+in a similar table.
+
+Good luck, and happy ripping!

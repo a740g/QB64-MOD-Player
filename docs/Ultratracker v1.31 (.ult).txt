@@ -1,0 +1,192 @@
+                                  VERSION 1.31
+
+                          (C)1993 by MYSTERIOUS - MAS
+                             Marc Andr‚ Schallehn
+
+                              English Docs by
+                           The Elven Nation (TEN)
+
+
+   Staves,Effects,Etc.
+   -------------------
+
+   1. The "Staves"
+   ---------------
+
+   With the U.T. program, a staff is constructed differntly from what one
+   is used to with normal music staff construction. It does not really
+   have to do with a whole collection of different sounds, but simply
+   about the production of a sound, of a playing instrument, and and the
+   production of possible effects.
+
+   The whole thing looks like this:
+
+       C-1-00-00-0000
+       ³ ³ ³³ ³³ ³³³À Value of second effect (2nd place) [0-F]
+       ³ ³ ³³ ³³ ³³ÀÄ Value of second effect (1st place) [0-F]
+       ³ ³ ³³ ³³ ³ÀÄÄ Value of first effect  (2nd place) [0-F]
+       ³ ³ ³³ ³³ ÀÄÄÄ Value of first effect  (1st place) [0-F]
+       ³ ³ ³³ ³ÀÄÄÄÄÄ Second Effect [0-F]
+       ³ ³ ³³ ÀÄÄÄÄÄÄ First Effect  [0-F]
+       ³ ³ ³ÀÄÄÄÄÄÄÄÄ Sample Number (2nd digit) [0-F]
+       ³ ³ ÀÄÄÄÄÄÄÄÄÄ Sample Number (1st digit) [0-F]
+       ³ ÀÄÄÄÄÄÄÄÄÄÄÄ Octave [0-4]
+       ÀÄÄÄÄÄÄÄÄÄÄÄÄÄ Tone (note) [C - B] or [-] for Pause
+
+
+   1.1. Explanation of Effect Possibilities:
+   -----------------------------------------
+
+   It is possiable to assign effects to each note.
+   The following is an example of what can be done with effects:
+
+   C-1-01-00-0000
+          ³³ ³ ÀÄÄÄ Value of 2nd effect
+          ³³ ÀÄÄÄÄÄ Value of 1st effect
+          ³ÀÄÄÄÄÄÄÄ Effect 2
+          ÀÄÄÄÄÄÄÄÄ Effect 1
+
+   For example :
+
+   C-1-01-CB-E007
+
+   In this example, the note C-1 is played using the first sample.
+   The volume (Effect C) is set to E0.
+   In addition, the balance of the channel is changed (to value 7,
+   therefor, int the middle)
+
+   Your probably asking now : "And what kind of effects are there?"
+   You'll find the answer in the following section.
+
+
+   1.2. The Effects
+   ----------------
+
+   1 - Portamento up; [0-FF] Speed
+   -------------------------------------------
+   Raises the frequency of played note, in small increments.
+
+
+   2 - Portamento down; [0-FF] Speed
+   -------------------------------------------
+   Lowers the frequency of played note, in small increments.
+
+
+   3 - Tone Portamento; [0 - FF] Speed
+   ---------------------------------------------
+   Raises or lowers the frequency of the played note, until the
+   frequency of the new note is reached.
+   For example:
+        C-1-01-00-0000
+        D-1-00-03-00A0
+
+   Note C-1 is played; The frequency will be raised until the note D-1
+   is reached(speed = A0).
+   ATTENTION: it will be "slided" until the new note is reached, even if
+   other Portamento commands appear!
+
+
+   4 - Vibrato; [*0 - *F] Depth;[0* - F*] Speed
+   -------------------------------------------------------
+   Vibrates the played note.
+
+
+   5 - Special; [0 - FF]
+   ---------------------
+   Special Commands:
+
+   Value - Occurence:
+   ------------------
+    0   - Nothing
+    1   - Sample will be played without loop.
+    2   - Sample will be played backwards, without loop.
+    For Example:
+    C-1-01-0E-0002
+
+    Play the first sample, but backwards.
+
+   A - Volume Slide; [0* - F*] Turn Up [0* - *F] Turn Down
+   -------------------------------------------------------
+   Slide the volume with the determined speed, up or down. In order to
+   turn the volume up, the first position of the effect value must be given.
+   In order to turn the volume down, the second position must be given.
+   For Example:
+        C-1-01-0A-0001 - Volume turned down with speed of 1
+        C-1-01-0A-0030 - Volume turned up with speed of 3
+
+   B - Balance; [0-0F] left - Right
+   ----------------------------------
+   Changes the balance of the channel. 16 step values are available.
+   0...7...F = left...middle...right
+
+   C - Volume; [0-FF] Volume
+   ------------------------------
+   Changes the volume of the played note.
+   Attention: The volume adjustment works logarithmically, not linearly!
+   I.E. 7F is not half as load as FF, but much quiter !
+
+   D - Pattern Break [00 - 63] (the values are in decimal !)
+   ---------------------------
+   Begins the next pattern at the given Position.
+   For Example:
+        C-1-01-0D-0000 Jumps to the begining of the next pattern
+        C-1-01-0D-0020 Jumps to Position 20 of the next pattern
+
+   E0 - Vibrato Value [00 - 0F]
+   ----------------------------
+   Set the strength of the Vibrato (Command 4 = Vibrato)
+   For Example:
+        C-1-01-0E-0001 Set minimal vibrato strength
+        C-1-01-0E-0008 Set the virbrato strength to the normal setting
+
+   E1 - Finslide up [10 - 1F]
+   --------------------------
+   Like effect 1, but the frequency is raised only once per note.
+   For Example:
+        C-1-01-0E-0015 The frequency is raised to the value of 5
+
+   E2 - Finslide down [20 - 2F]
+   ----------------------------
+   Like effect 2, but the frequency is lowered only once per note.
+   For Example:
+        C-1-01-0E-0025 Frequency is lowered to the value of 5
+
+   E9 - Retring note [90 - 9F]
+   --------------------------
+   The Note is replayed before the next note is played. How often the
+   note will be replayed depends on the speed of the song and the
+   given value.
+   For Example:
+        C-1-01-0F-0006 Speed 6 (Therefor 6 beats per note)
+        C-1-01-0E-0093 Retrig Note on the 3rd beat (out of 6)
+
+   EA - FineVolslide up [A0 - AF]
+   ------------------------------
+   Operates like Effect A, but only slides once per note.
+   (I.E. Turns up the volume)
+   For Example:
+        C-1-01-0E-00A1 Incress the volume by a value of 1
+
+   EB - FineVolslide down [B0 - BF]
+   --------------------------------
+   Operates like Effect A, but only slides once per note.
+   (I.E. Turns down the volume)
+   For Example:
+        C-1-01-0E-00B3 Decress the volume by a value of 3
+
+   EC - Cut note [C0 - CF]
+   -----------------------
+   Cuts off the note on the given beat(The volume is turned off).
+   For Example:
+        C-1-01-0E-00E3 Plays the note till the 3rd beat
+
+   ED - Note Delay [D0 - DF]
+   -------------------------
+   Waits until the given beat, then plays note.
+   For Example:
+        C-1-01-0E-00D3 Plays the note on the 3rd beat
+
+   F - Speed; [0-FF] Speed
+   ---------------------------------
+   Adjusts the speed of the song.
+   6 is the default adjustment setting (125 BPM)

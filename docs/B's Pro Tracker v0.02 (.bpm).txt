@@ -1,0 +1,66 @@
+                            B's Pro Tracker   (BPT)
+                                 Version  0.02
+
+                                Copyright 1991,
+                                   Kim Heino
+
+
+        Technical information
+
+        BPM/BPS file format version #01:
+
+        Offset  Meaning
+        0000    (32 char) Song/Filename
+        0032    (byte) File type: bit 0-5 = file version
+                                  bit 6   = note display
+                                  bit 7   = song (0) / module (1)
+        0033    (8 char) Tracker name
+        0041    (word) Tempo hi
+        0043    (word) Tempo lo
+        0045    (word) IHertz
+        0047    Chord #1 Array C to B (11 times)
+                Offset  Meaning
+                0000    bit 0-1 = 0=none, 1=#5, 2=b5
+                        bit 2-3 = free
+                        bit 4-6 = 0-4
+                        bit 7   = 0=Minor, 1=Major
+                0001    bit 0-3 = 0-15
+                        bit 4-7 = dim, maj7, etc...
+        0069    (22 byte) Chord #2
+        0091    (byte) Signature hi
+        0092    (byte) Signature lo
+        0093    Instruments (0-1F)
+                Offset  Meaning
+                0000    (12 char) Filename
+                0012    (word) Length
+                0014    (byte) Volume
+                0015    (word) Loop begin
+                0017    (word) Loop end
+        0701    (byte) Patterns saved
+        0702    (255 byte) Pattern orders
+        0957    Extra infos
+                Offset  Meaning
+                0000    (byte) Number of bytes in info,
+                               if zero then go to Pattern #0 name
+                               directly
+                0001    (byte) Info type (000 = Text)
+                0002    (??? byte) Info
+        ????    (10 char) Pattern #0 name
+        [????]  Patterns
+                Offset  Meaning
+                0000    (10 char) Name
+                0010    (word) Length
+                0012    Notes
+                        Offset  Meaning
+                        0000    bit 0-3 = note (0=C, 1=C# ... 11=B)
+                                bit 4-7 = octave
+                        0001    bit 0-4 = instrument
+                                bit 5-7 = volume bit 0-2
+                        0002    bit 0-3 = command
+                                          00 = No command
+                                          01 = Set tempo (timebase)
+                                          02 = Go to order
+                                          03 = Jump to next order
+                                bit 4-7 = volume bit 3-6
+                        0003    bit 0-7 = command value
+        [????]  In modules: Samples

@@ -1,0 +1,127 @@
+Extension:	.RAD
+Version:	1.0
+Created by:	Reality
+Tracker:	Reality ADlib Tracker
+Players:	-
+Description by: Shayde / Reality
+Taken from:	RAD Tracker 1.1a
+Note:		Adlib music format
+
+
+                            TECHNICAL SPECIFICATIONS
+                         ß ßßßßßßßßßßßßßßßßßßßßßßßßßß ß
+
+     RAD file format is as follows: (values in hex)
+
+   ÛßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßÛ
+   Û HEADER                                                                 Û
+   ÛÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÛ
+   Û Offset  00..0F:"RAD by REALiTY!!" - Use this to recognize a RAD tune.  Û
+   Û                                     Just detecting the initial "RAD"   Û
+   Û                                     should be sufficient though! ;-)   Û
+   Û                                                                        Û
+   Û Offset      10:BCD                - Version of RAD file.               Û
+   Û                                     Currently 10h for v1.0.            Û
+   Û                                                                        Û
+   Û Offset      11:Bit 7              - Set if a description follows.      Û
+   Û                Bit 6              - Set if it's a "slow-timer" tune.   Û
+   Û                Bits 4..0          - The initial speed of the tune.     Û
+   Û                                                                        Û
+   ÛßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßÛ
+   Û DESCRIPTION                                                            Û
+   ÛÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÛ
+   Û The description follows the header if Bit 7 of Offset 11h is set.  The Û
+   Û description is a null-terminated string.  To save some space in the    Û
+   Û tune file, the characters mean:                                        Û
+   Û                                                                        Û
+   Û Char 00      - End of description (null-terminator)                    Û
+   Û Char 01      - Move to start of next line (Carriage return)            Û
+   Û Char 02..1F  - Output this many spaces                                 Û
+   Û Char 20..FF  - Output this character                                   Û
+   Û                                                                        Û
+   ÛßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßÛ
+   Û INSTRUMENTS                                                            Û
+   ÛÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÛ
+   Û Next come the instruments:                                             Û
+   Û                                                                        Û
+   Û Offset      00:Instrument Number that follows (or 0 for end of list)   Û
+   Û                                                                        Û
+   Û Offset  01..0B:The instrument definition in HSC .INS format:           Û
+   Û                                                                        Û
+   Û          ÉÍÍÍÍÍÍËÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍËÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ»          Û
+   Û          º      º                   º Adlib Register        º          Û
+   Û          º Byte º Carrier/Modulator º (Relative to Chan. 0) º          Û
+   Û          ÌÍÍÍÍÍÍÊÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÊÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ¹          Û
+   Û          º  00  ³  Carrier          ³   23h                 º          Û
+   Û          º  01  ³  Modulator        ³   20h                 º          Û
+   Û          º  02  ³  Carrier          ³   43h - Instr. Volume º          Û
+   Û          º  03  ³  Modulator        ³   40h                 º          Û
+   Û          º  04  ³  Carrier          ³   63h                 º          Û
+   Û          º  05  ³  Modulator        ³   60h                 º          Û
+   Û          º  06  ³  Carrier          ³   83h                 º          Û
+   Û          º  07  ³  Modulator        ³   80h                 º          Û
+   Û          º  08  ³  Both             ³   C0h                 º          Û
+   Û          º  09  ³  Carrier          ³   E3h                 º          Û
+   Û          º  0A  ³  Modulator        ³   E0h                 º          Û
+   Û          ÈÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ¼          Û
+   Û                                                                        Û
+   ÛßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßÛ
+   Û ORDER LIST                                                             Û
+   ÛÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÛ
+   Û The Order List follows the instruments:                                Û
+   Û                                                                        Û
+   Û Offset      00:Length of Order List (up to 128)                        Û
+   Û                                                                        Û
+   Û Offset  01..nn:List of orders, one byte for each line:                 Û
+   Û                                                                        Û
+   Û                00..1F:The pattern to play.                             Û
+   Û                80..FF:The line to jump to minus 80h (Jump Marker)      Û
+   Û                                                                        Û
+   ÛßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßÛ
+   Û PATTERN OFFSET TABLE                                                   Û
+   ÛÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÛ
+   Û  For all 32 patterns there is a word in this table which gives the     Û
+   Û  offset from the start of the file of the pattern data.                Û
+   Û  If a pattern is empty then the offset is zero.                        Û
+   Û                                                                        Û
+   ÛßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßÛ
+   Û PATTERNS                                                               Û
+   ÛÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÛ
+   Û Offset      00:Line number whose notes follow.  Bit 7 set means that   Û
+   Û                this is the last line.  Note, lines that have no notes  Û
+   Û                or effects on do not appear.                            Û
+   Û                                                                        Û
+   Û Offset  01....:List of notes for that line:                            Û
+   Û                                                                        Û
+   Û              Offset     00:Channel no. note appears in (0 to 8).       Û
+   Û                            Bit 7 set means this is the last note for   Û
+   Û                            this line.                                  Û
+   Û              Offset 01..02:The note/effect for this channel.           Û
+   Û                            If the effect nibble is non-zero then       Û
+   Û                            Offset 03 contains the parameter, otherwise Û
+   Û                            the next channel starts at Offset 03.       Û
+   Û                                                                        Û
+   ÛßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßÛ
+   Û NOTES                                                                  Û
+   ÛÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÛ
+   Û Notes occupy three bytes (two if the effect nibble is zero):           Û
+   Û                                                                        Û
+   Û           Byte 00:Bit    7:  Bit 4 of the instrument number.           Û
+   Û                   Bit 6..4:  Octave of note.                           Û
+   Û                   Bit 3..0:  Note (1-12) in this order:                Û
+   Û                              C#, D, D#, E, F, F#, G, G#, A, A#, B, C   Û
+   Û                              A zero denotes no note and 15 denotes a   Û
+   Û                              KEY-OFF.                                  Û
+   Û                                                                        Û
+   Û           Byte 01:Bit 7..4:  Bits 3 to 0 of the instrument number.     Û
+   Û                   Bit 3..0:  The effect nibble (the effect column      Û
+   Û                              in RAD is the hex equivalent of this      Û
+   Û                              nibble).                                  Û
+   Û                                                                        Û
+   Û           Byte 02:The parameter to the effect (if any).                Û
+   Û                   Because parameters only go from 0 to 99, bit 7 is    Û
+   Û                   not used, but may be used in a later version of RAD. Û
+   Û                                                                        Û
+   ÛÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÛ
+
+ - Shayde / Reality, Feb95

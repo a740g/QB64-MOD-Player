@@ -1,0 +1,74 @@
+From: dada@CAM.ORG (Stephane Lajoie)
+Newsgroups: rec.games.programmer
+Subject: Re: *.INS, *.BNK file formats
+Date: 25 Jul 1994 15:32:48 -0400
+Organization: Communications Accessibles Montreal, Quebec Canada
+
+-=> Ghost@wam.umd.edu wrote:
+Gh> ...so far I have found the *.ROL format; now, all I need are the
+Gh> formats for *.INS format (BADLY!) and the *.BNK format.
+
+I really don't know the format of *.INS files, but the folks at AdLib wrote
+something to put those in a .BNK file. So you no longer need the INS file
+format as long as you can find someone who has an AdLib with the utilities.
+Well, I happen to have all this, so you can zip your .INS and send them to
+me (uuencoded). I'll return you a BNK file.
+
+As for the BNK format, here it is:
+
+  File header:
+
+      1       byte            Version, major
+      1       byte            Version, minor
+      6       bytes           Signature, "ADLIB-"
+      1       word            Number of records (total)
+      1       word            Number of records (used)
+      1       dword           File offset of beginning of name section
+      1       dword           File offset of beginning of data section
+      8       bytes           Zero
+
+  Name section record:
+
+      1       word            Index into data section
+      1       byte            0 if record used, 1 otherwise
+      9       bytes           Zero-terminated instrument name
+
+  Data section record:
+
+      1       byte            0=melodic instrument  1=percussive instrument
+      1       byte            Voice number (for percussive instruments)
+      13      bytes           Operator 0 parameters (see below)
+      13      bytes           Operator 1 parameters
+      1       byte            Operator 0 wave form
+      1       byte            Operator 1 wave form
+
+    Operator parameters:
+
+      1       byte    Key scale level
+      1       byte    Frequency multiplier
+      1       byte    Feed back
+      1       byte    Attack rate
+      1       byte    Sustain level
+      1       byte    Sustaining sound
+      1       byte    Decay rate
+      1       byte    Release rate
+      1       byte    Output level
+      1       byte    Amplitude vibrato
+      1       byte    Frequency vibrato
+      1       byte    Envelope scaling
+      1       byte    0=FM sound  1=Additive sound
+                      (last field for operator 0 only, unused for operator 1)
+
+Total size: sizeof(Header) + Header.RecTotal * (sizeof(name) + sizeof(data))
+
+Name section is sorted alphabetically, with unused records at the end.
+Practical order is: Header, Name section, Data section.
+
+That's all I can think of... You can send questions and/or INS files to
+Dada@cam.org. Hope you don't have a million INS... :)
+
+--
+.-------------------------.
+| Stephane Lajoie (Dada)  |
+| Internet: dada@cam.org  |
+`-------------------------'

@@ -1,0 +1,2254 @@
+JASON PAGE (NEW) FORMAT (*.JPN)
+Decoded by Martin Bazley, Friday 24th December 2010
+
+=== 1 == Introduction ==
+
+The information contained in this file is suitable for playing and decoding
+the music used in the games Empire Soccer 94, Fire and Ice, Nipper vs The
+Kats, Uridium 2 and Virocop.  A slightly different format is used in the game
+Realms, described in Appendix III.
+
+The Jason Page format (henceforth 'JPN') is a format designed by Andrew
+Braybrook and Jason Page, and used principally in Graftgold games for the
+Commodore Amiga range of computers.
+
+Most parts of it are heavily tied to the characteristics of Amiga hardware,
+such as the Paula chip, and cannot be realistically played or converted
+without some level of emulation.  Namely, sample addresses are specified in a
+format suitable for passing to the Paula chip, as are the volumes, and the
+note values used are determined by the Amiga clock frequency.
+
+There are two separate elements to a file: the sequence and patterns, which
+are read from at a rate specified in the file, and the instruments, the
+definitions of which contain most commands recognisable as 'effects', such as
+vibrato, and which are read from every 0.02 seconds (a rate of 50 Hz).  Every
+time a non-blank event is read from a pattern, it has an instrument number
+associated with it (unless it's a portamento - see section 4.3), indicating a
+new position from which to resume instrument playback (with all parameters
+reset).
+
+Unlike many other formats, the four channels in JPN are completely
+independent of each other, and no sequence or pattern command on any channel
+affects any of the others.  Specifically, pattern breaks do not cause all
+four channels to jump to the next position - only the channel on which the
+break occurred.  (Normally they occur on all four channels at once, but not
+always, so watch out.)
+
+Many limits of formats such as ProTracker simply do not apply, which can make
+conversion difficult.  Patterns are not technically limited to 64 positions,
+although most are (and that's the maximum pattern delay value allowed) and I
+am only aware of one tune which exceeds this limit.  Sequence positions on
+all channels do not have to line up - on several occasions one channel is a
+couple of events behind another, to create an echoing sound without the need
+for extra patterns.
+
+All multiple-byte values in this file are big-endian - that is, the most
+significant byte comes first.
+
+One piece of general advice I can offer you before anything else in this file
+is that you use the information contained here to write a program to convert
+a JPN file to a human-readable text format.  This will help you learn no end
+of things about how the tunes actually work.  You'll regret it if you don't.
+
+=== 2 == General formats ==
+
+=== 2.1 == The header ==
+
+All blocks of data in a JPN file are of variable length, and there is no way
+to determine the length without reading through it.  Therefore, all blocks of
+data (patterns, instruments, etc.) are indexed, and lookup tables are stored
+which convert an index number into a physical offset into a block of data.
+These blocks of data and lookup tables are themselves indexed (as offsets
+from the start of the file) in fixed locations in the file header, which is
+the only part of the file of constant length. This section describes the
+format of that header.
+
+The header is a sequence of 50 16-bit values stored at the beginning of the
+file.  Each one is an offset from the start of the file.  Some of them give
+the offsets of further lists of offsets, which are offsets from a data block
+elsewhere in the file (the offset of which is also stored in the header).
+Confused yet?  We're just getting started.
+
+Offset Block        Type    Description
+------ -----        ----    -----------
+0                   unused  seems to be always 2
+2      samples      list    NB: 32 bit format
+4      instruments  list    instrument offsets
+6      instruments  data
+8      sequence     list    speeds
+10     instruments  list    priorities
+12     sequence     list    channel 1 offsets
+14     sequence     list    channel 2 offsets
+16     sequence     list    channel 3 offsets
+18     sequence     list    channel 4 offsets
+20                  unused  channel 5?
+22                  unused  channel 6?
+24                  unused  channel 7?
+26                  unused  channel 8?
+28     sequence     data    channel 1
+30     sequence     data    channel 2
+32     sequence     data    channel 3
+34     sequence     data    channel 4
+36                  unused  channel 5?
+38                  unused  channel 6?
+40                  unused  channel 7?
+42                  unused  channel 8?
+44     patterns     list    pattern offsets
+46     patterns     data
+48                  unused  length of file
+
+Although the sample list is in this file, the sample data is held in a
+separate file, which must be loaded together with the JPN file.
+
+All of the blocks above will be described in the following sections.
+
+=== 2.2 == Lists and offsets ==
+
+All list entries above have the same format - a long string of 16-bit values,
+with a length in bytes of twice the number of entries.  The entries in an
+offsets list are expressed as values to be added to the offset of the start
+of the corresponding data block.  The exception is the sample list, which is
+32-bit and is not a list of offsets, but rather of lengths (see 5.5).
+
+Therefore, to find the start of instrument data given an instrument index,
+you would first load the 16-bit value at offset 4 into the file, add it to
+the offset of the start of the file and then add your instrument index
+multiplied by 2, and load the 16-bit value from the resulting address.  Next
+load the 16-bit value at offset 2 into the file and add it to the offset of
+the file in memory, then add the value previously loaded to that.  This gives
+you the start of the instrument block numbered with the original index.
+
+List type    Number of entries  Refers to
+---------    -----------------  -----------
+sequence     # of subsongs + 1  patterns
+patterns     # of patterns      instruments
+instruments  # of instruments   samples
+samples      # of samples       -            (NB: 32-bit)
+
+=== 2.3 == Internal arrangement of files ==
+
+It's helpful to know this, as the lengths of lists are not stored anywhere
+and knowing what comes after what provides a way of finding out, for example,
+how many patterns there are.  You'll mainly need to know this in the course
+of writing a text dumper.
+
+Note that, in the case of sequence lists, the last entry is always unused.
+
+All data blocks may have any length, due to the format of the data stored
+within.  The only way to find out the length is to subtract the offset from
+the one following it in the file.
+
+Header pos.  Data                              Length
+-----------  --------------------------------  -----------------------
+             (start of file)
+             header                            50
+4            instrument offsets                # of instruments * 2
+6            instrument data                   (length of data)
+12           sequence offsets ch1              (# of subsongs + 1) * 2
+28           sequence data ch1                 (length of data)
+14           sequence offsets ch2              (# of subsongs + 1) * 2
+30           sequence data ch2                 (length of data)
+16           sequence offsets ch3              (# of subsongs + 1) * 2
+32           sequence data ch3                 (length of data)
+18           sequence offsets ch4              (# of subsongs + 1) * 2
+34           sequence data ch4                 (length of data)
+20           unused - sequence offsets ch5?    ?
+36           unused - sequence data ch5?       ?
+22           unused - sequence offsets ch6?    ?
+38           unused - sequence data ch6?       ?
+24           unused - sequence offsets ch7?    ?
+40           unused - sequence data ch7?       ?
+26           unused - sequence offsets ch8?    ?
+42           unused - sequence data ch8?       ?
+44           pattern offsets                   # of patterns * 2
+46           pattern data                      (length of data)
+8            sequence speeds                   (# of subsongs + 1) * 2
+10           instrument priorities             # of instruments * 2
+2            sample list                       # of samples * 4
+48           end of file
+
+Therefore, one way to find e.g. the number of subsongs in the file is to
+subtract the 16-bit value at offset 8 in the header from that at offset 10,
+divide the result by 2 and subtract 1.
+
+=== 3 == Sequences ==
+
+=== 3.1 == What's a subsong? ==
+
+Remember Lemmings?  You may have been acquainted with the tracker files used
+there, and the way that by judicious use of the position jump effect, one
+file could be divided into many different songs, all using the same samples.
+Well, JPN takes it a step further.  The division of trackers into different
+subsongs is enforced by the format (although it is possible for a file to
+have only one subsong).
+
+The four sequence offsets lists (plus the speed list) are all short lists of
+16-bit values, each of which gives information pertaining to a subsong
+number.  The only technical difference between subsongs is the speed they
+play at (determined by the speed list) and the offset into the sequence data
+they start playing from (determined by the offsets lists).  Otherwise, they
+share the same pattern and instrument data, and the same samples.
+
+The number of subsongs in the file may be determined (as shown above) by
+subtracting the offset of a sequence offsets list from that of the
+corresponding sequence data, dividing the result by 2 and subtracting 1.  The
+last step is necessary because in sequence lists the last entry is always
+unused.  Alternatively, you can do the same thing with the speed list.
+
+When asked to play a file, the player takes a subsong number as a parameter
+(numbered from 0).  It has no knowledge of which subsong to play or how many
+there are other than that.  Therefore, the responsibility for choosing a
+valid subsong (and one which is within range) rests entirely with the client.
+This is inconvenient, because sometimes certain subsongs contain nothing but
+a blank pattern and others do not point to anything sensible at all, but
+there is no way to find out what's valid except by experimentation.
+
+=== 3.2 == Sequence data format ==
+
+There are four groups of sequence data, one for each channel (and don't
+forget that they are independent of each other).  Each of these data blocks
+has a list associated with it, giving offsets into the block (in bytes) to
+start playing from for each subsong number.  There is also a fifth data
+block, which gives the speed of playback (see 4.2).
+
+Each sequence position is two bytes long, and may be a pattern number or a
+sequence command, the latter mostly being equivalent to a position jump
+command, except stored in the sequence rather than the pattern data (and only
+affecting that channel, rather than all four).
+
+The purpose of the position is determined by the first of the two bytes.  If
+it is less than 252 (0xFC), it is the pattern number to play at that position
+on that channel, otherwise it has one of four meanings:
+
+First byte  Meaning
+----------  -------
+0xFF        Stop all playback on all channels and don't restart until the
+            client calls the 'play subsong' routine again.  This is the only
+            sequence command which affects all channels (but, in practice,
+            such commands occur simultaneously on all channels anyway).
+            Second byte is ignored.
+0xFE        Second byte gives new sequence position to play from, which
+            should be multiplied by 2 to get the offset in bytes.  Note that
+            this is relative to the start of the subsong given in the offsets
+            list, so a value of 0 always means to return to the start of the
+            subsong.  Also note that the offsets in the subsong list are
+            already in bytes - this isn't.
+0xFD        If a user jump has been specified by the client (see next
+            section), that gives the new playback position, otherwise the
+            position is ignored and the sequence pointer incremented to
+            point to the following one instead.  Second byte is ignored.
+0xFC        As 0xFD, except that if no user jump is specified this behaves as
+            an 0xFE jump, with the second byte giving the new position.
+
+If the first byte is not any of these values, then it is a pattern number.
+This is multiplied by 2 and used as an offset into the pattern offsets list
+(position 44 in header), and the resulting 16-bit value is then added to the
+base of the pattern data (position 46) to calculate the address of the new
+pattern to start playing from.
+
+The second byte in this case is a transposition value - a number of semitones
+to be added to every note played in the specified pattern.  Note that this is
+a signed value - i.e. if the byte is 0xF4, that means a transposition down of
+12 semitones, or one octave.  Transposition values save having multiple
+patterns for the same tune in different keys, and are often used to lengthen
+a tune with a very limited number of patterns.
+
+=== 3.3 == User jumps ==
+
+A user jump is exactly what it says on the tin - a sequence position passed
+to the program by the client.  This is stored internally and not referred to
+until a channel encounters a sequence position in which the first byte is
+0xFC or 0xFD.
+
+The user jump is given in sequence positions (i.e. byte offset / 2) from the
+start of the current subsong.  Note that it applies to all channels, and is
+cleared after an event in which it was used at least once.  Therefore, for
+all four channels to jump to a specified position, the currently playing
+patterns all need to end at the same time and the following sequence
+positions all need to be 0xFC or 0xFD.  There is no way to specify different
+jump positions for different channels.
+
+The only file I am aware of which uses sequence commands 0xFC and 0xFD is the
+Realms in-game music, which appears to have been composed with incidental
+music in mind, with the user jumps facilitating smooth transitions from one
+theme to another (or simply looping on the same theme, via command 0xFC, if
+no jump is necessary).
+
+=== 3.4 == Subsongs within subsongs ==
+
+As I hinted when mentioning the Realms theme, it is possible for one subsong
+within a JPN file to contain multiple instances of commands 0xFE and 0xFC.
+The only method of jumping between such sections is if the client program
+tells the player to, and knows where to jump.  This obviously makes
+conversion difficult, as subsong numbers are not the only way of hiding more
+than one self-contained tune in the same file - and ideally you want to
+convert or play all of them.
+
+As position jump commands are given in sequence positions relative to the
+start of the current subsong, this means that sections beyond the first end
+in jump commands to sequence positions after the end of the first section.
+See section 3.5 for some examples.
+
+Another nasty thing which can be done is not to terminate a subsong with a
+sequence command at all, and have it simply feed right into the next one.  In
+this context the next subsong offset is generally junk and should be ignored,
+although another very real possibility is that the first subsong is garbage
+which should never be read.  The only way to know for certain is,
+unfortunately, trial and error, as JPN is very much a format intended to be
+read by client programs which know what they're getting and not generic
+players.  (Hence, for example, the total lack of any 'official' indicator
+anywhere in the file of the number of subsongs present.)
+
+=== 3.5 == Examples ==
+
+The following sequence is from Uridium 2, subsong 1.  The offset in bytes
+from the start of the sequence data on all four channels is 64, and the
+respective absolute offsets from the start of the file are 0x13AE, 0x1548,
+0x16E2 and 0x187C.  (Incidentally, if you are attempting to learn about this
+nightmarish format without any actual JPN files to refer to, then don't.  I
+recommend UnExoticA or the Modland FTP.)
+
+The left-hand column is the sequence position relative to the start of the
+subsong (so the offset in bytes is twice that), and the other four columns
+give the first and second bytes in each position for all four channels.  All
+numbers are in hexadecimal.
+
+Pos | Chan0 | Chan1 | Chan2 | Chan3
+-----------------------------------
+0   | 1E F4 | 21 0  | 21 0  | 0  0
+1   | 1F F4 | 21 0  | 21 0  | FE 0
+2   | 1E F4 | 2C F4 | 2B F4 |
+3   | 1F F4 | 2E F4 | 2D F4 |
+4   | 1E F4 | 29 F4 | 28 0  |
+5   | 1F F4 | 2A F4 | 28 0  |
+6   | 1E F4 | 29 F4 | 28 0  |
+7   | 1F F4 | 2A F4 | 28 0  |
+8   | 2F F4 | 32 F4 | 30 0  |
+9   | 2F F4 | 31 F4 | 30 0  |
+A   | FE 4  | FE 4  | FE 4  |
+
+The first thing which must strike you is that the fourth channel is only one
+position long.  In fact, pattern 0 in this file is a completely blank pattern
+with a duration of 64 events, and the channel loops on these blank events.
+In other words, it never does anything.  (This happens a lot in games, to
+leave room for sound effects - all the many sections of subsong 3 have only
+two channels.)
+
+The other three channels (most of which, you will observe, have been
+transposed down an octave) play for 10 positions, and then loop back to the
+fifth one (a position number of 4, or a byte offset of 8).  You're probably
+wondering why pattern 0x21 is so important that it needs to be played on two
+channels at once, and you're not going to like the answer - pattern 0x21 is a
+completely blank pattern with a duration of 48 events.  Yes, the other three
+channels here all use patterns with a duration of 48 events.  As the channel
+with sequence positions in multiples of 64 events is completely blank, the
+programmer rightly thought that it wouldn't matter if it was updating its
+sequence pointer out of step with the rest!
+
+Now, given that a blank pattern of 48 events has already been necessitated in
+order to keep channels 1 and 2 in step with channel 0 when they come in, you
+may very well wonder why it couldn't just be used on channel 3 as well.  I'm
+afraid I have no idea, but it gives you a taste of the sort of
+channel-independent sequence tomfoolery you're going to have to put up with!
+
+Now for an even nastier example.  The following is an extract from the
+beginning of the Realms in-game music:
+
+Pos | Chan0 | Chan1 | Chan2 | Chan3
+-----------------------------------
+0   | 1  0  | 3  0  | 0  0  | 2  0
+1   | 1  0  | 4  0  | 0  0  | 2  0
+2   | 1  0  | 3  F4 | 0  0  | 2  0
+3   | 1  0  | 4  F4 | 0  0  | 2  0
+4   | FD 5  | FD 5  | FD 5  | FD 5
+5   | 1  5  | 3  5  | 0  0  | 2  5
+6   | 1  5  | 4  5  | 0  0  | 2  5
+7   | 1  5  | 5  0  | 0  0  | 2  5
+8   | 1  5  | 6  0  | 0  0  | 2  5
+9   | FC 0  | FC 0  | FC 0  | FC 0
+A   | 1  0  | 7  0  | 9  0  | 2  0
+B   | 1  0  | 8  0  | A  0  | 2  0
+C   | 1  0  | 7  0  | 9  0  | 2  0
+D   | 1  0  | 8  0  | A  0  | 2  0
+E   | FC A  | FC A  | FC A  | FC A
+F   | 1  5  | B  0  | 0  0  | 2  5
+10  | 1  5  | B  0  | 0  0  | 2  5
+11  | 1  9  | B  0  | 0  0  | 2  9
+12  | 1  9  | B  0  | 0  0  | 2  9
+13  | FC F  | FC F  | FC F  | FC F
+
+As you can see, the 0xFD command is conventionally followed with the offset
+of the next position, but this is never read and the sequence pointer simply
+moves onto the next position anyway if no user jump has been specified.
+
+Here we see the first three (or possibly four) sections of a total of fifteen
+(or possibly sixteen) such sub-subsongs in this file.  There is really only
+one subsong, containing all the tunes, but there is a junk second subsong
+offset which points to halfway through the last section.  Watch out for this.
+
+Some of these sections are a good illustration of how the transposition value
+can be used to repeat the same phrase in a different key.
+
+Note the values after the 0xFC commands and the positions they point to -
+each group of four (or eight) positions plus one terminating position is a
+self-contained loop, until the client program orders it to jump somewhere
+else when it next reaches the end.
+
+=== 4 == Patterns ==
+
+=== 4.1 == The patterns list ==
+
+Unlike other formats, JPN patterns are more there for convention than
+anything else, as all they really provide are a slightly more convenient way
+to time notes and specify pitches and pitch slides than using an instrument
+block - in fact, a pattern is really just a scheduling mechanism for calling
+instrument blocks with different initial pitches.  There are very few
+features implemented - all that is reserved for the instruments.
+
+The pattern data is also the only block in the JPN file (apart from samples)
+to have no extra data associated with it.  The sequence data has the list of
+speeds and the instruments have priorities, but all the pattern data has is a
+list of 16-bit words giving the offsets of the start of each pattern,
+relative to the offset of the start of the data block itself.  (Hence, by
+convention, the first value in the list is always 0.)
+
+The offset of the patterns list from the start of the file is stored at
+offset 44 in the header, and the offset of the pattern data at offset 46.
+
+=== 4.2 == The speed list ==
+
+As previously mentioned, the two bytes at offset 8 from the start of the file
+give the offset of a short list of 16-bit values, with a number of entries
+equal to the number of subsongs, plus one unused entry at the end.
+
+Although these entries are 16-bit, in practice the values contained within
+never exceed 10 or so.  These are the subsong speeds, with one entry per
+subsong (numbered from 0).
+
+As already mentioned, the JPN player updates its state at a rate of 50 Hz.
+However, reading from the patterns at this rate would produce a very fast
+piece of music, so there is a delay mechanism to wait a certain number of
+ticks before reading the next event - and the number of ticks to wait is
+stored in this list.  There is no such thing as a 'set speed' command - the
+speed is set here and kept the same throughout the subsong, although
+different subsongs may play at different speeds.
+
+The number of ticks to wait here does not take into account the tick in which
+the event was read - therefore, the value is equivalent to the ProTracker
+'set speed' command, but one less.  A JPN speed of 5 is equal to the
+ProTracker default of 6.  There is no way to set tempo - it is always equal
+to ProTracker tempo 125.
+
+There is also a separate pattern delay command described in 4.3, which is
+used, for the most part, instead of blank events.  It is essentially a
+further tempo tick multiplier for this value.
+
+=== 4.3 == Pattern data format ==
+
+The length of each pattern - even if they all add up to the same number of
+events - is extremely variable.  Instrument numbers need only be specified if
+they are different from the last note, and blank events are, by convention,
+omitted altogether.
+
+For the most part, a pattern is a string of single bytes, terminated by 0xFF.
+Values greater than or equal to 0xF9 have special meanings, and may be
+followed by a parameter (which may be more than one byte wide).  A list of
+the meanings of each value follows:
+
+0-3F   Value is new note index.  Event ends, all instrument values reset and
+       instrument data pointer set to currently configured index (see below).
+40-7F  As from the end of this event, wait (value & 0x3F) events before
+       reading next value.  If all notes are evenly spaced, this does not
+       need to be specified every event.  Where possible, this is used in
+       preference to inserting blank events.
+80-F6  New instrument index is value & 0x7F.  Applies to all notes after
+       this one until it is changed again.
+F7     Special instrument index value, indicating a portamento.  All notes
+       read while this is in effect do not cause a new instrument to begin
+       playback.  Additionally, all note values (<0x40) are followed by a
+       byte giving the speed of the pitch slide.
+F8     Special instrument index value, indicating an 'instant' portamento.
+       Notes alter the pitch as normal, but do not cause instruments to be
+       reset.  No pitch slide bytes.
+F9     Signals the end of a blank event.  In practice, only used in the case
+       that the first event in a pattern is blank, and is preceded by a
+       pattern delay value (0x40-0x7F) giving the offset of the first note.
+       In blank patterns, usually followed by 0xFF.
+FA-FB  Not implemented; treated as equivalent to 0xF9.
+FC     Set volume.  Followed by a single byte parameter giving the new value
+       of NoteVolume shifted right by 8.  Setting the volume in this way
+       requires command 0x18 to be present in the instrument block.  See 6.24
+       for more details.
+FD     Not implemented; treated as equivalent to 0xF9.
+FE     Slide.  Followed by a signed 16-bit parameter giving the speed and
+       direction (positive is downwards).  Basically a portamento without a
+       target pitch.  The event ends when one of these is encountered.
+FF     End of pattern; get next pattern from sequence.
+
+One event is a period of time equal to 0.02 seconds multiplied by the speed
+of this subsong + 1.  Every time this elapses, the next byte is read from the
+pattern data, and, if appropriate, further bytes until a value of 0xFE, 0xF9
+or less than 0x40 is reached.  If a value of 0xFF is reached, then the
+sequence pointer is incremented by two (possibly causing a position jump to
+be reached and processed), and the pattern pointer set to the start of the
+new pattern.  0xFF does *not* signify the end of the event.
+
+Only if the event ended on a note (values below 0x40), and the instrument
+index is less than 0x77 (0xF7 & 0x7F), does a new instrument actually start
+(or restart) playing.  If the instrument index is 0x77 (but not 0x78), then
+the byte containing the note number is followed by another byte giving the
+slide speed.
+
+At this point, the note index has the transposition value added to it (the
+second byte in the current sequence position).  Notes cannot go higher than
+0x54, or below 0.  (And, yes, 0x54 is a good twenty semitones higher than
+that actually allowed for by the pattern format, and attainable only with the
+aid of transpositions.)
+
+Don't forget that bytes of 0xF7 and 0xF8 are treated as normal instrument
+indexes, except they do not correspond to instrument blocks.  In other words,
+a series of consecutive slides will only need one occurrence of the byte at
+the beginning.
+
+The next thing which happens is that all the instrument variables are reset
+to their default values, and the instrument pointer set to the instrument
+just loaded.  The only input of the patterns to the instrument data
+(discounting the volume) is the final value of the note index ('Note'), and
+the corresponding Amiga pitch value ('Pitch') looked up from a table
+(available in Appendix II). Both can be overridden.
+
+Patterns also control the variables PitchBend and PitchBendLimit.  If the
+event ended through byte 0xFE, then PitchBend is the parameter and
+PitchBendLimit is 0xFFFF or 0x0000 depending on whether PitchBend was
+positive or negative.  If the event ended through a note and instrument 0x77,
+then Pitch is not set (but Note is), PitchBendLimit is set to what Pitch
+would have otherwise been set to, and PitchBend is set to the byte following
+the note index (or minus it if the target pitch is lower than the current
+one).
+
+If the instrument is 0x78, then no pitch bend takes place and Pitch and Note
+are altered as usual, but the instrument variables are not reset.
+
+If a new instrument is started, any current slide is cancelled.  This has the
+curious effect of not happening if the instrument is 0x78, although I don't
+think any files exploit it.
+
+=== 4.4 == Examples ==
+
+The following is a good example of your basic pattern.  This is the drumline
+from the title screen of Fire and Ice (pattern 1, 0x784 bytes from start of
+file):
+
+41 85 1C 40 88 18 41 86 1C 40 88 1C 85 1C 88 1F 1F 41 86 1C 40 88 1C 41 85 1C
+40 88 18 41 86 1C 40 1C 41 85 1C 40 88 1C 86 1C 88 1F 1F 41 85 1C 40 88 1C 41
+86 1C 40 88 18 41 85 1C 40 88 1C 86 1C 88 1F 1F 41 85 1C 40 88 1C 41 86 1C 40
+1C 85 1C 88 1F 86 1C 41 1C 40 1C FF
+
+Gosh, wasn't that enlightening?  Once more, with comments:
+
+00: 41 85 1C   Play note 0x1C on instrument 5, wait one event
+01: (blank)    The one event
+02: 40 88 18   Play note 0x18 on instrument 8, turn delay off
+03: 41 86 1C   Play note 0x1C on instrument 6, wait one event
+04: (blank)
+05: 40 88 1C   Play note 0x1C on instrument 8, turn delay off
+06: 85 1C      Play note 0x1C on instrument 5, note no change in delay
+07: 88 1F      Note 0x1F, instrument 8
+08: 1F         Play note 0x1F again, note no change in instrument (still 8)
+09: 41 86 1C   Play note 0x1C on instrument 6, wait one event
+0A: (blank)
+0B: 40 88 1C   And so on...
+0C: 41 85 1C   Instrument 5, incidentally, is the command to play a bassdrum
+0D: (blank)
+0E: 40 88 18   Instrument 8 produces a sort of click...
+0F: 41 86 1C   ...and instrument 6 is a snare
+10: (blank)
+11: 40 1C
+12: 41 85 1C
+13: (blank)
+14: 40 88 1C   Note how the clicks get higher round here
+15: 86 1C
+16: 88 1F
+17: 1F
+18: 41 85 1C   The mid-point of the pattern
+19: (blank)
+1A: 40 88 1C
+1B: 41 86 1C
+1C: (blank)
+1D: 40 88 18
+1E: 41 85 1C
+1F: (blank)
+20: 40 88 1C
+21: 86 1C
+22: 88 1F
+23: 1F
+24: 41 85 1C   The last quarter contains a snare roll
+25: (blank)
+26: 40 88 1C
+27: 41 86 1C
+28: (blank)
+29: 40 1C      No instrument change specified, so still a snare drum
+2A: 85 1C
+2B: 88 1F
+2C: 86 1C      More snare drums...
+2D: 41 1C
+2E: (blank)
+2F: 40 1C
+30: FF         48 events (exclusive of this one).
+
+This doesn't indicate all of the commands used.  The nastiest among these is
+0xF7 (instrument 0x77).  The following is pattern 0x26 in Virocop tune 3
+(offset 0x1484):
+
+00: 41 8A 23      Play note 0x23 on instrument 10
+01: (blank)       Wait one event
+02: F7 27 20      Slide, with speed 0x20, to note 0x27
+03: (blank)
+04: 8A 2D         Restart instrument 10 on note 0x2D
+05: (blank)
+06: 92 23         Play note 0x23 on instrument 18
+07: (blank)
+08: F7 27 20      Slide, with speed 0x20, to note 0x27
+09: (blank)
+0A: 4B 92 2D      (Instrument 18 is actually just a quieter version of 10)
+0B: (blank)
+0C: (blank)
+0D: (blank)
+0E: (blank)
+0F: (blank)
+10: (blank)
+11: (blank)
+12: (blank)
+13: (blank)
+14: (blank)
+15: (blank)
+16: 40 8A 2A      Play note 0x2A on instrument 10
+17: 46 F7 2C 20   Immediately slide up two semitones at speed 0x20
+18: (blank)
+19: (blank)
+1A: (blank)
+1B: (blank)
+1C: (blank)
+1D: (blank)
+1E: 40 8A 28      Play note 0x28 on instrument 10
+1F: F8 29         Change pitch to 0x29 (note no speed parameter after note)
+20: 43 28         Change pitch back to 0x28
+21: (blank)
+22: (blank)
+23: (blank)
+24: 4B 93 26      Play note 0x26 on instrument 19
+25: (blank)       (19 being 10 with a sharper volume fade)
+26: (blank)
+27: (blank)
+28: (blank)
+29: (blank)
+2A: (blank)
+2B: (blank)
+2C: (blank)
+2D: (blank)
+2E: (blank)
+2F: (blank)
+30: FF            End of pattern
+
+=== 5 == Instruments ==
+
+=== 5.1 == What they do ==
+
+You've heard of samples, right?  You might even have spotted the pointer to
+the sample list in the header?  Well, guess what: samples are not
+instruments.  In fact, we don't deal in samples.  Samples are the tools of
+the instruments.  When a pattern says byte 0x84, it means instrument 4, which
+is not the same thing at all as sample 4.
+
+Instruments are, basically, what happens when you take all the effect
+commands out of the patterns and stick them in a special block of their own.
+It's all here, all the stuff you missed in the patterns: vibrato, volume
+envelopes, even something that can be persuaded to pretend to be an arpeggio
+if you ask it nicely.
+
+Doesn't it all sound cosy and familiar?  Well, no, because this is the JPN
+format, and it is out to spite all of your preconceptions at every turn.
+Therefore, we also have no fewer than six commands to specify exactly how
+samples should be played (no primitive repeat starts and repeat lengths
+around here), an insanely complicated sample-selecting method fine-tuned to
+the intricacies of the Commodore sound architecture, several more commands
+for doing things to the note pitch (which can and are used to play tunes in
+their own right), one which physically copies 128 bytes of memory from the
+beginning of one sample to another, and, my personal favourite, one which
+morphs 128 bytes of sample data one value each in the direction of another.
+
+Now to the technical stuff.  The instrument data block starts at the address
+given by offset 6 in the header, and the offsets of the start of each
+instrument from this address by offset 4.  There is also another list, at
+offset 10, which we'll come to in a moment.
+
+As stated previously, the player updates its state every 0.02 seconds.
+However, the patterns are read less often than that, with the exact rate
+being determined by the speed list.  But instruments *are* read every 0.02
+seconds, with no exceptions.  Even if there isn't an instrument playing at
+the moment, the player keeps an area of memory which contains a set of valid
+commands which tells the instrument decoder to do nothing indefinitely.
+
+=== 5.2 == Basic structure ==
+
+Instruments are more a set of secondary patterns than anything else, with
+(mostly) only two input parameters: the time at which the instrument begins
+playback (scheduled by the patterns), and the initial value of the note to be
+played (which can be overridden).
+
+Instruments are, more or less, arranged in events just like the patterns are,
+with a special command indicating the end of the event, although they have a
+lot more commands at their disposal.  Instruments are, in short, difficult.
+If you were intimidated by this format's peculiar ideas about sequences and
+patterns, you're going to hate instruments.
+
+When a pattern triggers a note (and the instrument number is not 0x77 or
+0x78), it causes a new instrument to begin playback (or possibly the same
+instrument to restart playback).  At this point, all instrument variables
+(not to be confused with pattern variables, such as the current instrument
+number) are reset to their default values, and the channel is silenced.  The
+instrument then plays its first event (starting at the beginning of its
+block), and continues playing at 50 Hz until a pattern orders a new one to
+begin.
+
+If the instrument number *is* 0x77 or 0x78, things get more complicated.  If
+it's 0x78, then the pitch changes to the new note (overriding any changes the
+instrument may have made in the meantime), but the playback of the instrument
+is otherwise unaffected.  If it's 0x77, then a pitch slide is initiated,
+which is an independent process from instrument playback and is described
+later.
+
+This is the important bit, if you skim-read all of the above.  The format of
+an instrument block is as follows:
+
+Each command takes the form of a 16-bit value, and every instrument starts
+with a command.  The commands are numbered from 0x0000 to 0x0018.  Note that
+the first byte is unused, and occasionally junk.
+
+The command number, as well as telling the player which variables to alter,
+tells it how many bytes' worth of parameters follows it before the next
+command.  Some commands do not have any parameters; one, the volume envelope,
+is eight bytes long.
+
+Examples for later reference are in section 5.6.  In chapter 6, the myriad
+commands are described in detail, and chapter 7 contains a list of all the
+variables you need to keep track of and their effects.
+
+=== 5.3 == The priority list ==
+
+The list at the address in offset 10 in the header is the same length as the
+instrument offsets list, but it doesn't contain addresses - rather, it
+contains values associated with each instrument index.  Although these are
+16-bit, the values themselves are limited to a maximum of 0xFF.
+
+One of the many variables associated with each channel stores the current
+priority, which is initialised to 0 every time a song starts or restarts.
+Whenever a new note is initialised by the patterns (with no portamento),
+before the new instrument starts playing, its index is matched to its
+priority via its list, and this is compared with the current priority.
+
+If it is higher, then the current priority is increased to match this
+instrument's priority, and the instrument plays as normal.  If it is the same
+(which it almost always is), then no change takes place and the instrument
+still plays.  If, however, it is lower, then the note is cancelled and the
+higher-priority instrument currently playing continues to do so.
+
+The current priority is only reset to zero, apart from when commencing
+playback of a subsong, when an instrument command of 0x0000 (see 6.0) is
+encountered. As, in practice, virtually no instruments use this command, this
+makes the mechanism very dubious indeed.
+
+In almost every case, the priorities for all used instruments in any given
+song are exactly the same value.  (Sound effects are a different matter - see
+5.4.)  An exception is Empire Soccer 94, where the piano chords have the
+maximum priority of 0xFF, for no apparent reason.  As trying to emulate this
+seriously messed up playback, I eventually gave up and ignored the priority
+block altogether.  I suggest you do too.
+
+=== 5.4 == Sound effects ==
+
+Jason Page is a game music format, and contains a lot of game-specific
+features.  One of these, which you might have already spotted, is that most
+files contain far more instrument definitions than are referred to in the
+patterns.
+
+Although sometimes they are enlightening debris left over from composition,
+more often than not these 'waste' instruments are in fact sound effects, to
+be triggered from the game playing the music at any point.  They have to, for
+this reason, be completely independent of the patterns, and so they never
+read the current note data, but enforce their own settings.  (Some - as in
+Fire and Ice - even play little tunes of their own.)
+
+Sound effects can usually be distinguished from instruments by the fact that
+their priorities are higher, and sometimes different from each other.  In
+this fashion, the priorities system ensures that sound effects are never
+swallowed by the music, and important sound effects play instead of
+unimportant ones.
+
+All sound effects end in a 0x0000 command, which resets the current priority
+back to 0 and ensures the instruments keep playing after the FX have finished
+their temporary occupation of the channel.
+
+Some tunes have entire channels which are blank and free to be used by the
+game.  The various sections of subsong 3 in Uridium 2 have two channels
+devoted to sound effects, which leads to some interesting composing decisions
+to get a decent tune out of the remaining two.
+
+=== 5.5 == The sample list ===
+
+The last remaining data block in the JPN file is the sample list, with its
+address stored at offset 2 in the header. This has nothing in common with any
+of the other blocks. A notable feature of it is that there is no space
+reserved for any actual sample data.
+
+If you've gone downloading JPN files from Modland like you should have done,
+you'll already know this.  The sample data is kept - in raw signed 8-bit
+linear format with no padding or ancillary data blocks - in a completely
+separate file.  The sample list is just a matter of convenience, really, as
+it provides a way for instruments to refer to a given sample relative to its
+start address, if its index number is known.
+
+It contains no information beyond just enough necessary to calculate the
+boundaries between each sample in the binary blob, and even these aren't
+enforced.  By definition, sample 0 always starts at offset 0.  The start
+offset, repeat start and repeat end are entirely determined by the instrument
+blocks.  More than one instrument block can refer to the same sample, usually
+in different ways.  This may be nothing more than a slightly different fade,
+but be warned - in files with square and triangular waves in the sample data,
+things can get rather imaginative.
+
+The sample list is a maximum of 33 entries long, numbered 0 to 0x20, and each
+entry is 32 bits wide. It is the only list which is not 16-bit.  Each entry
+contains the length, in bytes, of that sample.  The last entry is generally
+0.  There is no restriction on length.  As samples are stored contiguously,
+you can work out the start address of each one by adding together the lengths
+of all the entries which preceded it.
+
+=== 5.6 == Examples ==
+
+The thing about providing examples of instruments is that I can't possibly
+cover everything.  All I can say is, expect the worst, because it usually
+happens sooner or later, and this should introduce you to the basic tricks,
+but don't imagine for a moment that it tells you all you need to expect.
+
+A simple example first.  This delightful specimen is a vocal sample from
+Uridium 2, tune 1 (instrument 0x19, starts 0x588 bytes from start of file).
+
+00 02 00 0D 00 03 1E 00 00 12 00 10 00 13 B8 00 FF FF FF FF 01 00 00 04 00 00
+1E 00 00 06 00 00 00 12 00 07
+
+This translates to:
+
+0002 000D (set SampleLoopAddress to start address of sample 13)
+0003 1E00 (set SampleLoopLen to 0x1E00 and SampleLength to 0xF00)
+0012 (that's it for now, update the hardware and wait 0.02 seconds)
+0010 (key on)
+0013 B800 FFFF FFFF 0100 (set the volume to 0x2E and fade by 0.25 every tick)
+0004 00001E00 (set SampleLoopLen to 0x1E00 and SampleLength to 0xF00)
+0006 0000 (start loop, repeat infinitely)
+0012 (update hardware)
+0007 (end of loop)
+
+Some things of note:
+
+The start address of sample 13, which can be calculated from the sample
+lengths list, is 0x1C13E bytes into the sample data file.  It also happens to
+have a length of 0x1E00, but there is nothing to stop the commands in the
+instrument data from underrunning (or overrunning!) this.
+
+The hardware must always have been updated at least once before the key on
+command is executed.
+
+Length-setting commands are commonly repeated, even when there is no point,
+as here.
+
+Most instruments end in an infinite loop, as opposed to being cut by command
+0x0000.  This gives the volume fade time to complete.  This, incidentally, is
+a lengthy one - takes about 3.5 seconds to fade out completely.
+
+The end result is a synthetic voice sample 0x1E00 bytes long, which loops
+along its entire length and fades out slowly.  This is used in many melody
+sections, such as the second phrase of the title tune.
+
+This next one shows some of the lovely things which can be done to the sample
+offsets.  Same track, instrument 9, offset 0x26C, those plinky things which
+play halfway through the title tune:
+
+00 02 00 08 00 03 06 8C 00 13 40 00 FF FF FF FF 01 00 00 12 00 10 00 08 00 00
+06 00 00 04 00 00 04 20 00 05 01 00 00 00
+
+0002 0008 (set SampleLoopAddress to address of sample 8 = 0x5AF4)
+0003 068C (set SampleLoopLen to 0x68C and SampleLength to 0x346)
+0013 4000 FFFF FFFF 0100 (set volume to 0x10, fade 0.25/tick)
+0012 (update hardware, wait 0.02 seconds)
+0010 (key on)
+0008 00000600 (increment SampleLoopAddress by 0x600 bytes)
+0004 00000420 (set SampleLoopLen to 0x420 and SampleLength to 0x210)
+0005 0100 (update hardware, wait 5.12 seconds)
+0000 (silence channel and reset current priority)
+
+The actual length of sample 8 is 0x1BC8, but half of it is never played.
+
+As you can see, the volume slide is not tied to appearing after the first
+hardware update.  As the first tick of an instrument is always a no-op as far
+as the sound system is concerned, this means that, in this case, by the time
+the sample starts playing, the volume will have reduced to 0x0F + 0.75.
+
+The result of this is an instrument which plays its first 0x68C bytes once,
+then loops on bytes 0x600 to 0xA20 for 5.12 seconds, although in practice the
+volume fade will complete after 1.28s.  Oh, and that wasn't a mistake back
+there.  Bytes 0x600 to 0x68C really are duplicated for no apparent reason.
+
+One more for the road.  This should give you an inkling of what I haven't
+told you.  Instrument 0xB, offset 0x2BA:
+
+00 02 00 1D 00 03 00 20 00 0D 02 03 00 08 00 00 00 22 00 13 80 00 10 03 FF FF
+00 80 00 12 00 10 00 04 00 00 00 20 00 06 00 00 00 06 00 18 00 05 00 04 00 08
+00 00 00 01 00 07 00 06 00 18 00 05 00 04 00 08 FF FF FF FF 00 07 00 07
+
+0002 001D (set SampleLoopAddress to address of sample 0x1D = 0x22128)
+0003 0020 (set SampleLoopLen to 0x20 and SampleLength to 0x10)
+000D 02 03 (set VibratoPitch to 2, VibratoDelay to 3 and VibratoCount to 1)
+0008 00000022 (increment SampleLoopAddress by 0x22)
+0013 8000 1003 FFFF 0080 (volume=0x20, fade 0x10 in 0.08s, 0.125/tick after)
+0012 (update hardware, wait 0.02s)
+0010 (key on)
+0004 00000020 (SampleLoopLen=0x20, SampleLength=0x10)
+0006 0000 (infinite loop)
+0006 0018 (nested loop, execute 24 times)
+0005 0004 (update hardware, wait 0.08s)
+0008 00000001 (SampleLoopAddress+=1)
+0007 (end nested loop)
+0006 0018 (another nested loop, execute 24 times)
+0005 0004 (update hardware, wait 0.08s)
+0008 FFFFFFFF (SampleLoopAddress-=1)
+0007 (end nested loop)
+0007 (end infinite loop, go back to first nested loop)
+
+Sample 0x1D is, in this case (and most cases), a square wave 0x80 bytes long,
+with the switch in the middle at 0x40.  Therefore, what this does, by
+initialising the hardware to a 32-byte loop from 0x22 to 0x42, is produce a
+sqaure wave with only two bytes of opposite value.  It then gradually
+increments the start position of this, one byte at a time, until it passes
+the mid-point and comes to rest at 0x3A to 0x5A.  Then it decrements back to
+its original position in a similar fashion.
+
+This is just one of the many 'Commodore 64-style' instruments you will
+encounter, especially in loading tunes (where sample data is costly).  It
+also demonstrates how you really do need to be prepared for absolutely
+anything.  I haven't even covered the data-modifying commands.
+
+If all of the above passed you by, don't worry, you can come back to it
+later.  Here's the important bit: the command key...
+
+=== 6 == Instrument commands ==
+
+=== 6.0 == Stop instrument ==
+
+Syntax: 0000
+
+The channel is silenced and no more instrument data is read until another
+sound effect is triggered, or another instrument read from the pattern data.
+
+Tune instruments tend to end with infinite loops instead, to give volume
+fades time to complete.  This command is principally used in sound effects,
+due to its side-effect of resetting the current priority to 0.
+
+=== 6.1 == Exit and update hardware ==
+
+Syntax: 0001
+
+This is a duplicate of 0x0012, and is never used.
+
+=== 6.2 == Set sample address ==
+
+Syntax: 0002 aaaa
+
+SampleStartAddress = sample_index_to_address(aaaa)
+SampleLoopAddress = SampleStartAddress
+
+aaaa is a number from 0 to 0x20.  It is multiplied by 4 and used as an offset
+into the sample list, with the lengths given used to determine the start
+address of this sample.  SampleLoopAddress and SampleStartAddress are set to
+this address.  This is, in effect, the 'zero' point.  This command is the
+format's only concession to the existence of fixed sample boundaries - from
+now on there are no limits on what the addresses can be set to.
+
+This is almost always the first command in a block.
+
+See chapter 7 for variable definitions.
+
+=== 6.3 == Set sample length ==
+
+Syntax: 0003 aaaa
+
+SampleLoopLen = aaaa
+SampleLength = (aaaa >> 1)
+
+aaaa is any 16-bit number.  SampleLoopLen is set to it, and SampleLength is
+set to it shifted right by 1.  (See Appendix I if you're wondering why.)
+
+This is almost always the second command in a block.
+
+=== 6.4 == Set sample loop ==
+
+Syntax: 0004 aaaaaaaa
+
+SampleLoopLen = aaaaaaaa
+if aaaaaaaa != 0 {
+  SampleLength = (aaaaaaaa >> 1)
+}
+
+aaaaaaaa is any 32-bit number.  SampleLoopLen is set to it, and only if it is
+not 0, SampleLength is set to it shifted right by 1.  If it is 0,
+SampleLength is unchanged.
+
+In practice, the condition for the sound system being fed blank data is that
+SampleLoopLen = 0, in which case the sample length is set to 1 word anyway.
+Therefore, this command and command 0x0003 are completely interchangeable -
+and are occasionally treated as such, so watch out.  In particular, the
+Virocop music tends to replace the command 0004 00000000 with 0003 0002,
+which produces the same silence, but is internally still counted as playing!
+
+This command is commonly used after the key on command, to specify a repeat
+length (even when this is unchanged from the initial length).  If the
+parameter is 0, it means that the sample is unlooped.  Appendix I knows all.
+
+=== 6.5 == Exit, update hardware, and wait ==
+
+Syntax: 0005 aaaa
+
+This command behaves as command 0x0012, but with added functionality.  It is
+aaaa*2 centiseconds before the instrument on this channel updates again.
+(Volume slides, vibratos etc. still occur.)
+
+A parameter of 1 is the same as a parameter of 0, which is the same as just
+using 0x0012 (i.e. a delay of 0.02s).
+
+NB: Unlike the pattern delay, this needs to be specified every time.
+
+=== 6.6 == Start instrument loop ==
+
+Syntax: 0006 aaaa
+
+aaaa is any 16-bit number.  This command indicates the start of a sequence of
+commands - terminated by command 0x0007 - which will be executed aaaa times
+before moving on.
+
+A parameter of 1 means the sequence of commands up to the corresponding
+0x0007 command will be played only once (i.e. it's a no-op).  A parameter of
+0 indicates an infinite loop, which is often used to effectively terminate
+the playback of an instrument.
+
+BEWARE: These CAN be nested!  Up to four levels deep is allowed, but I've
+never seen more than two.
+
+=== 6.7 == End instrument loop ==
+
+Syntax: 0007
+
+Assuming it still has times to repeat left (or a parameter of 0), the
+instrument pointer moves back to the command after the corresponding 0x0006
+command.  Otherwise ignored.
+
+It is not unknown for loop ends to occur without loop starts, although only
+in sound effects, where it seems anything goes.  The only sensible course of
+action here would seem to be a no-op.
+
+=== 6.8 == Increment sample address ==
+
+Syntax: 0008 aaaaaaaa
+
+SampleLoopAddress += aaaaaaaa
+
+aaaaaaaa is a signed 32-bit number, which is added - no questions asked - to
+SampleLoopAddress.  SampleStartAddress is unaffected.
+
+=== 6.9 == Increment sample length ==
+
+Syntax: 0009 aaaa
+
+SampleLength += (aaaa >> 1)
+
+aaaa is a signed 16-bit number, which is arithmetic-shifted right by 1 and
+added to SampleLength.
+
+This command is never used.
+
+=== 6.10 == Increment sample loop ==
+
+Syntax: 000A aaaaaaaa
+
+SampleLoopLen += aaaaaaaa
+
+aaaaaaaa is a signed 32-bit number, which is added to SampleLoopLen.
+
+This command is never used.
+
+=== 6.11 == Increment pitch ==
+
+Syntax: 000B aaaa
+
+Pitch += aaaa
+
+aaaa is a signed 16-bit number, which is added to Pitch.
+
+=== 6.12 == Increment volume ==
+
+Syntax: 000C aaaa
+
+Volume += aaaa
+
+aaaa is a signed 16-bit number, which is added to Volume.
+
+This command is never used.
+
+=== 6.13 == Vibrato ==
+
+Syntax: 000D aa bb
+
+VibratoPitch = aa
+VibratoDelay = bb
+VibratoCounter = (bb >> 1)
+
+VibratoPitch is set to aa.  VibratoDelay is set to bb.  VibratoCounter is set
+to bb DIV 2.
+
+This command is sometimes used with parameters of 00 00, which turns the
+vibrato off.
+
+=== 6.14 == Set pitch ==
+
+Syntax: 000E aaaa
+
+Pitch = aaaa
+
+Pitch is set to aaaa.
+
+Watch out for this one - although it obviously produces an instrument which
+always plays at exactly the same pitch, that doesn't stop patterns from
+calling it with different initial Pitch values.
+
+=== 6.15 == Set volume ==
+
+Syntax: 000F aaaa
+
+Volume = aaaa
+
+Volume is set to aaaa.
+
+For a long time, I thought this command was never used.  It turned out it was
+used in an obscure place in one song, which came as an unpleasant surprise
+when I found out.
+
+=== 6.16 == Key on ==
+
+Syntax: 0010
+
+This command always occurs after at least one 0x0012 command has been
+executed (usually immediately after).  After it has been executed, as from
+the next hardware update, sound begins playing on this channel (having been
+silenced when the instrument started).
+
+I haven't been able to work out what the point of this is, but unfortunately
+the hardware-interfacing sections of surviving Jason Page players tend to get
+particularly munged and it's entirely possible I failed to spot a crucial
+aspect of the Paula chip.  For whatever reason, the first tick of an
+instrument is always silent, and used to load the chip with the initial start
+and length of the sample.
+
+=== 6.17 == Key off ==
+
+Syntax: 0011
+
+All sound ceases immediately.
+
+The instrument does not stop playing (as in 0x0000), but the command is
+followed with an implicit 0x0012, in that the hardware updates immediately
+and instrument playback resumes 0.02 seconds later.  Internally, among other
+things, 0x0000 calls this command.
+
+This command is never used.
+
+=== 6.18 == Exit and update hardware ==
+
+Syntax: 0012
+
+This command denotes the end of an 'event', such as it is.  On execution,
+instrument playback stops and the volume slides, pitch slides and vibrato are
+attended to.  After this, the sample variables are used to calculate the new
+values for the hardware registers, which are then filled appropriately.
+0.02 seconds later, the patterns and instruments on this channel update
+again.
+
+Multiple instances of this command in a row can be more effectively simulated
+using command 0x0005, which takes a time parameter.
+
+The various things which take place when this command is executed are
+documented in chapter 8.
+
+=== 6.19 == ADSR envelope ==
+
+Syntax: 0013 aaaa bbbb cccc dddd
+
+Attack = aaaa
+Decay = bbbb
+Sustain = cccc
+Release = dddd
+Volume = 0
+
+Attack is set to aaaa, Decay to bbbb, Sustain to cccc, and Release to dddd.
+Additionally, Volume is set to 0.  (I got caught out by that one when I
+didn't realise that these occasionally occur more than once in the same
+instrument.)
+
+The ADSR envelope is described in more detail in chapter 8.
+
+=== 6.20 == Set note index ==
+
+Syntax: 0014 aabb
+
+Note = bb
+Pitch = note_index_to_period(bb)
+
+bb is a number between 0 and 0x54, which Note is set to.  Pitch is looked up
+anew from its table (see Appendix II).
+
+aa is never read.
+
+Same caveats as for 0x000E apply.
+
+=== 6.21 == Increment note index ==
+
+Syntax: 0015 aaaa
+
+Pitch = note_index_to_period(Note + aaaa)
+
+aaaa is a signed 16-bit number.  Pitch is set to the entry number in the note
+index table equal to Note+aaaa.
+
+Note is NOT altered.
+
+This command is frequently used, inside loops, to perform arpeggios.
+
+=== 6.22 == Copy sample data ==
+
+Syntax: 0016 aa bb
+
+aa and bb are both sample numbers between 0 and 0x20.  Their start addresses
+are looked up in the sample list.
+
+After this - brace yourself -  the first 128 bytes of data from the start of
+sample aa are copied to the start of sample bb.
+
+It gets worse...
+
+=== 6.23 == Morph sample data ==
+
+Syntax: 0017 aaaa
+
+aaaa is a 16-bit number.  Well, actually, it's a sample number between 0 and
+0x20, but that would have been too obvious.  It's converted into an address
+via the sample list and used as the source data pointer.  The target data
+pointer is SampleStartAddress.  This is the only place anywhere which uses
+SampleStartAddress.  This command, too, acts only on the first 128 bytes from
+each pointer.
+
+Each byte in SampleStartAddress is compared against its counterpart in sample
+aaaa.  If it's higher, it has 1 subtracted.  If it's lower, it has 1 added.
+If it's equal, nothing happens.
+
+Yes, that was an unsigned comparison in signed sample data.  Makes a nice
+noise, doesn't it?
+
+=== 6.24 == Copy pattern volume ==
+
+Syntax: 0018
+
+When a 0xFC byte is encountered in the pattern data, it is followed by a
+single byte parameter.  NoteVolume is set to this shifted left by 8 (e.g. for
+the pattern bytes 0xFC78, NoteVolume would be set to 0x7800).  This doesn't
+have any effect until this command is executed.
+
+This command causes the current value of NoteVolume to be copied to a second
+variable called NoteVolume2.  NoteVolume2 is read in the sustain phase of the
+ADSR envelope, and provides a primitive method of controlling the volume of
+the instruments from the pattern data.
+
+At least, it does in theory.  No file that I know of uses the pattern byte
+0xFC.  However, this command does sometimes occur, so you need to be aware of
+it, although you don't necessarily have to take any action.
+
+=== 7 == Variables ==
+
+=== 7.1 == Conventions ==
+
+In this section is the definitions of the various variable names I have used.
+Most of them are called the same thing as they are in the source available
+from AMP, to avoid confusion.
+
+They are divided into two categories: pattern variables and instrument
+variables.  Instrument variables are reset to their default values when a new
+instrument is triggered.  Pattern variables, as a rule, are never reset
+except at the start of playback.
+
+Some variables do not have default values; the assumption here is that they
+are always set before they are read.
+
+All variables here (and anywhere else) are channel-independent, so you need
+to define four of each.
+
+A lot of the effects of these variables are described in chapter 8.
+
+=== 7.2 == SampleStartAddress ==
+
+Instrument.  Default value: n/a
+
+This is equal to the address calculated from the sample list for the sample
+number in the parameter to command 0x0002.  It is never altered apart from
+that command.  This is used to indicate to the sample morpher where the first
+128 bytes of the currently playing sample start from.  It has no other use.
+
+=== 7.3 == SampleLoopAddress ==
+
+Instrument.  Default value: n/a
+
+An important one, this.  As all samples in the Paula chip are looped, this
+one specifies the start of the current loop.  It is the only other absolute
+address, with all others being lengths.
+
+=== 7.4 == SampleLength ==
+
+Instrument.  Default value: n/a
+
+This is the variable which gets passed directly to the Paula chip to specify
+the length of the current loop.  As such, it gives the length in words,
+rather than bytes - i.e. the real length is twice this.  For this reason, all
+lengths must be a multiple of 2.
+
+=== 7.5 == SampleLoopLen ==
+
+Instrument.  Default value: -1
+
+Effectively a duplicate of SampleLength, except it isn't divided by 2.  If
+this variable is equal to 0, then the Paula chip is passed a pointer to blank
+data with a length of 1 word, effectively halting the sample (as from the
+completion of the current loop).
+
+=== 7.6 == Pitch ==
+
+Instruments and patterns.  Default value: n/a
+
+The note period which is passed to hardware, in Amiga format.  A note index
+to period table is attached at the end of this file, but other values are
+possible (and, indeed, command 0x000E lets you set it to anything you like).
+
+All pitch-altering commands, including slides and vibratos, ultimately act on
+this variable.  Whenever Note changes, this variable is looked up from the
+new value in the translation table.  In the case of command 0x0015, Pitch
+changes but Note doesn't.
+
+When a new note is encountered in the pattern data, Pitch is set to the
+corresponding period value.  Discounting NoteVolume, this is the only input
+to the instrument data when the new instrument begins playback.
+
+This variable can frequently change, by pitch slides, vibrato or instrument
+0x78.  The instrument data doesn't have ultimate control over its value.
+
+=== 7.7 == Note ==
+
+Instruments and patterns.  Default value: 0
+
+This is the current note index, set by the pattern data (although the
+instrument data can alter it as well).  Range is from 0 to 0x54, 1 semitone
+higher per value.
+
+This variable is only read in the context of setting Pitch to the period
+value which would produce an equivalent pitch when passed to the hardware.
+See Appendix II for the table.
+
+=== 7.8 == Volume ==
+
+Instrument.  Default value: 0
+
+The internal representation of the current volume.  Range is 0 to 0xFFFF,
+linear.
+
+When passing the volume to the hardware, this variable is read and shifted
+right by 10, to give a range of 0 to 0x3F.
+
+This variable is usually only altered by the ADSR envelope, although commands
+exist for setting it directly from the instrument data as well.
+
+=== 7.9 == VibratoPitch ==
+
+Instrument.  Default value: 0
+
+A value which is added to Pitch every tick.  When VibratoCounter reaches 0,
+this variable switches between negative and positive (after having been
+added to Pitch).
+
+=== 7.10 == VibratoDelay ==
+
+Instrument.  Default value: 0
+
+The value which VibratoCounter is reset to when it reaches 0.
+
+This, like the speed list, is inclusive, so a value of 3 means VibratoPitch
+will be added 4 times, and then subtracted 4 times (and then added again,
+and so on).
+
+=== 7.11 == VibratoCounter ==
+
+Instrument.  Default value: 0
+
+If this is equal to 0, then VibratoPitch has its sign inverted and this is
+set to VibratoDelay.  Otherwise, 1 is subtracted per tick.
+
+This is set to VibratoDelay DIV 2 when a vibrato command occurs, which makes
+the pitch oscillate around a central point.
+
+NB: In the AMP source, this goes by the somewhat less clear name of
+'VibratoDelayHalf'.
+
+=== 7.12 == Attack ==
+
+Instrument.  Default value: 0xFFFF
+
+The Attack part of the ADSR envelope.  A value which is added to the volume
+every tick for a certain number of ticks.  Attack & 0x00FF is number of ticks
+remaining (0 means just do it once, 1 means twice, etc.), and Attack & 0xFF00
+is the value to add to Volume (note the lower 8 bits are always blank).
+
+1 is subtracted from the lower 8 bits only every tick.  If they are equal to
+0xFF, decay instead.
+
+If Volume exceeds 0xFF00 in the process of attacking, it is reset to 0xFF00
+and the lower 8 bits of Attack are automatically set to 0xFF.
+
+=== 7.13 == Decay ==
+
+Instrument.  Default value: 0xFFFF
+
+The Decay part of the ADSR envelope.  Identical to Attack, except Decay &
+0xFF00 is subtracted instead of added.
+
+Volume must not decay below 0 - reset to 0 and lower 8 bits of Decay set to
+0xFF if it does.
+
+If Decay & 0xFF is 0xFF, sustain instead.
+
+=== 7.14 == Sustain ==
+
+Instrument.  Default value: 0xFFFF
+
+The Sustain part of the ADSR envelope.  This is not divided into lower and
+upper 8 bits, but is simply a 16-bit number from which 1 is subtracted every
+tick, with no further effect.
+
+If this is equal to 0xFFFF, release instead.
+
+This variable is only barely used.
+
+If, during the Sustain phase, Volume is greater than NoteVolume2, Volume is
+set to NoteVolume2.  (This must have been preceded with both a 0xFC pattern
+byte and a 0x0018 instrument command.)
+
+=== 7.15 == Release ==
+
+Instrument.  Default value: 0xFFFF
+
+The Release part of the ADSR envelope.  A 16-bit number which is subtracted
+from Volume every tick until Volume is less than or equal to 0, at which
+point Release is set to 0xFFFF.
+
+If this is equal to 0xFFFF, do nothing.
+
+=== 7.16 == NoteVolume ==
+
+Pattern.  Default value: 0xFFFF
+
+A value in the same format as Volume.  It is set by 0xFC bytes in the pattern
+data, which are followed by a byte giving the new value of NoteVolume shifted
+right by 8.  In other words, the bottom 8 bits (when active) are always 0.
+
+This doesn't do anything until copied into NoteVolume2.
+
+=== 7.17 == NoteVolume2 ==
+
+Instrument.  Default value: 0xFFFF
+
+This is copied from NoteVolume when a 0x0018 instrument command is executed.
+It is then used as an upper limit to Volume during the Sustain phase of the
+ADSR envelope.
+
+In its default value, Volume can never be greater than it, so it has no
+effect.
+
+=== 7.18 == PitchBend ==
+
+Pattern.  Default value: 0
+
+A signed value which is added to Pitch every tick.  If, in the process of
+doing this, Pitch reaches or goes past PitchBendLimit, Pitch is set to
+PitchBendLimit.
+
+This is, unusually, set to 0 if a new note is triggered.
+
+=== 7.19 == PitchBendLimit ==
+
+Pattern.  Default value: n/a
+
+A value in the same format as Pitch.  If PitchBend increases (or decreases)
+past this value, the slide is terminated.
+
+This variable is used by instrument 0x77 to implement portamentos from one
+value of Pitch to another.  If the pitch slide was instigated by a 0xFE
+pattern byte, then PitchBendLimit is set to 0 or 0xFFFF depending on the
+direction of the slide.
+
+=== 8 == Things which happen at 50 Hz ==
+
+=== 8.1 == Instruments and patterns ==
+
+This chapter provides a brief guide to the internal mechanics of the player,
+and the way it does things.  The update routine is called every 0.02 seconds,
+and it does everything listed here, in this order, and on all four channels.
+
+The first to update is the pattern reader.  This doesn't do anything if the
+current tick isn't a multiple of the subsong speed + 1.  If it is, then it
+also doesn't do anything if the pattern delay for this channel (set by
+pattern bytes between 0x40 and 0x7F) hasn't run out.
+
+Assuming the time passes these two tests, then the next byte is read from the
+current pattern pointer, and acted upon.  If it's 0xFF, then the sequence
+pointer increments by 2 (and any position jumps processed) and the pattern
+pointer is reset to the start of the new pattern, then another byte is read.
+(Don't forget - the pattern terminator doesn't represent an event.)
+
+After the patterns have finished for all channels, the instruments update.
+At this point, some of them may have their pointers changed (and variables
+reset) to reflect a new note just read from the patterns.  Nothing is read if
+command 0x0005 still has ticks left to wait.
+
+The sequence of commands is read until a command of 0x0000, 0x0005 or 0x0012
+is encountered.  Then, reading stops for now, and the program moves onto
+updating the automatic bits, and passing the newly calculated parameters to
+the hardware.
+
+=== 8.2 == Vibrato ==
+
+if VibratoPitch != 0 {
+  Pitch += VibratoPitch
+  if VibratoCounter == 0 {
+    VibratoCounter = VibratoDelay
+    VibratoPitch = -VibratoPitch
+  } else {
+    VibratoCounter -=1
+  }
+}
+
+Note that what the above pseudo-code effectively does is only reset
+VibratoCounter when it reaches -1, not 0.  In other words, the actual
+half-wavelength of a vibrato is VibratoDelay+1, where VibratoDelay is
+typically an odd number.  (For example: if VibratoDelay is 3, then the
+wavelength is 8 ticks.)
+
+=== 8.3 == Pitch slide ==
+
+if PitchBend != 0 {
+  Pitch += PitchBend
+  if (PitchBend > 0 && Pitch > PitchBendLimit)
+  || (PitchBend < 0 && Pitch < PitchBendLimit) {
+    Pitch = PitchBendLimit
+  }
+}
+
+PitchBend is added to Pitch.  Unlike vibrato, this isn't timed, it just keeps
+going until it goes past PitchBendLimit, at which point Pitch is set to
+PitchBendLimit.
+
+PitchBendLimit is used in portamentos.  When a simple slide up or down is
+requested (via pattern byte 0xFE), it is set to 0 (for negative/upward slide)
+or 0xFFFF (for positive/downward slide).
+
+=== 8.4 == ADSR envelope ==
+
+if (Attack & 0xFF) != 0xFF {
+  Attack = (Attack & 0xFF00) | ((Attack-1) & 0xFF)
+  Volume += (Attack & 0xFF00)
+  if Volume > 0xFFFF {
+    Volume = 0xFF00
+    Attack = 0xFFFF
+  }
+} else {
+  if (Decay & 0xFF) != 0xFF {
+    Decay = (Decay & 0xFF00) | ((Decay-1) & 0xFF)
+    Volume -= (Decay & 0xFF00)
+    if Volume < 0 {
+      Volume = 0
+      Decay = 0xFFFF
+    }
+  } else {
+    if Sustain != 0xFFFF {
+      Sustain = (Sustain-1) & 0xFFFF
+      if Volume > NoteVolume2 {
+        Volume = NoteVolume2
+      }
+    } else {
+      if Release != 0xFFFF {
+        Volume -= Release
+        if Volume < 0 {
+          Volume = 0
+          Release = 0xFFFF
+        }
+      }
+    }
+  }
+}
+
+Yeah.  I know.  There's a set of perfectly good commands in the instrument
+blocks to make volume slides in any shape you want, and not one of them was
+ever used.
+
+Anyway, the make-up is basically this, with one iteration per tick:
+
+Attack   high byte  volume to add >> 8
+         low byte   no. of ticks remaining - 1 (0xFF means decay instead)
+Decay    high byte  volume to subtract >> 8
+         low byte   no. of ticks remaining - 1 (0xFF means sustain instead)
+Sustain  (16-bit)   no. of ticks remaining - 1 (0xFFFF means release)
+Release  (16-bit)   volume to subtract (0xFFFF means do nothing)
+
+And because this all means nothing without a good ol' example, let's imagine
+ourselves into a world where the instrument player just read the command 0013
+2803 1001 0007 1000...
+
+Tick Volu Attk Decy Sust Rlse
+0    2800 2802 1001 0007 1000
+1    5000 2801 1001 0007 1000
+2    7800 2800 1001 0007 1000
+3    A000 28FF 1001 0007 1000
+4    9000 28FF 1000 0007 1000
+5    8000 28FF 10FF 0007 1000
+6    8000 28FF 10FF 0006 1000
+7    8000 28FF 10FF 0005 1000
+8    8000 28FF 10FF 0004 1000
+9    8000 28FF 10FF 0003 1000
+A    8000 28FF 10FF 0002 1000
+B    8000 28FF 10FF 0001 1000
+C    8000 28FF 10FF 0000 1000
+D    8000 28FF 10FF FFFF 1000
+E    7000 28FF 10FF FFFF 1000
+F    6000 28FF 10FF FFFF 1000
+10   5000 28FF 10FF FFFF 1000
+11   4000 28FF 10FF FFFF 1000
+12   3000 28FF 10FF FFFF 1000
+13   2000 28FF 10FF FFFF 1000
+14   1000 28FF 10FF FFFF 1000
+15   0000 28FF 10FF FFFF 1000
+16   0000 28FF 10FF FFFF FFFF
+
+=== 8.5 == Update hardware ==
+
+OK, this is the big one.  The last item of business dealt with before the
+player enters its centiseconds' hibernation. If you aren't familiar with how
+this stuff works on the Amiga, you need to go and swot up on the workings of
+the Paula sound chip now (Appendix I).
+
+if SampleLoopLen != 0 {
+  AUDxVOL = (Volume >> 10)
+  AUDxPER = Pitch
+  AUDxLEN = SampleLength
+  AUDxLCL = SampleLoopAddress + SampleLength*2 - SampleLoopLen
+} else {
+  AUDxLEN = 1
+  AUDxLCL = <pointer to blank data>
+}
+
+The astute among you will have immediately noticed what's wrong with this
+picture.
+
+As commands 0x0009 and 0x000A are never used, there is no possible
+circumstance under which SampleLength is not equal to SampleLoopLen >> 1 -
+except when SampleLoopLen, by virtue of command 0x0004, is 0.  Which causes
+SampleLength to be completely ignored.
+
+So if you're doing it the correct, as opposed to the proper, way, if I were
+you I'd treat commands 0x0004 and 0x0003 as having exactly the same effect,
+and ignore SampleLoopLen altogether.
+
+=== Appendix I == Introduction to Amiga sound hardware ==
+
+The Paula chip, as Commodore inexplicably called it, is complicated.  In
+fact, it's more complicated than anybody ever cared about, which is why we
+won't be covering, among other things. the facility which allowed you to
+modulate the pitch and volume of one channel using data piped to another.
+(This is a common problem with professional-grade software.  For example, did
+anyone ever use ProTracker's 'Set tremolo waveform' command?)
+
+There are four variables we need to know about.  These are called AUDxLCL
+(technically two 16-bit variables, AUDxLCL and AUDxLCH), AUDxLEN, AUDxPER and
+AUDxVOL, where x is the channel number (all four channels are independently
+programmable).
+
+The workings of AUDxPER are described in Appendix II, but basically it's the
+pitch value, with lower values giving higher pitches.
+
+AUDxVOL is a linear volume specifier, with a range from 0 to 64 inclusive, 0
+being silent.  (By a funny coincidence, this is the exact same range used by
+just about every Amiga tracker format.)  Note that with the JPN 16-bit volume
+system, it is technically impossible to produce the maximum of 64.
+
+This leaves the other two.  AUDxLCL tells the chip where the sample data
+starts from, and AUDxLEN tells it how much of it there is.  Sounds simple?
+It isn't.
+
+When output on a given channel is enabled (which we shall assume is true for
+all channels for the entire duration of the music playing), the Paula chip is
+in a continuous state of sample looping.  There's no way to make it play a
+block of data once, and then stop.  For this reason, most formats use bodges
+to simulate unlooped samples.
+
+Another nice feature is that the chip loads sample frames two at a time, with
+each frame being 8-bit linear signed data.  And it expects you to know this.
+Therefore, AUDxLEN is given in words, not bytes - it's half of the actual
+length, and the actual length must be a multiple of 2.
+
+The AUDxLEN nightmare doesn't stop there, either.  It is illegal for it to be
+0.  To stop playback without actually disabling DMA (which takes effect
+immediately, and is impractical), you must set AUDxLEN to 1, and point
+AUDxLCL at two zero bytes which your program provides.  This causes the Paula
+chip to output a continuous stream of zeros, otherwise known as 'silence'.
+
+However, these are minor inconveniences when you learn how the chip reads its
+data.
+
+There are two (user-inaccessible) backup variables in the hardware.  When DMA
+is first enabled, the values of AUDxLCL and AUDxLEN are copied into these
+backups. The backup of AUDxLCL is then used as a data pointer (incrementing
+in steps of 2), and the backup of AUDxLEN is the counter (decrementing in
+steps of 1).
+
+When the backup of AUDxLEN reaches 0, the two backup variables are once again
+read from the current values of AUDxLCL and AUDxLEN - which may have changed
+in the meantime, and may not.  If they never change, then the chip loops
+forever on the same set of sample data (whether it be 60,000 bytes of
+synthesised magic, or one word of zeros).  If they do change, then the chip
+starts playing from a new set of sample data - but only when it's got to the
+end of the current one.
+
+This is how 'repeat starts' actually work.  In the first tick, the values of
+AUDxLCL and AUDxLEN are filled with the addresses of the data to be played
+once.  Sometime between the first and second ticks, the chip reloads its
+backup variables from this data and starts playing as instructed.  Then, in
+the second tick, AUDxLCL and AUDxLEN are filled with the address and length
+of the data to repeat.  Some time after that, the chip comes to the end of
+the first set of data and reloads its backups from the new values, and starts
+playing those.  When it comes to the end again, it reloads the same values,
+and so on ad infinitum.
+
+One final point: you may have noticed, in the final instrument block example
+(section 5.6), how the value of AUDxLCL was continually tweaked back and
+forth.  This is only possible (or desirable) with very short samples like
+that one, otherwise there would be no guarantee of the current data block
+completing playback before AUDxLCL shifted again, which wouldn't produce a
+smooth slide.
+
+=== Appendix II == Pitch tables and introduction to periods ==
+
+By now, you shouldn't be surprised at anything, but that doesn't mean it's
+going to be pleasant: there are TWO pitch tables.  One for PAL and one for
+NTSC.  It doesn't sound so bad, until you learn that the NTSC one produces
+notes that are 14 semitones higher.
+
+And no, there isn't a way to tell which one a given file uses.  As far as I
+have been able to ascertain, Virocop uses the NTSC tables and everything else
+uses the PAL one.  Make sure you get it right, or your reward is a song which
+sounds either as though it's being played by a mouse orchestra or from the
+bottom of a swimming pool.  (I don't know if mouse orchestras actually exist,
+although I did hear somebody once invented a mose organ... sorry.)
+
+The Paula sound chip, at its very lowest level, emits a sound wave of a given
+air pressure approximately 3 million times every second (the actual value
+depends on whether you have a PAL or NTSC system).  A period, as featured in
+this table, is the input it takes in order to vary the pitch of a steady
+waveform.  The sound period is the number of sound waves it emits of the same
+pressure (determined by a signed linear byte), before loading the next byte
+and changing the pressure.  The lower the period value is, the more rapidly
+the pressure varies, and the shorter (and thus higher) the resulting waveform
+becomes.  Higher period values produce lower notes.  Period values are not
+linear.
+
+Here are the two tables, in full annotated glory, for converting between note
+indexes and periods and back again.  Don't forget that the latter conversion
+isn't very useful, because the instruments contain commands to set the period
+to anything you like, which doesn't have to be in this table at all.
+
+Oh, and one other thing?  That maximum note index value of 0x54 mentioned way
+back in section 4.3?  It's junk.  The tables only go up to 0x53.  The
+assumption seems to be that you're sensible enough not to exceed the note
+index limits.
+
+Before the tables, here are a few calculations you should know:
+
+Frequency of middle C (C-2 in ProTracker): 8363 Hz
+Clock rate (PAL): 3546895 Hz
+Clock rate (NTSC): 3579545 Hz
+
+<clock rate> = AUDxPER * <desired rate>
+e.g. for a note of middle C in PAL timing, AUDxPER = 3546895 / 8363 =
+424.1175.  Although the corresponding entry in the period table is actually
+425, which is strange.
+
+<sample byte increment> = <clock rate> / (AUDxPER * <target rate>)
+e.g. to play PAL middle C through a sound system clocked at 20833 Hz, step
+through the sample 3546895 / (425 * 20833) = 0.4006 bytes at a time (i.e.
+output each byte either two or three times to lower the pitch).
+NB: I used this trick in my instrument-to-sample converter, with C-3 used for
+the target rate so the resulting waveform could be played in a tracker.  Bear
+in mind that at 16726 Hz, 0.02 seconds can be approximated by 335 (16726/50)
+bytes of sample.
+
+<actual note index> = ( ln(<clock rate> / (AUDxPER * 8363)) / ln2) * 12 + 12
+NB: Don't rely on this.  The period tables are sufficiently inaccurate (and
+contain mistakes in places) to make deciding which direction to round an
+unpredictable business.
+This assumes that ProTracker note C-1 is equal to an actual note index of 0.
+
+For PAL: <actual note index> = <JPN note index> - 26
+For NTSC: <actual note index> = <JPN note index> - 12
+NB: Don't rely on this either - don't forget, instruments can and do
+completely ignore the value specified in the patterns.
+
+For PAL: <desired rate> = 8363 * 2^( (<JPN note index> - 38) / 12)
+For NTSC: <desired rate> = 8363 * 2^( (<JPN note index> - 24) / 12)
+NB: Definitely don't rely on these.  I don't know what clock rate was used to
+calculate the period tables, or how accurate the program was, or if they were
+jotted down on the back of a napkin in the local Starbucks, but they're
+hopelessly inaccurate.  Calculating your own can only bring grief.
+
+And now to the meat of the matter:
+
+PAL table: (all numbers in hex)
+
+Period  Note index  ProTracker equivalent
+EEE     00          a#-2
+E17     01          b--2
+D4D --- 02 -------- c--1
+C8E     03          c#-1
+BD9     04          d--1
+B2F     05          d#-1
+A8E     06          e--1
+9F7     07          f--1
+967     08          f#-1
+8E0     09          g--1
+861     0A          g#-1
+7E8     0B          a--1
+777     0C          a#-1
+70B     0D          b--1
+6A6 --- 0E -------- c-0
+647     0F          c#0
+5EC     10          d-0
+597     11          d#0
+547     12          e-0
+4FB     13          f-0
+4B3     14          f#0
+470     15          g-0
+430     16          g#0
+3F4     17          a-0
+3BB     18          a#0
+385     19          b-0
+353 --- 1A -------- c-1 <- bottom of ProTracker range
+323     1B          c#1
+2F6     1C          d-1
+2CB     1D          d#1
+2A3     1E          e-1
+27D     1F          f-1
+25A     20          f#1
+238     21          g-1
+218     22          g#1
+1FA     23          a-1
+1DD     24          a#1
+1C3     25          b-1
+1A9 --- 26 -------- c-2
+191     27          c#2
+17B     28          d-2
+165     29          d#2
+151     2A          e-2
+13E     2B          f-2
+12D     2C          f#2
+11C     2D          g-2
+10C     2E          g#2
+FD      2F          a-2
+EE      30          a#2
+E1      31          b-2
+D4 ---- 32 -------- c-3
+C8      33          c#3
+BD      34          d-3
+B3      35          d#3
+A8      36          e-3
+9F      37          f-3
+96      38          f#3
+8E      39          g-3
+86      3A          g#3
+7E      3B          a-3
+77      3C          a#3
+70      3D          b-3 <- top of ProTracker range
+6A ---- 3E -------- c-4
+64      3F          c#4
+5E      40          d-4
+59      41          d#4
+54      42          e-4
+4F      43          f-4
+4B      44          f#4
+47      45          g-4
+43      46          g#4
+3F      47          a-4
+3B      48          a#4
+38      49          b-4
+35 ---- 4A -------- c-5
+32      4B          c#5
+2F      4C          d-5
+2C      4D          d#5
+2A      4E          e-5
+27      4F          f-5
+25      50          f#5
+23      51          g-5
+21      52          g#5
+1F      53          a-5
+
+NTSC table:
+
+Period  Note index  ProTracker equivalent
+6B0 --- 00 ------- c-0
+650     01         c#0
+5F4     02         d-0
+5A0     03         d#0
+54C     04         e-0
+500     05         f-0
+4B8     06         f#0
+474     07         g-0
+434     08         g#0
+3F8     09         a-0
+3C0     0A         a#0
+38A     0B         b-0
+358 --- 0C ------- c-1 <- bottom of ProTracker range
+328     0D         c#1
+2FA     0E         d-1
+2D0     0F         d#1
+2A6     10         e-1
+280     11         f-1
+25C     12         f#1
+23A     13         g-1
+21A     14         g#1
+1FC     15         a-1
+1E0     16         a#1
+1C5     17         b-1
+1AC --- 18 ------- c-2
+194     19         c#2
+17D     1A         d-2
+168     1B         d#2
+153     1C         e-2
+140     1D         f-2
+12E     1E         f#2
+11D     1F         g-2
+10D     20         g#2
+FE      21         a-2
+F0      22         a#2
+E2      23         b-2
+D6 ---- 24 ------- c-3
+CA      25         c#3
+BE      26         d-3
+B4      27         d#3
+A9      28         e-3
+A0      29         f-3
+97      2A         f#3
+8E      2B         g-3
+86      2C         g#3
+7F      2D         a-3
+78      2E         a#3
+71      2F         b-3 <- top of ProTracker range
+6B ---- 30 ------- c-4
+65      31         c#4
+5F      32         d-4
+5A      33         d#4
+54      34         e-4
+50      35         f-4
+4B      36         f#4
+47      37         g-4
+43      38         g#4
+3F      39         a-4
+3C      3A         a#4
+38      3B         b-4
+35 ---- 3C ------- c-5
+32      3D         c#5
+2F      3E         d-5
+2D      3F         d#5
+2A      40         e-5
+28      41         f-5
+25      42         f#5
+23      43         g-5
+21      44         g#5
+1F      45         a-5
+1E      46         a#5
+1C      47         b-5
+1A ---- 48 ------- c-6
+19      49         c#6
+17      4A         d-6
+16      4B         d#6
+15      4C         e-6
+14      4D         f-6
+12      4E         f#6
+11      4F         g-6
+10      50         g#6
+F       51         a-6
+F       52         a#6
+E       53         b-6
+
+=== Appendix III == Supplementary information for Realms music ==
+
+The music for the game Realms appears to be stored in an earlier version of
+the format.  While the functionality is more or less identical to later
+versions, and most of the data blocks are the same, the file structure is
+extremely different, and there is no header, with all offsets being relative
+to the start of the file, as opposed to the start of that data block.
+
+The first block in the file is the sample list.  There are only 32 (not 33)
+entries, each 32 bits wide, and it is a list of offsets, not lengths as
+described earlier.  These offsets appear to reflect the location of the
+sample data in memory at the point at which the file was saved.  However, as
+the first offset must always be zero, this problem can be solved by
+subtracting the first entry from everything.
+
+The four bytes at offset 0x80 appear to be unused.
+
+From 0x84, the instrument list.  This is 32 bits wide, not 16, and it give
+the offsets of each instrument block relative to the start of the file
+(although the start address of the data block is always equal to the start
+address of instrument 0).  The length is fixed at 255 instruments.
+
+From 0x480, the speed list.  This is as for a normal JPN file, but the number
+of subsongs is fixed at 32 and there isn't a disused entry at the end.
+
+From 0x4C0, the instrument priority list.  This is standard, except for being
+guaranteed to account for 255 instruments.
+
+From 0x6BE, the sequence lists start.  These are 32 bits wide and also give
+offsets relative to the start of the file, as opposed to the sequence data.
+The start of the sequence data for each channel may be divined from the first
+entry.  The number of subsongs is still fixed at 32, with no waste entry.
+
+Sequence lists for channels 2, 3 and 4 start from 0x73E, 0x7BE and 0x83E.
+
+Finally, from 0x8BE, the pattern list.  This is another 32-bit wide list of
+offsets from the start of the file.  The number of patterns is always 254.
+
+The 8 bytes from 0xCB6 to 0xCBE appear to be unused.  Then come the data
+blocks.
+
+The instrument data starts at 0xCBE.  Although it is mostly standard, watch
+out - all command numbers are multiplied by 4.  Command 0x0013 (the ADSR
+envelope), for example, is here known as 0x004C.  The rest is as for a normal
+file.
+
+After the instrument data (and no longer at a fixed address), there are the
+patterns, which are standard.
+
+Following on from the patterns comes the sequence data for channels 1, 2, 3
+and 4, in all its 32-subsong glory, but otherwise unchanged from the standard
+format.
+
+The file ends immediately after the last byte of sequence data for channel 4.
+
+=== Appendix IV == Errata for Archimedes conversion of Fire and Ice ==
+
+The RISC OS port of Fire and Ice was what started it all, for me.  I had a
+lifetime obsession with the title music, and it was this which eventually
+drove me to spend months attempting to convert it (and preferably all the
+other tunes) into a playable format.  What shocked me, after the project was
+completed, was that all that time I had been listening to a
+done-in-one-night, schoolboy-error-ridden pale imitation of Jason Page's
+original player, which completely mutilated the soundtracks beyond all
+recognition!  I think Paul Chapman probably got it to the point where it
+played an acceptable rendition of the title tune, then decided, "Ah, screw
+it, deadline's coming up, no-one listens to game music anyway."
+
+There must have been red faces somewhere when Acorn Gaming published its
+review of the port:
+
+"Another thing which struck me straight away was the truly awful music.
+Calling it music is an insult to music! A sub-Electron dirge, more like. It
+does get better as you progress through the game, but the sheer one-track
+inanity of it simply defies belief when you first play the game. It's
+strange, since the music which greets you on the title page is excellent."
+
+(Review copyright (c) Gareth Moore 1994-2000, www.acorn-gaming.org.uk )
+
+There were a number of reasons why the bugs in the port caused the excellent
+music of the first few levels in particular to degenerate into 'one-track
+inanity', most of them coincidental, but here they are at last, summed up in
+their own appendix for posterity.
+
+The single most disastrous, although not the most noticeable, error was the
+attempted emulation of the Paula sound chip.  Well, I say 'attempted'; I
+can't be sure, really.  Granted, the Amiga Hardware Reference manual is hard
+to find (admittedly it was probably not available in a neatly zipped package
+of OCR'd text files to anyone who typed the right phrase into Google in
+1994), but given that he ended up panicking and silencing the music for an
+entire WORLD (the bonus round) because the emulation insisted on producing a
+sample offset prior to the start of the sample file, it should have been
+obvious that something wasn't quite right!
+
+Here's a brief run-down of how the port did it:
+
+0x0002 aaaa: SampleLoopAddress = address of sample aaaa
+0x0003 aaaa: SampleLength = SampleLoopLen = aaaa
+0x0004 aaaaaaaa: SampleLoopLen = aaaaaaaa; if not 0, SampleLength = aaaaaaaa
+0x0008 aaaaaaaa: SampleLoopAddress += aaaaaaaa
+0x0010: ROStartOffset = -SampleLength; ROStarted = True
+
+And then when the hardware is updated:
+
+if ROStarted == True {
+  ROSampleEnd = SampleLoopAddress + SampleLength
+  RORepeatStart = -SampleLoopLen
+  ROStarted = False
+  RONewSample = True
+}
+
+And as for what it does with those odd-looking variables, here's a peek into
+the DMA buffer filler:
+
+if RONewSample == True {
+  RONewSample = False
+  RODMASampleEnd = ROSampleEnd
+  RODMAStartOffset = ROStartOffset
+  RODMARepeatStart = RORepeatStart
+}
+write bytes to DMA {
+  RODMAStartOffset += <sample byte increment>
+  if RODMAStartOffset >= 0 {
+    RODMAStartOffset += RODMARepeatStart
+    if RODMAStartOffset >= 0 {
+      fill rest of buffer with zeros
+    }
+  }
+  write byte at RODMASampleEnd+RODMAStartOffset
+}
+
+And if you're wondering how on earth that could ever work, the short answer
+is: it didn't.
+
+Still on the topic of samples, the following clanger caused most of the
+problems which led to the emergence of the "sub-Electron dirge":
+
+The old Archimedes 8-bit sound chip didn't take linear signed data like the
+Paula one.  This has caused many a hapless porter hours of grief, but nowhere
+more noticeably than here.  Its preferred format was a most peculiar
+signed logarithmic one, which was rotated left by 1, so the sign bit was
+least significant.
+
+Now, in theory, logarithmic data should allow you to perform volume scaling
+simply by subtraction, and that is indeed exactly what was attempted here.
+Unfortunately, it didn't quite work out like that.  I don't know what's wrong
+with the following Amiga volume to RISC OS volume table, but it did some
+mighty odd things to the volume slides and was capable of making entire
+melody lines disappear:
+
+     +0 +1 +2 +3 +4 +5 +6 +7
+00 : FF FE F0 E8 D0 C0 B4 AA
+08 : A0 96 8C 82 78 6E 64 5A
+10 : 50 46 3E 36 32 2E 2A 26
+18 : 22 1E 1C 1A 18 16 14 14
+20 : 12 12 10 10 0E 0E 0A 0A
+28 : 0A 0A 0A 08 08 08 06 06
+30 : 06 04 04 04 04 02 02 02
+38 : 02 02 02 00 00 00 00 00
+
+Now for a really silly one:
+
+There appears to have been a slight misunderstanding about the matter of
+command 0x0016 (yes, that one which copies 128 bytes of sample data).  A
+little something got lost in the translation from 68000 assembler to ARM
+assembler:
+
+MOVE.L (A0)+,(A1)+
+
+became:
+
+LDRB R0,[R10],#1
+STRB R10,[R9],#1
+
+You are correct in thinking that the register inside the square brackets is
+conventionally the address to load from or store to.
+
+Yes, what this does is write 128 consecutive values starting from the lower 8
+bits of the address of the source sample.
+
+Remember earlier when I told you that in Archimedes sample data the sign bit
+is least significant?
+
+...Yeah.
+
+Lends a bit of colour to the music, I can tell you.
+
+A seemingly completely arbitrary change concerns the speed list:
+
+For whatever reason, Fire and Ice maintains its own speed table and
+completely ignores the ones in the files.  They don't quite tally, either.
+Here's a list of the discrepancies:
+
+Track        Subsong  Wrong speed
+High scores  1        5 (should be 6)
+High scores  2        5 (should be 7)
+World 2      0        7 (should be 6)
+World 3      0        7 (should be 6)
+World 4      2        5 (should be 7)
+World 5      0        7 (should be 6)
+
+Last but certainly not least is a goof concerning command 0x0008 - the sample
+offset incrementer.  For whatever reason, once the DMA variables have been
+set, any further occurrences of this are completely ignored.  The main
+consequence of this is to strip out all of the modulation that made the
+square waves exciting, and leave you with a set of square waves.  This is
+particularly noticeable in world 3 (the underwater world), which consists of
+nothing but square waves.  (Ironically, back when I didn't know what it was
+supposed to sound like, the gloomy, atonal bassline on that tune was one of
+my favourites.)
+
+=== Appendix V == Quick reference card ==
+
+Patterns: (*event ender)  Instruments: (*event ender, #unused)
+00-3F: note index*        00: stop
+40-7F: pattern delay      02 aaaa: sample index
+80-F6: instrument select  03 aaaa: sample length
+F7: portamento select     04 aaaaaaaa: ditto
+F8: instant portamento    05 aaaa: wait aaaa ticks*
+F9: blank event*          06 aaaa: repeat aaaa-1 times
+FA,FB,FD: unused*         07: end repeat
+FC aa: NoteVolume=aa<<8   08 aaaaaaaa: +=sample address
+FE aaaa: infinite slide*  09 aaaa: +=sample length#
+FF: end of pattern        0A aaaaaaaa: +=sample loop#
+Header:                   0B aaaa: +=pitch
+02: sample list[15]       0C aaaa: +=volume#
+04: instrument list[1]    0D aabb: vibratopitch=aa delay=bb counter=bb/2
+06: instrument data[2]    0E aaaa: pitch
+08: speed list[13]        0F aaaa: volume
+0A: priority list[14]     10: key on
+0C: subsong list ch1[3]   11: key off*#
+0E: subsong list ch2[5]   12: wait 1 tick* (01 ditto#)
+10: subsong list ch3[7]   13 aaaa dddd ssss rrrr: ADSR envelope (volume=0)
+12: subsong list ch4[9]   14 00aa: note index
+1C: sequence data ch1[4]  15 aaaa: pitch <- note+aaaa
+1E: sequence data ch2[6]  16 aabb: 128 bytes from sample aa to bb
+20: sequence data ch3[8]  17 aaaa: morph 128 bytes towards sample aaaa
+22: sequence data ch4[10] 18: NoteVolume2=NoteVolume
+2C: pattern list[11]      Sequences:
+2E: pattern data[12]      00-FB aa: pattern, aa is transposition
+30: EOF                   FC aa: user jump, else jump to aa
+[n]=actual order in file  FD aa: user jump, else continue to next
+Constants:                FE aa: jump to aa
+C-2: 8363 Hz              FF aa: stop playback on all channels
+PAL: 3546895 Hz           Links: header 2.1, sequences 3.2, patterns 4.3,
+NTSC: 3579545 Hz          instruments chapter 6, period tables Appendix II.

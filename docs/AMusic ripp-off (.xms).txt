@@ -1,0 +1,47 @@
+				    X-M-S
+				 F-O-R-M-A-T
+				    F-A-Q
+
+What do you need for the XMS-Format ?
+-------------------------------------
+You need a Soundcard, of course. This Soundcard should have a OPL2 Chipset
+(for example the Soundblaster-Soundcards). A Computer the XMS-Player will
+work on any PC with an 386 CPU or Hihger. The XMS-Object File can be used
+in own Products. Both XMS-Player and XMS-Object Files are FREEWARE so you
+can use them as you want. The XMS-Tracker v1.0B needs at least 150 KB of
+your BasicMemory (under DOS). The Tracker will also work fine under a
+DOS-Shell Window on an Windows 3.11 or 95 Machine.
+
+
+XMS-Format and it's fundamental Structure !
+-------------------------------------------
+
+This Part of the FAQ is for the Coders. So listen Coders here we go, see what
+we have got for you. I hope after that little Introduction it will be easier
+for you to understand the Structure of the XMS-Format Tunes. The Tunes you
+are using are already packed (compressed).
+
+XMS-Format-Structure:
+--------------------
+ - The Name of the XMS-Song (Offset 000h). Then it follows the Name of the
+   Author (018h), but remember you should only change this when you use
+   the XMS-Tracker without it you have to add a Zerobyte. After that the
+   26 Instrumenst are coming up (030h). It goes on with the Songlength (3A4h).
+   At least the Pattern Number is added to the XMS-Song (3A5h), if you like
+   to change anything on the Pattern Number with a Hexeditor please sub one
+   Byte first otherwise you will get in trouble by playing this Song. After
+   that the Patterntable comes up with at least 128 Byte (3A6h). Every
+   XMS-Song has got an id.String it is "MaDoKaN96", please don't change
+   anything here (426h). Now the Table with the Tracks is coming up (430h).
+   You may ask yourself what's a Track and a Pattern. In the XMS-Songs a
+   Track belong to a Pattern ,as for example in a Mod, S3M or XM'S File,
+   A Pattern has got Nine Tracks. Each Track belongs to a Voice. That's it.
+
+
+For Questions or Comments:
+Send me an E-mail: madokan@berlin.snafu.de
+
+You will find the newest Versions of our XMS Related Products at:
+MADANIA SPIRIT http://www.inx.de/~madokan (Here you have to klick on the Image Tools Page)
+or
+TRITON SITE http://user.mediamarkt.de/~kanneng/tools.htm

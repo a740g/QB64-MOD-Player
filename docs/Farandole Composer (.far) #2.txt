@@ -1,0 +1,104 @@
+Extension:	.FAR
+Version:	???
+Created by:	Daniel Potter
+Tracker:	Fandarole Composer
+Players:	...
+Description by: Max Maischein
+Taken from:	FileFormats List v1.50
+Note:		Digital music format
+
+
+The Fandarole composer is a 16 channel composer created by the group
+Digital Infinity / Daniel Potter for digital music in module style.
+
+The Fandarole modules have the following format :
+OFFSET              Count TYPE   Description
+0000h                   4 char   ID='FAR',254
+0004h                  40 char   Song name
+002Ch                   3 char   ID=13,10,26
+                                 This ID makes it possible to see the song name
+                                 by simply typing the .far file.
+002Fh                   1 word   Remaining header size
+0031h                   1 byte   Version number as BCD,
+                                   high nibble = major version
+                                   low nibble = minor version
+0032h                  16 byte   Channel on/off map
+                                  <> 0 means that channel is used
+0042h                   1 rec    Editing data.
+                                 This data is not necessary for playback,
+                                 but is stored by the composer for resume of
+                                 edit.
+                        1 byte   Current octave
+                        1 byte   Current voice
+                        1 byte   Current row
+                        1 byte   Current pattern
+                        1 byte   Current order
+                        1 byte   Current sample
+                        1 byte   Current volume
+                        1 byte   Current top of screen display
+                        1 byte   Current editing area
+                                  0=samples,
+                                  1=patterns,
+                                  2=orders
+                        1 byte   Current tempo (default tempo)
+004Ch                  16 byte   Panning map for each channel, 0=left,15=right
+005Ch                   1 byte   Marked block start
+005Dh                   1 byte   Marked block end
+005Eh                   1 byte   Grid granularity
+005Fh                   1 byte   Edit mode
+0060h                   1 word   Song text length
+                                 ="STL"
+0062h               "STL" char   Song text
+0062h+                256 byte   Order bytes for pattern ordering
+ "STL"
+0162h+                  1 byte   Number of stored patterns
+ "STL"
+0163h+                  1 byte   Song length in patterns
+ "STL"
+0164h+                  1 byte   Loop position. This is the restart position
+ "STL"                           if the end of the song is reached.
+0165h+                256 word   Length of each pattern. The number of rows in
+ "STL"                           each pattern is ( this word-2 )/(16*4)
+
+After this block, there might be additional data in the future (see remaining
+header size, above), after that, the pattern data follows.
+
+The pattern data :
+OFFSET              Count TYPE   Description
+0000h                   1 byte   Length of pattern in rows
+                                 ="LIR"
+0001h                   1 byte   Tempo for this pattern - Unsupported,
+                                 use not recommended
+0002h             4*"LIR" rec    Note data for each pattern in 4 channels
+                        1 byte   Note value (Octave*12+Note)+1
+                                 0 means no note
+                        1 byte   Sample number
+                        1 byte   Volume byte. The volume is stored reversed,
+                                 the lower nibble is the major volume, the lower
+                                 nibble is the minor volume adjust.
+                        1 byte   Effect byte. Upper nibble is effect, lower
+                                 nibble is data. (see table 0004)
+
+(Table 0004)
+Note Effects in FAR-modules
+    01 - Pitch adjust
+    02 - Pitch adjust
+    03 - Portamento to note
+    04 - Retrigger note data times for one bar
+    05 - Set vibrato depth
+    06 - Vibrato
+ 07-0C - ?Possibly undefined?
+    0D - Fine tune tempo down 128/Tempo
+    0E - Fine tune tempo up 128/Tempo
+    0F - Tempo, notes per second = 32/Tempo
+
+After the pattern data, the sample map follows. This is an array of 64 bits
+(eight bytes), each set bit corresponds to a sample record stored in the file,
+each zero bit means that the corresponding record is not stored in the file.
+
+OFFSET              Count TYPE   Description
+0000h                   8 byte   Sample flags, see above
+
+After the sample flags, the samples themselves are stored in the FSM format,
+except for the ("FSM",254) header. They follow header-data-header-data-etc.,
+see the FSM entry for further information.

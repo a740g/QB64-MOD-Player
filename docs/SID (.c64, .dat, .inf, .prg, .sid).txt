@@ -1,0 +1,306 @@
+Sidtune file formats
+
+Music data files
+The data files used by SIDPLAY contain binary C64 data and music player machine code. Both, the programmer on the C64 and this emulator need information on how to access the code inside the binary file. That means, information like the memory location to load the file to, the number of tunes, the starting address of the executable code and its subroutines. This specific information has to be delivered in either a separate file - which is often called info file - or in form of a header in the single binary data file. A standalone C64 data file without a header or without a corresponding info file is considered invalid.
+It is recommended that you get accustomed to one-file sidtunes with the *.sid extension. For raw C64 binary files the extension .c64 or .prg is preferred in order to be able to assign a .sid extension to the additional info file.
+File format detection is done by examining the file contents rather than the file name extension. Raw C64 binary files can't be detected. SIDPLAY can be set up to look for files with or without any imaginable file name extension.
+
+Supported and merely used file formats are:
+PlaySID single-file-format (widely known as PSID)
+PlaySID info-file-format (Raw C64 binary file plus Amiga Workbench icon tooltype file .INFO)
+SIDPLAY info-file-format (Raw C64 binary file plus SIDPLAY ASCII text info file, previously .SID)
+C64 Sidplayer format (.MUS)
+
+Raw data or PSID files have appeared as *.data, *.psid or psid.*. Additional icon info files have appeared as *.info, ASCII info files as *.sid. Although obsolete, the formats with multiple files are still used. The SIDPLAY file format is mainly used as a way to edit the sidtune information. You can convert sidtunes from multiple files to the single file PSID format.
+By default, but depending on the particular player front end, SIDPLAY searches your directory for the following possible file name extensions and tries to match a pair of files if the specified file is not in one-file format. This list may change at any time:
+
+none
+*.sid
+*.dat
+*.inf
+*.c64
+*.prg
+*.info
+*.data
+
+
+DAT files
+The .DAT file name extension has been introduced by the early versions of SIDPLAY/DOS. It has never been used to specify a file format. Its main use has been in assigning a unique file name extension to any sidtune file, but especially raw C64 data files, and allowing to use .SID for additional info files.
+
+
+INFO files
+These are Amiga Workbench tooltype icons containing binary graphics data and ASCII text information strings. They have been used by PlaySID and are supported by SIDPLAY. Their file name extension normally is .info or .INF. This is a two-file format. A separate C64 binary data file is required. On Amiga the corresponding C64 data files usually haven't had filename extensions. However, they might have been renamed on other systems.
+
+
+SIDPLAY info files
+These are plain ASCII text files which have been introduced by the earlier versions of SIDPLAY/DOS. They are used to be able to alter the information inside with a normal ASCII text editor. They can be converted to a single file that contains a binary header. This is a two-file format. A separate C64 binary data file is required. Notice that each pair of files usually has the old DOS-naming of .SID for the info file and .DAT for the C64 data file.
+The SIDPLAY info file is derived from the information inside the PlaySID one-file format. It is structured like this:
+
+    SIDPLAY INFOFILE
+    ADDRESS=<loadAddress>,<initAddress>,<playAddress>
+    SONGS=<total>[,<start>]
+    SPEED=<hexValue>
+    NAME=<name of music/tune>
+    AUTHOR=<name of author/composer>
+    COPYRIGHT=<year/name of copyright owner/company>
+    SIDSONG=<YES|NO>
+
+
+The first line of the text containing ``SIDPLAY INFOFILE'' is only used to identify the type of file.
+
+    ADDRESS=<loadAddress>,<initAddress>,<playAddress>
+
+Each specified address is a 16-bit effective C64 memory location in case insensitive hexa-decimal notation without a prefix, e.g. C000 or E012, but neither $FCE2 nor 0xFCE2. Preceding zeroes are ignored.
+
+<loadAddress> is the C64 memory location where to put the C64 data. 0 means, the data is in original C64 format, i.e. the first two bytes contain the little-endian load address (low byte, high byte). Please don't explicitly specify the load address unless required for sure. If the load address is explicitly specified, some sidtune converters and utilities conjecture that the C64 data lacks its load address. Hence they move it in front of the C64 data. This would create two redundant bytes if the C64 data already had a load address in the first two bytes. Additionally, those extra bytes in the beginning can confuse disassemblers.
+
+<initAddress> is the start address of the machine code subroutine that initializes a song by accepting the contents of the 8-bit 6510 Accumulator as the song number parameter. 0 means, the address is equal to the effective load address.
+
+<playAddress> is the start address of the machine code subroutine that can be called frequently to produce a continuous sound. 0 means, the initialization subroutine is expected to install an interrupt handler, which then calls the music player. If so, the value in the bank-select register $01 determines whether the IRQ vector $0314/$0315 (Kernal-ROM on) or the IRQ vector $FFFE/$FFFF (Kernal-ROM off) is to be used.
+
+    SONGS=<total>,[<start>]
+
+<total> is the decimal number of songs (or sound effects) that can be initialized by calling the init address. The minimum is 1.
+<start> is the decimal number of the song to be played by default. This value is meant as a proposal and is optional. It has a default of 1. It often specifies the first song you would hear upon starting the program is has been taken from.
+
+    SPEED=<value>
+
+<value> is a value in case insensitive hexa-decimal notation without a prefix. Preceding zeroes are ignored. The value contains information about the speed of each song. For each song a bit is reserved, bit 0 for song 1, bit 1 for song 2, and so on. A bit set to 0 means, the music player subroutine is called at 50 Hz. A bit set to 1 means, the real speed is indicated by the CIA 1 Timer A $DC04/05, which defaults to 60 Hz. To not break compatibility to the PlaySID formats, use a maximum of 32 bits, which is equal to 32 songs. Due to a bug in PlaySID, the PSID format can only handle up to 8 songs correctly. On the contrary, the SIDPLAY info format is extended to 256 bits, which is equal to 256 songs. Examples: SPEED=0 replays every song at 50 Hz speed. SPEED=1F replays songs 1-5 at 60 Hz speed, all other songs at 50 Hz speed.
+
+    NAME=<name of music/tune>
+    AUTHOR=<name of author/composer>
+    COPYRIGHT=<year/name of copyright owner/company>
+
+These three fields are all plain ASCII text strings. There are limited to a maximum of 80 characters each. To not break compatibility to the PlaySID formats, use a maximum of 31 characters.
+
+    SIDSONG=<YES|NO>
+
+is used to indicate that the corresponding C64 data file is in (Enhanced) Sidplayer file format. This field is optional and defaults to NO.
+
+An example file ``EXAMPLE.SID'' may look like this:
+
+    SIDPLAY INFOFILE
+    ADDRESS=2AF0,3002,300C
+    SONGS=3,2
+    SPEED=0
+    NAME=Example
+    AUTHOR=Example
+    COPYRIGHT=199? (c) Example
+    SIDSONG=NO
+
+
+The PSID file header
+You can display any file with a normal ASCII/HEX editor. If the first four characters (bytes) contain the word PSID, and if close to the beginning there are ASCII text strings containing readable author and copyright information, you can almost be sure that it is in PlaySID v2.2+ (Amiga) one-file format. This format is supported by SIDPLAY.
+The detailed structure of the PSID header looks like the following. Header offsets are in hexa-decimal notation. Other integer values are decimal unless explicitly marked otherwise. Because of the Amiga hardware, any stored integer values are in big-endian format:
+
++00    ``PSID''
+
+This is a four byte long ASCII character string containing the value 0x50534944.
+
++04    WORD version
+
+Available version number can either be 0001 or 0002. Headers of version 2 provide additional fields.
+
++06    WORD dataOffset
+
+This is the offset from the start of the file to the C64 binary data area. Because of the fixed size of the header, this is either 0x0076 for version 1 and 0x007C for version 2. Whether the value in this field might also be the address of the used Amiga timer interrupt handler is unconfirmed. Although interrupt level 7 really is at address 0x0000007C, the other value would be invalid. The playsid.library doesn't recognize PSID files with other data offets.
+
++08    WORD loadAddr
+
+The C64 memory location where to put the C64 data. 0 means, the data is in original C64 format, i.e. the first two bytes contain the little-endian load address (low byte, high byte). Please don't explicitly specify the load address unless required for sure. If the load address is explicitly specified, some sidtune converters and utilities conjecture that the C64 data lacks its load address. Hence they move it in front of the C64 data. This would create two redundant bytes if the C64 data already had a load address in the first two bytes. Additionally, those extra bytes in the beginning can confuse disassemblers.
+
++0A    WORD initAddr
+
+The start address of the machine code subroutine that initializes a song, accepting the contents of the 8-bit 6510 Accumulator as the song number parameter. 0 means, the address is equal to the effective load address.
+
++0C    WORD playAddr
+
+The start address of the machine code subroutine that can be called frequently to produce a continuous sound. 0 means, the initialization subroutine is supposed to install an interrupt handler, which then calls the music player at some place.
+
++0E    WORD songs
+
+The number of songs (or sound effects) that can be initialized by calling the init address. The minimum is 1. The maximum is 256.
+
++10    WORD startSong
+
+The song number to be played by default. This value is meant as a proposal and is optional. It often specifies the first song you would hear upon starting the program is has been taken from. It has a default of 1.
+
++12    LONGWORD speed
+
+This field does not work like it was intended. The PlaySID authors wrote:
+speeddata contains info about playspeed. For each tune a bit is reserved, bit 0 for tune nr 1 and so on. A 0 bit means vertical sync (50Hz PAL Amiga or 60Hz NTSC Amiga) and a 1 bit means 60 Hz or the time set in $DC04/05. Default value is 0 for all bits.
+
+Unfortunately, PlaySID's behaviour upon evaluating this field is different. Only the least significant byte does work [3]. When starting to count from 0, all songs above or equal to number 8 are always set to speed 0, i.e. 50 Hz PAL. Since 32-bits are used, the technique would work only for a maximum of 32 songs anyway.
+
++16    ``<name>''
++36    ``<author>''
++56    ``<copyright>''
+
+These are 32 byte long zero terminated ASCII character strings. Upon evaluating the header, a zero byte will always be put into the last byte of each string. So the maximum number of available free characters is 31.
+
++76    <data>
+
+Version 1 of the PSID header is complete at this point. The binary C64 data starts here.
+The PSID file header v2
+Version 2 of the header provides additional fields. These are undocumented, but most likely rarely used.
+
++76    WORD flags
+
+If bit 0 of this field is set, the appended binary data is in Compute!'s Sidplayer MUS format, and does not contain a built-in music player. An external player machine code must be merged to replay such a sidtune. This field almost ever contains a zero.
+
++78    LONGWORD reserved
+
+This is undocumented.
+
++7C    <data>
+
+Version 2 of the PSID header ends here. This offset is the start of the binary C64 data.
+
+
+PlaySID Extended SID registers
+This is the original description of the sample-related extended SID registers, which were introduced with PlaySID.
+
+*********************
+* NEW SID REGISTERS *
+*********************
+
+	ADDRESS	VALUE	FUNCTION			USAGE
+
+	D41D	00-FC	Nr of tones-1			Galway-Noise (START)
+		FD	Stop Sampling			Sample (STOP)
+		FC	Start Sampling with 1/4		Sample (START)
+			volume
+		FE	Start Sampling with 1/2		Sample (START)
+			volume
+		FF	Start Sampling			Sample (START)
+			ex. 4-bit sample -> FF
+			    3-bit sample (one extra LSR)
+			    -> FE etc.
+			note. only write to this reg
+			      after setting the other
+			      regs to proper values.
+
+	D41E	00-FF	ToneData address lowbyte	Galway-Noise
+	D41F	00-FF	ToneData address highbyte	Galway-Noise
+	D41E	00-FF	SampleData address low		Sample
+	D41F	00-FF	SampleData address high		Sample
+
+	D43D	00-FF	Tonelength (in samples)		Galway-Noise
+	D43E	00-0F	Volume of Noise			Galway-Noise
+	D43D	00-FF	SampleData end addr. low	Sample
+	D43E	00-FF	SampleData end addr. high	Sample
+
+	D43F	00-FF	Period for each value of	Galway-Noise
+			ToneData (in C64-cycles)
+		00-FE	Nr times of Repeat		Sample
+		FF	Continious sample		Sample
+
+	D45D	00-FF	Period for value 0 of		Galway-Noise
+			ToneData (in C64-cycles)
+		00-FF	Period for samples lowbyte	Sample
+	D45E	00-FF	Period for samples highbyte	Sample
+			(in C64-cycles)
+			ex. the period is usually the
+			    value of the timer on 6526
+			    ($DD04,05 etc.) which handles
+			    the NMI-irq used
+
+	D45F	00,01	Nr of bytes to add after	Sample
+		02,04	Reading one nibble (4 bits)
+		08...	(i.e. Octave) ,usually 00
+			ex. xx xx xx xx ... -> 00
+			    x_ x_ x_ x_ ... -> 01
+			    x_ __ x_ __ ... -> 02 etc.
+
+	D47D	00	Sampleorder: Lownibble		Sample
+			,Highnibble (the most used)
+		01	Sampleorder: Highnibble		Sample
+			,Lownibble
+			ex. (12 34 -> 1 2 3 4) -> 01
+			    (12 34 -> 2 1 4 3) -> 00
+
+	D47E	00-FF	SampleData repeataddress low	Sample
+	D47F	00-FF	SampleData repeataddress high	Sample
+
+
+* EXAMPLES *
+; *** MARTIN GALWAY *** *** NOISE ***
+; 6502 Routine:
+; Loop of Y=5 to 0 step -1
+; Loop of X=19 to 0 step -1
+; Read $B64E,Y in A
+; Wait A*73 cycles
+; Wait 22 cycles
+; Add 7 to volume
+; End Loop X
+; End Loop Y
+; END
+;
+; Replacement with:
+; D43D=$19
+; D41E=$4E, D41F=$B6
+; D43F=$73
+; D45D=$22
+; D43E=$07
+; D41D=$05
+;
+; *** MARTIN GALWAY *** *** SAMPLE ***
+; 6502 Routine:
+; Loop of Y=0 to 100 step 1
+; Read $B64E,Y in A
+; Write Lownibble of A in Volumereg
+; Wait 74 cycles
+; Write Highnibble of A in Volumereg
+; Wait 74 cycles
+; End Loop Y
+; Do it one more time
+; END
+;
+; Replacement with:
+; D41E=$4E, D41F=$B6
+; D43D=$4E, D43E=$B7
+; D45D=$74, D45E=$00
+; D45F=$00
+; D47D=$00
+; D43F=$01
+; D47E=$4E, D47F=$B6
+; D41D=$FF
+;
+;
+; *** ORDINARY SAMPLE ***
+; 6502 NMI-irq Routine:
+; Checks if all is played ($FC,$FD = $FE,$FF ?)
+; Loads next byte with LDA ($FC),Y  (Y = 0) ,if so required
+; Shift outs the highnibble , if so required
+; Stores this value in $D418
+; Exits (RTI)
+;
+; Replacement with:
+; Locate the routine which initalizes the values $FC-$FF and
+; which starts the NMI-irq (Probably with LDA #$81,STA $DD0D,
+; LDA #$xx,STA $DD04,LDA #$yy,STA DD05 etc.)
+; Do instead this,
+; D41E,1F = value of adress $FC,FD
+; D43D,3E = value of adress $FE,FF
+; D43F = 00 , D45F = 00
+; D47D = 00 or 01
+; D45D,5E = value of address $DD04,05
+; D41D = FF
+;
+
+
+Ripping sidtunes
+Ripping music is the process of detaching the code and data of a music player from an enclosing program, and getting the isolated music to play.
+This section is not meant to be a full guide on ripping C64 musics. It is not even meant to be an introductory guide. Individual pieces of music may be very difficult and time consuming to rip for a beginner. And there must clearly be distinguished between just a rip and a so-called clean rip. In this and subsequent paragraphs the term ripper refers to a human person, unless specified in any other way.
+
+Clean rips
+Ripping sometimes can be as easy as finding two single program addresses and saving a small memory area.
+
+Clean rips often are much harder to achieve. Their aim is to strip down the source program to nothing else than the music player and its belonging data, thereby making the ripped data as short as possible. Additionally, rippers often copy the remaining fragments of data into a more compact form. Sometimes they even relocate the player. This may be required if one wants to merge all subsongs (perhaps each with a separate player) while keeping in mind the C64 memory limitation of 64 KB. Concerning SIDPLAY, this is easier, as the entire data is reloaded upon starting each subsong, permitting the ripper to always use the full memory regardless of whether he likes to overwrite unused parts of the music data or not. The entire sidtune data will be recovered upon restarting a song or starting another song (note, that this makes it impossible to leave used parts of the memory untouched).
+
+Cases are crucial if the player and its data (including all subsongs) are spread throughout the whole memory. It is then difficult to determine whether certain regions of memory actually belong to the music player. Proving the integrity of a fragmented song can only be done by listening to it and comparing it to its original program. This might be the most boring part upon performing a rip if you don't want to fully read and analyze the music player (which, by the way, would be the only true way to track down the location of all belonging data; except using a self-written utility. Consider a long song. You would have to listen to it entirely to find its end to be broken. The effect of only a bit of data missing might not be as obvious as you would guess. A single instrument might be only slightly altered. You probably would not even notice a difference, a weaker vibrato effect for instance. Better save a wider region of the memory rather than cutting off any parts by accident.
+
+Consider some of the required music data (such as vibrato tables, instrument definitions, or track and pattern data) to be put into a memory region, which you would not even think of. For instance, sensitive data might have been put into the stack address space or into the zero-page. Zero-page pointers sometimes are only initialized once by some code at the early start of the program. It can be required to write an own music player initialization, most often based on available code fragments.
+Usually only musics in demonstration programs are likely to be protected. Game musics that are hard to rip generally are protected by accident, which either means the game programmer mixed parts of the music player code with his own code, or he did the music himself, or he had a very confusing coding style (socalled spaghetti-code), making the code unnecessarily difficult to read and understand, and making it almost impossible to detach music player code from program code without much effort. More on this further below.
+
+As long as a (partially) ripped music can be determined to be obviously damaged, you can still decide to leave it in its most basic form. For instance, if the code of the application and the code of the music player are nested, saving the entire memory might be a hint. Making the rip a clean rip is just an optimization and could be done later. Also, consider asking another ripper whether he can help.

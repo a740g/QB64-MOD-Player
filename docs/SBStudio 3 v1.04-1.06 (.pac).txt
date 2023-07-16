@@ -1,0 +1,256 @@
+     ³
+   ³ ³
+ ÍÍÍÍØÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ
+   ³ ³
+   ³ ³  The SBStudio PAC file format
+   ³ ³  Versions 1.4, 1.6.
+   ³    June 9th 1999.
+   ³
+
+
+ SBStudio has its own song file format called 'PAC'
+ or 'package'. A PAC file contains all the sheets
+ and sounds belonging to a song. A sound can be
+ saved separately as a 'SOU' file.
+
+ PAC and SOU files are built up of data blocks
+ starting with a block ID and length. The ID is a
+ four byte string and the length is a four byte
+ number or 'long integer'. This makes the file
+ format easy to support and upgrade. Loaders can
+ easily skip data they don't recognize.
+
+ The PAC format was introduced with SBStudio 2,
+ which saved PAC v1.4 files. SBStudio 3 saves v1.6
+ files. This document will describe these two
+ versions.
+
+
+ The file format
+ ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+ We will now take a look at the block IDs that can
+ be expected in a PAC file. The block data will be
+ specified as BYTE, INT (integer/word/two bytes)
+ or LONG (long integer/doubleword/four bytes).
+
+
+   Block ID : 'PACG'
+   Purpose  : Package ID.
+   Location : At the beginning of a PAC file.
+   Length   : File size-8.
+   Data     : None.
+
+   This block can be used to verify the PAC file.
+
+
+   Block ID : 'PAIN'
+   Purpose  : Package information.
+   Location : Usually after the 'PACG' block.
+   Length   : Expect anything.
+   Data     :
+
+     2 Bytes - Format version, major version number
+	       first.
+     2 Bytes - SBStudio version used to save the
+	       package. major version number first.
+     Int     - Number of sounds in package.
+
+
+   Block ID : 'PAOR'
+   Purpose  : Package origin. New in v1.6.
+   Location : Usually after the 'PAIN' block.
+   Length   : Expect anything.
+   Data     : Information about the program used to
+	      create the package.
+
+
+   Block ID : 'SONG'
+   Purpose  : Marks the start of a 'song structure'
+	      which is where the sheets and song
+	      settings are stored. SBStudio 2 had
+	      the option to save song files with
+	      only this structure. It is no longer
+	      possible.
+   Location : Usually after the 'PAIN' block.
+   Length   : File size-8 if it's at the beginning
+	      of a song file, 0 if it's inside a
+	      package.
+   Data     : None.
+
+
+   Block ID : 'SONA'
+   Purpose  : Song name.
+   Location : In a song structure.
+   Length   : SBStudio supports up to 40 bytes but
+	      expect anything.
+   Data     : The song name.
+
+
+   Block ID : 'SOOR'
+   Purpose  : The song order list. The order of
+	      which the sheets will be played.
+   Location : In a song structure.
+   Length   : Usually up to 512 bytes.
+   Data     : The order list, two bytes per entry
+	      (integers).
+
+
+   Block ID : 'SOIN'
+   Purpose  : Song information.
+   Location : In a song structure.
+   Length   : Expect anything.
+   Data     :
+
+     Byte    - Song speed, 1-31.
+     Byte    - Song BPM, 32-255.
+     Int     - Number of sheets, 1-255.
+     Byte    - Number of audio channels, 4-20.
+     Byte    - Number of note rows in sheet.
+	       SBStudio only supports 64.
+     Byte    - Number of bytes per channel cell in
+	       sheet. Always 5 in current versions.
+     Byte    - Sheet format.
+	       Bit 0 - 1=packed, 0=unpacked.
+	       Other formats may be added in the
+	       future!
+     x Bytes - 1 byte pan position, 0-15 for each
+	       channel.
+	       Only found in PAC v1.4!
+
+
+   Block ID : 'SOCS'
+   Purpose  : Channel settings. New in v1.6.
+   Location : In a song structure.
+   Length   : 6 bytes in v1.6.
+   Data     :
+
+     Byte    - Channel number 1-20.
+     Byte    - Pan position 0-255.
+     Byte    - Reverb 0-255.
+     Byte    - Chorus 0-255.
+     Byte    - Filter 0-255.
+     Byte    - Resonance 0-255.
+
+
+   Block ID : 'SOCN'
+   Purpose  : Channel name. New in v1.6.
+   Location : In a song structure.
+   Length   : Usually up to 20 bytes.
+   Data     : The channel name.
+
+
+   Block ID : 'SOSH'
+   Purpose  : Song sheet. This block contains one
+	      sheet.
+   Location : In a song structure.
+   Length   : Expect anything.
+   Data     : See 'the sheet format' later in this
+	      document for details.
+
+
+   Block ID : 'SND '
+   Purpose  : Marks the start of a 'sound
+	      structure', which contains one sound.
+	      A SOU file starts with this.
+   Location : At the beginning of a sound file or
+	      inside a package, usually after the
+	      song structure.
+   Length   : File size-8 if it's at the beginning
+	      of a sound file, 0 if it's inside a
+	      package.
+   Data     : None.
+
+
+   Block ID : 'SNNA'
+   Purpose  : Sound name.
+   Location : In a sound structure.
+   Length   : Expect anything.
+   Data     : The sound name.
+
+
+   Block ID : 'SNIN'
+   Purpose  : Sound information.
+   Location : In a sound structure.
+   Length   : Expect anything.
+   Data     :
+
+     Int     - Sound number (only used in package).
+     Int     - Middle C frequency. Unused in v1.4.
+     Byte    - Fine tuning.
+     Int     - Sound volume, 0-16384.
+     Int     - Sound type.
+	       Bit 0 - 1
+	       Bit 1 - 1=16bit, 0=8bit.
+	       Bit 2 - reserved.
+	       Bit 3 - 1=Middle C freq enabled.
+     Long    - Loop start.
+     Long    - Loop end.
+     Byte    - Unused.
+
+
+   Block ID : 'SNDT'
+   Purpose  : This block contains one sample.
+   Location : In a sound structure.
+   Length   : Sample length.
+   Data     : Sample data.
+
+
+   Block ID : 'END '
+   Purpose  : End of file.
+   Location : At the end of all PAC and SOU files.
+   Length   : 0
+   Data     : None.
+
+
+ The sheet format
+ ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+ A sheet consists of 5 bytes per channel in 64
+ rows. The 5 bytes describe one note with a sound
+ number, note volume, command and parameter.
+ This is the format:
+
+   Byte 0 - Note number.
+
+	    v1.4:
+
+	      2-49, 0 = no note.
+
+	      2 = C-1, 3 = C#1 ... 49 = B-4.
+
+	    v1.6:
+
+	      3-74, 0 = no note, 2 = note off.
+
+	      3 = C-1, 4 = C#1 ... 74 = B-5.
+
+   Byte 1 - Sound number 1-255, 0 = no change.
+
+   Byte 2 - Volume 1-65, 0 = no change.
+
+   Byte 3 - Command 00h-FFh.
+
+   Byte 4 - Command parameter 00h-FFh.
+
+
+ SBStudio saves all sheets in a packed format.
+ The packed format is very simple, but may
+ sometimes dramatically reduce the file size.
+
+ When loading sheets, you should always assume they
+ are packed. This will make your loader compatible
+ with both packed and unpacked sheets.
+
+ In a packed sheet, byte 0 or 2 in the 5 byte
+ channel cell can contain a special byte. The
+ special bytes are:
+
+   Value    Meaning
+   ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+   0FDh    End of channel cell. Next byte is the
+	   first byte of the next channel cell.
+   0FEh    End of sheet row. Next byte is the
+	   first byte of the next row.
+   0FFh    End of sheet.
+   ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ

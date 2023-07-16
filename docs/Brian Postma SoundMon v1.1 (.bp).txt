@@ -1,0 +1,146 @@
+Brian Posta SoundMon 1.1 module structure
+-----------------------------------------
+v 1.1
+by Laurent Clevy (lclevy@club-internet.fr)
+
+- v1.1 : Corrections based on Brian C++ Linux sources.
+         21 jan 2000. Brian approved this format description.
+
+
+offset	type 	size 	comment
+-----------------------------------------------------
+0	B	26	song name
+26	B	3	module id
+29	B	1	synth instr len/64
+30	W	1	step number
+32	B	32*15	15 instruments info
+
+	1 instrument info =
+
+		* synth
+		0	B	1	(-1 = synth)
+		1	B	1	waveform table
+		2	W	1	waveform len/2
+		4	B	1	adsr control
+		5	B	1	adsr table
+		6	W	1	adsr len
+		8	B	1	adsr speed
+		9	B	1	lfo control
+		10	B	1	lfo table
+		11	B	1	lfo depth
+		12	W	1	lfo length
+		14	B	1	lfo delay
+		15	B	1	lfo speed
+		16	B	1	eg control
+		17	B	1	eg table
+		18	W	1	eg length
+		20	B	1	eg delay
+		21	B	1	eg speed
+		22	B	1	fx control
+		23	B	1	fx speed
+		24	B	1	fx delay
+		25	B	1	mod control
+		26	B	1	mod table
+		27	B	1	mod speed
+		28	B	1	mod delay
+		29	B	1	volume
+		30	W	1	mod length
+
+		* sample
+		0	B	24	sample name (0 terminated)
+		24	W	1	len/2
+		26	W	1	repeat
+		28	W	1	repeat length/2
+		30	W	1	volume
+
+512	B	??	steps
+
+	1 step = 4 channel info
+
+		1 channel info =
+
+		0	W	1	pattern
+		2	B	1	sound transpose
+		3	B	1	transpose
+
+???	B	48*??	patterns (first is #1, no #0)
+
+	1 pattern = 4 tracks
+
+		1 track = 3 bytes
+
+		0	B	1	note
+		1	B/2	1	instrument
+		1/2	B/2	1	option
+		2	B	1	infobyte
+
+???	B	??	synth instruments
+
+
+Example:
+--------
+
+0	B	26	"GREENBERET                "
+26	B	3	V.2
+29	B	1	30
+30	W	1	0062
+32	ff 00 0040 01 02 0040 01 02 03 03 0008 0004
+		01 02 04 00 0040 0000 01 40 000000000000
+	ff 05 0008 01 06 0040 01 00 07 06 0008 0008
+		02 02 08 00 0040 0000 01 40 000000000000
+...
+	"EMPTY" 000000000000010040
+	"EMPTY" 000000000000010040
+	"EMPTY" 000000000000010040
+
+0x200	0002 0e 00  0002 02 0c  0002 02 00  0002 02 00
+	0003 00 00  0003 02 0c  0004 00 00  0003 02 00
+...
+0x820	00 0 0 00  00 0 0 00  00 0 0 00  00 0 0 00
+	00 0 0 00  00 0 0 00  00 0 0 00  00 0 0 00
+	00 0 0 00  00 0 0 00  00 0 0 00  00 0 0 00
+	00 0 0 00  00 0 0 00  00 0 0 00  00 0 0 00
+
+	00 0 3 00  00 0 2 06  00 0 0 00  00 0 0 00
+	00 0 0 00  00 0 0 00  00 0 0 00  00 0 0 00
+	00 0 0 00  00 0 0 00  00 0 0 00  00 0 0 00
+        00 0 0 00  00 0 0 00  08 1 0 00  0b 1 0 00
+
+0012a0:  5d5d5d5d 5d5d5d5d 5d5da35d 5d5d5d5d
+...
+001ea0:  0ceadce6 eaf51b33
+
+
+notes :
+-----
+	0x	1x	2x
+
+x0 	--- 	d#2 	g-3
+x1 	c-1 	e-2 	g#3
+x2 	c#1 	f-2 	a-3
+x3 	d-1 	f#2 	a#3
+x4 	d#1 	g-2 	b-3
+x5	e-1 	g#2
+x6 	f-1 	a-2
+x7 	f#1 	a#2
+x8	g-1 	b-2
+x9 	g#1 	c-3
+xa 	a-1 	c#3
+xb	a#1 	d-3
+xc 	b-1 	d#3
+xd 	c-2 	e-3
+xe 	c#2 	f-3
+xf 	d-2 	f#3
+
+options:
+-------
+0 	arp
+1	volume
+2	Set Speed
+3	LED control
+4	port up
+5	port dn
+6	SetRepCount
+7	DBRA repcount
+8	Set AutoSlide
+9	Set AutoArpeggio

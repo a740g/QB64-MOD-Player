@@ -1,0 +1,75 @@
+Onyx Music File - format specification
+Decoded by Martin Bazley, 6th December 2009
+
+Offset  Length  Description
+
+0       15      String 'Onyx Music File'.
+15      1       Byte 0x1A.
+16      1       Byte 0.
+17      1       Byte 1.
+18      256     Sequence table (see below).
+274     128     Byte 0x80 repeated.
+402     1       Number of channels - 1.
+                Note: The number of channels may be more than 4!
+403     1       Number of patterns - 1.
+404     1       (Number of sequence positions - 1) * 2.
+405     31      Tune name, padded with zeroes.
+
+436     21      Name of sample 1, padded with zeroes.
+457     1       Sample volume (0-64).
+458     2       Sample finetune * -487 (signed little endian).
+460     2       Sample length in bytes (little endian).
+462     2       Sample repeat length in bytes from end of sample (little endian)
+                Note: No sample data beyond the end of the sample loop is
+                stored.
+464     21      Name of sample 2...
+                (Repeated 31 times)
+
+1304    2       Ah.  Yes.  Well.  That is rather the question, isn't it?  You
+                see, the fact of the matter is, putting it bluntly, I haven't
+                got a scooby what these two bytes are for.  They differ for
+                every song, and seem to be some kind of little-endian value.
+                Other than that, you're asking the wrong bloke here.
+
+1306    2          Two zero bytes.
+1308    1          Number of channels.
+1309    256 *      Pattern 0 (see below).
+        number of
+        channels
+                   (Repeated for each pattern)
+
+(After    1         Byte 0.
+patterns)
+          2         Length of this sample in bytes (little endian).
+          Length    Sample data (UNSIGNED 8-bit linear).
+          of sample
+                    (Repeated for each defined sample, omitting samples of
+                    length 0)
+
+Sequence table format:
+
+The sequence table occupies (2 * number of sequence positions) bytes at the beginning - the rest of the 256 bytes is all zeroes.
+
+One entry in the table is a 16-bit little endian value, consisting of the pattern number to play at that position, multiplied by (16 * number of channels).
+
+The sequence data is stored backwards - i.e. the entry for the last position in the song comes first!
+
+Pattern format:
+
+Each pattern has 64 events, stored backwards (so the last event comes first).
+
+Each event has four bytes for each channel, stored from the first channel to the last.
+
+The format of these four bytes is:
+
+Byte 1: Lower 8 bits of note period
+Byte 2: (upper 4 bits): Effect command number
+        (lower 4 bits): Upper 4 bits of note period
+Byte 3: Sample number
+Byte 4: Effect value
+
+Note periods and effects are as for standard ProTracker MODs, except the
+pattern break (0xD) command takes a value in hexidecimal, rather than decimal
+(e.g. range from 0x00 to 0x3F instead of 0x00 to 0x63).
+
+Don't forget that there are three additional bytes before every pattern and defined sample.

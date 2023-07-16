@@ -1,0 +1,409 @@
+ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+DELUSION DIGITAL MUSIC EFFECTS V0.18á1 (25/12/93)
+ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+
+Oki sorry dudes, some effect stuff is still in German....
+English dox will be ready soon, no prob... but try thiz,
+for help call us.....
+
+
+GLOBAL TRACK
+ÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+Nr.   Name                 DATA          Default
+
+0*  No Global Data          ---             ---
+
+
+1*  Set Tick Frame Speed   DATA             33
+
+Setzt die Anzahl der Ticks pro Sekunde auf (DATA/4)+1 Hz.
+Dadurch ist die Geschwindigkeit unabh„ngig vom aktuell gesetzten
+Beat.
+
+
+2*  Set BPM Speed          DATA            125
+
+Setzt die BPM Geschwindigkeit auf DATA in BPM.
+Die effektive Tickspeed ist abh„ngig vom momentan gesetztem Beat.
+Ist Beat=0 wird Tick Frame Speed bentzt.
+
+Beats per Minute "BPM"
+ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+Def.: TICK = eine Zeile im Pattern
+
+Def.: CLICK = ein Effekt Click. Clicks werden zwischen den Ticks ausgefhrt um
+              die Effekte zu "berechnen". Die Anzahl der Clicks wird vom
+              Player automatisch an die aktuelle Speed angepasst.
+
+Def.: BPM = Anzahl der Beats [Viertel Noten/Quarter Notes] in einer Minute.
+
+Bsp. 3 Beats Per Measure, 4 Ticks per Beat (=3/4 Takt)
+
+     ÚÄ       ÚÄ01 Tick (hier 1 Tick = 1/16 Note ((1/4 Note)/4 8-) )
+     ³        ³  .
+     ³        ³  . zwischen jedem Tick werden die Effect "Clicks"
+     ³        ³  . ausgefhrt
+     ³        ³  .
+  1  ³   BEAT ³ 02 Tick
+     ³        ³ 03  "
+  T  ³        ÀÄ04  "
+  A  ³        ÚÄ05
+  K  ³   BEAT ³ 06
+  T  ³        ³ 07
+     ³        ÀÄ08
+     ³        ÚÄ09
+     ³   BEAT ³ 10
+     ³        ³ 11
+     ÀÄ       ÀÄ12
+
+
+Bsp. Bei einem 3/4 Takt, 8 Ticks per Beat (1 Tick = 1/32 Note) mit 120 BPM
+     und 4 Effekt Clicks muss die Musik Routine mit:
+
+       (120 BPM * 8 Ticks * 4 Clicks) / 60 sec = 64 Hz aufgerufen werden.
+
+
+3*  Set Beat              HI³LOW           Pattern Header
+
+[HI Data] = Ticks per Beat
+[LOW Data] = Beats per Measure
+
+Hinweis: Jedes Pattern hat im Header einen default Beat gespeichert dieser
+         Effekt ver„ndert den Beat nur im aktuellen Pattern.
+
+
+4*  Tick Delay            HI³LOW
+
+HI Data = Anzahl der Ticks die gewartet werden bis der n„chste Tick
+         "verarbeitet" wird.
+LOW Data = 1/16 Ticks die gewartet werden bis zum n„chste Tick.
+
+Die Effekte werden w„hrend der Pause nicht upgedated...
+
+"Stotter Effekt" ;-)
+
+
+5*  Set External Flag      DATA
+
+šbergibt DATA als external readable Flag
+
+
+-   Set Global Volume
+
+-   Send Midi Command  DATA
+
+ Sendet DATA an ein Midi Device.
+
+-   Slide Speed Up (TicksPerSecond/BPM)
+
+-   Slide Speed Down (TPS/BPM)
+
+-   Debug Flag (Stop die Music bis zu einem externen restart)
+
+-   Set Filters
+
+(- Call External Function)
+
+
+
+INSTRUMENT EFFECTS
+ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+0*  No Effect Data         ---             ---
+
+
+1*  Stop Sample            DATA
+
+Das Sample wird gestoppt. Unterschied zu Note Off das Sample spielt nicht
+weiter, gesetzte Noten nach dem Sample Stop sind nicht zu h”ren.
+
+(DATA gibt an wieviel 1/256 Ticks vez”gert wird bis das Sample gestoppt wird,
+ nicht implementiert, DATA=0 ! )
+
+
+2*  Stop Sample Loop
+
+L”scht das Loop Flag, das Sample klingt aus. Das Sample wird bis zu Sample
+Ende gespielt...
+
+
+3*  Instrument Volume Override/  DATA
+    Restart Sample
+
+Spielt das Sample von vorne, unterschied zu einem normalen Sample Trigger ist
+daá das Instrument Volume nicht bernommen wird.
+Wenn eine Sample Nr. im Sample Slot steht wird dies "restartet", das Volume
+aber nicht auf Instrument Volume gesetzt.
+
+Wird unter anderem ben”tigt um MOD Eintr„ge mit Note aber ohne Instrument Nr.
+zu konvertieren (z.b. Mayday_r.mod).
+
+
+4*  Sample Delay/          HI Nibble³LOW Nibble
+    Trigger Sample
+
+[HI Nibble] = 1/16 Ticks
+[LOW Nibble] = not used
+
+HI Nibble gibt an wieviel 1/16 Ticks vez”gert wird bis das Sample getrigerd
+wird. Wenn kein Sample Nr. im Sample Slot steht wird das zuletzt gesetzte
+Sample Retriggerd.
+
+
+5*  Tremolo Retrig Sample  HI Nibble³LOW Nibble
+    "Pro Tracker Retrig Note"
+
+[HI Nibble] = 1/16 Ticks
+[LOW Nibble] = not used
+
+Das Sample wird mit einer Periodenl„nge von HI Nibble/16 Ticks retriggert.
+Fr sehr schnelle Anschl„ge z.b. HiHats ;-)
+
+
+6*  Set Sample Offset      DATA
+
+[DATA] = Sample Offset in 256 Byte Blocks
+
+Setzt das Sample Offset eines spielenden Samples auf die Position DATA*256.
+Falls der Wert gr”sser ist wie das Sample lang wird der Effekt ignoriert!
+Es k”nnen also nur die ersten 64 KB des Samples addressiert werden...
+wird vorerst ben”tigt um MOD Effekte zu konvertieren, sollte sp„ter durch
+einen sinnvolleren Parameter erneuert werden...
+
+
+7*  Invert (Tekkkno) Sample play direction   DATA
+
+Invertiert die Spielrichtung des Samples. DATA muss 0 sein!
+
+{Future:
+DATA = 0 Sample Spielrichtung invertieren
+       1 Sample von momentaner Position rckw„rts spielen
+       2 Sample  "       "         "    vorw„rts  spielen }
+
+
+8   Rewind Sample          DATA
+
+  Invertiert Sample Abspielrichtung nur fr aktuellen Tick.
+
+
+-  Reffer B. (Reverb)
+
+-  Invert Sample
+
+  Spielt Sample von Hinten nach vorne, Loops werden auch herum gedreht.
+
+-  Distortion
+
+-  DJ Scratch
+
+  Scratched das Sample durch sehr schnelles vor und zurck spielen.
+
+-  Jump Around
+
+  Spielt randomm„ssig Sampleteile. Zap-Effekt
+
+-  Tune Up Instrument
+
+  Verstimmt das Sample/Instrument
+
+-  Tune Down Instrument
+
+  Verstimmt das Sample/Instrument
+
+
+
+NOTE EFFECTS
+ÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+0*  No Effect Data         ---            ---
+
+
+1*  Note Finetune         SIGNED
+
+[SIGNED] = Note um +/- 1/128 Halbtonschritte fein einstellen
+
+
+2*  Note Delay             DATA
+
+[DATA] = 1/256 Tick
+
+Der Notewert wird nach DATA/256 Ticks gesetzt. Die Note„nderung wird damit
+verz”gert. Eine Verz”gerung des Notenanschlags bewirkt "Sample Delay".
+
+
+3*  Arpeggio              HI³LOW
+
+[HI Data] = Halbtonschritte, ber Grundnote
+[LOW Data] = Halbtonschritte, ber Grundnote
+
+Die Note wird schnell (jedem Effekt Click) zwischen Note, Note+HI Data und
+Note+LOW Data umgeschaltet.
+
+
+4*  Portamento Up          DATA             0
+
+Frequenz nach oben portamentieren [DATA] = 1/16 Halbtonschritte die bis
+zum n„chsten Tick nach oben geslidet werden.
+Die Portamento Up Grenze liegt bei C-9.
+
+
+5*  Portamento Down        DATA             0
+
+Frequenz nach unten portamentieren [DATA] = 1/16 Halbtonschritte die bis
+zum n„chsten Tick nach unten geslidet werden.
+Die Portamento Down Grenze liegt bei C-0.
+
+
+6*  Portamen to Note       DATA             0
+
+Frequenz in Richtung der letzt gesetzten "Buffer Note" sliden.
+[DATA] = 1/16 Halbtonschritte die bis zum n„chsten Tick geslidet werden.
+
+
+7*  Scratch to Note        DATA             ---
+
+DATA = MIDI Note Value
+
+Der aktuellem Notewert wird auf DATA bis zum Ende des aktuellen Ticks geslidet.
+Fr sehr schnelle slides ber mehrere Oktaven, die zwischenstuffen sind
+Halbtonschritte...
+
+
+8*  Vibrato Sin           HI³LOW           ---
+
+HI Data = Speed-1  Vibrato Periodenl„nge in Ticks
+
+          Bsp.: HI_Data=0 --> Speed 1, bedeuted:
+                1 Sinus durchlauf bis zum n„chsten Tick
+                HI_Data=4 --> Speed 5, bedeuted:
+                1/5 Sinus durchlauf bis zum n„chsten Tick
+
+LOW Data = Amplitude-1  Vibrato Amplitude in 1/8 Halbtonschritte
+
+           Bsp.: LOW Data = 1 --> Amplitude=4, bedeuted:
+                 Amplitude=2*1/4 Halbtonschritt = 1/2 Halbtonschritt
+
+                 Die Grundnote wird mit +/- 1/2 Halbtonschritt ausgelenkt.
+
+                 (max. Amplitude = +/- 2 Halbtonschritte 8-) )
+
+
+9*  Vibrato /\/\          HI³LOW           ---
+
+Note wird mit einem Dreieck Signal moduliert.
+Effekt Parameter siehe Vibrato Sin.
+
+
+10  Vibrato Sqaure        HI³LOW           ---
+
+Note wird mit einem Rechteck Signal moduliert.
+Effekt Parameter siehe Vibrato Sin.
+
+
+11  Note Tremolo          HI³LOW           ---
+
+HI Data = Ticks/32 Anfangs Notenfrequenz
+LOW Data = Ticks/32 Note Off
+
+
+12* Note Cut              HI³LOW
+
+[HI] = 1/16 Ticks
+[LOW] = not used
+
+Die Note geht nach HI Nibble/16 Ticks auf Note Off.
+
+
+
+YO! YO! YO!
+ Die Vibrato, Tremolo und Arpeggio Speed sollten zus„tzlich ber eine feste
+ Frequenz (Notenfrequenzen) einstellbar werden. Da Speed Angaben ber Ticks
+ vom aktuellen Tickspeed abh„ngig sind ... fr eine harmonischere Modulation
+ w„hren feste Frequenzen besser.
+
+
+
+VOLUME EFFECTS
+ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+0*  No Effect Data         ---            ---
+
+
+1*  SlideUP               DATA            ---
+
+Volume wird nach oben portamentieren. DATA gibt an um wieviel Einheiten
+bis zum n„chsten Tick geslidet werden soll.
+
+
+2*  SlideDN               DATA            ---
+
+Volume wid nach unten portamentieren. (siehe SlideUP)
+
+
+3   Volume Tremolo        DATA            ---
+
+HI Data = Ticks/32 Anfangs Volumewert
+LOW Data = Ticks/32 Volume muted
+
+
+4   Volume Vibrato Sin    HI Nibble³LOW Nibble
+    "MOD Tremolo"
+
+HI Nibble = Speed-1  Vibrato Periodenl„nge in Ticks
+
+          Bsp.: HI_Data=0 --> Speed 1, bedeuted:
+                1 Sinus durchlauf bis zum n„chsten Tick 8-)
+
+LOW Nibble = Amplitude-1  Vibrato Amplitude in (aktuelles Volume)/32 Einheiten
+
+           Bsp.: aktuelles Volume = 128
+                 LOW Data = 2 --> Amplitude=128/32*3=+/-12 Volumeeinheiten
+                 bedeutet:
+
+                 Die Lautst„rke wird zwischen 128 und 104 Einheiten mit
+                 einer Sinusschwingung moduliert.
+
+                 (max. von 0-255 8-) )
+
+
+5   Volume Vibrato /\/\   DATA
+
+HI Data = Ticks/4  Vibrato Periodenl„nge
+LOW Data = Ticks Vibrato Amplitude
+
+
+6   Volume Vibrato Sqaure DATA             ---
+
+HI Data = Ticks/4  Vibrato Periodenl„nge
+LOW Data = Ticks Vibrato Amplitude
+
+
+7*  Set Balance           DATA
+
+DATA= 0=ganz Links, 255=ganz Rechts, 128=Mitte
+
+
+8*  Slide Balance Left
+
+Balance wird nach links geslidet. DATA gibt an um wieviel Einheiten
+bis zum n„chsten Tick geslidet werden soll.
+
+
+9*  Slide Balance Right
+
+Balance wird nach rechts geslidet. DATA gibt an um wieviel Einheiten
+bis zum n„chsten Tick geslidet werden soll.
+
+
+10  Vibrato Balance Left/Right
+
+HI Data = Ticks/4  Vibrato Periodenl„nge
+LOW Data = Ticks Vibrato Amplitude
+
+
+* Effekte funktionsf„hig
+
+END.

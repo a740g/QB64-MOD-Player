@@ -2,8 +2,8 @@
 
 This is a [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player library written in [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe).
 
-[![Screenshot](screenshots/qb64mp_intro.png)](screenshots/qb64mp_demo.mp4)
-[![Screenshot](screenshots/qb64mp_playing.png)](screenshots/qb64mp_demo.mp4)
+![Screenshot 1](screenshots/screenshot1.png)
+![Screenshot 2](screenshots/screenshot2.png)
 
 ## FEATURES
 
@@ -26,12 +26,43 @@ This is a [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible
 ## API
 
 ```VB
-Function LoadMODFile%% (sFileName As String)
-Sub StartMODPlayer
-Sub UpdateMODPlayer
-Sub StopMODPlayer
-Sub SetGlobalVolume (nVolume As Single)
-Sub EnableHQMixer (nFlag As Byte)
+' Main Player API
+FUNCTION MODPlayer_LoadFromMemory%% (buffer AS STRING)
+FUNCTION MODPlayer_LoadFromDisk%% (fileName AS STRING)
+SUB MODPlayer_Play
+SUB MODPlayer_Stop
+SUB MODPlayer_Update
+' Sample Mixer API (used internally by the Player)
+SUB SampleMixer_Initialize (nVoices AS _UNSIGNED _BYTE)
+SUB SampleMixer_Finalize
+FUNCTION SampleMixer_NeedsUpdate%%
+SUB SampleMixer_Update (nSamples AS _UNSIGNED INTEGER)
+SUB SampleMixer_SetVoiceVolume (nVoice AS _UNSIGNED _BYTE, nVolume AS SINGLE)
+FUNCTION SampleMixer_GetVoiceVolume! (nVoice AS _UNSIGNED _BYTE)
+SUB SampleMixer_SetVoicePanning (nVoice AS _UNSIGNED _BYTE, nPanning AS SINGLE)
+FUNCTION SampleMixer_GetVoicePanning! (nVoice AS _UNSIGNED _BYTE)
+SUB SampleMixer_SetVoiceFrequency (nVoice AS _UNSIGNED _BYTE, nFrequency AS SINGLE)
+SUB SampleMixer_StopVoice (nVoice AS _UNSIGNED _BYTE)
+SUB SampleMixer_PlayVoice (nVoice AS _UNSIGNED _BYTE, nSample AS _UNSIGNED _BYTE, nPosition AS SINGLE, nPlayType AS _UNSIGNED _BYTE, nStart AS SINGLE, nEnd AS SINGLE)
+' Sample Mixer API (user callable)
+SUB SampleMixer_SetGlobalVolume (nVolume AS SINGLE)
+FUNCTION SampleMixer_GetGlobalVolume!
+SUB SampleMixer_SetHighQuality (nFlag AS _BYTE)
+FUNCTION SampleMixer_IsHighQuality%%
+FUNCTION SampleMixer_GetSampleRate&
+FUNCTION SampleMixer_GetBufferedSoundTime#
+FUNCTION SampleMixer_GetTotalSamples~%%
+FUNCTION SampleMixer_GetTotalVoices~%%
+FUNCTION SampleMixer_GetActiveVoices~%%
+' Sample Manager API (used internally by the Player)
+SUB SampleManager_Initialize (nSamples AS _UNSIGNED _BYTE)
+SUB SampleManager_Load (nSample AS _UNSIGNED _BYTE, sData AS STRING, nSampleFrameSize AS _UNSIGNED _BYTE, isLooping AS _BYTE, nLoopStart AS LONG, nLoopEnd AS LONG)
+FUNCTION SampleManager_PeekByte%% (nSample AS _UNSIGNED _BYTE, nPosition AS LONG)
+SUB SampleManager_PokeByte (nSample AS _UNSIGNED _BYTE, nPosition AS LONG, nValue AS _BYTE)
+FUNCTION SampleManager_PeekInteger% (nSample AS _UNSIGNED _BYTE, nPosition AS LONG)
+SUB SampleManager_PokeInteger (nSample AS _UNSIGNED _BYTE, nPosition AS LONG, nValue AS INTEGER)
+FUNCTION SampleManager_PeekSingle! (nSample AS _UNSIGNED _BYTE, nPosition AS LONG)
+SUB SampleManager_PokeSingle (nSample AS _UNSIGNED _BYTE, nPosition AS LONG, nValue AS SINGLE)
 ```
 
 ## FAQ

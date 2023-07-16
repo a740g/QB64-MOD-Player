@@ -1,0 +1,332 @@
+========================================================================
+
+=======================================
+  MadTracker 2.0 Module Format (.MT2)
+=======================================
+                                                             Version 2.5
+                                               Last-modified: 1999-04-26
+
+========================================================================
+
+This is the official MT2 file format document.
+WARNING: This is valid for 2.5 modules only!
+
+The latest version of this document can be downloaded from:
+  http://madtracker.i4music.net/madtracker
+
+. PERSONAL AND NON-PROFIT USE ONLY!
+  IF YOU WANT TO USE THE RELATED INFORMATION IN SHAREWARE OR COMMERCIAL
+  SOFTWARE, PLEASE CONTACT THE AUTHOR.
+. DO NOT MODIFY THIS DOCUMENT WITHOUT THE WRITTEN PERMISSION OF THE
+  AUTHOR.
+
+========================================================================
+
+== Main structure ==
+====================
+
+  Header
+  if (drums) Drums datas
+  Additional datas
+  Patterns (* number of patterns)
+  if (drums) Drums Patterns (* number of drums patterns)
+  Automation (* number of patterns)
+  Instruments (* 255)
+  Samples (* 256)
+  Groups (=parts of instruments that link to samples)
+  Sample datas
+
+
+== Header ==
+============
+
+Offset	Length	Description
+------------------------------------------------------------------------
++0	4	Identificator = "MT20"
++4	4	Safe to ignore
++8	2	Version (hi = 2, lo = 5)
++10	32	Tracker name ("MadTracker 2.0")
++42	64	Module title
++106	2	Number of positions
++108	2	Restart position
++110	2	Number of patterns
++112	2	Number of tracks
++114	2	Samples Per Tick
++116	1	Ticks per line
++117	1	Lines Per Beat
++118	4	Flags
+			bit 0 = Packed patterns
+			bit 1 = Automation
+			bit 2 = Reserved
+			bit 3 = Drums Automation
+			bit 4 = Master Automation
++122	2	Number of instruments
++124	2	Number of samples
++126	256	Patterns order
++382	2	Drums datas length (0 = no drums)
++384	?	Drums datas
++384+?	4	Additional datas length
++388+?	?	Additional datas
+
+
+== Drums datas ==
+=================
+
+Offset	Length	Description
+------------------------------------------------------------------------
++0	2	Number of drums patterns
++2	16	Drums samples (8 words)
++18	256	Drums patterns order
+
+
+== Additional datas ==
+======================
+
+Offset	Length	Description
+------------------------------------------------------------------------
+The additional datas are stored as chunks.
+
+. Chunk structure:
+
++0	4	Chunk ID
++4	4	Size
++8    size	Chunk datas
+
+. Valid chunks:
+
+"TRKS"		Tracks datas
+
+  +0	2	Master volume
+  +2	?	Tracks information
+  Track information:
+  +0	2	Track volume
+  +2	1	Effect buffer
+			0 = No
+			1 = Yes
+  +3	1	Output track
+			0 = Self
+			x = Output track
+  +4	2	Track effect ID
+  +6	16	Track parameters (8 words)
+
+"MSG"		Message
+
+  +0	1	Show message
+			0 = No
+			1 = Yes
+  +1	?	Message (length must be odd)
+
+"SUM"	Summary
+
+  +0	6	Build summary mask
+  +6	?	Build summary content (total length must be odd)
+
+
+== Patterns ==
+==============
+
+Offset	Length	Description
+------------------------------------------------------------------------
++0	2	Number of lines
++2	4	Data length
+if data length > 0 then
+  +6	?	Pattern data
+
+. Pattern structure:
+
++0	1	Note
+			 0 = Nothing
+			97 = Note off
++1	1	Instrument
++2	1	Volume column
+			10 - 90 = Set volume
+			A0 - AF	= Volume slide down
+			B0 - BF = Volume slide up
+			C0 - CF = Fine volume slide down
+			D0 - DF	= Fine volume slide up
++3	1	Panning column
++4	1	Effect number
++5	2	Effect parameter
+
+. Packed pattern structure:
+
+Datas are scanned track per track then line per line.
+
++0	1	Bitmask for following datas
+			bit 0 = Note follows
+			bit 1 = Instrument follows
+			bit 2 = Volume follows
+			bit 3 = Panning follows
+			bit 4 = Effect number follows
+			bit 5 = Effect parameter node 1 follows
+			bit 6 = effect parameter node 2 follows
++1	?	Datas (if any)
+
+If the bitmask value is 255, then you must follow the following scheme:
+
++0	1	255
++1	1	Repeat count
++2	1	Bitmask (see above)
++3	x	Datas (if any)
+
+
+== Drums patterns ==
+====================
+
+Offset	Length	Description
+------------------------------------------------------------------------
++0	2	Reserved
++2	256*32	Drums pattern data (256 rows, 8 samples)
+
+. Drums pattern structure:
+
++0	1	Note & tick offset
+			bit 0-4 = Tick offset (0-31)
+			bit   7 = Note on
++1	1	Volume
++2	1	Panning (not supported in the interface)
++3	1	Reserved
+
+
+
+== Automation ==
+================
+
+Offset	Length	Description
+------------------------------------------------------------------------
++0	4	Automation flags
+			bit 0-7 = Track effects parameters
+			bit   8 = Track volume
+			bit   9 = Track panning
+			bit  10 = Instrument cutoff
+			bit  11 = Instrument resonance
+			bit  12 = Instrument attack
+			bit  13 = Instrument decay
++4	4	Track effect ID
++8	?	Envelopes
+  +0	4	Number of points
+  +4	256	Envelope points
+
+
+== Instruments ==
+=================
+
+Offset	Length	Description
+------------------------------------------------------------------------
++0	32	Instrument name
++32	4	Instrument data length
+if data length > 0 then
+  +0	2	Number of samples
+  +2	96	Groups mapping
+  +98	1	Vibrato type
+  +99	1	Vibrato sweep
+  +100	1	Vibrato depth
+  +101	1	Vibrato rate
+  +102	2	Fadeout
+  +104	2	New Note Action
+			NNA = New Note Action
+			DCT = Duplicate Check Type
+			DCA = Duplicate Check Action
+			bit 0-7 =	0 = NNA = Note cut
+					1 = NNA = Continue
+					2 = NNA = Note off
+					3 = NNA = Fadeout
+			bit 8-11 =	0 = DCT = Disabled
+					1 = DCT = Note
+					2 = DCT = Sample
+					3 = DCT = Instrument
+			bit 12-15 =	0 = DCA = Note cut
+					1 = DCA = Continue
+					2 = DCA = Note off
+					3 = DCA = Fadeout
+  +106	2	Instrument flags
+			bit 0 = Wave Synthesis on/off
+			bit 1 = Effect on/off
+  +108	4	Envelopes flags
+			bit 0 = Volume envelope
+			bit 1 = Panning envelope
+			bit 2 = Pitch envelope
+			bit 3 = Filter envelope
+  +112	?	Envelopes
+    +0	1	Flags
+			bit 0 = Envelope on/off
+			bit 1 = Sustain on/off
+			bit 2 = Loop on/off
+    +1	1	Number of points
+    +2	1	Sustain position
+    +3	1	Loop start position
+    +4	1	Loop end position
+    +5	3	Reserved
+    +8	64	Envelope points
+if instrument flags <> 0 then
+    +0	1	Synthetiser ID
+    +1	1	Effect ID
+    +2	2	Cutoff frequency
+    +4	1	Resonance
+    +5	1	Attack
+    +6	1	Decay
+    +7	25	Reserved
+
+
+== Samples ==
+=============
+
+Offset	Length	Description
+------------------------------------------------------------------------
++0	32	Sample name
++32	4	Sample data length
+if data length > 0 then
+  +0	4	Length
+  +4	4	Frequency
+  +8	1	Quality
+			1 = 8-bit
+			2 = 16-bit
+  +9	1	Number of channels
+			1 = Mono
+			2 = Stereo
+  +10	1	Sample flags
+			bit 0 = Reserved
+			bit 1 = Synchronized
+			bit 2 = Keep on disk
+  +11	1	Loop type
+			0 = No loop
+			1 = Forward
+			2 = Pingpong
+  +12	4	Loop start
+  +16	4	Loop end
+  +20	2	Volume
+  +22	1	Panning
+			0    = Middle
+			-127 = Leftmost
+			+127 = Rightmost
+			-128 = Surround
+  +23	1	Sampled note
+  +24	2	Samples Per Beat
+
+
+== Groups ==
+============
+
+Offset	Length	Description
+------------------------------------------------------------------------
++0	1	Sample number
++1	1	Volume
++2	1	Fine pitch
++3	5	Reserved
+
+
+== Samples datas ==
+===================
+
+Offset	Length	Description
+------------------------------------------------------------------------
+if (sample flags & 5) = 0 then
+  +0	?	Sample data (stored as delta values)
+else
+  +0	4	File name size
+  +4	12	Reserved
+  +16	?	File name
+
+========================================================================
+                                            © 1998-2000 Yannick Delwiche
+                                                      madhouse@skynet.be

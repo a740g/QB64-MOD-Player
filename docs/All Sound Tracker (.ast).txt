@@ -1,0 +1,301 @@
+{-------------------------------AST FORMAT-----------------------------------
+FIRST, i am really sorry for my ugly english
+
+HERE IS AN EXAMPLE OF A TP7 PROCEDURE TO LOAD AN AST FILE
+
+AWE Sound data are now at the right place (in AST120 or later modules),
+CHORUS AND REVERB HAVE CHANGED ,module can be converted with AST120
+{---------------------------------------------------------------------------}
+
+{AWE SAMPLE***********************}
+
+type aws= record
+      t:array[0..5] of longint;
+      loop:byte;
+      nom:string[8];
+      binf:byte;
+      end;
+  {t[0] :address in awe32 memory
+  t[1] :size of the sample in word
+  t[2] :begin position
+  t[3] :loop begin
+  t[4] :loop end
+  t[5] :base pitch
+        if you want to play sample send to
+        awe pitch register note*341.33+t[5]
+  loop: loop and $80 =1 ==> looping (don't matter, just care about t[3] & t[4]
+        loop and 1   =1 ==> sample in ram ,0==> sample in rom
+                            (don't matter, just care about t[0])
+binf: =16 ==>16 bits signed sample
+        7 ==> 8 bits signed sample
+awe playposition register:=t[0]+t[2]
+awe loop begin register  :=t[0]+t[3]
+awe loop end register :=t[0]+t[4]-2 ( -2 because of the interpolator)}
+
+awss=record
+      t:array[0..15] of integer;
+      ad:longint;
+      end;
+  { it's sound data removed from awe32 memory
+   to avoid noise at the end of sample,only used by ast
+   don't care about that}
+
+{AWE INSTRUMENT**************************************}
+
+aweins=record
+       t:array[0..28] of byte;
+       nom:string[8];
+       flg:byte;
+       end;
+{t[0]:number of the sample associated
+ t[1]:pan level
+ t[2]:chorus level
+ t[3]:reverb level
+ t[4]:filter cut
+ t[5]:filterQ
+ t[6]:volume /awe volume register:= (t[4] shl 8) +not(current volume +t[6])
+
+ENVELLOPE 1
+ t[7]:delay  /awe delay register:=(128-t[7]) shl 8
+ t[8]:sustain
+ t[9]:decay
+ t[10]:hold
+ t[11]:attack /awe hold attack register:=(127-t[10]) shl 8+(127-t[11])
+ t[12]:override/ awe sust dec register:=(t[12] shl 15)+(t[8] shl 8)+(127-t[9])
+ t[13]:env 1 to filter
+ t[14]:env 1 to pitch
+
+ENVELLOPE 2
+ t[15]:delay /awe delay  register:=(128-t[15]) shl 8
+ t[16]:sustain
+ t[17]:decay
+ t[18]:hold
+ t[19]:attack /awe hold attack register:=(127-t[18]) shl 8+(127-t[19])
+ t[20]:override / awe sust dec register:=(t[20] shl 15)+(t[16] shl 8)+(127-t[17])
+
+LFO1
+ t[21]: delay /delay register:= (128-t[21]) shl 8
+ t[22]: pitch
+ t[23]: to volume
+ t[24]: to pitch
+ t[25]: to filter
+
+LFO2
+ t[26] :delay /delay register:=(128-t[26]) shl 8
+ t[27] :pitch
+ t[28] :to pitch
+
+flg :decomposed in 8 bits
+     1st bit (flg and 1)  : set lfo1
+     2nd bit (flg and 2)  : set lfo2
+     3   bit (flg and 4)  : set filter
+     4   bit (flg and 8)  : set lfo1 pitch
+     5   bit (flg and 16) : set chorus level
+     6   bit (flg and 32) : set reverb level
+     7   bit (flg and 64) : set pan level
+     8   bit (flg and 128): set lfo2 pitch}
+
+
+{AWE DRUM INSTRUMENT************************************}
+awdrum=record
+       ist:byte;
+       f:word;
+       end;
+{ist : awe instrument
+ f: awe pitch register value}
+
+{PATTERN************************************}
+pattern=record
+         pat_size:word;
+         pat:pointer;
+         end;
+{CHORUS and REVERB *********************************************************}
+chorusparametre= array[0..8] of
+                         record
+                         tab:array[0..6] of word;
+                         nom:string[8];
+                         end;
+reverbparametre= array[0..8] of
+                            record
+                            tab:array[0..27] of word;
+                            nom:string[8];
+                            end;
+
+{***************************************************************************}
+var
+header:string;   {header ='AST 0002'}
+def:byte;         {def is the definition (4 to 8);
+                  it's the number of commande in a time
+                  a pattern has 16*def lines}
+
+tsm:word;        {size of the song message}
+sm:array[0..1000] of char;   {song message}
+no:byte;                     {size of the order}
+order:array[0..255] of byte; { order  , should be init to  255}
+fmin:array[0..127] of string[8];   { name of the FM instruments}
+fmi:array[0..127] of array[0..10] of byte;
+                   {----FM INSTRUMENTS---
+                   0: AM/VIB/EG/KSR/MULTI        M
+                   1:KSL/TOTAL LEVEL             O
+                   2: AR/DR                      D
+                   3: SL/RR                      U
+                   4: WAV SEL                    L
+
+                   5: AM/VIB/EG/KSR/MULTI        C
+                   6:KSL/TOTAL LEVEL             A
+                   7: AR/DR                      R
+                   8: SL/RR                      R
+                   9: WAV SEL                    i
+
+                   10: FB/CON}
+sample:array[0..127] of aws;
+svs:array[0..127] of awss;
+awei:array[0..127] of aweins;
+awd:array[0..35] of awdrum;
+{CHORUS AND REVERB****************************************}
+cht:byte;  {Start type of chorus }
+revt:byte; {Start type of reverb}
+chorpara:chorusparametre;
+revpara:reverbparametre;
+{**********************PATTERN DATA************************}
+pattab:array[0..254] of pattern;   {pattern data}
+
+{the pattern have a little compression
+ 1st byte :number of command used in a line of the pattern
+ 2nf byte :track of the 1st command
+ 3,4,5,6  :1st command data
+      7   :track of th 2nd command
+ 8,9,10,11:2nd command data
+
+  etc.. when you have red all the command of the line the next byte
+  is the number of command used at the 2nd line of the pattern and etc..
+
+  there is 16*def lines in a pattern
+
+command stucture
+ 1st byte : note
+ 2nd byte and 127 :volume
+ 2nd byte and $80 : note off
+ 3rd byte: effect
+ 4   byte:effect value}
+
+
+{*************************************************************}
+procedure LOAD_AST_FILE( filename:string);
+var
+f:file;
+i,k:byte;
+fmpos,awpos,patpos,awesonpos,wavepos:longint;
+begin
+assign(f,filename);
+reset(f,1);
+
+blockread(f,header,9);  {header must be 'AST 0001' 'AST 0002'}
+blockread(f,def,1);     {def is the definition (4 to 8);
+                         it's the number of commande in a time
+                         a pattern has 16*def lines}
+
+blockread(f,tsm,2);      {size of the message}
+blockread(f,sm,tsm+1);   {read message}
+
+blockread(f,no,1);        {size of the order}
+blockread(f,order,no+1);  {read order }
+blockread(f,fmpos,4);     {position of the FM instrument in the file}
+blockread(f,awpos,4);     {"  "  "  "  the AWE data( sample,instrument, chorus)}
+blockread(f,patpos,4);    {"  "  "  "  the patterns}
+blockread(f,awesonpos,4); {"  "  "  "  the awe sample data}
+blockread(f,wavepos,4);   {"  "  "  "  the wav data, not used yet}
+
+   {INSTRUMENTS FM}
+   seek(f,fmpos);        {go at the right position}
+
+   blockread(f,i,1);    {read first byte, if different of 255 then
+                         number of the 1st instrument}
+
+   while i<255 do
+               begin
+               blockread(f,fmi[i],11); {data of instrument}
+               blockread(f,fmin[i],9); {name of the instrument}
+               blockread(f,i,1);       {number of the next instrument}
+               end;
+
+  {SAMPLE AWE}
+  seek(f,awpos);    {go at the right position}
+  blockread(f,i,1); {read first byte, if different of 255 then
+                     number of the 1st sample}
+
+  while i<255 do
+              begin
+              blockread(f,sample[i],35);  {sample parameter}
+              blockread(f,svs[i],16);     {reserved for ast}
+              blockread(f,i,1);           {next sample}
+              end;
+  {INSTRUMENT AWE}
+  blockread(f,i,1);{read first byte, if different of 255 then
+                    number of the 1st awe instrument}
+
+  while i<255 do
+              begin
+              blockread(f,awei[i],39); {awe instrument data}
+              blockread(f,i,1);        {next instrument}
+              end;
+
+  blockread(f,i,1); {read first byte, if different of 255 then
+                     number of the 1st awe drum instrument}
+
+  while i<255 do
+              begin
+              blockread(f,awd[i],3); {awe drum instrument data}
+              blockread(f,i,1);      {next}
+              end;
+
+  blockread(f,cht,1);
+  blockread(f,revt,1);
+  blockread(f,revpara,sizeof(revpara));
+  blockread(f,chorpara,sizeof(chorpara));
+
+  blockread(f,i,1);  {read a byte for future extension}
+
+  {PATTERN}
+seek(f,patpos);   {go at the right place in the file}
+blockread(f,i,1); {read 1st byte if <> of 255 then it's the number of the
+                   1st pattern}
+while i<255 do
+      begin
+      blockread(f,pattab[i].pat_size,2);    {read size of the pattern}
+      if maxavail > pattab[i].pat_size then
+          begin
+          getmem(pattab[i].pat,pattab[i].pat_size);         {alloc memory}
+          blockread(f,pattab[i].pat^,pattab[i].pat_size);  {read pattern data}
+          end else pattab[i].pat_size:=16*def;   {not enough memory==>empty pattern
+                                      you should use an array[0..127] of byte,
+                                      full of 0 to point empty pattern}
+
+      blockread(f,i,1);
+      end;
+
+ {AWE SOUND DATA}
+ seek(f,awesonpos); {go at the right place in the file
+                   it' the sound data,
+  for each sample, size in the file in byte of sound data is
+                                                     t[1] for 8 bits sample
+                                                   2*t[1] for 16 bits sample
+   so read sound data of the first sample,2nd sample, etc..}
+
+
+
+close(f);
+end;
+
+begin
+end.
+
+{I hope  it' s clear enough , but write me if you don't understand something
+
+                       Patrice BOUCHAND
+                       LE BOURG
+                       42990 St Georges en couzan
+                       FRANCE
+
+                                         See you soon...
+  and again,  thanks to Vince Vu  and Cygnus X-1 and Lada Kopecki }

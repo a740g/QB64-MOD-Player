@@ -1,0 +1,101 @@
+STM Format
+Intel byte order
+
+Information from File Format List 2.0 by Max Maischein.
+
+--------!-CONTACT_INFO----------------------
+If you notice any mistakes or omissions, please let me know!  It is only
+with YOUR help that the list can continue to grow.  Please send
+all changes to me rather than distributing a modified version of the list.
+
+This file has been authored in the style of the INTERxxy.* file list
+by Ralf Brown, and uses almost the same format.
+
+Please read the file FILEFMTS.1ST before asking me any questions. You may find
+that they have already been addressed.
+
+         Max Maischein
+
+Max Maischein, 2:244/1106.17
+Max_Maischein@spam.fido.de
+corion@informatik.uni-frankfurt.de
+Corion on #coders@IRC
+--------!-DISCLAIMER------------------------
+DISCLAIMER:  THIS MATERIAL IS PROVIDED "AS IS".  I verify the information
+contained in this list to the best of my ability, but I cannot be held
+responsible for any problems caused by use or misuse of the information,
+especially for those file formats foreign to the PC, like AMIGA or SUN file
+formats. If an information it is marked "guesswork" or undocumented, you
+should check it carefully to make sure your program will not break with
+an unexpected value (and please let me know whether or not it works
+the same way).
+
+Information marked with "???" is known to be incomplete or guesswork.
+
+Some file formats were not released by their creators, others are regarded
+as proprietary, which means that if your programs deal with them, you might
+be looking for trouble. I don't care about this.
+--------------------------------------------
+
+The ScreamTracker 1.0 format was the module format used by the
+ScreamTracker before version 2.0.
+
+OFFSET              Count TYPE   Description
+0000h                  20 char   ASCIIZ song name
+0014h                   8 char   Tracker name
+001Ch                   1 byte   ID=1Ah
+001Dh                   1 byte   File type
+                                 1 - song (contains no samples)
+                                 2 - module (contains samples)
+001Eh                   1 byte   Major version number
+001Fh                   1 byte   Minor version number
+0020h                   1 byte   Playback tempo
+0021h                   1 byte   Number of patterns
+                                 ="PAT"
+0022h                   1 byte   Global playback volume
+0023h                  13 byte   reserved
+0030h                  31 rec    Instrument data
+                       12 char   ASCIIZ instrument name
+                        1 byte   ID=0
+                        1 byte   Instrument disk
+                        1 word   reserved
+                        1 word   Sample length in bytes
+                        1 word   Sample loop start
+                        1 word   Sample loop end
+                        1 byte   Sample playback volume
+                        1 byte   reserved
+                        1 word   C3 frequency in Hz
+                        1 dword  reserved
+                        1 word   length in paragraphs
+                                 (only for modules,in songs:reserved)
+03D0h                  64 byte   Pattern orders
+0410h          4*64*"PAT" rec    Pattern data. Each pattern consists of
+                                 64 rows, each 4 channels. The channels
+                                 are stored from left ro right, row by row.
+                        1 byte   Note byte :
+                                   251 - last 3 bytes not stored, all bytes 0
+                                   252 - last 3 bytes not stored, note -0-,
+                                         whatever that means.
+                                   253 - last 3 bytes not stored, note ...
+                                   254 - undefined (reserved for run-time)
+                                   255 - undefined (reserved for run-time)
+                                   otherwise bit mapped :
+                                   0-3 : note (c=0,c#=1...)
+                                   4-7 : octave
+                        1 byte   Only valid if above byte < 251, bit mapped
+                                   0-2 ; lower bit of note volume
+                                   3-7 : instrument number
+                        1 byte   bit mapped
+                                   0-3 : Effect command in ProTracker format
+                                         seems to be overlapped by volume
+                                         bits...
+                                   4-6 : upper bits of volume
+                        1 byte   command data in ProTracker format
+0410h+                  ? byte   Raw sample data padded to 16 byte boundaries.
+ 4*64*4*"PAT"
+
+EXTENSION:STM
+OCCURENCES:PC
+PROGRAMS:ScreamTracker 1.0
+REFERENCE:
+SEE ALSO:S3M,MOD

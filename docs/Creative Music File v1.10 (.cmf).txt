@@ -1,0 +1,96 @@
+CMF consists of 3 different block structures: header block, instrument block
+and a music block.
+
+                        Header Block.
+
+Offset         Description
+
+00-03          File ID'CTMF'
+04-05          Version # (currently 1.10)
+06-07          Offset of instrument block from start of file
+08-09          Offset of music block from start of file
+0A-0B          Ticks per quarter note (default=120)
+0C-0D          Clock ticks per second (default=96)
+0E-0F          Offset of music title from start of file (0=none)
+10-11          Offset of composer name (0=none)
+12-13          Offset of remarks (0=none)
+14-23          Channel-in-use table (16 bytes long)
+24-25          # of instruments used
+26-27          Basic tempo
+28-            Title, composer and/or remarks
+
+
+                Instrument Block
+
+Each instrument block is 16 bytes long.
+
+Offset         Description
+
+00             Modulator characteristic
+01             Carrier characteristic
+                   bit 7    Pitch Vibrato
+                       6    Amplitude Vibrato
+                       5    Sustaining Sound
+                       4    Envelope Scaling
+                       3-0  Frequency Multiplier
+02             Modulator Scaling/Output Level
+03             Carrier Scaling/Output Level
+                  bit 7-6  Level Scaling
+                      5-0  Output Level
+04             Modulator Attack/Delay
+05             Carrier Attack/Delay
+                   bit 7-4 Attack Rate
+                       3-0 Delay Rate
+06             Modulator Sustain Level/Release Rate
+07             Carrier Sustain Level/Release Rate
+                   bit 7-4  Sustain Level
+                       3-0  Release Rate
+08             Modulator Wave Select
+09             Carrier Wave Select
+                   bit 7-2 (all cleared)
+                       0-1 Wave Select
+0A             Feedback/Connection
+                   bit 7-4 (cleared)
+                       3-1 Modulator Feedback
+                       0   Connection
+0B-0F          Not used (Reserved)
+
+
+                        Music Block
+
+The music block is single track, polyphonic, with a max of 16 channels.
+It adheres to the Standard Midi File format. It is like:
+
+ Music block = <delta time> <Midi event> <delta time> <Midi event>...
+
+ where:       Delta time = amount of time before Midi event (in ticks)
+
+              Midi event = any Midi channel message
+
+Here is where the book gets foggy. Some Midi events are Control Change events
+but it doesn't say if all are like that. These are the only ones discussed:
+
+Control Number       Control Data
+   66h               1-127 (Used as markers in music)
+   67h               0-Melody mode
+                     1-Rhythm mode
+
+I don't know of the 0 or 1 are bits or follow the Control Number but it
+appears that there will be a 66h then a number between 1 and 127
+designating seminote length (1 seminote = 1/128 of a tick or something)
+or a 67h and a 0 or 1 to determine the mode. In Rhythm mode, the last
+5 channels are:
+
+Channel      Rhythm
+12           Bass Drum
+13           Snare
+14           Tom-tom
+15           Top-cymbal
+16           High-hat
+
+Control Number      Control Data
+   68h                0-127 (Changes pitch upward by the # of 1/128 seminotes.
+                             0=Cancel pitch change)
+
+   69h                0-127 (Changes pitch downward by the # of 1/128
+                             seminotes. 0=Cancel pitch change)

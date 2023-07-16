@@ -1,0 +1,240 @@
+Format : Sound-Monitor 2.0/3.0 (called BP SoundMon by Exotic Ripper)
+Created by : Brian Postma (1990-1993)
+
+
+22 sep 1997, Sylvain "Asle" Chipaux, (asle@mygale.org)
+   Here, it's the first revision I make of this format. I released a first
+   version which contained a lot of "?" :(. I guess there are still a few, but
+   these mainly concern the synthetic sample description.
+
+   Note: I've found the tracker (v2 and v3) on Exotica Web Page ... and there
+     was some doc in there. I've updated everything below since then.
+
+21 jan 2000, Brian Postma, (postma@yis.nl)
+   Comments start with '>'
+
+
+
+0    [26]   title
+26   [3]    "V.2"    (V.3 for version 3.0 ... only difference I've found)
+
+> well, no, in the V3 format the format of the synth instruments has changed.
+> But that's all, the rest is unchanged.
+
+29   [1]    [NOW] Number of Waveforms.
+            (thx to Anthony Mc Sweeney for this info ...)
+30   [2]    NOP number of patterns
+
+
+(following is repeated 15 times)
+32   [32]   sample description
+
+{ 0   [1]/[24]   $ff/Sample Name ($ff means synthetic sounds ...  )
+{                                (meaning it's another description)
+{ 24  [2]        size                ( /2 )
+{ 26  [2]        loop start          ( /2 )
+{ 38  [2]        loop lenght         ( /2 ) (or is it the loop end address ?)
+
+> It is the length, in words (length in bytes/2).
+
+{ 30  [1]        ?finetune?
+> Nope, not used....
+
+{ 31  [2]        volume
+
+>  The V3 synthetic sound structure
+> 0   [1]        Always $ff for synth sounds (see above)
+> 1   [1]        Main wavetable (64 tables were allowed in Soundmon 22)
+> 2   [2]        Wavetable size (size is in words, as Amiga hardware wanted it).
+>                So it is the size in bytes divided by two.
+> 4   [1]        Adsr control byte, for all control bytes, 0=don't use, 1=once
+>                (when end of fx waveform is reached fx stops), 2=repeat (start
+>                fx waveform from beginning when end is reached).
+> 5   [1]        Adsr waveform (Amiga waveforms are usually signed -128..127, the
+>                adsr waveform is from 0..255
+> 6   [2]        Length of adsr waveform, for consistency this one is specified in
+>                number of bytes (instead of words like 'main wavetable size').
+>                All this was done to minimize calculations at run-time.
+> 8   [1]        Adsr speed. Counter values, when the counter reaches zero the
+>                next adsr position (in the waveform) is used and the counter
+>                receives this value. 1 is the quickest possible update rate.
+>                (it is used pre-increment, therefore 0 is even slower than 255).
+> 9   [1]        Lfo control (see adsr control, this one is for the linear freq osc.)
+> 10  [1]        Lfo table
+> 11  [1]        Lfo depth. The lfo value is divided by this constant, allowing for
+>                finetuning the lfo values (0 gets converted 1, to make sure no
+>                divison by zero occurs). A value of '1' gives the largest lfo amplitude
+>                a value of 255 (0xFF) the smallest.
+> 12  [2]        Lfo table length (in bytes).
+> 14  [1]        Lfo delay (initial value of the lfo counter, see adsr speed). The lfo
+>                fx won't start until 20ms times this value.
+> 15  [1]        Lfo speed (see adsr speed).
+> 16  [1]        Eg control (Effect Generator, initially this one was supposed to control
+>                different fx, this was moved to the 'fx' part in soundmon 2.2). The
+>                Eg control byte now only controls the 'negating' effect (see adsr control).
+> 17  [1]        Eg table (like lfo the table contains unsigned values 0..255).
+> 18  [2]        Eg table size (in bytes)
+> 20  [1]        Eg delay (see lfo delay)
+> 21  [1]        Eg speed
+> 22  [1]        Fx control (Turns a specific FX on/off). 0 = no fx, 1 = averaging, 2=
+>                inversion, 3=inverse inversion, 4=transform, 5=inverse transform. More
+>                were planned, but never got implemented.
+> 23  [1]        Fx speed
+> 24  [1]        Fx delay
+> 25  [1]        Mod(ulation) control (see eg/lfo/adsr control).
+> 26  [1]        Mod table
+> 27  [1]        Mod speed
+> 28  [1]        Mod delay
+> 29  [1]        Instrument volume
+> 30  [2]        Mod length (moved here, because it had to be on even word boundaries).
+
+512   [NOP*16]   list of tracks per patterns
+
+{ 0   [2]        track #1 number
+{ 2   [1]        track fx #1      (signed byte)
+{ 3   [1]        track fx #2      (signed byte)
+{ 4   [2]        track #2 number
+{ 6   [1]        track fx #1      (signed byte)
+{ 7   [1]        track fx #2      (signed byte)
+{ 8   [2]        track #3 number
+{ 10  [1]        track fx #1      (signed byte)
+{ 11  [1]        track fx #2      (signed byte)
+{ 12  [2]        track #4 number
+{ 14  [1]        track fx #1      (signed byte)
+{ 15  [1]        track fx #2      (signed byte)
+{
+{Fx #1 : it is the value to add (or dec) to the sample nbrs of this track
+> I call this transpose (TR in the editor)
+
+{Fx #2 : it is the value to add (or dec) to the note nbrs of this track
+> This I call sound-transpose (ST in the editor)
+
+> Actually the track numbers are chosen a bit stupid by me. The first version
+> of soundmon (that never reached the public) used offsets for the track
+> numbers (like the original C64 soundmonitor did). Pattern 1 would be 0x0000,
+> Pattern 2 would be 0x0030 (48 bytes per pattern). Which took hex calculations
+> which I tought was to difficult. Silly enough I chose 1 for the lead-of pattern.
+> (don't know why anymore). The '1' pattern was supposed to be the 'empty' pattern
+> so music patterns started at 2. Looking back I should have made '0' the empty
+> pattern.
+
+512+NOP*16       tracks data
+{* each track is 48 bytes long
+{* each track consists of 16 rows of 3 bytes for each note
+{  each note is as follow :
+{
+{  0000-0000 0000-0000 0000-0000
+{  |       | |  | |  | |       |
+{   \      /  \/   \/   \      /
+{  relative sample  \    effect
+{     note   nbr          value
+{     nbr          effect
+{                    nbr
+{
+{sample nbr : from $0 to $F  (0 meaning no sample)
+{list of effects : (part of v.2.2 of SoundMonitor Editor doc)
+{-Some options have been changed, or have been added, options (for use in
+{ patterns) now include:
+{ 0 - arpeggio once
+{ 1 - set volume
+{ 2 - set speed
+{ 3 - filter control
+{ 4 - period lift up
+{ 5 - period lift down
+{ 6 - vibrato (unlike v2.1+ now vibrato is set to zero, each time a new note
+{     is played).
+{ 7 - jump to step (bug fixed in v2.2).
+{ 8 - set autoslide
+{ 9 - set continous arpeggio
+{ A - transpose control
+{ B - change fx type (for example b 01 set averaging on, b 02 inversion,
+{     b 00 turns all off).
+{ C - not used
+{ D - Changes from inversion to backward inversion (or vice versa) or from
+{     Transform to backward transform.
+{ E - Reset ADSR on synth sound, but not EG, averaging, transform etc.
+{ F - Same as E but does not reset ADSR either (just changes note).
+{
+{ E & F now also work on samples, if you played a sample, you can use E & F
+{ to play a new note without restarting the sample.
+{
+{ data bytes with option D,E or F will invoke arpeggio (same as option 9).
+{ For example 'E 37' will start arpeggio '37' and reset ADSR without reset-
+{ ting other synth fx.
+{
+{for me. that means :
+{ * 0 = arpeggio (only one line)
+{ * 1 = set volume (command $C under Ptk)
+{ * 2 = set speed  (command $F under Ptk)
+{ * 3 = set filter (command $E0 under ptk)
+{ * 4 = slide-up (command $1 under ptk)
+{ * 5 = slide down (command $2 under ptk)
+{ * 6 = vibrato (command $4 under ptk)
+{ * 7 = ?
+{ * 8 = signed portamento value (<0 = slide up; >0 = slide down;0 = ?!?)
+{ * 9 = arpeggio until another note
+{ * A = ?
+> Used to turn transposes for this note off (Fx#1 and Fx#2 as called above)
+> if the high nibble of the data byte !=0 then transpose (Fx#1) is ignored
+> for this note. If the low nibble of the data byte!=0 then soundtranspose
+> (Fx#2) is ignored for this note. With this option you can for example
+> combine a baseline and drums in one pattern. When you use the 'A' option
+> for the drums you can still use transpose on the baseline without shifting
+> the drumsounds.
+
+{ * B = ?
+> Allows to dynamically control the FX control byte (during playing).
+> For example you could start with FX=4 (transform) and use the B option
+> to switch it to FX=5 (inverse transform) during playing.
+
+{ * C = nothing
+{ * D = ?
+> This basically toggles bit 0 of the FX control byte (2=inversion,
+> becomes 3=inverse inversion, 4=transform becomes 5=inverse transform).
+> The same can be achieved with the 'B' option, however the databyte of
+> this FX is used as autoarpeggio data. And the FX are not restarted.
+> Therefore it is possible to play a new note, change the FX and
+> arpeggio of the note, but keep the current state of the synthesis
+> effect.
+
+{ * E = ?
+> comparable to the 'D' option. The databyte is used for autoarpeggio.
+> The synthesis effect state is kept (fx in effect are not changed or
+> restarted) but the adsr curve is start from beginning (in case of
+> samples, the samples are also started over). It simulates a restart
+> of the sound without changing the current effect state.
+
+{ * F = ?
+> Again the databyte is used for arpeggio. This option allows you to
+> change the note without restarting the sound (samples or synth).
+
+{
+{ Heh, still missing quite a lot :( ... any help is welcome !.
+{
+{
+{relative note number (PTK):
+{
+{C-1 to B-1 : 856,808,762,720,678,640,604,570,538,508,480,453
+{C-2 to B-2 : 428,404,381,360,339,320,302,285,269,254,240,226
+{C-3 to B-3 : 214,202,190,180,170,160,151,143,135,127,120,113
+{
+{becomes (Sound Monitor 2.0):
+{
+{C-1 to B-1 : 01,02,03,04,05,06,07,08,09,0a,0b,0c
+{C-2 to B-2 : 0d,0e,0f,10,11,12,13,14,15,16,17,18
+{C-3 to B-3 : 19,1a,1b,1c,1d,1e,1f,20,21,22,23,24
+{
+
+(from now on, 'MAX' is the highest track number)
+512+NOP*16+MAX*48  [64]*[NOW]  Waveforms data. No description available yet.
+
+
+(Samples data .. ONLY REAL SAMPLES !)
+512+NOP*16
++MAX*48+
+64*[NOW]           [?]         nothing is delta/packed
+> The last 64*[NOW] are the synth tables used by the synthesis instruments.
+
+> That's about it....
+> Greetz,
+> Brian

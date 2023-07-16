@@ -1,0 +1,193 @@
+VGM Spec v1.50
+
+VGM (Video Game Music) is a sample-accurate sound logging format for the Sega
+Master System, the Sega Game Gear and possibly many other machines (e.g. Sega
+Genesis).
+
+The normal file extension is .vgm but files can also be GZip compressed into
+.vgz files. However, a VGM player should atempt to support compressed and
+uncompressed files with either extension. (ZLib's GZIO library makes this
+trivial to implement.)
+
+The format starts with a 64 byte header:
+
+      00  01  02  03   04  05  06  07   08  09  0a  0b   0c  0d  0e  0f
+0x00 ["Vgm " ident   ][EoF offset     ][Version        ][SN76489 clock   ]
+0x10 [YM2413 clock   ][GD3 offset     ][Total # samples][Loop offset     ]
+0x20 [Loop # samples ][Rate           ][SN FB ][SNW]*** [YM2612 clock    ]
+0x30 [YM2151 clock   ][VGM data offset] *** *** *** ***  *** *** *** ***
+
+- Unused space (marked with *) is reserved for future expansion, and should be
+  zero.
+- All integer values are *unsigned* and written in "Intel" byte order, so for
+  example 0x12345678 is written as 0x78 0x56 0x34 0x12.
+- All pointer offsets are written as relative to the current position in the
+  file, so for example the GD3 offset at 0x14 in the header is the file
+  position of the GD3 tag minus 0x14.
+
+0x00: "Vgm " (0x56 0x67 0x6d 0x20) file identification (32 bits)
+0x04: Eof offset (32 bits)
+        Relative offset to end of file (i.e. file length - 4).
+        This is mainly used to find the next track when concatanating
+        player stubs and multiple files.
+0x08: Version number (32 bits)
+        Version 1.50 is stored as 0x00000150, stored as 0x50 0x01 0x00 0x00.
+        This is used for backwards compatibility in players, and defines which
+        header values are valid.
+0x0c: SN76489 clock (32 bits)
+        Input clock rate in Hz for the SN76489 PSG chip. A typical value is
+        3579545. It should be 0 if there is no PSG chip used.
+0x10: YM2413 clock (32 bits)
+        Input clock rate in Hz for the YM2413 chip. A typical value is
+        3579545. It should be 0 if there us no YM2413 chip used.
+0x14: GD3 offset (32 bits)
+        Relative offset to GD3 tag. 0 if no GD3 tag.
+        GD3 tags are descriptive tags similar in use to ID3 tags in MP3 files.
+        See the GD3 specification for more details. The GD3 tag is usually
+        stored immediately after the VGM data.
+0x18: Total # samples (32 bits)
+        Total of all wait values in the file.
+0x1c: Loop offset (32 bits)
+        Relative offset to loop point, or 0 if no loop.
+        For example, if the data for the one-off intro to a song was in bytes
+        0x0040-0x3fff of the file, but the main looping section started at
+        0x4000, this would contain the value 0x4000-0x1c = 0x00003fe4.
+0x20: Loop # samples (32 bits)
+        Number of samples in one loop, or 0 if there is no loop.
+        Total of all wait values between the loop point and the end of
+        the file.
+[VGM 1.01 additions:]
+0x24: Rate (32 bits)
+        "Rate" of recording in Hz, used for rate scaling on playback. It is
+        typically 50 for PAL systems and 60 for NTSC systems. It should be set
+        to zero if rate scaling is not appropriate - for example, if the game
+        adjusts its music engine for the system's speed.
+        VGM 1.00 files will have a value of 0.
+[VGM 1.10 additions:]
+0x28: SN76489 feedback (16 bits)
+        The white noise feedback pattern for the SN76489 PSG. Known values are:
+        0x0009  Sega Master System 2/Game Gear/Mega Drive
+                (SN76489/SN76496 integrated into Sega VDP chip)
+        0x0003  Sega Computer 3000H, BBC Micro
+                (SN76489AN)
+        For version 1.01 and earlier files, the feedback pattern should be
+        assumed to be 0x0009. If the PSG is not used then this may be omitted
+        (left at zero).
+0x2a: SN76489 shift register width (8 bits)
+        The noise feedback shift register width, in bits. Known values are:
+        16  Sega Master System 2/Game Gear/Mega Drive
+            (SN76489/SN76496 integrated into Sega VDP chip)
+        15  Sega Computer 3000H, BBC Micro
+            (SN76489AN)
+        For version 1.01 and earlier files, the shift register width should be
+        assumed to be 16. If the PSG is not used then this may be omitted (left
+        at zero).
+0x2b: Reserved (8 bits)
+        This should be left at zero.
+0x2c: YM2612 clock (32 bits)
+        Input clock rate in Hz for the YM2612 chip. A typical value is
+        3579545. It should be 0 if there us no YM2612 chip used.
+        For version 1.01 and earlier files, the YM2413 clock rate should be
+        used for the clock rate of the YM2612.
+0x30: YM2151 clock (32 bits)
+        Input clock rate in Hz for the YM2151 chip. A typical value is
+        3579545. It should be 0 if there us no YM2151 chip used.
+        For version 1.01 and earlier files, the YM2413 clock rate should be
+        used for the clock rate of the YM2151.
+[VGM 1.50 additions:]
+0x34: VGM data offset (32 bits)
+        Relative offset to VGM data stream.
+        If the VGM data starts at absolute offset 0x40, this will contain
+        value 0x0000000c. For versions prior to 1.10, it should be 0 and the
+        VGM data must start at offset 0x40.
+
+0x38-0x40: Reserved (must be zero)
+
+
+Starting at the location specified by the VGM data offset (or, offset 0x40 for
+file versions below 1.50) is found a sequence of commands containing
+data
+written to the chips or timing information. A command is one of:
+
+  0x4f dd    : Game Gear PSG stereo, write dd to port 0x06
+  0x50 dd    : PSG (SN76489/SN76496) write value dd
+  0x51 aa dd : YM2413, write value dd to register aa
+  0x52 aa dd : YM2612 port 0, write value dd to register aa
+  0x53 aa dd : YM2612 port 1, write value dd to register aa
+  0x54 aa dd : YM2151, write value dd to register aa
+  0x61 nn nn : Wait n samples, n can range from 0 to 65535 (approx 1.49
+               seconds). Longer pauses than this are represented by multiple
+               wait commands.
+  0x62       : wait 735 samples (60th of a second), a shortcut for
+               0x61 0xdf 0x02
+  0x63       : wait 882 samples (50th of a second), a shortcut for
+               0x61 0x72 0x03
+  0x66       : end of sound data
+  0x67 ...   : data block: see below
+  0x7n       : wait n+1 samples, n can range from 0 to 15.
+  0x8n       : YM2612 port 0 address 2A write from the data bank, then wait
+               n samples; n can range from 0 to 15. Note that the wait is n,
+               NOT n+1.
+  0xe0 dddddddd : seek to offset dddddddd (Intel byte order) in PCM data bank
+
+Some ranges are reserved for future use, with different numbers of operands:
+
+  0x30..0x4e dd          : one operand, reserved for future use
+  0x55..0x5f dd dd       : two operands, reserved for future use
+  0xa0..0xbf dd dd       : two operands, reserved for future use
+  0xc0..0xdf dd dd dd    : three operands, reserved for future use
+  0xe1..0xff dd dd dd dd : four operands, reserved for future use
+
+On encountering these, the correct number of bytes should be skipped.
+
+
+Data blocks:
+
+VGM command 0x67 specifies a data block. These are used to store large amounts
+of data, which can be used in parallel with the normal VGM data stream. The
+data block format is:
+
+  0x67 0x66 tt ss ss ss ss (data)
+
+where:
+  0x67 = VGM command
+  0x66 = compatibility command to make older players stop parsing the stream
+  tt   = data type
+  ss ss ss ss (32 bits) = size of data, in bytes
+  (data) = data, of size previously specified
+
+Data blocks, if present, should be at the very start of the VGM data. However,
+for future compatibility, players should be able to parse data blocks anywhere
+in the stream, simply by skipping past them if their type is unknown.
+
+The data block type specifies what type of data it contains. Currently defined
+types are:
+
+00 = YM2612 PCM data for use with associated commands
+
+All unknown types must be skipped by the player.
+
+
+
+History:
+
+[1.00]
+Initial public release by Dave
+
+[1.01]
+Rate value added by Maxim; 1.00 files are fully compatible
+
+[1.10]
+PSG white noise feedback and shift register width parameters added by Maxim,
+with note on how to handle earlier version files.
+Additional wait command added by Maxim with thanks to Steve Snake for the
+suggestion.
+1.01 files are fully compatible but 1.01 players might have problems
+with 1.10 files, hence the 0.1 version change.
+
+[1.50]
+VGM data offset added to header by Maxim.
+Data block support added by blargg, to allow for better handling of YM2612 PCM
+data.
+Both of these changes have the potential to cause problems, but are really good
+changes, so the version number has been increased all the way to 1.50.

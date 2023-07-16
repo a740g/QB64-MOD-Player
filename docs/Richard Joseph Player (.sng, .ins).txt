@@ -1,0 +1,496 @@
+RICHARD JOSEPH PLAYER (RJP) FORMAT
+Decoded by Martin Bazley, 2011-2012
+This document completed 19th September 2012
+
+All multi-byte values are big-endian (high bytes first).
+
+Reading the file
+================
+
+One track is made up of two files - the RJP file and the SMP file.  (In some
+games these are given the file extensions */sng and */ins respectively.)
+
+There may be many subsongs in the same file.  The only differences between
+them are the addresses they start reading the sequence data from.
+
+The first eight bytes in the RJP file are the string "RJP1SMOD".
+
+The file is then divided into seven distinct sections, each containing
+different information.  Each section is preceded by a four-byte header
+giving the length of the section (excluding the header), and hence the
+offset to the next section.
+
+These sections, which always appear in the same order, are as follows:
+
+Sample list
+-----------
+
+Offset   Length  Description
+(header) 4       Number of samples * 32
+
+                 Info for sample 0...
+0        4       Offset of sample data into sample file (see below)
+4        4       Offset of vibrato data into sample file (0 if none)
+8        4       Offset of tremolo data into sample file (0 if none)
+12       2       Offset into volume slide section (always a multiple of 6)
+14       2       Initial volume scalar (0-64)
+16       2       Initial offset / 2 (relative to value at +0)
+18       2       Initial length / 2 (1 if blank sample)
+20       2       Loop offset / 2 (relative to value at +0)
+22       2       Loop length / 2 (1 if no loop)
+24       2       Vibrato loop offset / 2 (relative to value at +4)
+26       2       Vibrato initial length / 2 (relative to value at +4)
+28       2       Tremolo loop offset / 2 (relative to value at +8)
+30       2       Tremolo initial length / 2 (relative to value at +8)
+32               Info for sample 1...
+
+Note that sample 0 is conventionally blank.
+
+Sample data is stored in a separate file.  This file contains the string
+"RJP1", followed by raw sample data (signed 8-bit linear).  Note that the
+four-character string at the beginning is NOT included in the offsets in the
+sample list - in other words, to translate a sample/vibrato/tremolo address
+into a pointer within this file, don't forget to add 4!
+
+This file is also used to hold vibrato and tremolo waveforms, for fine-
+grained control over pitch and volume slides.  These will be detailed later.
+
+Volume slides
+-------------
+
+Offset   Length  Description
+(header) 4       Number of volume slides * 6
+
+                 First defined volume slide...
+0        1       Initial volume (0-64)
+1        1       Intermediate volume (0-64)
+2        1       Duration of slide between initial and intermediate volumes
+3        1       Final volume (0-64)
+4        1       Duration of slide between intermediate and final volumes
+5        1       Duration of slide between final volume and 0 (triggered by
+                 patterns)
+6                Second defined volume slide...
+
+Note that the first volume slide conventionally has all three volumes fixed
+at 64, and hence is used by the sample list to indicate 'no slide'.
+
+Subsong list
+------------
+Offset   Length  Description
+(header) 4       Number of subsongs * 4
+
+                 Info for subsong 0...
+0        1       Offset into sequence list for channel 1 / 4 (0 if none)
+1        1       Offset into sequence list for channel 2 / 4 (0 if none)
+2        1       Offset into sequence list for channel 3 / 4 (0 if none)
+3        1       Offset into sequence list for channel 4 / 4 (0 if none)
+4                Info for subsong 1...
+
+Sequence list
+-------------
+
+A series of four-byte values, each of which is an offset in bytes relative
+to the sequence data.  The first value is always blank, as 0 is used by the
+subsong list to mean that there is no sequence playing on that channel.
+
+Pattern list
+------------
+
+A series of four-byte values, each of which is an offset in bytes relative
+to the pattern data.  The first value is always blank, as 0 is used by the
+sequence data to indicate the end of the sequence.
+
+Sequence data
+-------------
+
+No fixed length.  Each channel has its own sequence data, and all channels
+play completely independently of each other - there is no way for a sequence
+or pattern command on one channel to affect any other channel.  This means,
+for example, different channels may play at different speeds, pattern
+lengths may not align with each other, and in some cases some channels may
+loop indefinitely while others stop playing.
+
+Sequence data is simply a list of single bytes giving pattern numbers to
+play (which should be multiplied by 4 and used as offsets into the pattern
+list).  The list is terminated by 0 (so 0 is not a valid pattern number).
+
+The byte after the 0 terminator determines how the sequence loops.
+
+If it is also 0 (so the sequence terminates with two 0 bytes), playback
+stops forever.  Note that the channel is not silenced.  However, any
+functions not performed in hardware (e.g. vibrato, volume slide) cease, and
+the last sample data/pitch/volume hardware settings are left unaltered.
+
+If it is between 2 and 127, the sequence loops back to an earlier position.
+This is determined by subtracting this byte from its own address.  To
+clarify, a value of 2 means to play the pattern in the last position
+infinitely.  A value of 3 means to resume playback from the position before
+the last one, and so on.  Values which correspond to an earlier address than
+the one at which playback started probably indicate a broken sequence.  A
+value of 1 is always invalid!
+
+If it is between 128 and 255, the exact value is irrelevant, because this
+means it is followed by a third byte, which is an offset (divided by 4) into
+the sequence list (same as the ones in the subsong list).  Playback resumes
+from the position pointed to by that entry.  I've never seen this feature in
+the wild, and as it's a bit complicated, you can ignore it.
+
+Pattern data
+------------
+
+No fixed length.  Each pattern (a pattern number can be turned into a start
+address by means of the pattern list) contains data for only one channel.
+There is no limit on the number of events (rows) in a pattern.
+
+Events are not fixed in length - the blank event, for example, is zero bytes
+long.
+
+The following persistent variables are initialised to default values at the
+start of the song, and read from and written to while reading the pattern
+data.  Four copies of each variable exist, one per channel.  (In particular,
+channels may play at different speeds!)  They retain their values across
+multiple notes, so that, for example, if every non-blank event in a pattern
+is evenly spaced, it will only be necessary to set the Delay once.
+
+Name     Default  Description
+Speed    6        Number of frames (1 frame = 0.02 seconds) between each
+                  decrement of the Delay (same as ProTracker, basically, and
+                  0 is just as invalid)
+Delay    1        Number of events to wait before reading the next set of
+                  bytes from the pattern data (1 means events are
+                  consecutive, 0 is invalid)
+Sample   0        Which entry in the sample list the next note read will be
+                  played on (multiply by 32 to get offset)
+Volume   -        Similar to but not quite the same as ProTracker volume,
+                  detailed below
+
+While these variables are not reset when starting a new pattern, the pattern
+data sensibly tends to assume that they are initially undefined, with some
+exceptions (e.g. if a channel plays at the same speed throughout the song,
+that speed may be set only in the first pattern, or never at all if it is 6).
+
+Every <Speed> frames, multiplied by <Delay>, bytes are read from the pattern
+data in a loop until a byte of 0x81, 0x87 or between 0 and 0x7f is
+encountered.  Pay particular attention to the behaviour of the 0x80 byte -
+it doesn't terminate the loop, it only alters the address read from!
+
+If the byte read is between 0 and 0x7f, it is assumed to be a note.  The
+period table used is exactly the same as ProTracker's, and shares its three-
+octave range, but the actual periods are not written to the file.  The
+following table translates between the byte in the file, the value in the
+period table, and the name of the note:
+
+Byte    0   2   4   6   8   10  12  14  16  18  20  22
+Period  453 480 508 538 570 604 640 678 720 762 808 856
+Note    B-1 A#1 A-1 G#1 G-1 F#1 F-1 E-1 D#1 D-1 C#1 C-1
+--------------------------------------------------------
+Byte    24  26  28  30  32  34  36  38  40  42  44  46
+Period  226 240 254 269 285 302 320 339 360 381 404 428
+Note    B-2 A#2 A-2 G#2 G-2 F#2 F-2 E-2 D#2 D-2 C#2 C-2
+--------------------------------------------------------
+Byte    48  50  52  54  56  58  60  62  64  66  68  70
+Period  113 120 127 135 143 151 160 170 180 190 202 214
+Note    B-3 A#3 A-3 G#3 G-3 F#3 F-3 E-3 D#3 D-3 C#3 C-3
+
+The notes within the octaves are ordered backwards, but the octaves
+themselves aren't.  Nice, huh?
+
+If the byte read has its top bit set, then it is instead assumed to be a
+command.  There are eight of these in total, and some are followed by
+parameters.  Two of them cause the event to end without a note having been
+read, but the others are followed either with another command or a note.
+There is no limit to the number of commands which are read before the event
+ends.  (This enables you to, say, set the speed and start a pitch slide at
+the same time, something which is impossible in one-effect-per-event formats
+like ProTracker.)
+
+Byte  Description
+0x80  End of this pattern (but not the end of the event).  Increment the
+      sequence pointer, load the next pattern and continue execution from
+      there.
+0x81  End of the event.  Additionally, fade the currently playing note to
+      silent using the duration given by the last byte in the current
+      sample's volume slide block.
+0x82  Followed by a byte which is the new Speed.
+0x83  Followed by a byte which is the new Delay.  (This command occurs at the
+      beginning of almost every pattern.)
+0x84  Followed by a byte which is the new Sample.  Has no effect (literally
+      no effect, including the following side-effects) if 0 or equal to the
+      current Sample.  The Volume value is, at this point, set to the new
+      sample's initial volume scalar.  Any current tremolo or vibrato is
+      terminated and if the new Sample has one, that is started.
+0x85  Followed by two bytes, the first of which is the new Volume.  The
+      second byte is ignored.  (Hey, I didn't write the thing...)
+0x86  Followed by five bytes.  The first one is the duration of the pitch
+      slide, and the next four are a 16.16 signed fixed-point value which is
+      added to the pitch every frame for a duration determined by the first
+      byte.  Explained in more detail later.
+0x87  End of the event.  Nothing else happens.
+
+If the event ended with a note, and not with commands 0x81 or 0x87, then:
+
+The currently playing note (if any) is cancelled and a new note is started,
+played on the current Sample.
+
+The initial period is set to the value looked up with the note byte via the
+table above.
+
+Any current pitch slide is cancelled and replaced either with a new one (if
+command 0x86 occurred in this event) or nothing.  (Pitch slides, unlike some
+other aspects of patterns like sample numbers, are *not* persistent across
+multiple notes.)
+
+The sample's volume slide is started.
+
+The sample's tremolo and vibrato (if any) are *not* restarted.  They only
+restart when command 0x84 changes the sample number, not when a new note
+starts!  This is very easy to get caught out by, and yes, this behaviour is
+relied upon by several tunes.
+
+Then that's it for the next number of frames equal to the Speed multiplied
+by the Delay.
+
+Playback details
+================
+
+This section describes the functions carried out by the player every frame
+(0.02 seconds), including changes to the volume and pitch of a note over
+time.
+
+A working knowledge of Commodore's Paula chip, as used in the Amiga machines,
+is recommended.  Consult the Amiga Hardware Reference Manual or any one of a
+number of tutorials (such as my own, in the appendix to the description of
+the Jason Page format).
+
+Sample data
+-----------
+
+When the patterns trigger a new note, the currently configured sample (see
+pattern data) begins playing at the specified pitch.
+
+The sample data is always played in the same way (there is no 'set sample
+offset' command), using the values in the sample list entry - the main
+offset into the sample file (+0), the initial offset (+16), the initial
+length (+18), the loop offset (+20) and the loop length (+22).  Both the
+initial and loop offsets are relative to the main offset (the initial offset
+is usually, but not always, 0).
+
+The data from the initial offset (plus the main offset), of the initial
+length, is played once.  After that the data from the loop offset (plus the
+main offset), of the loop length, is played infinitely.  If the loop length
+is 1 then this means, in practice, that there is no loop and sound stops
+after the initial data.
+
+Such things as blank samples, which do nothing but silence the channel, also
+exist, and can be spotted by the initial length of 1.
+
+Unlike with ProTracker, there is no rule that the data after the loop's end
+is never played, although in practice this freedom isn't exercised very
+often.  There *is* such a rule with the vibrato and tremolo data, though -
+more on that later.
+
+Volume management
+-----------------
+
+Three different mechanisms affect the volume of a given channel at a given
+time - the volume slide blocks, the tremolo, and the volume scalar.  They
+are applied in that order.  The volume is recalculated from scratch every
+frame.
+
+Every sample has an offset into the volume slide section associated with it,
+which determines the volume profile of the note.  This is mandatory for
+every sample, but the volume slide data at offset 0 is conventionally fixed
+at the maximum volume, effectively doing nothing.
+
+A volume slide block is six bytes long, and contains three different volume
+values, and three different slide durations between them.  The format is
+described earlier in this file.
+
+The execution of a volume slide is somewhat difficult to follow, and is best
+explained in pseudocode.  Note the role of pattern command 0x81, which
+terminates the current slide and fades the volume from its current value to
+silent using the duration given in the final byte of the block.  The
+VolumeBackup variable holds the most recently calculated result returned by
+the volume slide algorithm, ignoring the subsequent effects of tremolos and
+scalars.
+
+At the start of playback:
+VolumeBackup = 0
+VolumeAddr = 0
+Mode = Finished
+
+When a note is read from the pattern data:
+VolumeAddr = address of volume slide section + value at (address of current
+entry in sample list + 12)
+SourceVolume = byte at (VolumeAddr + 0) [initial volume]
+TargetVolume = byte at (VolumeAddr + 1) [intermediate volume]
+Duration = Counter = byte at (VolumeAddr + 2)
+Mode = First
+
+When command 0x81 is read from the pattern data:
+if VolumeAddr != 0 {
+  SourceVolume = VolumeBackup
+  TargetVolume = 0
+  Duration = Counter = byte at (VolumeAddr + 5)
+  Mode = Fade
+}
+
+On every frame, after patterns have been read:
+if Mode != Finished {
+  VolumeBackup = TargetVolume-(TargetVolume-SourceVolume)*Counter/Duration
+  Counter -= 1
+  if Counter < 0 {
+    if Mode = First {
+      SourceVolume = VolumeBackup
+      TargetVolume = byte at (VolumeAddr + 3) [final volume]
+      Duration = Counter = byte at (VolumeAddr + 4)
+      Mode = Second
+    } else {
+      Mode = Finished
+    }
+  }
+}
+Volume = VolumeBackup
+
+Observe that when Counter = Duration (i.e. a new slide just started), the
+formula cancels to VolumeBackup = SourceVolume, and when Counter = 0,
+VolumeBackup = TargetVolume.  Also observe that the durations given in the
+volume block are exclusive - a duration of 1 will actually last for two
+frames, one at the source volume, and one at the target.  A duration of 0 is
+invalid!
+
+A side-effect of the duration being exclusive is that, during the transition
+between the slide to the intermediate volume and the slide to the final
+volume, the volume will be exactly the same for two consecutive frames -
+once as the TargetVolume, and once as the SourceVolume.
+
+After the volume slide has been applied and the volume set accordingly, the
+volume may then be altered further by the optional tremolo data.
+
+The waveform is held in the sample file, and addressed by the sample list
+fields at +8 (start of the waveform), +28 (offset to the loop start) and +30
+(length of the waveform).  One byte is read per frame.  After the pointer
+reaches the last byte, it is reset to the loop start (which must be less
+than the length).  Looping is compulsory, but if the loop start offset is
+greater than 0, then the bytes before it will only be played once.
+Therefore, unlike the sample data, the loop length must be equal to the
+initial length minus the loop offset.  If the start address is 0, then there
+is no tremolo.
+
+Each byte is a signed fraction of 128.  It alters the volume as follows:
+
+Volume += Volume * Byte / 128
+
+Consequently, the range of a tremolo is 0 (Byte=0x80=-128) to almost double
+the current volume (Byte=0x7f=127).  A 0 byte is a no-op.
+
+After the volume slide has done its thing, potentially augmented by the
+tremolo, there is one last transformation - the main volume scalar.  This is
+set in the patterns by commands 0x84 (which loads the scalar from offset 14
+in the sample list) and 0x85 (which specifies a custom value).  This is the
+model of simplicity - multiply the volume by the scalar, and divide by 64.
+
+If, at this stage, the volume is greater than 64 or less than 0, it is
+clipped to those values.  This value is then written to hardware.
+
+Pitch management
+----------------
+
+Like volume, the pitch is calculated from scratch every time.  Unlike volume,
+however, it always starts from a fixed value - the period looked up from the
+last note read in the pattern data.  This is the InitialPitch, and is always
+one of the values in the table given earlier.
+
+There is no equivalent of the volume slides (which are associated with a
+sample) for pitch - instead, pitch slides are defined in the pattern data
+itself, with command 0x86.
+
+Both the vibrato and the pitch slide are optional.  Here, the vibrato is
+processed first, if present.  If not present, the pitch is simply set to
+InitialPitch.
+
+The vibrato waveform works in exactly the same way as the tremolo waveform,
+except the relevant sample list fields are at +4 (start address), +24 (loop
+offset) and +26 (length).  As the earlier positioning implies, vibratos are
+much more common than tremolos.
+
+Bytes in the waveform are, again, signed.  However, this time they are
+treated differently according to whether they are positive or negative:
+
+if Byte < 0 {
+  Pitch = InitialPitch * (1 - Byte/128)
+} else {
+  Pitch = InitialPitch * (1 - Byte/256)
+}
+
+The range is from one octave lower (Byte=0x80=-128) than the current note to
+almost one octave higher (Byte=0x7f=127).  (Don't forget that the pitch gets
+higher as the period value decreases.)  A value of 0 once again does nothing.
+The different formulae are necessary because pitch is logarithmic, not
+linear like volume, and so allowing a vibrato to set the pitch to 0 would be
+nonsensical.
+
+Don't forget that both tremolos and vibratos play continuously from the
+moment a sample with one specified is played for the first time.  In
+particular, the pointers are *not* reset if a second note plays on the same
+sample!  The only way to stop one is to change samples.
+
+After the vibrato, the pitch slide is considered.  Matters are complicated
+by the fact that the player doesn't allow itself to remember what the pitch
+was last frame, which rules out simply adding the same value in every frame.
+
+It gets around this by keeping a separate variable to which the value of the
+pitch slide is added every frame, and then the contents of that steadily-
+increasing (or decreasing) variable are added to the pitch.  An advantage of
+this method is that it allows fractional pitch slides - the four-byte value
+read from the pattern data is actually a signed 16.16 fixed-point fraction.
+
+Unlike the volume slides, the pitch slide duration (a single byte also
+specified after command 0x86) is inclusive.  A duration of 1 means to slide
+on this frame and no other, and a duration of 0 will do nothing.
+
+By the standards of this format, pitch slides are unusually transient.  They
+must be specified for every note on which they take place, and if there was
+no 0x86 command in the new event, then the duration and fraction are both
+set to 0.
+
+The total of the pitch slides so far is added on every frame, but is reset
+to 0 whenever a new note is triggered.  Something to watch out for is that
+it is also reset to 0 when another pitch slide is requested on the same note.
+This means the pitch will instantly snap back to its original value before
+being increased by the new amount!  It is not possible to slide smoothly
+from one note to another, and then from that note to a third - you must have
+one note event per pitch slide.
+
+Then the final calculated pitch value is written to hardware.  As both
+vibratos and pitch slides are relatively rare, this is probably simply the
+period originally looked up when the last note was read.
+
+And that's it
+=============
+
+I strongly advise you to read this document with some RJP files to hand, and
+if you wish, the player code itself.  One exercise which I find very helpful
+is to write a program to produce a human-readable text document out of a
+file in the format I am studying.  This both aids understanding of how the
+format works and gives an idea of what to expect all the features described
+in the abstract above to be used for in the real world.
+
+Quick reference card
+====================
+
+Order of file:  Sample list:         Pattern commands:
+Sample list     0  Data address      0x80: End of pattern
+Volume slides   4  Vibrato address   0x81: End of event & start fade out
+Subsong list    8  Tremolo address   0x82 aa: Speed=aa
+Sequence list   12 Volume address    0x83 aa: Delay=aa
+Pattern list    14 Volume scalar     0x84 aa: Sample=aa, Volume set
+Sequence data   16 Initial offset/2  0x85 aa bb: Volume=aa
+Pattern data    18 Initial length/2  0x86 aa bbbbbbbb: Pitch slide
+Volume slides:  20 Loop offset/2       duration=aa, depth=bbbb.bbbb
+0 Volume 1      22 Loop length/2     0x87: End of event
+1 Volume 2      24 V. loop offset/2  Sequence terminators:
+2 Duration 1-2  26 Vibrato length/2  0 0: Stop
+3 Volume 3      28 T. loop offset/2  0 +aa: Rewind (aa-1) positions
+4 Duration 2-3  30 Tremolo length/2  0 -aa bb: Look up bb in sequence list
+5 Dur.fade out  Notes: 0,2..22=B-1,A#1..C-1, 24=B-2, 48=B-3, 70=C-3

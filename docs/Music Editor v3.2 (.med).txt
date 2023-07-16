@@ -1,0 +1,530 @@
+***************************************************************************
+**                                                                       **
+**          MED - music editor, © 1989 - 1991 Teijo Kinnunen             **
+**                                                                       **
+**          Instructions for MED V3.2                                    **
+**                                                                       **
+***************************************************************************
+
+
+Instruments
+===========
+There can be up to 63 instruments in one song. There are currently four types
+of instruments: samples, synthsounds, hybrid sounds and MIDI instruments.
+
+Samples: These are the instruments which are played through four Amiga
+         audio channels. They can be played only within tracks 0 - 3.
+         MED can load raw samples and IFF 8SVX 1, 3 and 5-octave samples.
+         It means that you can load practically any sample to MED and
+         use it in your songs. Note that raw samples and 1-octave 8SVX
+         samples can use only octaves 1 - 3. Octaves 4 and 5 play from
+         octave 3.
+
+Synthsounds:
+         These are a special instruments, that allow you to construct
+         a sound from simple pieces of waveforms, and controlling things
+         like waveform #, volume, pitch, arpeggio and vibrato using a
+         simple "programming language". Synthsounds sound usually quite
+         simple (C-64 style), but they don't take much memory, either.
+
+Hybrid sounds:
+         This is a normal sample, but it can be controlled using the
+         same "programming language" as synthsounds.
+
+MIDI instruments:
+         These are not actually instruments. They are just few settings
+         which cause the notes played with that instrument to be sent
+         through MIDI-interface. They don't take memory like the samples.
+         When you want some instrument to be a MIDI-instrument, you must
+         set the MIDI channel which is used when playing notes/effects.
+         You can also set the preset value for the instrument. Then
+         the instrument is automatically played using that preset number
+         of your MIDI-device (synthesizer, keyboard...). You can also
+         set the preset number to 0. Then the preset which is already
+         set in that channel is used.
+
++=========================================================+
+|           MIDI
++=========================================================+
+MED  can output notes and some commands to external MIDI-devices (keyboards,
+synthesizers...).   The  MIDI-panel  contains the MIDI-stuff which is needed
+for that.
+
+When you decide that some instrument should be a MIDI-instrument, you select
+the  MIDI  channel  for  it.   "MIDI  ch"-gadgets are used for that.  If you
+select e.g.  MIDI channel 2, the notes of the current instrument are sent in
+MIDI  channel  2  (simple,  isn't  it?).  Remember to set the default volume
+(Sample panel).
+
+Also,  you  need to activate MIDI (click "MIDI active").  If the serial port
+is  used by some other program, you can't use MIDI.  Then you must terminate
+the other program and try again.
+
+After  you have activated MIDI, MED starts sending "active sensing" messages
+($FE).  Active sensing can be turned off with the "Act.sensing"-gadget.
+
+By  default  MED uses the default preset of that channel (which you have set
+on your MIDI device).  If you want to use other presets, you can select them
+using  the "MIDI pres #"-gadgets, in that case the program change message is
+transmitted  when  a note is played.  Preset number 0 means that the default
+preset  is  used  (the preset is never changed for this instrument).  If you
+want to send a preset change command, but don't want to play a note yet, use
+the  command  C00  with any note.  In that case, the preset will be changed,
+but no note will be transmitted.
+
+You  can have instruments with differents preset numbers, but which will use
+the  same  MIDI  channel.   In  that  case,  MED will automatically send the
+program  change message whenever the instrument with different preset number
+is used.
+
+You can use MIDI-instruments on all 16 tracks (if there are 16 tracks on the
+current block).  You can also freely mix samples and MIDI-instruments on the
+same track (tracks 0 - 3 only).
+
+One  helpful  keyboard  command  is  Ctrl-Space.  This command resets pitch-
+benders  and  modulation  wheels on all channels.  Also, if you have changed
+presets  on  your  MIDI-device,  MED  can't  detect this and thinks that the
+preset  is  not  changed.   Ctrl-Space  causes  MED to resend program change
+commands for all channels, when playing.  There's a gadget:  "Reset pb+pres"
+that does the same thing.
+
+The "MIDI reset"-gadget sends a MIDI reset command ($FF).
+
+If  you  turn "Send sync" on, MED will send MIDI sync information, and allow
+other  devices  to  synchronize with MED.  When "Ext sync" is on, MED can be
+synced  externally.  You must also have input active when this is turned on.
+The  synchronization  works  only  when you play song, when you're playing a
+single block, the syncing is disabled.
+
+L.Ctrl  on/off  gadgets  allow  you  to  easily  send  Local  control on/off
+messages.
+
+Suppr.N.Off  suppresses  Note  Off messages of the current instrument.  Some
+devices  may  have  some  instruments  (e.g.   one-shot  drum  sounds) which
+actually  ignore  the Note Off messages.  When Suppr.N.Off is selected, Note
+Offs are not sent for the current instrument.  This reduces some unnecessary
+MIDI output (slightly faster).
+
+There  are  commands  which  control  the pitchbender, modulation wheel etc.
+Detailed documetation later (again??).
+
+------- Entering notes with MIDI
+You  can  use  your  keyboard, synthesizer or whatever, to insert notes (you
+don't need to use your Amiga's keyboard to entering).  You must activate the
+"Input"-gadget.   If  editing  is  on and your MIDI-device is sending notes,
+they  will be entered.  You can also enter Amiga-samples with MIDI.  Next to
+the  Input-gadget, there's a integer gadget, that contains the number of the
+input  MIDI  channel.   If  it's 0, then MED will accept input from all MIDI
+channels.
+
+"Read volume" gadget may be sometimes quite useful.  If you have a velocity-
+sensitive  keyboard, the volume will be entered in the command-part when you
+enter  notes  and  this gadget is selected.  "Read key-up" is not as useful.
+When  it's  active,  MED records key-up events.  It can be used in real-time
+recording (and mostly for long notes).
+
+You  may  have noticed that you can't directly use all the octaves which are
+available  on  the MIDI device.  "Instrument transpose" helps this.  You can
+have two instruments with identical settings except for different instrument
+transpose.  With instrument transpose you can reach nearly the full range of
+notes.
+
+NOTE: When you have a MIDI-instrument, its name doesn't really have any use.
+      However it's good practice to type in the names of the presets. This
+      way you can easily see the presets, and, if you give the song to
+      somebody else who may have different MIDI-equipment, he/she can
+      easily change the preset numbers to use the correct presets on his/her
+      MIDI-device.
+
++-------------------------------------------------------------------+
+|+-----------------------------------------------------------------+|
+||             MED V3.2 player commands/effects                    ||
+|+-----------------------------------------------------------------+|
++-------------------------------------------------------------------+
+
+This  section  gives  information  about  commands/effects.  They are events
+which affect the playing and they are handled by the MED player routine.
+
+         C - 2  1 2 3 4
+                  | \ |
+     command number  \|
+                      data byte
+
+You insert the commands usually by hand (turn editing on, move cursor on the
+command  numbers  and type the numbers).  It may be a bit easier if you turn
+off automatic-advance with Ctrl-A.
+
+Here are the descriptions of each of the currently recognized commands:
+
+
++---------------------------------------------------+
+| Command 0:  ARPEGGIO       MIDI: controller value |
++---------------------------------------------------+
+
+This command changes the pitch of the note quickly (6 times during 1 note).
+It can be used to create "chords" or special effects. If you've listened
+to music made with the C-64, you MUST have heard arpeggios. The pitch is
+changed between 3 different pitches during one note:
+         the 1st pitch is the pitch of the original note
+         the 2nd pitch is the pitch of the original note + the 1st number
+                of databyte halfsteps up
+         the 3rd pitch is the pitch of the original note + the 2nd number
+                of databyte halfsteps up
+
+Note: 3rd pitch | 2nd pitch | 1st pitch | 3rd pitch | 2nd pitch | 1st pitch
+      changed 6 times during note
+
+It may be a bit difficult to understand, so here's an example:
+You want to make an arpeggio which sounds like C-major chord.
+
+The lowest pitch is C (C-2 in this example).
+The second is E-2 (4 halfsteps higher than C-2).
+The third is G-2 (7 halfsteps higher than C-2).
+
+4 halfsteps from C-2 -+ 7 halfsteps from C-2
+                      |/
+That produces:  C-2 1047
+                --- 0047
+                --- 0047 and so on...
+
+Data byte for a minor chord would be 37.
+
+The arpeggios sound better with some instruments than others.
+
+MIDI: See command 5 for a description.
+
++---------------------------------------------------+
+| Command 1:  SLIDE UP       MIDI: pitchbender up   |
++---------------------------------------------------+
+
+This command slides up the pitch of the current track.
+
+With Amiga samples:
+         Decreases the period of the note the amount of databyte on each
+         timing pulse. Sounds rather technical?? Yes... The instructions for
+         previous (before 2.10) versions of MED contained detailed
+         instructions for making good-sounding slides with this command.
+         Because this version now contains the easy automatic slide making
+         (Amiga-T), I felt that these instructions are not necessary any more.
+         If you use this function for special effects (not real slides) then
+         you can experiment with the values for the databyte.
+         Example:
+                A-1 1000
+                --- 0000
+                --- 010F <- slide up a bit
+
+With MIDI:
+         This commands works very differently with MIDI. It actually
+         "turns" the pitchbender 8 * databyte steps up on each timing pulse.
+         Because the actual range of the pitchbender may be different with
+         different MIDI-devices, you must find the right value by
+         experimenting. There's also one thing you should know: when a new
+         note is played, the pitchbender is not resetted automatically. To
+         reset the pitchbender, you use this command with databyte zero.
+         Example:
+                G-2 L1FF <-turn it up very quick
+                --- 0000
+                --- 0100 <- then reset the pitchbender
+
+
++---------------------------------------------------+
+| Command 2:  SLIDE DOWN     MIDI: pitchbender down |
++---------------------------------------------------+
+
+Not much about this command. It's just like command 1 except it slides
+down.
+
+
++---------------------------------------------------+
+| Command 3:  PORTAMENTO     MIDI: set pitchbender  |
++---------------------------------------------------+
+
+This is another slide command (on some old MED versions (2.00) this
+was a vibrato command, see command 5 now). It can be used to
+make perfect slides more easily. First an example:
+
+         C-2 5000 <- played note C
+         --- 0000
+         E-2 5305 <- this note is not played!! Instead, slide target is set
+         --- 0300    to G-2 and slide speed is 5
+         --- 0300 <- when speed is zero, use the previous speed
+         --- 0306 <- the speed can be changed, of course
+
+This example would slide from C-2 to E-2, but the slide stops EXACTLY
+when E-2 is reached. The remaining 3's have no effect. This command
+is easier to handle with automatic slide making (see Edit/S1 above).
+
+MIDI: By using this command, you can set the pitchbender to an absolute
+value, instead of sliding as commands 1 and 2 do. The data byte is the
+pitchbender value, expressed as a signed hexadecimal digit (a nightmare
+to non-programmers!).
+        00 = center position
+        80 (-7F) = smallest value
+        7F = largest value
+
+Example:
+        C-2 3000
+        --- 037F <- pitchbender to max. value
+        --- 0300 <- reset
+
+
++---------------------------------------------------+
+| Command 4:  VIBRATO        MIDI: modulation wheel |
++---------------------------------------------------+
+
+The first number of the data byte is vibrato speed, the second is
+vibrato depth. If the numbers are zeros, the previous speed and depth
+is used.
+
+Example: F-215000
+         --- 0000
+         --- 0433 <- slow, not much depth
+         --- 0437 <- more depth
+         --- 043F <- full depth
+         --- 0482 <- fast, not very deep
+
+MIDI: This command affects the modulation wheel of the current channel.
+      The data byte can be 00 - 7F. 00 = no modulation, 7F = maximum.
+      Values 80 - FF are reserved for future expansion (and won't work).
+
+
++---------------------------------------------------+
+| Command 5:  OLD VIBRATO    MIDI: controller number|
++---------------------------------------------------+
+
+This is the old vibrato command (previously it was 3). The command 3 is
+automatically converted to 5 when loading old MED songs. The pitch of
+the note is changed between two values, databyte is the depth.
+
+Example: A#1 J502
+         --- 0507 increasing depth
+         --- 0517 v
+         --- 0527
+         --- 0537
+
+MIDI: Command 5 in conjunction with command 0 allows you to change any
+controller of MIDI (command $Bx cc vv, where cc = controller number,
+vv = value).
+
+First you set the number of controller you want to change with command
+5. Then you can select the value with command 0. Subsequent uses of
+command 0 will affect the controller previously set with command 5.
+Each channel has its own controller number. If the controller value is
+$00, you can't use '00', because the command '000' means 'do nothing'.
+Instead, you type '80'. Acceptable controller numbers and values are
+$00 - $7F.
+
+For example: (assuming instrument 3 is set to MIDI channel 1)
+        C-2 3000
+        --- 0507 <- controller $07, volume, according to MIDI standard
+        D-2 307F <- set max. volume ($7F), command $B0 $07 $7F is sent
+        --- 0000
+        F-3 3001 <- small volume ($01)
+        --- 055C <- select controller $5C (tremolo depth)
+        G-4 3080 <- set to 0 (note: $80 = $00)
+
++---------------------------------------------------+
+| Command 8:  SET HOLD/DECAY MIDI: set hold only    |
++---------------------------------------------------+
+
+This command must be located on the same line with a note. The command
+assigns the hold and decay values for the note (see above for description
+about hold/decay).
+
+                hold value
+decay----------+|
+               ||
+Example: C-3 3824
+         -|- 3000
+         -|- 3000
+         --- 0000
+
++---------------------------------------------------+
+| Command 9:  SEC. TEMPO     MIDI: no action        |
++---------------------------------------------------+
+
+This command sets the secondary tempo (the number of timing pulses/note).
+The argument must be 01 - 20.
+
+Example: --- 0903 <= double tempo
+         --- 0000
+
++---------------------------------------------------+
+| Command A:  VOLUME SLIDE   MIDI: polyph aftertouch|
++---------------------------------------------------+
+
+This is the same as command D (for Noise/Protracker compatibility).
+However, please use D instead of this. If I some day find that there
+are no free commands, I'll use this!!
+
+MIDI: Command A changes the polyphonic aftertouch of the most recent note.
+The value should be $00 - $7F.
+Example:
+        C-3 4000
+        --- 0A30 <- aftertouch $30
+        --- 0000
+        --- 0A00 <- aftertouch $00
+
++---------------------------------------------------+
+| Command B:  POSITION JUMP  MIDI: position jump    |
++---------------------------------------------------+
+
+This command lets you make songs that have beginning which is played
+only once and then some part which is looped forever. Position jump
+causes the jump to playsequence number pointed by the data byte. If the
+data byte is 0, then the playseq jumps to the first entry.
+
+Example:	--- 0B02 <- start playing from playsequence number 3
+
++---------------------------------------------------+
+| Command C:  SET VOLUME     MIDI: set volume       |
++---------------------------------------------------+
+
+You can override the default volume of the instrument with this command.
+Example:
+         A-3 4C20 <- played with volume 20
+
+There are 65 volume levels (0 - 64), 0 = no sound, 64 = maximum. The
+data byte of command C can be 00 - 64 or 00 - 40 (decimal or hex).
+Non-programmers will probably want to use the decimal numbers. See
+(Play/[Dec/Hex]). If you want the playroutine to have maximum performance,
+then use hex values.
+
+It is also possible to change the volume of already played note. Note
+that it doesn't work with MIDI-instruments.
+
+Example:
+         A-3 4000
+         --- 0000
+         --- 0C10 <- volume to 10
+
+It's possible to change the default volume of an instrument (MED V2 and
+later). The value must be between 80 and C0 (always hex!). Value $80 = volume
+0, and $C0 = 64. Note: This can cause trouble in multi-modules, because the
+set of instruments (and their default volumes) are common. I recommend that
+you change the default volume only on non-multi-modules.
+
++---------------------------------------------------+
+| Command D:  VOLUME SLIDE   MIDI: channel pressure |
++---------------------------------------------------+
+
+You can increase/decrease volume smoothly with this command. The data
+byte is divided in two parts:
+
+         C-3 3D01
+               ||
+               |+- Amount of decresdendo
+               +-- Amount of crescendo
+
+If crescendo is zero, then the decrescendo is performed. Otherwise only
+crescendo is performed.
+
+Example:
+         C-2 3C40
+         --- 0D01 <- a bit more quiet
+         --- 0D01 <- even more
+         --- 0D20 <- and crescendo back to original
+
+One unit in these commands means six actual volume units, so this example
+would look like this, when using the C-command (except that it doesn't
+sound so smooth):
+         C-2 3C40 (volumes are decimal in this example)
+         --- 0C34 <- -6
+         --- 0C28 <- -6
+         --- 0C40 <- +12
+
+MIDI: This command sends a channel pressure (channel aftertouch) message
+using the channel in which the most recent note was sent. The databyte
+should be $00 - $7F.
+         D#5 J000
+         --- 0D40 <- channel aftertouch $40
+         --- 0D00 <- to $00
+
++---------------------------------------------------+
+| Command E:  SYNTH/JMP      MIDI: pan control      |
++---------------------------------------------------+
+
+When used with synth/hybrid instruments, this command triggers a jump
+in the waveform command sequence. The databyte is the jump destination
+(line number).
+
+Example: C-4 4000 <- this should be synth/hybrid instrument
+         --- 0000
+         --- 0E05 <- cause a jump to line # 5
+
+With MIDI-instruments, this command controls the stereo location of the
+sound. The data byte can be 00 - 7F.
+
+        left           mid            right
+         |              |               |
+        00             3F               7F
+
+If you've used MED V2.00/V2.01 or Noise/SoundTracker, you may remember
+that this command controlled the low-pass filter. I think that it was
+unnecessary to spend the command E only for controlling only a single
+switch. See command F.
+
++---------------------------------------------------+
+| Command F:  TEMPO/MISC.    MIDI: tempo/misc.      |
++---------------------------------------------------+
+
+Command F has many different actions depending on the data byte.
+
+If the data byte is zero (00), this command causes the immediate jumping
+to the next block on the playing sequence (or to the beginning of this
+block if you're only playing the block). This function is better to
+implement by making the block shorter (takes less memory).
+
+Example:
+         C-2 4F00 <- this is the last note of this block
+
+When the data byte if 01 - F0, the command changes the tempo. This is the
+primary tempo (length of the pause between timing pulses).
+
+If the new tempo is 01 - 0A, it is compatible with Trackers, but now you
+should use the command 9 instead of this command, as it's directly
+Tracker-compatible (set the primary tempo to 33).
+
+Example:
+         E-3 6FF0 <- highest tempo
+         --- 0000
+         --- 0F0B <- slowest
+
+Data bytes FF1 - FFF are reserved for special actions, some of them
+are currently used:
+
+FF1 causes the same note played actually twice. This way it's possible
+to create fast rhythms.
+
+         C-3 2FF1 is same as C-3 2000
+                             C-3 2000 with double tempo
+
+FF2 plays the note only once, but it is not started immediately:
+
+         C-3 2FF2 is same as --- 0000
+                             C-3 2000 with double tempo
+
+FF3 works like FF1 except the note is played three times (very fast).
+
+FF8 turns off the low-pass filter (power-LED will dim).
+
+FF9 turns the low-pass filter on (bright LED).
+
+FFA sends MIDI "hold pedal on"-command (works only with MIDI-instruments).
+
+FFB sends MIDI "hold pedal off"-command (works only with MIDI-instruments).
+
+FFD works only with Amiga-samples. It causes the pitch of the channel to
+    be set to the pitch of the new note, but the new note is not replayed.
+
+         C-1 2000 <- play note
+         --- 0000
+         C-2 2FFD <- don't replay the note, just set the pitch to C-2
+
+FFE stops playing immediately. If you want to make a song which plays only
+    once, put this command to the end of the song. This command can be
+    easily entered: Click "Stop playing" while holding the Shift-key.
+
+FFF Stops the note on the current track. Works with both Amiga- and MIDI-
+    instruments. Nearly identical to "C00" on Amiga-samples, but because
+    "C00" doesn't work with MIDI, I made this command.

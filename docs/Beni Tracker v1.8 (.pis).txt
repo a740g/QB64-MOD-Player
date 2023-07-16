@@ -1,0 +1,68 @@
+Beni Tracker module format:
+
+The file extension .PIS is used since the previous incarnation
+of Beni Tracker was called "Psychisch Tracker" (unreleased).
+
+Offset   Bytes    Description
+------   -----    -----------
+0        1        Song length
+1        1        N. of patterns
+2        1        N. of instruments
+3        ?        Pattern map (N. of patterns * 1 byte)
+?        ?        Instrument map (N. of instruments * 1 byte)
+?        ?        Order list (Song length * 9 bytes)
+?        ?        Pattern data (N. of patterns * 192 bytes)
+?        ?        Instrument data (N. of instruments * 11 bytes)
+?        4        "B.J." (v1.8 identification mark)
+
+-Pattern and instrument maps
+   PIS, the intelligent format it is, saves only the
+   patterns and instruments that are used. The maps
+   therefor contain for each pattern (instrument) in
+   the file the number that was used for it during editing.
+   Eg. if You have this in Your (otherwise empty) order list:
+      02
+      04
+      00
+   The pattern map, containing the indices of used patterns
+   in ascending order, will look like this:
+      ptnmap[0]=0
+      ptnmap[1]=2
+      ptnmap[2]=4
+   Ergo, the maps contain the order in that the patterns
+   (instruments) are saved in the data blocks below.
+
+-Pattern data format
+   A pattern consists of 64 * 3 bytes where 3 bytes encode
+   one note as:
+
+      nnnn.... ........ ........
+      ....ooo. ........ ........
+      .......i iiii.... ........
+      ........ ....eeee eeeeeeee
+
+   n = note (0..12) as index into frequency table, 12 is blank
+   o = octave
+   i = instrument
+   e = effect
+
+-Instrument format
+   An instrument consists of 11 bytes.
+
+   Offset   Description
+   ------   -----------
+   0        Op.1: Multiple/EG type/Vibrato/Amp.mod.
+   1        Op.2:                 "
+   2        Op.1: Output level
+   3        Op.2:    "     "
+   4        Op.1: Attack/Decay
+   5        Op.2:       "
+   6        Op.1: Sustain/Release
+   7        Op.2:        "
+   8        Op.1: Waveform
+   9        Op.2:     "
+   10       Feedback/Connection type
+
+-"B.J."
+   To let v1.8 distinguish between module formats. Has absolutely
+   no effect when loaded in v1.3.

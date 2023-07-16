@@ -1,0 +1,194 @@
+Extension:	.d00
+Version:	4.00 (Player Version)
+Created by:	Jens-Christian Huus (JCH/Vibrants)
+Tracker:	Edlib Tracker
+Players:	Edlib, ...
+Description by: JCH/Vibrants
+Taken from:	Edlib v1.05a rev 055
+Note:		Adlib (OPL2) music format
+
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ
+³                                                                             ³
+³       PLAYER HEADER VARIABLES                                               ³
+³       ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ                                               ³
+³                                                                             ³
+³       From offset 0000h in the player I have put certain constants and      ³
+³       variables at places that will stay the same in every player that      ³
+³       may be developed for EdLib. These may come in handy if  creating      ³
+³       some sort of ".D00" shell which loads the player.                     ³
+³                                                                             ³
+³                                                                             ³
+³       Offset          Description                                           ³
+³       ÄÄÄÄÄÄ          ÄÄÄÄÄÄÄÄÄÄÄ                                           ³
+³                                                                             ³
+³       0000h-0002h     JMP to all functions which ends with RETF             ³
+³                                                                             ³
+³       0003h-0008h     Detection bytes ('JCH',26h,02h,66h)                   ³
+³                                                                             ³
+³       0009h-000ah     Current card player version (0400h)                   ³
+³                                                                             ³
+³       000bh           Indicates normal OPL2 player (00h)                    ³
+³                                                                             ³
+³       000ch           Number of voices supported (09h)                      ³
+³                                                                             ³
+³       000dh-002ch     32 bytes card name ('AdLib     ')                     ³
+³                                                                             ³
+³       002dh-002eh     Pointer to "Inst" variables                           ³
+³                                                                             ³
+³       002fh           Indicates that "Inst" is WORD-based (01h)             ³
+³                                                                             ³
+³       0030h-0031h     Pointer to "Dur" variables                            ³
+³                                                                             ³
+³       0032h           Indicates that "Dur" is WORD-based (01h)              ³
+³                                                                             ³
+³       0033h-0034h     Pointer to "SeqPoi" variables                         ³
+³                                                                             ³
+³       0035h           Indicates that "SeqPoi" is WORD-based (01h)           ³
+³                                                                             ³
+³       0036h-0037h     Pointer to "TrackPoi" variables                       ³
+³                                                                             ³
+³       0038h           Indicates that "TrackPoi" is WORD-based (01h)         ³
+³                                                                             ³
+³       0039h-003ah     Pointer to "Freq" variables                           ³
+³                                                                             ³
+³       003bh           Indicates that "Freq" is WORD-based (01h)             ³
+³                                                                             ³
+³       003ch-003dh     Pointer to "Spedr" variables                          ³
+³                                                                             ³
+³       003eh           Indicates that "Spedr" is BYTE-based (00h)            ³
+³                                                                             ³
+³       003fh-0040h     Pointer to "Gate" variables                           ³
+³                                                                             ³
+³       0041h           Indicates that "Gate" is BYTE-based (00h)             ³
+³                                                                             ³
+³       0042h-0043h     Pointer to "Nog" variables                            ³
+³                                                                             ³
+³       0044h           Indicates that "Nog" is BYTE-based (00h)              ³
+³                                                                             ³
+³       0045h-0046h     Pointer to "Note" variables                           ³
+³                                                                             ³
+³       0047h           Indicates that "Note" is BYTE-based (00h)             ³
+³                                                                             ³
+³       0048h-0067h     32 bytes reserved for future expansion                ³
+³                                                                             ³
+³       0068h-0070h     ON/OFF flags for all 9 voices (00h=Off)               ³
+³                                                                             ³
+³       0071h-????h     Copyright string, and rest of player                  ³
+³                                                                             ³
+³                                                                             ³
+³       Some notes about the information above may be necessary.              ³
+³                                                                             ³
+³       The JMP at position 0000h makes it  possible to turn  the player      ³
+³       into a BIN-file and just call the player from offset 0000h.           ³
+³                                                                             ³
+³       You may wonder about the detection bytes. The 'JCH' is of course      ³
+³       my initials. 26h,02h,66h is my birthdate; 26th of february 1966.      ³
+³                                                                             ³
+³       Offset 000bh-002ch was made to identify this player from players      ³
+³       written for other soundcards. I soon burried this idea.               ³
+³                                                                             ³
+³       All the variables pointers each points to nine bytes or words in      ³
+³       which you may find valuable information for shell programs. Here      ³
+³       is a deeper explanation of these variables...                         ³
+³                                                                             ³
+³                                                                             ³
+³       "Inst"          9 WORDS         Current instrument played             ³
+³                                                                             ³
+³       "Dur"           9 WORDS         Realtime note duration counters       ³
+³                                                                             ³
+³       "SeqPoi"        9 WORDS         Realtime sequence position            ³
+³                                                                             ³
+³       "TrackPoi"      9 WORDS         Realtime track position               ³
+³                                                                             ³
+³       "Freq"          9 WORDS         Actual raw frequency played           ³
+³                                                                             ³
+³       "Spedr"         9 BYTES         Current speed of the tune             ³
+³                                                                             ³
+³       "Gate"          9 BYTES         Key ON/OFF flags (+++/---)            ³
+³                                                                             ³
+³       "Nog"           9 BYTES         Tienote indicator flags               ³
+³                                                                             ³
+³       "Note"          9 BYTES         Current note including transp.        ³
+³                                                                             ³
+³                                                                             ³
+³       Note that the variables offered in the header of the player will      ³
+³       also be available though the "GlOBALS.INC" file when linking. It      ³
+³       is recommended that you fetch the variables that way if you only      ³
+³       plan on LINKING with the player.                                      ³
+³                                                                             ³
+³       There are more variables in the "GLOBALS.INC" file, but since it      ³
+³       is beyond the scope of this DOC to describe them I will leave it      ³
+³       up to you if you want to figure them all out! ;)                      ³
+³                                                                             ³
+³                                                                             ³
+³       THE ".D00" FORMAT                                                     ³
+³       ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ                                                     ³
+³                                                                             ³
+³       Here comes an extensive description of the ".D00" files. With it      ³
+³       you can make support for ".D00" files in your commandline player      ³
+³       if you're working on such a program.                                  ³
+³                                                                             ³
+³                                                                             ³
+³       Offset          Description                                           ³
+³       ÄÄÄÄÄÄ          ÄÄÄÄÄÄÄÄÄÄÄ                                           ³
+³                                                                             ³
+³       0000h-0005h     Detection bytes ('JCH',26h,02h,66h)                   ³
+³                                                                             ³
+³       0006h           Block type (00h for music data)                       ³
+³                                                                             ³
+³       0007h           Player version required (Usually 04h)                 ³
+³                                                                             ³
+³       0008h           Timer speed for the block (Usually 46h)               ³
+³                                                                             ³
+³       0009h           Number of music and SFX (Usually 01h)                 ³
+³                                                                             ³
+³       000ah           Soundcard (Usually 00h for AdLib)                     ³
+³                                                                             ³
+³       000bh-002ah     32 bytes name of the music                            ³
+³                                                                             ³
+³       002bh-004ah     32 bytes name of composer                             ³
+³                                                                             ³
+³       004bh-006ah     32 bytes reserved for future expansion                ³
+³                                                                             ³
+³       006bh-006ch     Pointer to "Tpoin" tables                             ³
+³                                                                             ³
+³       006dh-006eh     Pointer to "SeqPointer" tables                        ³
+³                                                                             ³
+³       006fh-0070h     Pointer to "Instrument" tables                        ³
+³                                                                             ³
+³       0071h-0072h     Pointer to "DataInfo" text                            ³
+³                                                                             ³
+³       0073h-0074h     Pointer to "Special" tables (SpFX)                    ³
+³                                                                             ³
+³       0075h           Endmark (FFFFh)                                       ³
+³                                                                             ³
+³                                                                             ³
+³       Again, some notes about the information above may be necessary.       ³
+³                                                                             ³
+³       Offset 0006h is always 00h. It was made to tell music data apart      ³
+³       from sample data. EdLib of course always sets this to 00h.            ³
+³                                                                             ³
+³       Some years ago I spread some old ".D00" music files which I made      ³
+³       in old AdLib players (v02.00 and below). Some of  this music may      ³
+³       not sound too good in player v04.00. Check if this byte contains      ³
+³       04h. If it doesn't, you better avoid playing it.                      ³
+³                                                                             ³
+³       When using the AdLib player you should always check offset 0008h      ³
+³       to see how many times a second the player should be called.           ³
+³                                                                             ³
+³       EdLib always sets offset 0009h to 01h. You cannot make more than      ³
+³       one piece of music at a time in the editor.                           ³
+³                                                                             ³
+³       Offset 000ah is always set to 00h in EdLib. If you encounter any      ³
+³       strange ".D00" files containing any other value you better avoid      ³
+³       playing it.                                                           ³
+³                                                                             ³
+³       Even though the ".D00" format allows 32 bytes for both the music      ³
+³       name and the composer name, EdLib only accepts 20 characters.         ³
+³                                                                             ³
+³       The pointers to various tables is really  not of any interest to      ³
+³       you, except "DataInfo" which in old songs occasionally contained      ³
+³       additional text about the song. Tables  such as "Instrument" may      ³
+³       be useful to know in case you want to edit the ".D00" file! ;)        ³
+³                                                                             ³
+ÀÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÙ

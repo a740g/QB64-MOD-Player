@@ -1,0 +1,128 @@
+Extension:	.FNK
+Version:	1.08
+Created by:	Jason Nunn
+Tracker:	FunkTracker
+Players:	-
+Description by: Jason Nunn
+Taken from:	FunkTracker 1.08a
+Note:		Digital music format
+		Packed
+
+
+FunkTracker Format
+ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+Header
+=-=-=-
+
+struc tfunk_hr
+  sig                  dd ?
+  info                 dd ?  ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¿
+  LZH_check_size       dd ?                   ³ NB/ this is only for
+  LZH_check_sum        dd ?                   ³ statistical purposes,
+  loop_order           db ?                   ³ it's not essential
+  order_list           db 256 dup(?)          ³ to have any meanful value
+  break_list           db 128 dup(?)          ³ here..
+ends                                          ³
+                                              ³
+Ä'info' codeÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+0 0 0 0 0 0 0 0   1 1 1 1 1 1 1 1   2 2 2 2 2 2 2 2   3 3 3 3 3 3 3 3
+\-day---/ \month--/ \----year---/   \-card/ \-CPU-/   | 0 0 0 0 0 0 0
+                                                      | \memory reqi/
+                                                      |    (256Kb x)
+                                       16 bit = 1 ----
+
+cpu:  0 = Unknown
+      1 = IBM ????
+      2 = IBM ????
+      3 = Intel386
+      4 = Intel486
+      5 = Pentium
+card:
+      0 = SB 2.0
+      1 = SB PRO
+      2 = GUS v<>
+      3 = SB Compatable
+      4 = SB 16
+      5 = GUS f<>
+      6 = Ripped/converted from another format
+      7 = Pro Audio
+
+'LZH_check_sum' Field:
+
+ This field (pre-release versions 1.04 a below was used as a provisional
+ 4 byte checksum field. Now it is used for FNK charactristics:
+
+ Format: - "Fk**" for fixed channeling or
+           "Fv**" for variable channeling
+
+ The ** is a dec number ranging from 0 to 99. For example, if the song is
+ a 32 channel module, then the preamble is "Fk32". 10 Channels is "Fk10".
+
+Sample Block
+=-=-=-=-=-=-
+
+Then 64 of these things:
+
+struc tfunk_sb
+  sname                db 19 dup(?)
+  start                dd ?
+  length               dd ?
+  volume               db ?
+  balance              db ?
+  pt_and_sop           db ?     ; port type + Sample offs shifter
+  vv_waveform          db ?     ; Vibrito Waveform + Tremolo waveform
+  rl_and_as            db ?     ; Retrig number + arpeggio speed
+ends
+
+Pattern Data
+=-=-=-=-=-=-
+
+Each pattern block is 600h bytes - 8 by 64 slot. Each slot has
+the following format:
+
+ 00000000 11111111 22222222
+ \    /\     /\  / \      /
+  note  sample com  command value
+
+ - if note:  = 3D, then reload sample attrs
+             = 3F, then it's a null slot
+             = 3E, then sample only slot
+
+
+Commands
+=-=-=-=-
+
+ Full Commands                              Command 'O'
+
+ A  :Frequency Port Up                      O00:Vibrato Sine
+ B  :Frequency Port Dn                      O01:Vibrato Triangle
+ C  :Frequency Porta                        O02:Vibrato Square
+ D  :Frequency Vibrato                      O03:Vibrato Sawtooth
+ E  :Freq Vibrato Fanin                     O04:Vibrato Random
+ F  :Freq Vibrato Fanout                    O05:tremola Sine
+ G  :Volume Sld Up                          O06:tremola Triangle
+ H  :Volume Slide Down                      O07:tremola Square
+ I  :Volume Porta                           O08:tremola Sawtooth
+ J  :Volume Reverb                          O09:tremola Random
+ K  :Tremola                                O0A:Halt Note System
+ L  :Arpeggio                               O0B:Halt Volume System
+ M  :Sample Offset                          O0C:Halt All Systems
+ N  :Volume                                 O0D:Invert Funkcrtl
+                                            O0E:Snap to log Porting
+                                            O0F:Snap to Line Porting
+                                            O1 :Volume Cut!
+                                            O2 :Real Frequency Adjust
+                                            O3 :Set Arpeggio Speed
+                                            O4 :Fine Port Up
+                                            O5 :Fine Port Dn
+                                            O6 :Fine Volume Slide Up
+                                            O7 :Fine Volume Slide Dn
+                                            O8 :Volume Crest
+                                            O9 :Volume Trough
+                                            OA :Set Master Volume
+                                            OB :Expand Loop
+                                            OC :Colapse Loop
+                                            OD :Note Retrig
+                                            OE :Set Channel Balance
+                                            OF :Tempo

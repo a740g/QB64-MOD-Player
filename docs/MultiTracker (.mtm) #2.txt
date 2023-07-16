@@ -1,0 +1,242 @@
+ Format compatibility
+
+	The Multitracker format (file extension .MTM meaning MultiTracker
+Module) is fully compatible with the .MOD format.  It uses the standard MOD
+Protracker effect codes, so if you've written MOD's before you should feel
+right at home.  The only major difference between MTM's and MOD's is that
+MTM's are sequenced by the track as well as by the pattern.  This was done
+simply because repeated tracks are very memory wasteful... it still retains
+full format compatibility.
+
+*NOTE* Track sequencing does not affect the way that you write an MTM in any
+       way whatsoever.  The editor will handle all track sequencing for you.
+       The explanation is provided for the information of programmers who wish
+       to support the format only.
+
+
+ Notes
+	The most basic element of any song is the note.  In an MTM, much like
+in normal musical notation, each note can also have an effect (like tremolo,
+vibrato, volume) which goes along with it.  Finally, each note also contains
+a sample (sometimes refered to as an instrument) number.  Notes look like
+this:
+
+	     ³C#3A³000³
+	note__/ ³³  \____effect
+      octave____/³
+      sample_____/
+
+	Effects will later be explained in full detail.  For now, all you
+need to know about notes is that they have a note, octave and sample number
+field.  This should be relatively self-explanatory.
+
+
+ Tracks
+
+	The track is simply a list of 64 notes, each note played after the
+last at the current tempo.  However, there is one important thing about
+tracks, more accurately called voices, that you must remember.  If at one
+beat a note is played on some track and a few beats later a second note is
+played on that same track, then the second note will cut off the first.  Of
+course, either you may want this to happen or the first note could
+end before the second is ready to be played, but nevertheless you must keep
+this fact in mind as you compose.
+
+
+ Patterns
+
+	Patterns are what make a module (a musical composition) into a song,
+rather than just a bunch of notes put together.  They also let you play more
+than one note at once.  Each pattern consists of 32 separate sample tracks.
+All, none, or a few of these tracks may be enabled at any given time.  When
+the pattern is played, all of the enabled tracks are played back
+simultaneously, from start to finish, at the tempo of the module.  You may
+ask why anyone would disable some of the tracks.  Well, for people using
+SoundBlaster(tm) compatible cards, the more tracks that are enabled, the more
+the sound quality drops.  GUS people will still hear the piece at full
+quality.  It is, however, not always so pleasant for the composer.
+
+
+ Orders
+
+	A pattern can be thought of as a page of music, although it is
+usually not that long.  As it turns out, you can combine these 'pages' in
+any order you choose, even repeating a page more than once during your piece.
+This is called ORDER SEQUENCING.  Your module may have a sequence up to
+127 orders long.  Each pattern (refered to by number) in the sequence is
+called an order(as you may have guessed).  There should be ample space for
+nearly any composition.
+
+
+ Effects
+
+	The following is probably the most complex part of a module, since
+it requires you to learn a new numbering system.  However, don't give up!
+Even if you are relatively new to modules, you should not have too tough a
+time trying to understand it:
+
+	To the right of every note is what is called the effect field:
+
+³A#25³000³
+      ^^^ this thing!
+
+      The effect field is normally set at 000.  This means that no effect is
+going to be played at that note position.  Other number combinations specify
+various musical effects.  These number combinations are written in what is
+called hexadecimal.  Hexadecimal is a number system with six extra possible
+'numbers' for each digit.  (Base-16 for math people)  Thus the name
+HEX-a-decimal.  (HEX means six... like hexagon!)  What are these other numbers
+you ask?  A, B, C, D, E, and F.  'A' really means 10, B really means 11, etc.
+Anyway, the first digit in the effect field is the effect number.  This ranges
+from 0 to F.  (effects 0-15)  You can look up which effect is which in the
+reference table at the end of this document.  There is also online effect
+help screen accessible by pressing ALT-SLASH(on the question mark key).  This
+gives a short description of each effect and its arguments.
+	The righthand two digits are the argument(s) for the effect.
+Depending on the effect number, the arguments can be viewed as either one
+two-digit hexadecimal number or as two separate hexadecimal numbers.  When
+it is viewed as a single two-digit argument, you can calculate the value by
+multiplying the lefthand digit by 16 and adding the righthand digit's value.
+For example:  39 hex=3*16+9=57 decimal.   D4 hex=13*16+4=312 decimal.
+
+
+ PROTRACKER EFFECTS
+
+*NOTE*  In cooperation with the new pan position setting effect supported by
+	the group Pentagon in their ZZPLAY GUS tracker, we have included the
+	non-standard protracker extra effect E8 - set pan position.  This is
+	not a true Protracker effect.  However, we hope that it will adopted
+	into the next version of the Protracker format.
+
+0xy     Arpeggiation/No effect
+
+	If xy=00 then this command means that there is no effect.
+	Otherwise, this makes the current note quickly switch between three
+	different pitches- the normal pitch of the note, the normal pitch
+	plus x halfsteps, and the normal pitch plus y halfsteps.
+
+1xx     Portamento Up
+
+	This slides the pitch of the current note upwards for the length of
+	the pattern row at speed xx.  Do not use this command to slide TO a
+	note...  If you need to do that, use command 3.
+
+2xx     Portamento Down
+
+	This slides the pitch of the current note downwards for the length of
+	the pattern row at speed xx.  Do not use this command to slide TO a
+	note...  If you need to do that, use command 3.
+
+3xx     Portamento to Note
+
+	This effect slides the pitch of the currently playing note towards
+	the pitch of the note field associated with this effect.  It slides
+	at speed xx, much like effects 1 and 2.  If xx=00, the pitch will
+	continue to slide at the last slide speed used.  Once either it hits
+	the desired pitch or the current pattern row is over, the sliding will
+	stop.
+
+4xy     Vibrato
+
+	Does a vibrato effect on the currently playing note.  It wavers the
+	pitch of the currently playing note at speed x and depth y.  If
+	xy=00 then the currently playing note will vibrate at the last
+	specified speed and depth.
+
+5x0/50y Continue Portamento-to-Note while executing a Volume-Slide
+
+	Continues the last Portamento-To-Note command (as if there was an
+	effect 300 here) while also sliding the volume.  Either x OR y should
+	be specified- not both.  If y=0 then the volume of the currently
+	playing note will be slid upwards at speed x.  Conversely, if x=0
+	then the volume will be slid downwards at speed y.
+
+6x0/60y Continues Vibrato while executing a Volume-Slide
+
+	Continues the last Vibrato command (as if there was an
+	effect 400 here) while also sliding the volume.  Either x OR y should
+	be specified- not both.  If y=0 then the volume of the currently
+	playing note will be slid upwards at speed x.  Conversely, if x=0
+	then the volume will be slid downwards at speed y.
+
+7xy     Tremolo (volume vibrato)
+
+	Same as effect 4, but it vibrates the volume, rather than the pitch,
+	of the currently playing note.
+
+8??     Currently unused
+
+
+9xx     Set Sample Offset
+
+	Starts the current note playing from xx * 256 bytes into the sample.
+
+Ax0/A0y Volume Slide
+
+	Slides the volume of the currently playing note.  Either x OR y should
+	be specified- not both.  If y=0 then the volume of the currently
+	playing note will be slid upwards at speed x.  Conversely, if x=0
+	then the volume will be slid downwards at speed y.
+
+Bxx     Position Jump
+
+	Jumps to order number xx.
+
+Cxx     Set Volume
+
+	Sets the volume of the currently playing sample to xx.  xx must be
+	from 0 to 40 hex.  Any volume over 40 hex will be truncated to
+	the maximum allowable volume. (40 hex, of course :)
+
+Dxx     Pattern Break
+
+	Jumps to the next order, note number xx.
+
+Exy     Miscellaneous Effects
+
+	The E effect is actually many effects, all with only one argument: y.
+	The miscellaneous effect number is specified by x.  These effects
+	are listed below...
+
+	x       Description
+	Ä       ÄÄÄÄÄÄÄÄÄÄÄ
+	0       Unused
+	1       Fine Portamento Up
+		y=slide speed
+	2       Fine Portamento Down
+		y=slide speed
+	3       UNSUPPORTED
+	4       Unused
+	5       Set Finetune
+		y=finetune value   y<7:positive 7<y<=F:negative
+		I have purposely NOT let you change the finetuning of
+		the various samples in the sample menu due to the evil
+		Amiga nature of this effect.  The editor is still
+		compatible with this, so that it will be able to play
+		older mods.  However, I strongly urge you not to
+		use it.  If you need to finetune a sample, use a sample
+		editor.
+	6       UNSUPPORTED
+	7       Unused
+	8       Set Pan Position   left 0-F right    center=7
+	9       Retrigger Note
+		Restarts note at 'tick' number y.  Ticks are 50ths of a sec.
+	A       Fine Volume Slide Up
+		Adds y to the current note's volume
+	B       Fine Volume Slide Down
+		Subtracts y from the current note's volume
+	C       Cut note
+		Cuts off note at 'tick' number y.  Ticks are 50ths of a sec.
+	D       Note Delay
+		Waits until 'tick' number y to play the current note.  Ticks
+		are 50ths of a second.
+	E       Pattern Delay
+		Delays playback of pattern for y notes.
+	F       Unused
+
+Fxx     Set Tempo
+
+	Sets the playback speed of the current song.  If xx<20 hex then xx
+	specifies the number of 'ticks' per note.  One tick=one 50th of a
+	second.  If xx>19 hex then xx is the number of 'beats' played per
+	minute.  One 'beat' consists of four notes.

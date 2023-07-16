@@ -1,0 +1,82 @@
++----------------------------------------------------------------------------+
+|  Adlib Tracker v1.0  -  Official fileformat specifications  -  01/30/2002  |
++----------------------------------------------------------------------------+
+
+The SNG fileformat:
+
+Statical format, filesize is always fixed and file has no header. (only raw data)
+
+o 0 through 999 rows (1000 rows)
+o each row contains the 'musical information' of all 9 adlib channels (1 through 9)
+o every piece of 'musical information' consists of the following:
+  - a note string (two characters)
+    string  meaning
+    "C#"    277.2 Hz
+    "D."    293.7 Hz
+    "D#"    311.1 Hz
+    "E."    329.6 Hz
+    "F."    349.2 Hz
+    "F#"    370.0 Hz
+    "G."    392.0 Hz
+    "G#"    415.3 Hz
+    "A."    440.0 Hz
+    "A#"    466.2 Hz
+    "B."    493.9 Hz
+    "C."    261.7 Hz
+    "\0\0"  note-off
+  - octave number (1 char)
+
+Note: the volume parameter in Adlib Tracker v1.0 is unused.
+
++----------------------------------------------------------------------------+
+|  Adlib Tracker v1.0  -  Official fileformat specifications  -  01/30/2002  |
++----------------------------------------------------------------------------+
+
+The INS fileformat:
+
+Statical format, filesize is always fixed and file has no header. (only raw data)
+
+o 9 channel presets (1 to 9)
+o 2x channel preset: 1 for carrier, 1 for modulator (all integers):
+  Note: bit count starts at zero.
+  - appampmod:        Apply amplitude modulation when set
+  - appvib:           Apply vibrato when set
+  - maintsuslvl:      When set, the sustain level of the voice is maintained
+                      until released; when clear, the sound begins to decay
+                      immediately after hitting the SUSTAIN phase.
+  - keybscale:        Keyboard scaling rate.  This is another incomprehensible
+                      bit in the Sound Blaster manual.  From experience, if
+                      this bit is set, the sound's envelope is foreshortened as
+                      it rises in pitch.
+  - octave:           Indicates which harmonic the operator will
+                      produce sound (or modulation) in relation to the voice's
+                      specified frequency:
+                      0 - one octave below
+                      1 - at the voice's specified frequency
+                      2 - one octave above
+  - freqrisevollvldn: When set, causes output levels to decrease as the frequency
+                      rises, with 3 dB/8ve.
+  - softness:         controls the total output level of the operator.
+                      all bits CLEAR is loudest; all bits SET is the
+                      softest.  Don't ask me why.
+                          5     4     3     2     1     0
+                       +-----+-----+-----+-----+-----+-----+
+                       |             Total Level           |
+                       | 24    12     6     3    1.5   .75 | <-- dB
+                       +-----+-----+-----+-----+-----+-----+
+  - attack:           Attack rate. 0x0 is the slowest, 0xF is the fastest.
+  - decay:            Decay rate. 0x0 is the slowest, 0xF is the fastest.
+  - release:          Release Rate. 0x0 is the slowest, 0xF is the fastest.
+  - sustain:          0x0 is the loudest, 0xF is the softest.
+  - feedback:         Feedback strength.  If all three bits are set to
+                      zero, no feedback is present.  With values 1-7,
+                      the operator will send a portion of its output back
+                      into itself. 1 is the least amount of feedback,
+                      7 is the most.
+  - waveform:         Waveform select;
+		         ___              ___            ___    ___       _      _
+		        /   \            /   \          /   \  /   \     / |    / |
+		       /_____\_______   /_____\_____   /_____\/_____\   /__|___/__|___
+		              \     /
+		               \___/
+		             0               1               2                 3

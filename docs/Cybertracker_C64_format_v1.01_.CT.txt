@@ -1,0 +1,240 @@
+﻿Cyber-Tracker V1.01 Music/Instrument-fileformat (FIXED VERSION:13/11/2001)
+==========================================================================
+
+By CyberBrain/Noname 30/09/01 (cyberbrain_of_nn@hotmail.com - http://noname.c64.org)
+
+I don't know why anyone would want to know this. Perhaps, if you're cool enough,
+to make some utilities for the cybertracker-files? (Send me a copy!)
+
+NOTE: The only change from the fileformat since V1.00 is that in V1.01-files
+¨¨¨¨  the whole pattern memory isn't saved (only the used ptn-mem).
+
+(by the way, there's absolutely no packing going on anywhere in the files!)
+
+- Be prepared! Are you sure you want to know? :-)
+
+
+¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨
+NOTE: The first released version of this textfile had a bug. The VIBDPT and VIBSPD
+      tables in the "CyberTracker Music-Format"-layout was swapped around. X-(
+      They are now on their right place... :-)
+
+¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨
+******************************
+* CYBERTRACKER MUSIC-FORMAT: *
+******************************
+
+Offset:	Length:	Content:			Description:
+
+					HEADER:
+					~~~~~~
+
+$0000	10	.byte $00,$04,"nntrkmzx"	ID-TEXT (in hex: 00 04 4E 4E 54 52 4B 4D 5A 58)
+$000A	2	.word $0101			VERSION (minor,major (.byte $00,$01 = V1.00))
+
+					DATA:
+					~~~~
+$000C	1	.byte $11			Number of tables following (for future compatibility)
+
+$000D	2	.word $0020			VIBDPT:    (len)
+$000F	$20	[.byte xx] * $20			   Vibrato-depths for all instruments
+$002F	2	.word $0020			VIBSPD:	   (len)
+$0031	$20	[.byte xx] * $20			   Vibrato-speeds for all instruments
+$0051	2	.word $0020			APPREGIO:  (len)
+$0053	$20	[.byte xx] * $20
+$0073	2	.word $0040			ADSR:	   (len)
+$0075	$40	[.byte AD,0R] * $20			   ADSR-values for all instruments(sus allways=0)
+$00B5	2	.word $0200			INSNAM:	   (len)
+$00B7	$200	[.text"0123456789ABCDEF"] * $20		   Instrument-names for all instruments
+$02B7	2	.word $0200			MLTEFF:	   (len)
+$02B9	$200	[.byte xx,xx] * $100			   Multieffect tab
+$04B9	2	.word $0100			SNGLEN:	   (len)
+$04BB	$100	[.byte xx] * $100			   Length of all songs (in track-editor)
+$05BB	2	.word $0100			SNGREP:	   (len)
+$05BD	$100	[.byte xx] * $100			   Repeat of all songs (in track-editor)
+$06BD	2	.word $0100			LOOPSTART: (len)
+$06BF	$100	[.byte xx] * $100			   Loop-start of all envelopes ($FF=noloop)
+$07BF	2	.word $0300			ENVXTABLO: (len)
+$07C1	$300	[.byte xx] * $300			   x-coords (lo-byte) of all points
+$0AC1	2	.word $0300			ENVXTABHI: (len)
+$0AC3	$300	[.byte xx] * $300			   x-coords (hi-byte) of all points
+$0DC3	2	.word $0300			ENVYTABLO: (len)
+$0DC5	$300	[.byte xx] * $300			   y-coords (lo-byte) of all points
+$10C5	2	.word $0300			ENVYTABHI: (len)
+$10C7	$300	[.byte xx] * $300			   y-coords (hi-byte) of all points
+$13C7	2	.word PTNMEM 			PATTERNS:  (len)
+$13C9	PTNMEM  [.byte xx] * PTNMEM			   Pattern-memory
+$????	2	.word $0100			PTNLEN:	   (len)
+...	$100	[.byte xx] * $100			   Length of all patterns
+	2	.word $0100			ENVLEN:    (len)
+	$100	[.byte xx] * $100			   Length of all envelopes
+...	2	.word $0200			TRKMEM:	   (len)
+$????	$200	[.byte xx] * $200			   Track memory (of all songs)
+
+$????	END OF FILE!
+
+
+NOTE: PTNLEN means the number of saved pattern-memory bytes.
+NOTE: the places i've written "(len)" means that the .word contains the length (in bytes) of the following table.
+NOTE: the first two header-bytes ($00,$04) are the start-adress of the PRG-file
+
+¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨
+
+**********************************
+* CYBERTRACKER INSTRUMENT-FORMAT *
+**********************************
+
+Offset:	Length:	Content:			Description:
+
+					HEADER:
+					~~~~~~
+
+$0000	10	.byte $00,$04,"nntrkins"	ID-TEXT (in hex: 00 04 4E 4E 54 52 4B 49 4E 53)
+$000A	2	.word $0101			VERSION (minor,major (.byte $00,$01 = V1.00))
+
+					DATA:
+					~~~~
+$000C	1	.byte $0A			Number of tables following (for future compatibility)
+
+$000D	2	.word $0002			(len)
+$000F	2	[.byte SPD,DPT]			vibrato speed/depth for the instrument
+$0011	2	.word $0001			(len)
+$0013	1	[.byte $XY]			Apreggio-value for the instrument
+$0014	2	.word $0002			(len)
+$0016	2	[.byte AD,0R]			ADSR-value for the instrument (sustain allways=0)
+$0018	2	.word $0010			(len)
+$001A	16	[.text "0123456789ABCDEF"]	Instrument-name
+$002A	2	.word $0008			(len)
+$002C	8	[.byte xx,xx,xx,xx,xx,xx,xx,xx]	Loop-start for each of the 8 envelopes ($ff=no loop)
+$0034	2	.word $0008			(len)
+$0036	8	[.byte xx,xx,xx,xx,xx,xx,xx,xx]	Length of each of the 8 envelopes (number of points)
+$003E	2	.word LEN			(len)
+$0040	LEN	[.byte xl] * LEN		x-coords (lo-byte) of all points in the instrument
+$????	2	.word LEN			(len)
+...	LEN	[.byte xh] * LEN		x-coords (hi-byte) of all points in the instrument
+	2	.word LEN			(len)
+	LEN	[.byte yl] * LEN		y-coords (lo-byte) of all points in the instrument
+...	2	.word LEN			(len)
+$????	LEN	[.byte yh] * LEN		y-coords (hi-byte) of all points in the instrument
+
+$????	END OF FILE!
+
+
+NOTE:	LEN is the length (number of points) of all 8 envelope in the instrument, added together. (len1+len2+...+len8)
+NOTE:   The minimum value of LEN is 4 (because of the vol-envelope points that can't be deleted)
+
+NOTE: 	the places i've written "(len)" means that the .word contains the length of the following table.
+NOTE:	the first two header-bytes ($00,$04) are the start-adress of the PRG-file
+
+
+¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨
+
+
+-=*>PATTERN-FORMATTRACK-FORMATENVELOPE FORMATINSTRUMENT NAME FORMATMULTIEFFECT FORMATMISC TABLES off)
+¨¨¨¨¨¨
+			Byte#:	Description:
+
+			 00 	- Length of song $00
+			 01	- Length of song $01
+			 ..	  ...
+			 FF	- Length of song $FF
+
+SNGREP    = Song-repeat position for each song.
+¨¨¨¨¨¨
+			Byte#:	Description:
+
+			 00 	- Repeat of song $00
+			 01	- Repeat of song $01
+			 ..	  ...
+			 FF	- Repeat of song $FF
+
+
+
+PTNLEN    = Length of each pattern. (if value=$00 the pattern is 0 lines long  off)
+¨¨¨¨¨¨
+			Byte#:	Description:
+
+			 00 	- Length of pattern $00
+			 01	- Length of pattern $01
+			 ..	  ...
+			 FF	- Length of pattern $FF
+
+
+ENVLEN    = Length of each envelope (measured in points). ($00=0 points, $01=1 point, $02=2 points etc...)
+¨¨¨¨¨¨
+			Byte#:	Description:
+
+			 00-07	- Unused			(...because instrument $00 is not used)
+			 08 	- Length of envelope $08	(volume-envelope in instrument $01)
+			 09	- Length of envelope $09	(waveform-envelope in instrument $01)
+			 ..	  ...
+			 FF	- Length of envelope $FF	(pitchcontrol-envelope in instrument $1F)
+
+
+LOOPSTART = The loop start-point for each envelope. The value is the point number ($00=first point, $01=second etc...)
+¨¨¨¨¨¨¨¨¨    If the value = $FF, then there's no loop on that envelope.
+
+			Byte#:	Description:
+
+			 00-07	- Unused			(...because instrument $00 is not used)
+			 08 	- Loopstart of envelope $08	(volume-envelope in instrument $01)
+			 09	- Loopstart of envelope $09	(waveform-envelope in instrument $01)
+			 ..	  ...
+			 FF	- Loopstart of envelope $FF	(pitchcontrol-envelope in instrument $1F)
+
+VIBSPD	  = Vibrato speed for each instrument
+¨¨¨¨¨¨
+			Byte#:	Description:
+
+			 00	- Unused
+			 01 	- vibspd of instrument $01
+			 02	- vibspd of instrument $02
+			 ..	  ...
+			 1F	- vibspd of instrument $1F
+
+VIBDPT	  = Vibrato depth for each instrument
+¨¨¨¨¨¨
+			Byte#:	Description:
+
+			 00	- Unused
+			 01 	- vibdpt of instrument $01
+			 02	- vibdpt of instrument $02
+			 ..	  ...
+			 1F	- vibdpt of instrument $1F
+
+ARPEGGIO  = Arpeggio for each instrument
+¨¨¨¨¨¨¨¨
+			Byte#:	Description:
+
+			 00	- Unused
+			 01 	- arpeggio of instrument $01
+			 02	- arpeggio of instrument $02
+			 ..	  ...
+			 1F	- arpeggio of instrument $1F
+
+ADSR  	  = Attack/Decay/Release for each instrument (sustain-nybble is allways = $0)
+¨¨¨¨
+			Byte#:	Description:
+
+			 00-01	- Unused
+			 02 	- Attack/Decay instrument $01
+			 03	- Release of instrument $01
+			 ..	  ...
+			 3E 	- Attack/Decay instrument $1F
+			 3F	- Release of instrument $1F
+
+(ofcause, only the envlen, vibspd/dpt, arpeggio, adsr of one instrument is saved in an instrument-file)
+(all the unused bytes, are bytes that would have been part of instrument#0, if instrument 0 would have been used)
+
+¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨¨
+
+Well, that was the most important information (mostly written so that i can remember 'em ma self) - most of the
+other stuff is pretty much as u'ld expect. If you have some questions to this feel free to ask.
+
+If you wanna make a cool utility (like a TB303 (like rebirth) which saves in cybertracker format? A cybertracker 
+DMC converter? A fasttracker -> cybertracker converter? or ? ), you're cool, and i will happily provide the help you need...
+
+This is just very beiefly explained - mail me if ya've got sum questions.
+
+
+CyberBrain/NoName 2001

@@ -1,0 +1,551 @@
+﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html dir="ltr" xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
+<title>Beepola .bbsong file format</title>
+<style type="text/css">
+.style1 {
+	border: 1px solid #000000;
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: medium;
+}
+.style2 {
+	border: 1px solid #000000;
+}
+</style>
+<link href="http://ftp.modland.com/pub/documents/format_documentation/BeepolaMain.css" rel="stylesheet" type="text/css" />
+<style type="text/css">
+
+.style1 {
+	font-size: small;
+}
+</style>
+</head>
+
+<div align="left" class="BodyDiv">
+	<p class="Heading">*.bbsong File Format</p>
+	<p class="BodyText">A Beepola song file usually has the extension &quot;.bbsong&quot;
+	and consists of file header, identifying the version of the file, plus one
+	or more chunks of data. Chunks are identified by a null-terminated &quot;chunk type&quot; string,
+	and end with the null-terminated string &quot;:END&quot; (without quotes).</p>
+	<p class="BodyText">When reading a file, any chunk names that are unhandled
+	by a program should be ignored. Furthermore, any individual properties
+	within a chunk that are not recognised by the reading program should also be
+	ignored. Chunk type strings, and property identifiers within each chunk,
+	should be considered case-sensitive.</p>
+	<p class="Heading">File Header:</p>
+	<table style="width: 100%" class="style1" cellspacing="1">
+		<tr>
+			<td class="style2">File Header</td>
+			<td class="style2">7 bytes</td>
+			<td class="style2">&quot;BBSONG&quot; + 0x00</td>
+		</tr>
+		<tr>
+			<td class="style2">File Version</td>
+			<td class="style2">5 bytes</td>
+			<td class="style2">&quot;0001&quot; + 0x00</td>
+		</tr>
+	</table>
+	<p class="Heading">:INFO Chunk</p>
+	<p class="BodyText">This chunk holds general information about the song,
+	such as the song title, author and the preferred tone generation engine for the song. It is terminated by the string
+	&quot;:END&quot; + 0x00 and may contain any
+	number of null-terminated string properties, appearing in any order, of the
+	form &quot;PropertyName=PropertyValue&quot;. Valid property values for version 0001
+	files include &quot;Title=...&quot;, &quot;Author=...&quot; and &quot;Engine=...&quot;<br />
+	<table class="style1" style="width: 100%">
+		<tr>
+			<td class="style2">Chunk ID</td>
+			<td class="style2">6 bytes</td>
+			<td class="style2">&quot;:INFO&quot; + 0x00</td>
+		</tr>
+		<tr>
+			<td class="style2">Song Title</td>
+			<td class="style2">Variable, null-terminated</td>
+			<td class="style2">&quot;Title=[Full Song Title]&quot; + 0x00</td>
+		</tr>
+		<tr>
+			<td class="style2">Song Author</td>
+			<td class="style2">Variable, null-terminated</td>
+			<td class="style2">&quot;Author=[Author of Song]&quot; + 0x00</td>
+		</tr>
+		<tr>
+			<td class="style2">Preferred Playback Engine</td>
+			<td class="style2">Variable, null-terminated</td>
+			<td class="style2">&quot;Engine=[Song Engine]&quot; + 0x00<br />
+			<br />
+			Currently valid values for [Song Engine] are &quot;SFX&quot; for the Special
+			FX engine, &quot;TMB&quot; for The Music Box engine, &quot;MSD&quot; for the Music
+			Studio, &quot;P1D&quot; for Phaser1 with Digital Drums, &quot;P1S&quot; for
+			Phaser1 with Synth Drums, and &quot;SVG&quot; for the Savage engine.</td>
+		</tr>
+		<tr>
+			<td class="style2">Terminator</td>
+			<td class="style2">5 bytes</td>
+			<td class="style2">&quot;:END&quot; + 0x00</td>
+		</tr>
+	</table>
+	</p>
+	<p class="Heading" style="margin-bottom: 0px">:LAYOUT Chunk</p>
+	<p class="BodyText" style="margin-top: 0px">This chunk holds details of the
+	song layout, including the position of the loop-start point, the length of
+	the song and the layout of patterns that make up the song.</p>
+	<table class="style1" style="width: 100%">
+		<tr>
+			<td class="style2">Chunk ID</td>
+			<td class="style2">8 bytes</td>
+			<td class="style2">&quot;:LAYOUT&quot; + 0x00</td>
+		</tr>
+		<tr>
+			<td class="style2">Loop Start Point</td>
+			<td class="style2">Variable, null-terminated</td>
+			<td class="style2">&quot;LoopStart=[Start Point]&quot; + 0x00<br />
+			<br />
+			[Start Point] is an ASCII string representation of the position of
+			the loop start pointer for the song. LoopStart=0 indicates that the
+			song loops back to the beginning, LoopStart=1 indicates that the
+			song loops back to start of the second pattern in the song, and so
+			on. LoopStart should never exceed the value of the Length property
+			of the song layout.</td>
+		</tr>
+		<tr>
+			<td class="style2">Length</td>
+			<td class="style2">Variable, null-terminated</td>
+			<td class="style2">&quot;Length=[Length of Song]&quot; + 0x00<br />
+			<br />
+			[Length of Song] is an ASCII string representation of the number of
+			linked patterns that comprise the song. Note that this is not the
+			same as the number of unique patterns in the song; a song that
+			consists of the patterns 1,2,3,2,3 would have this property set as
+			&quot;Length=5&quot; indicating a total of 5 patterns in the song layout,
+			while the pattern data would contain only 3 patterns (pattern 1,
+			pattern 2, and pattern 3).<br />
+			<br />
+			The &quot;Length=...&quot; property is <strong>always</strong> followed
+			immediately by a block of binary data with a length of [Length of
+			Song] bytes. See below.</td>
+		</tr>
+		<tr>
+			<td class="style2">Song Layout Data</td>
+			<td class="style2">[Length of Song] bytes</td>
+			<td class="style2">The song layout, consisting of one byte per
+			entry. In the above example of a song consisting of patterns
+			1,2,3,2,3 the song layout data would consist of 5 bytes: 0x01 0x02
+			0x03 0x02 0x03.</td>
+		</tr>
+		<tr>
+			<td class="style2">Terminator</td>
+			<td class="style2">5 bytes</td>
+			<td class="style2">&quot;:END&quot; + 0x00</td>
+		</tr>
+	</table>
+	<p class="Heading">:PATTERNDATA Chunk</p>
+	<p class="BodyText">This chunk holds the data for each of the patterns in
+	the song. Beepola includes all 127 patterns (numbered 0 to 126) in every
+	song file. The reason for this is that a partially-complete song may include
+	patterns that have not yet been included in the song layout, and these
+	patterns would be lost if there were excluded from the song data. However,
+	it is perfectly valid for a .bbsong file to contain fewer than 127 patterns
+	and this should be allowed for in any reader program.&nbsp; Early versions
+	of Beepola wrote out 256 patterns in every :PATTERNDATA chunk, so this must
+	also be allowed for (the last 129 patterns will be empty and can safely be
+	ignored in version 0001 files).<table class="style1" style="width: 100%">
+		<tr>
+			<td class="style2">Chunk ID</td>
+			<td class="style2">13 bytes</td>
+			<td class="style2">&quot;:PATTERNDATA&quot; + 0x00</td>
+		</tr>
+		<tr>
+			<td class="style2">Pattern Count</td>
+			<td class="style2">Variable, null-terminated</td>
+			<td class="style2">&quot;PatternCount=[NumPatterns]&quot; + 0x00<br />
+			<br />
+			[NumPatterns] is an ASCII string representation of the total number
+			of patterns contained in the chunk. For version 0001 bbsong files,
+			this must be a value between 0 and 256.<br />
+			<br />
+			The &quot;PatternCount=...&quot; property is <strong>always</strong> followed
+			immediately by a variable-length block of binary data as defined
+			below, followed by the terminating :END +0x00 bytes.</td>
+		</tr>
+		<tr>
+			<td class="style2">Pattern Data</td>
+			<td class="style2">Variable</td>
+			<td class="style2">[NumPatterns] blocks of pattern data, as defined
+			below.</td>
+		</tr>
+		<tr>
+			<td class="style2">Terminator</td>
+			<td class="style2">5 bytes</td>
+			<td class="style2">&quot;:END&quot; + 0x00</td>
+		</tr>
+	</table>
+	&nbsp;</p>
+
+	<p class="BodyText">
+	The following Pattern Data block is repeated [NumPatterns] times.
+	Internally, Beepola numbers patterns from 0 to [NumPatterns-1]. This is
+	important when matching pattern data to the song layout contained in the
+	:LAYOUT chunk.<table class="style1" style="width: 100%">
+		<tr>
+			<td class="style2">Pattern Name</td>
+			<td class="style2">Variable, null-terminated</td>
+			<td class="style2">&quot;PatternName=[Name of the Pattern]&quot; + 0x00<br />
+			<br />
+			Specifies the textual name of the pattern. This property is
+			mandatory and must appear at the start of every pattern data block.
+			If there is no pattern name set, this property is written as &quot;PatternName=&quot;
+			+0x00. Pattern Names in Beepola never exceed 64 characters in
+			length.</td>
+		</tr>
+		<tr>
+			<td class="style2">Pattern Length</td>
+			<td class="style2">4 bytes</td>
+			<td class="style2">A 32-bit integer value containing the length of
+			the pattern. Intel byte ordering is used. </td>
+		</tr>
+		<tr>
+			<td class="style2">Pattern Tempo</td>
+			<td class="style2">4 bytes</td>
+			<td class="style2">A 32-bit integer value containing the tempo of
+			the pattern.</td>
+		</tr>
+		<tr>
+			<td class="style2">Channel 1 Data</td>
+			<td class="style2">[Pattern Length] bytes</td>
+			<td class="style2">The note data for channel 1. This consists of
+			[Pattern Length] bytes. The note value is 0 for the lowest note
+			playable by the selected engine and increases by 1 per semitone. For
+			the SFX and TMB engines, therefore, a value of 0x00 is represented
+			in Beepola as F#1, a value of 0x06 is C-2, a value of 0x12 is C-3
+			and so on. The theoretical maximum is 0x7F giving a maximum range of
+			over 10 octaves. The value 0xFF indicates no note present, and the
+			value 0x82 indicates a &quot;rest&quot; (this is functionally identical to
+			0xFF for the SFX and TMB engines, but future engines may treat a
+			rest value differently to an empty note value).</td>
+		</tr>
+		<tr>
+			<td class="style2">Channel 2 Data</td>
+			<td class="style2">[Pattern Length] bytes</td>
+			<td class="style2">As above, but for channel 2 of the pattern.</td>
+		</tr>
+		<tr>
+			<td class="style2">Percussion Data</td>
+			<td class="style2">[Pattern Length] bytes</td>
+			<td class="style2">Percussion channel data for the pattern. 0xFF
+			represents no percussion. The values 0x81 to 0x84 inclusive
+			represent the four currently-supported drum sounds of the SFX
+			engine.</td>
+		</tr>
+		<tr>
+			<td class="style2">Additional Data for Channel 1</td>
+			<td class="style2">[Pattern Length] bytes</td>
+			<td class="style2">Any addition data used by the selected engine.
+			This data is ignored for the TMB engine, and contains the channel 1
+			sustain values for the SFX engine. A value of 0xFF represents no
+			data, 0x00 to 0xFE are valid sustain values.</td>
+		</tr>
+		<tr>
+			<td class="style2">Additional Data for Channel 2</td>
+			<td class="style2">[Pattern Length] bytes</td>
+			<td class="style2">As above for channel 2.</td>
+		</tr>
+	</table>
+
+	</p>
+	<p class="Heading">:P1INSTR Chunk</p>
+	<p class="BodyText">This chunk holds the data for each of the Phaser1
+	instruments in the song for songs of type &quot;P1D&quot; or &quot;P1S&quot;. Beepola includes
+	all 100 instruments (numbered 0 to 99) for Phaser1 songs. </p>
+	<table class="style1" style="width: 100%">
+		<tr>
+			<td class="style2">Chunk ID</td>
+			<td class="style2">14 bytes</td>
+			<td class="style2">&quot;:SVGORNAMENTS&quot; + 0x00</td>
+		</tr>
+		<tr>
+			<td class="style2">Pattern Count</td>
+			<td class="style2">Variable, null-terminated</td>
+			<td class="style2">&quot;Length=[NumInstr]&quot; + 0x00<br />
+			<br />
+			[NumInstr] is an ASCII string representation of the total number
+			of instruments contained in the chunk. For version 0001 bbsong files,
+			this must be a value between 0 and 100 inclusive.<br />
+			<br />
+			The &quot;Length=...&quot; property is <strong>always</strong> followed
+			immediately by a variable-length block of binary data as defined
+			below, followed by the terminating :END +0x00 bytes.</td>
+		</tr>
+		<tr>
+			<td class="style2">Instrument Data</td>
+			<td class="style2">Variable</td>
+			<td class="style2">[NumInstr] blocks of pattern data, as defined
+			below.</td>
+		</tr>
+		<tr>
+			<td class="style2">Terminator</td>
+			<td class="style2">5 bytes</td>
+			<td class="style2">&quot;:END&quot; + 0x00</td>
+		</tr>
+	</table>
+
+    <p class="BodyText">
+	The following Instrument Data block is repeated [NumInst] times. Internally,
+	Beepola numbers instruments from 0 to [NumIntr-1]. This is important when
+	matching instrument data to the pattern data.
+	</p>
+	<table class="style1" style="width: 100%">
+		<tr>
+			<td class="style2">Multiple</td>
+			<td class="style2">1 Byte</td>
+			<td class="style2">The &quot;Multiple&quot; property for the instrument. Must
+			be between 0 and 16 inclusive.</td>
+		</tr>
+		<tr>
+			<td class="style2">Detune</td>
+			<td class="style2">2 Bytes</td>
+			<td class="style2">16 bit unsigned integer containing the &quot;Detune&quot;
+			property for the instrument. Must be between 0 and 9999 inclusive.</td>
+		</tr>
+		<tr>
+			<td class="style2">Phase</td>
+			<td class="style2">1 Byte</td>
+			<td class="style2">The &quot;Phase&quot; property for the instrument. All
+			unsigned byte values are valid.</td>
+		</tr>
+		</table>
+		<p class="Heading">:SVGORNAMENTS Chunk</p>
+		<p class="BodyText">This chunk holds the data for each of the ornaments
+		defined in a Savage song (songs of type &quot;SVG&quot;).&nbsp;&nbsp; Beepola includes
+		all 32 instruments (numbered 0 to 31) for Savage songs. Ornament 0
+		specifies &quot;no ornament&quot; and must
+		always be defined as zero length, containing no data, but it is
+		still written to saved files. Ornaments 1 to 31 are user definable.</p>
+		<table class="style1" style="width: 100%">
+		<tr>
+			<td class="style2">Chunk ID</td>
+			<td class="style2">8 bytes</td>
+			<td class="style2">&quot;:P1INSTR&quot; + 0x00</td>
+		</tr>
+		<tr>
+			<td class="style2">Ornament<br />
+			Count</td>
+			<td class="style2">Variable, null-terminated</td>
+			<td class="style2">&quot;OrnamentCount=[NumOrn]&quot; + 0x00<br />
+			<br />
+			[NumOrn] is an ASCII string representation of the total number of
+			instruments contained in the chunk. For version 0001 bbsong files,
+			this must be a value between 0 and 32 inclusive.<br />
+			<br />
+			The &quot;OrnamentCount=...&quot; property is <strong>always</strong> followed
+			immediately by a variable-length block of binary data as defined
+			below, followed by the terminating :END +0x00 bytes.</td>
+		</tr>
+		<tr>
+			<td class="style2">Ornament Data</td>
+			<td class="style2">Variable</td>
+			<td class="style2">[NumOrn] blocks of pattern data, as defined
+			below.</td>
+		</tr>
+		<tr>
+			<td class="style2">Terminator</td>
+			<td class="style2">5 bytes</td>
+			<td class="style2">&quot;:END&quot; + 0x00</td>
+		</tr>
+	</table>
+	<p class="BodyText">The following Ornament Data block is repeated [NumOrn] times. Internally, Beepola numbers ornaments from 0 to [NumOrn-1]. This is important when matching instrument data to the pattern data.</p>
+	<table class="style1" style="width: 100%">
+		<tr>
+			<td class="style2">Ornament Length</td>
+			<td class="style2">4 bytes</td>
+			<td class="style2">A 32-bit integer value containing the length of
+			the ornament. Intel byte ordering is used. </td>
+		</tr>
+		<tr>
+			<td class="style2">Ornament Data</td>
+			<td class="style2">[Ornament Length] bytes</td>
+			<td class="style2">Ornament data. Consists of note offsets from the
+			the root note (for example, the three bytes 0,4,7) specify an major
+			chord (root note, root note + 4 semitones, root note + 7 semitones).
+			If the ornament is looped, the final byte of the data must have bit
+			7 set (e.g. $00,$04,$87 for a looped major chord). </td>
+		</tr>
+		</table>
+	<p class="Heading">:SVGPATTERNDATA Chunk</p>
+	<p class="BodyText">This chunk holds additional pattern data to be used
+	alongside the standard :PATTERNDATA chunk for songs using the Savage engine,
+	containing data for four effects per channel: Glissando, Skew, SkewXOR, and
+	Ornament. The number of patterns in this chunk should usually match the
+	number of patterns in the :PATTERNDATA chunk, but this does not have to be
+	the case for the file to be valid (if a file contains fewer SVGPATTERNDATA
+	chunks than PATTERNDATA chunks, the missing SVGPATTERNDATA chunks should be
+	assumed to be empty).</p>
+		<table class="style1" style="width: 100%">
+		<tr>
+			<td class="style2">Chunk ID</td>
+			<td class="style2">16 bytes</td>
+			<td class="style2">&quot;:SVGPATTERNDATA&quot; + 0x00</td>
+		</tr>
+		<tr>
+			<td class="style2">Pattern Count</td>
+			<td class="style2">Variable, null-terminated</td>
+			<td class="style2">&quot;PatternCount=[NumPatterns]&quot; + 0x00<br />
+			<br />
+			[NumPatterns] is an ASCII string representation of the total number
+			of patterns contained in the chunk. For version 0001 bbsong files,
+			this must be a value between 0 and 256.<br />
+			<br />
+			The &quot;PatternCount=...&quot; property is <strong>always</strong> followed
+			immediately by a variable-length block of binary data as defined
+			below, followed by the terminating :END +0x00 bytes.</td>
+		</tr>
+		<tr>
+			<td class="style2">Savage Pattern Data</td>
+			<td class="style2">Variable</td>
+			<td class="style2">[NumPatterns] blocks of Savage pattern data, as defined
+			below.</td>
+		</tr>
+		<tr>
+			<td class="style2">Terminator</td>
+			<td class="style2">5 bytes</td>
+			<td class="style2">&quot;:END&quot; + 0x00</td>
+		</tr>
+	</table>
+
+	<p class="BodyText">
+	The following Savage Pattern Data block is repeated [NumPatterns] times.
+	Internally, Beepola numbers patterns from 0 to [NumPatterns-1]. This is
+	important when matching pattern data to the song layout contained in the
+	:LAYOUT chunk.<table class="style1" style="width: 100%">
+		<tr>
+			<td class="style2">Pattern Length</td>
+			<td class="style2">4 bytes</td>
+			<td class="style2">A 32-bit integer value containing the length of
+			the pattern. Intel byte ordering is used. </td>
+		</tr>
+		<tr>
+			<td class="style2">Channel 1 Glissando Data</td>
+			<td class="style2">[Pattern Length] bytes * 2</td>
+			<td class="style2">The glissando data for channel 1. This consists of
+			[Pattern Length] 16-bit words (Intel Byte Ordering). Values between
+			0 and 255 indicate a glissando entry for the row. A value of 256
+			($0100 in hex) indicates no glissando value for the row. Values
+			greater than 256 are reserved for future use and should be ignored. </td>
+		</tr>
+		<tr>
+			<td class="style2">Channel 2 Glissando Data</td>
+			<td class="style2">[Pattern Length] bytes * 2</td>
+			<td class="style2">As above, but for channel 2 of the pattern.</td>
+		</tr>
+		<tr>
+			<td class="style2">Channel 1 Skew Data</td>
+			<td class="style2">[Pattern Length] bytes * 2</td>
+			<td class="style2">Skew data for the pattern, in the same format as
+			the glissando data (256 = no skew, 0 - 255 are valid skew values).</td>
+		</tr>
+		<tr>
+			<td class="style2">Channel 2 Skew Data</td>
+			<td class="style2">[Pattern Length] bytes * 2</td>
+			<td class="style2">As above, but for channel 2 of the pattern.</td>
+		</tr>
+		<tr>
+			<td class="style2">Channel 1 Skew XOR Data</td>
+			<td class="style2">[Pattern Length] bytes * 2</td>
+			<td class="style2">Skew XOR data for the pattern, in the same format
+			as the glissando data (256 = no skew, 0 - 255 are valid skew XOR
+			values).</td>
+		</tr>
+		<tr>
+			<td class="style2">Channel 2 Skew XOR Data</td>
+			<td class="style2">[Pattern Length] bytes * 2</td>
+			<td class="style2">As above, but for channel 2 of the pattern.</td>
+		</tr>
+		<tr>
+			<td class="style2">Channel 1 Ornament Data</td>
+			<td class="style2">[Pattern Length] bytes</td>
+			<td class="style2">Ornament data for the pattern, in the same format
+			as the glissando data (256 = no skew, 0 - 31 are valid ornament
+			values).</td>
+		</tr>
+		<tr>
+			<td class="style2">Channel 2 Ornament Data</td>
+			<td class="style2">[Pattern Length] bytes * 2</td>
+			<td class="style2">As above, but for channel 2 of the pattern.</td>
+		</tr>
+		<tr>
+			<td class="style2">&nbsp;</td>
+			<td class="style2">&nbsp;</td>
+			<td class="style2">&nbsp;</td>
+		</tr>
+	</table>
+
+	</p>
+	<p class="Heading">:SVGWARPDATA Chunk</p>
+	<p class="BodyText">This chunk holds additional pattern data to be used
+	alongside the standard :PATTERNDATA chunk for songs using the Savage engine,
+	containing data for the &quot;FX&quot; column for each of the two channels. </p>
+		<table class="style1" style="width: 100%">
+		<tr>
+			<td class="style2">Chunk ID</td>
+			<td class="style2">13 bytes</td>
+			<td class="style2">&quot;:SVGWARPDATA&quot; + 0x00</td>
+		</tr>
+		<tr>
+			<td class="style2">Pattern Count</td>
+			<td class="style2">Variable, null-terminated</td>
+			<td class="style2">&quot;PatternCount=[NumPatterns]&quot; + 0x00<br />
+			<br />
+			[NumPatterns] is an ASCII string representation of the total number
+			of patterns contained in the chunk. For version 0001 bbsong files,
+			this must be a value between 0 and 256.<br />
+			<br />
+			The &quot;PatternCount=...&quot; property is <strong>always</strong> followed
+			immediately by a variable-length block of binary data as defined
+			below, followed by the terminating :END +0x00 bytes.</td>
+		</tr>
+		<tr>
+			<td class="style2">Savage FX Column&nbsp; Data</td>
+			<td class="style2">Variable</td>
+			<td class="style2">[NumPatterns] blocks of Savage FX column data, as defined
+			below.</td>
+		</tr>
+		<tr>
+			<td class="style2">Terminator</td>
+			<td class="style2">5 bytes</td>
+			<td class="style2">&quot;:END&quot; + 0x00</td>
+		</tr>
+	</table>
+
+	<p class="BodyText">
+	The following data block is repeated [NumPatterns] times.
+	Internally, Beepola numbers patterns from 0 to [NumPatterns-1]. This is
+	important when matching pattern data to the song layout contained in the
+	:LAYOUT chunk.<table class="style1" style="width: 100%">
+		<tr>
+			<td class="style2">Pattern Length</td>
+			<td class="style2">4 bytes</td>
+			<td class="style2">A 32-bit integer value containing the length of
+			the pattern. Intel byte ordering is used. </td>
+		</tr>
+		<tr>
+			<td class="style2">Channel 1 FX Column Data</td>
+			<td class="style2">[Pattern Length] bytes</td>
+			<td class="style2">The FX column data for channel 1. This consists of
+			[Pattern Length] bytes of boolean on/off values, cast to bytes, such
+			that a value of 0 specifies that the FX column is &quot;Off&quot; for that
+			row, and 255 specifies that the FX column is &quot;On&quot; for the row.</td>
+		</tr>
+		<tr>
+			<td class="style2">Channel 2 FX Column Data</td>
+			<td class="style2">[Pattern Length] bytes</td>
+			<td class="style2">As above, but for channel 2 of the pattern.</td>
+		</tr>
+		</table>
+
+	</p>
+
+
+</div>
+</div>
+</body></html>

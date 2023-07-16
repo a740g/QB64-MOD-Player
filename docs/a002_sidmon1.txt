@@ -1,0 +1,132 @@
+|============================================================================|
+| [AMoRE] - SID-Mon v1.0 <SID.*/SID1.*>        <jaegermeister.markus@gmx.de> |
+|           document version 1.00                                            |
+|----------------------------------------------------------------------------|
+| This document is part of the AMoRE (Amiga Module Ripping Encyclopedia)     |
+| package. It is released under the OpenContent license.                     |
+| The OpenContent license can be found at ........... http://opencontent.org |
+| The latest AMoRE package can be found at .... http://amore68k.netfirms.com |
+|----------------------------------------------------------------------------|
+
+
+  FORMAT DESCRIPTION
+  --------------------------------------------------------------------------
+
+     0000       word   $41fa
+     0002       word   pointer to SID-name, add $0002                    (pn)
+     0004       word   unknown
+   __0006       word   $ffd4
+     (pn)-002c  dword  pointer to ???, (pn) relative as all further pointers
+     (pn)-0028  dword  pointer to ???,
+     (pn)-0024  dword  pointer to ???
+     (pn)-0020  dword  pointer to ???
+     (pn)-001c  dword  pointer to instrument info                        (pi)
+     (pn)-0018  dword  pointer to whatever                               (px)
+     (pn)-0014  dword  pointer to ???
+     (pn)-0010  dword  pointer to ???
+     (pn)-000c  dword  pointer to pattern data                           (pd)
+     (pn)-0008  dword  pointer to pattern offsets?                       (pp)
+     (pn)-0004  dword  pointer to sample info                            (ps)
+   __(pn)+0000  char   " SID-MON BY R.v.VLIET  (c) 1988 " (by default)
+     (pi)+0000  0020*? instrument info block(s)
+                           0000  0003   unknown
+                           0003  byte   waveform number, if >=$10 then it's
+                                          a sample instrument, not a synth
+   __                      0004  001c   unknown
+     (px)+0000  data   unknown
+   __  .....
+   __(pd)+0000  data   patterns, yet unknown (packed?) store method
+   __(pp)+0000  dwords pattern offsets, may not be higher than (pp)-(pd)
+     (ps)+0000  dword  pointer to sample data block, (ps)+$0004 relative (sd)
+                         important note: in one hacked module this
+                         pointer was set to $0000 so it pointed to the
+                         sample info block instead of the waveform data,
+                         but this was wanted since the first sample was
+                         a basedrum and the bytes from the info block fit
+                         perfectly in that waveform. I tried a manual
+                         correction but after that the sampled chords
+                         ran out of range it the result was several
+                         clicks, so simply leave this untouched
+     (ps)+0004  0020*? sample info block(s), may not appear but in most
+                         cases there is a dummy sample within the file
+                           0000  dword  offset within sample data block
+                           0004  dword  repeat offset
+   __                      0008  dword  sample data end offset
+   __(sd)+0000  data   sampledata 8-bit signed mono
+   __EOF__
+
+
+  RIPPING INSTRUCTIONS
+  --------------------------------------------------------------------------
+
+     A SIDmon 1.0 file is not very easy to rip and the method below worked
+     on all 38 SIDmon files from Exotica! (I have copied all 38 pieces into
+     one large file and let the ripper run over it, everything was found
+     and sizes did not match the original, but that's the fault of the
+     original files ripped by some other ripper since everything was
+     playing the same as the original).
+     Let's say this method below will work in about 95-99% of all cases and
+     it does work well with those hacked tune mentioned above and as well
+     with SID1 files with or without a dummy sample.
+     The main problem is that lots of tricks are used to avoid bad-structured
+     but good playing original SID1 files not being ripped 100%. For example
+     the waveform number was set to $ff (impossible, SIDmon only allows $30
+     waveforms, the synth waveforms included) on several unused instruments
+     and it's just the task of the ripping algorithm to detect this.
+     So let's start with the instructions:
+       1. Search for the word $41fa in memory and check the word at position
+            +$0006 for being $ffd4 (important!)
+       2. Calculate (np), then (pi), (px), (pd), (pp) and (ps)
+       3. If the dword at (np)-0004 is set to $0001 then the tune does not
+            use samples and has NO dummy sample in it.
+            IF SO, JUMP TO STEP 8 RIGHT NOW!
+       4. If it is not equal to $0001 then the file has at least a dummy
+            sample and we've got to calculate the size through the sample
+            info block
+       5. To calculate how many samples are used, you have to go through
+            the instrument info block and take the highest of all waveform
+            number values. The number of instruments is ((px)-(pi))/$20.
+            The number of samples is the highest waveform number minus $1f.
+            If a hacked tune tells the number of samples to be higher
+            than $1f (impossible) then decrease the value back to $1f
+       6. Now we've got the number of used samples. Now go through the sample
+            info block and take the highest of all end offsets. But be aware
+            that hacked tunes exist which tell the amount of samples higher
+            than sample infos exist and the actual end offset may be crap!
+            For example if an end offset is bigger than $00ffffff then leave
+            it out of the calculation and stop calculating any further
+       7. The module size is (sp)+$04+(pd)+(he) ((pd) is the first dword in the
+            sample info block, (he) the highest end offset) and it's ready
+            to save! STOP HERE!
+       8. If the module does not contain any samples and no dummy sample,
+            the last data which is located within the module are the pattern
+            offsets. So walk through the pattern offsets and check all dwords
+            for being higher than the dword located before the actual one
+            and stop if a dword (when it's the second one or later, the first
+            one is always $0000) is crap, i.e. it's higher than (pp)-(pd)
+            (this is actually the range where an offset can be pointing at)
+            or lower than the dword checked before. If you found the first
+            crap-dword the address of that dword is the end address of the
+            module. Ready to save! And that was all!
+
+
+  DOCUMENT HISTORY
+  --------------------------------------------------------------------------
+
+     * v1.00 - first officially released version
+             - ripping method is more accurate than the one of Exotic Ripper
+               which got some size calculations which reported 0
+
+
+  CREDITS
+  --------------------------------------------------------------------------
+
+     * Document and amore.pas/amore.exe implementation done by
+         Jaegermeister Markus <jaegermeister.markus@gmx.de>
+
+     * Ripping method inspired by the sourcecode of
+         Exotic Ripper v3.2 by Turbo and Marley of Infect
+
+     * Everything done with the help of the following sites
+         http://exotica.fix.no         (lots of exotic modules to test with)
+         http://www.multimania.com/asle        (amiga mod packers described)

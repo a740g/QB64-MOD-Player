@@ -1,0 +1,305 @@
+The following file format specification has been adapted to The Sonic Spot's Guide layout with
+permission from the original author, Henning Hellstr? link to the original specification can be
+found at the bottom of this page.
+
+This document should be all you need write your own PAC and SOU file load/save routines. If you
+have any questions, you can e-mail the author at henning.hellstrom@azlan.no.
+
+Table of Contents
+Overview
+Data Format
+Package ID Block - "PACG"
+Package Information Block - "PAIN"
+Package Origin Block - "PAOR"
+Song Block - "SONG"
+Song Name Block - "SONA"
+Song Order List Block - "SOOR"
+Song Information Block - "SOIN"
+Song Channel Settings Block - "SOCS"
+Song Channel Name Block - "SOCN"
+Song Sheet Block - "SOSH"
+Sound Block - "SND "
+Sound Name Block - "SNNA"
+Sound Information Block - "SNIN"
+Sound Data Block - "SNDT"
+End Block - "END "
+
+Overview
+SBStudio has its own song file format called PAC or package. A PAC file contains all of the
+sheets/patterns and sounds belonging to a song. A sound can also be saved separately as a SOU
+file. The PAC format was introduced with SBStudio 2, which saved PAC version 1.4 files.
+SBStudio 3 saves version 1.6 files. This document will describe these two versions.
+
+Data Format
+PAC and SOU files are made up of data blocks, similar to chunks found in standard RIFF files,
+each starting with a block ID and data size. The ID is a four byte string and the data size is
+a four byte number, also known as a long integer. This makes the file format easy to support
+and upgrade and loaders can easily skip data they don't recognize.
+
+PAC Block Format
+Offset  Size    Description
+0x00    4       Chunk ID
+0x04    4       Chunk Data Size
+0x08            Chunk Data Bytes
+
+One tricky thing about working with blocks in some PAC files is that a couple of block types
+("SONG" and "SND ") may have a data size of 0, even though they "contain" sub-chunks of data.
+It may be inconsistent between PAC and SOU files as well as the different format versions but
+it isn't a huge problem because a file loader will simply go on and skip following sub-chunks
+if they are unrecognized. These 0 data sized blocks can be simply thought of as markers,
+signaling the start of a new set of information. More details about these blocks are discussed
+below in their corresponding sections below.
+
+Since the PAC and SOU file formats are native to MS-DOS and therefor Intel processors, all data
+values are stored in Little-Endian (least significant byte first) order.
+
+The rest of this document goes through the different types of blocks, describing the format of
+their data bytes and what they mean. You can use the table of contents at the beginning of this
+document to help find the block type you are interested in.
+
+Package ID Block - "PACG"
+This block can be used to verify that a file is actually a PAC file. It is always located at
+the beginning of a PAC file and has a data size of the entire file minus it's 8 bytes of block
+ID and data size information.
+
+Package ID Block Format
+Offset  Size    Description     Value
+0x00    4       Block ID        "PACG"
+0x04    4       Block Data Size file size - 8
+0x08            PAC file contents
+
+Package Information Block - "PAIN"
+This block is usually the first block inside of the Package ID Block. It is used to specify the
+format and program version numbers as well as the number of sounds in the package file.
+
+Package Information Block Format
+Offset  Size    Description             Value
+0x00    4       Block ID                "PAIN"
+0x04    4       Block Data Size         depends on format version
+0x08    2       Format Version          0 - 0xFFFF
+0x0A    2       SBStudio Version        0 - 0xFFFF
+0x0C    2       Number of Sounds        0 - 0xFFFF
+
+Format Version
+The format version specifies the file format version number using two bytes. The first byte
+defines the major version number and the second byte specifies the minor version number.
+
+SBStudio Version
+The SBStudio version specifies the program version number that was used to create the file.
+Like the Format Version, the first byte defines the major version number and the second byte
+specifies the minor version number.
+
+Number of Sounds
+The number of sounds specifies the number of audio samples included in this file. The actual
+sounds are specified in "SOU " blocks.
+
+Package Origin Block - "PAOR"
+This block contains information about the program used to create the package and usually comes
+after the Package Information block. It was introduced in with Format Version 1.6.
+
+Package Origin Block Format
+Offset  Size    Description             Value
+0x00    4       Block ID                "PAOR"
+0x04    4       Block Data Size         depends on format version
+0x08    ?       Program Information     program specific
+
+Song Block - "SONG"
+This block marks the start of a song structure which is where the sheets and song settings are
+stored. SBStudio 2 had the option to save song files with only this structure, but newer
+versions no longer allow this. This block usually follows the Package Information Block.
+
+Song Block Format
+Offset  Size    Description     Value
+0x00    4       Block ID        "SONG"
+0x04    4       Block Data Size See Below
+
+Block Data Size
+The block data size is the file size - 8 if it's at the beginning of a song file and 0 if it's
+inside a package.
+
+Song Name Block - "SONA"
+This block is used to specify the song name as an ASCII string. SBStudio supports up to 40
+bytes, but the file format specification does not place this limit on the length.
+
+Song Name Block Format
+Offset  Size    Description     Value
+0x00    4       Block ID        "SONA"
+0x04    4       Block Data Size String Length
+0x08            ASCII String
+
+Song Order List Block - "SOOR"
+This block is used to define the order which the sheets will be played. Two bytes per are used
+for each entry in the order list.
+
+Song Order List Block Format
+Offset  Size    Description     Value
+0x00    4       Block ID        "SOOR"
+0x04    4       Block Data Size Entries * 2
+0x08            Array of Entries
+
+Song Information Block - "SOIN"
+This block is used to specify various information about a song. It's size is format version
+specific, but all versions share the same previous version information.
+
+Song Information Block Format
+Offset  Size    Description                     Value
+0x00    4       Block ID                        "SOIN"
+0x04    4       Block Data Size                 depends on version
+0x08    1       Song Speed                      1 - 31
+0x09    1       Song BPM                        32 - 255
+0x0A    2       Number of Sheets                1 - 255
+0x0C    1       Number of Audio Channels        4 - 20
+0x0D    1       Number of Note Rows per Sheet   64
+0x0E    1       Bytes per Channel Cell          5
+0x0F    1       Sheet Format                    (see below)
+0x10    x       Audio Channel Pan Positions     0 - 15 each
+
+Sheet Format
+The sheet format specifies how the following sheet data is stored. If the top bit of this byte
+is 0, the sheet data is unpacked. If the top bit is 1, the sheet data is packed (see sheet data
+block for details).
+
+Audio Channel Pan Positions
+These bytes specify the pan position for each Audio Channel. One byte is used for each channel
+and the value may range from 0 - 15 (0 = left, 8 = center, 15 = right). These pan positions are
+only found in format version 1.4. Later version use the Song Channel Settings Block for
+defining Pan values.
+
+Song Channel Settings Block - "SOCS"
+This block is used to specify the various pan positions and effects levels for each channel. It
+is always found in a song block and was added is format version 1.6.
+
+Song Channel Settings Block Format
+Offset  Size    Description     Value
+0x00    4       Block ID        "SOCS"
+0x04    4       Block Data Size 6
+0x08    1       Channel Number  1 - 20
+0x09    1       Pan Position    0 - 255
+0x0A    1       Reverb Level    0 - 255
+0x0B    1       Chorus Level    0 - 255
+0x0C    1       Filter Level    0 - 255
+0x0D    1       Resonance Level 0 - 255
+
+Channel Number
+The channel number byte specifies which channel the following pan position and effects levels
+correspond to.
+
+Pan Position
+The pan position value 0 = left, 128 = center, 255 = right.
+
+Effect Levels
+The effect level 0 = off/minimum, 255 = maximum.
+
+Song Channel Name Block - "SOCN"
+This block is used to specify the name of a channel. It is always found in a song block and was
+added in format version 1.6.
+
+Song Channel Name Block Format
+Offset  Size    Description     Value
+0x00    4       Block ID        "SOCN"
+0x04    4       Block Data Size string length
+0x08            ASCII String
+
+Song Sheet Block - "SOSH"
+This block is used to define the contents of all the cells of a sheet. It is always located
+within a Song Block.
+
+Song Sheet Block Format
+Offset  Size    Description     Value
+0x00    4       Block ID        "SOSH"
+0x04    4       Block Data Size depends on format
+0x08            Sheet Data
+
+Sheet Data
+The format of the sheet data depends on the values specified in the Song Information Block.
+
+A sheet consists of 5 bytes per channel in 64 rows. The 5 bytes describe one cell with a note
+number, sound number, note volume, command and parameter. The format is as follows:
+
+Sheet Cell Format
+Offset  Size    Description             Value
+0x00    1       Note Number             see below
+0x01    1       Sound Number            1 - 255, 0 = no change
+0x02    1       Volume                  1 - 65, 0 = no change
+0x03    1       Command                 0x00 - 0xFF
+0x04    1       Command Parameter       0x00 - 0xFF
+
+Note Number
+A value of 0 means no note. In format version 1.4, a value of 2 - 49 may is used where 2 = C-1,
+3 = C#1 ... 49 = B-4. In format version 1.6 2 = note off, 3 = C-1, 4 = C#1 ... 74 = B-5.
+
+SBStudio saves all sheets in a packed format. The packed format is very simple, but may
+sometimes dramatically reduce the file size.
+
+When loading sheets, you should always assume they are packed. This will make your loader
+compatible with both packed and unpacked sheets.
+
+In a packed sheet, byte 0 or 2 in the 5 byte channel cell can contain a special byte. The
+special bytes are:
+
+Special Sheet Cell Bytes
+Value   Meaning
+0xFD    End of channel cell. Next byte is the first byte of the next channel cell.
+0xFE    End of sheet row. Next byte is the first byte of the next row.
+0xFF    End of sheet.
+
+Sound Block - "SND "
+This block is used to define a sound. It is located after Song Blocks in a PAC or at the start
+of a SOU file.
+
+Sound Block Format
+Offset  Size    Description     Value
+0x00    4       Block ID        "SND "
+0x04    4       Block Data Size see below
+0x08            Sound Data (see below)
+
+Block Data Size
+When found at the beginning of a SOU file, the block data size is equal to the file size - 8.
+It is 0 if it's inside a package and it simply indicates the start of following sound data
+blocks.
+
+Sound Name Block - "SNNA"
+This block is used to specify the name of a sound. It is located inside or after a Sound Block
+and may appear in either a PAC or SOU file.
+
+Sound Name Block Format
+Offset  Size    Description     Value
+0x00    4       Block ID        "SNNA"
+0x04    4       Block Data Size string length
+0x08            ASCII String
+
+Sound Information Block - "SNIN"
+This block is used to specify sound tuning and format information. It is located inside or
+after a Sound Block and may appear in either a PAC or SOU file.
+
+Sound Information Block Format
+Offset  Size    Description                     Value
+0x00    4       Block ID                        "SNIN"
+0x04    4       Block Data Size                 depends on format
+0x08    2       Sound Number (only in PAC)      0 - 0xFFFF
+0x0A    2       Middle C Frequency              0 - 0xFFFF
+0x0C    1       Fine Tuning                     0 - 15
+0x0D    2       Sound Volume                    0 - 16384
+0x0F    2       Sound Type                      see below
+0x11    4       Loop Start Byte                 0 - 0xFFFFFFFF
+0x15    4       Loop End Byte                   0 - 0xFFFFFFFF
+0x19    1       Unused                          0
+
+Sound Data Block - "SNDT"
+This block contains raw/uncompressed, signed sample data that makes up the sounds audio
+waveform signal. It is located inside or after a Sound Block and may appear in either a PAC or
+SOU file.
+
+Sound Data Block Format
+Offset  Size    Description     Value
+0x00    4       Block ID        "SNDT"
+0x04    4       Block Data Size sample length * (bit depth / 8)
+0x08    2       Sample Data
+
+End Of File Block - "END "
+This block signals the end of a PAC or SOU file. It is located at the end of the file.
+
+End Of File Block Format
+Offset  Size    Description     Value
+0x00    4       Block ID        "END "
+0x04    4       Block Data      Size 0

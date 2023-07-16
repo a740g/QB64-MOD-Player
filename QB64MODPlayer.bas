@@ -6,739 +6,710 @@
 '-----------------------------------------------------------------------------------------------------------------------
 ' HEADER FILES
 '-----------------------------------------------------------------------------------------------------------------------
-'$Include:'include/MODPlayer.bi'
-'$Include:'include/AnalyzerFFT.bi'
-'$Include:'include/FileOps.bi'
+'$INCLUDE:'include/FileOps.bi'
+'$INCLUDE:'include/StringOps.bi'
+'$INCLUDE:'include/AnalyzerFFT.bi'
+'$INCLUDE:'include/SoftSynth.bi'
+'$INCLUDE:'include/MODPlayer.bi'
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
 ' METACOMMANDS
 '-----------------------------------------------------------------------------------------------------------------------
-$NoPrefix
-$Resize:Smooth
-$ExeIcon:'./QB64MODPlayer.ico'
-$VersionInfo:CompanyName=Samuel Gomes
-$VersionInfo:FileDescription=QB64 MOD Player executable
-$VersionInfo:InternalName=QB64MODPlayer
-$VersionInfo:LegalCopyright=Copyright (c) 2023 Samuel Gomes
-$VersionInfo:LegalTrademarks=All trademarks are property of their respective owners
-$VersionInfo:OriginalFilename=QB64MODPlayer.exe
-$VersionInfo:ProductName=QB64 MOD Player
-$VersionInfo:Web=https://github.com/a740g
-$VersionInfo:Comments=https://github.com/a740g
-$VersionInfo:FILEVERSION#=2,0,0,0
-$VersionInfo:PRODUCTVERSION#=2,0,0,0
+$NOPREFIX
+$RESIZE:SMOOTH
+$EXEICON:'./QB64MODPlayer.ico'
+$VERSIONINFO:CompanyName=Samuel Gomes
+$VERSIONINFO:FileDescription=QB64 MOD Player executable
+$VERSIONINFO:InternalName=QB64MODPlayer
+$VERSIONINFO:LegalCopyright=Copyright (c) 2023 Samuel Gomes
+$VERSIONINFO:LegalTrademarks=All trademarks are property of their respective owners
+$VERSIONINFO:OriginalFilename=QB64MODPlayer.exe
+$VERSIONINFO:ProductName=QB64 MOD Player
+$VERSIONINFO:Web=https://github.com/a740g
+$VERSIONINFO:Comments=https://github.com/a740g
+$VERSIONINFO:FILEVERSION#=2,1,0,0
+$VERSIONINFO:PRODUCTVERSION#=2,1,0,0
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
 ' CONSTANTS
 '-----------------------------------------------------------------------------------------------------------------------
-Const APP_NAME = "QB64 MOD Player" ' application name
-Const TEXT_LINE_MAX = 75 ' this the number of lines we need
-Const TEXT_WIDTH_MIN = 120 ' minimum width we need
-Const TEXT_WIDTH_HEADER = 84 ' width of the main header on the vis screen
-Const ANALYZER_SCALE = 5120 ' values after this will be clipped in the analyzer array
-Const FRAME_RATE_MIN = 60 ' minimum frame rate we'll allow
+CONST APP_NAME = "QB64 MOD Player" ' application name
+' TODO: use 1024 x 640 px (8x8 px chars)
+CONST TEXT_LINE_MAX = 75 ' this the number of lines we need
+CONST TEXT_WIDTH_MIN = 120 ' minimum width we need
+CONST TEXT_WIDTH_HEADER = 84 ' width of the main header on the vis screen
+CONST ANALYZER_SCALE = 5120 ' values after this will be clipped in the analyzer array
+CONST FRAME_RATE_MIN = 60 ' minimum frame rate we'll allow
 ' Program events
-Const EVENT_NONE = 0 ' idle
-Const EVENT_QUIT = 1 ' user wants to quit
-Const EVENT_CMDS = 2 ' process command line
-Const EVENT_LOAD = 3 ' user want to load files
-Const EVENT_DROP = 4 ' user dropped files
-Const EVENT_PLAY = 5 ' play next song
-Const EVENT_HTTP = 6 ' Downloads and plays random MODs from modarchive.org
+CONST EVENT_NONE = 0 ' idle
+CONST EVENT_QUIT = 1 ' user wants to quit
+CONST EVENT_CMDS = 2 ' process command line
+CONST EVENT_LOAD = 3 ' user want to load files
+CONST EVENT_DROP = 4 ' user dropped files
+CONST EVENT_PLAY = 5 ' play next song
+CONST EVENT_HTTP = 6 ' Downloads and plays random MODs from modarchive.org
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
 ' GLOBAL VARIABLES
 '-----------------------------------------------------------------------------------------------------------------------
-ReDim Shared NoteTable(0 To 0) As String * 2 ' this contains the note stings
-Dim Shared WindowWidth As Long ' the width of our windows in characters
-Dim Shared PatternDisplayWidth As Long ' the width of the pattern display in characters
-Dim Shared SpectrumAnalyzerWidth As Long ' the width of the spectrum analyzer
-Dim Shared SpectrumAnalyzerHeight As Long ' the height of the spectrum analyzer
-Dim Shared Volume As Integer ' this is needed because the replayer can reset volume across songs
-Dim Shared HighQuality As Byte ' this is needed because the replayer can reset quality across songs
-ReDim Shared SpectrumAnalyzerLeft(0 To 0) As Unsigned Integer ' left channel FFT data
-ReDim Shared SpectrumAnalyzerRight(0 To 0) As Unsigned Integer ' right channel FFT data
+REDIM SHARED NoteTable(0 TO 0) AS STRING * 2 ' this contains the note stings
+DIM SHARED WindowWidth AS LONG ' the width of our windows in characters
+DIM SHARED PatternDisplayWidth AS LONG ' the width of the pattern display in characters
+DIM SHARED SpectrumAnalyzerWidth AS LONG ' the width of the spectrum analyzer
+DIM SHARED SpectrumAnalyzerHeight AS LONG ' the height of the spectrum analyzer
+DIM SHARED GlobalVolume AS SINGLE ' this is needed because the replayer can reset volume across songs
+DIM SHARED HighQuality AS BYTE ' this is needed because the replayer can reset quality across songs
+REDIM SHARED SpectrumAnalyzerLeft(0 TO 0) AS UNSIGNED INTEGER ' left channel FFT data
+REDIM SHARED SpectrumAnalyzerRight(0 TO 0) AS UNSIGNED INTEGER ' right channel FFT data
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
 ' PROGRAM ENTRY POINT - Frankenstein retro TUI with drag & drop support
 '-----------------------------------------------------------------------------------------------------------------------
-Title APP_NAME + " " + OS$ ' set the program name in the titlebar
-ChDir StartDir$ ' change to the directory specifed by the environment
-AcceptFileDrop ' enable drag and drop of files
+TITLE APP_NAME + " " + OS$ ' set the program name in the titlebar
+CHDIR STARTDIR$ ' change to the directory specifed by the environment
+ACCEPTFILEDROP ' enable drag and drop of files
 InitializeNoteTable ' initialize note string table
 AdjustWindowSize ' set the initial window size
-AllowFullScreen SquarePixels , Smooth ' allow the user to press Alt+Enter to go fullscreen
-SRand Timer ' seed RNG
-Volume = GLOBAL_VOLUME_MAX ' set global volume to maximum
+ALLOWFULLSCREEN SQUAREPIXELS , SMOOTH ' allow the user to press Alt+Enter to go fullscreen
+srand TIMER ' seed RNG
+GlobalVolume = SOFTSYNTH_GLOBAL_VOLUME_MAX ' set global volume to maximum
 HighQuality = TRUE ' enable interpolated mixing by default
 
-Dim event As Unsigned Byte
-
-event = EVENT_CMDS ' default to command line event first
+DIM event AS BYTE: event = EVENT_CMDS ' default to command line event first
 
 ' Main loop
-Do
-    Select Case event
-        Case EVENT_QUIT
-            Exit Do
+DO
+    SELECT CASE event
+        CASE EVENT_QUIT
+            EXIT DO
 
-        Case EVENT_DROP
-            event = ProcessDroppedFiles
+        CASE EVENT_DROP
+            event = OnDroppedFiles
 
-        Case EVENT_LOAD
-            event = ProcessSelectedFiles
+        CASE EVENT_LOAD
+            event = OnSelectedFiles
 
-        Case EVENT_CMDS
-            event = ProcessCommandLine
+        CASE EVENT_CMDS
+            event = OnCommandLine
 
-        Case EVENT_HTTP
-            event = ProcessModArchiveFiles
+        CASE EVENT_HTTP
+            event = OnModArchiveFiles
 
-        Case Else
-            event = DoWelcomeScreen
-    End Select
-Loop
+        CASE ELSE
+            event = OnWelcomeScreen
+    END SELECT
+LOOP
 
-AutoDisplay
-System
+AUTODISPLAY
+SYSTEM
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
 ' FUNCTIONS & SUBROUTINES
 '-----------------------------------------------------------------------------------------------------------------------
 ' This "prints" the current playing MODs visualization on the screen
-Sub PrintVisualization
-    ' These are internal variables and arrays used by the MODPlayer library
-    Shared __Song As __SongType
-    Shared __Order() As Unsigned Byte
-    Shared __Pattern() As __NoteType
-    Shared __Sample() As __SampleType
-    Shared SoftSynth As SoftSynthType
-    Shared Voice() As VoiceType
-    Shared MixerBufferLeft() As Single
-    Shared MixerBufferRight() As Single
+SUB PrintVisualization
+    ' These are internal variables and arrays used by the MODPlayer library and are used for showing internal info and visualization
+    ' In a general use case, accessing these directly is not required at all
+    SHARED __Song AS __SongType
+    SHARED __Order() AS UNSIGNED BYTE
+    SHARED __Pattern() AS __NoteType
+    SHARED __Sample() AS __SampleType
+    SHARED __MixerBufferL() AS SINGLE
+    SHARED __MixerBufferR() AS SINGLE
 
     ' Subscript out of range bugfix for player when song is 128 orders long and the song reaches the end
     ' In this case if the sub is allowed to proceed then __Order(__Song.orderPosition) will cause "subscript out of range"
     ' Note this is only a problem with this demo and not the actual library since we are trying to access internal stuff directly
-    If __Song.orderPosition >= __Song.orders Then Exit Sub
+    IF __Song.orderPosition >= __Song.orders THEN EXIT SUB
 
-    Cls , 0 ' clear the framebuffer to black color
+    CLS , 0 ' clear the framebuffer to black color
 
-    Dim x As Long
+    DIM x AS LONG
     x = 1 + WindowWidth \ 2 - TEXT_WIDTH_HEADER \ 2 ' find x so that we can center everything
 
     ' Print song type and name
-    Color 15, 5
-    Locate 1, x: Print Using "  \  \: \                                                                        \  "; __Song.subtype; __Song.songName
+    COLOR 15, 5
+    LOCATE 1, x: PRINT USING "  \  \: \                                                                        \  "; __Song.subtype; __Song.songName
 
     ' Print the header
-    Color 16, 15
-    Locate , x: Print Using "  ORD: ### / ### | PAT: ### / ### | ROW: ## / 63 | CHN: ### / ### | VOC: ### / ###  "; __Song.orderPosition; __Song.orders - 1; __Order(__Song.orderPosition); __Song.highestPattern; __Song.patternRow; __Song.activeChannels; __Song.channels; SoftSynth.activeVoices; SoftSynth.voices
-    Locate , x: Print Using "  BPM: ###       | SPD: ###       | VOL: \\ / FF |  HQ: \       \ | REP: \       \  "; __Song.bpm; __Song.speed; Right$("0" + Hex$(Volume), 2); BoolToStr(HighQuality, 1); BoolToStr(__Song.isLooping, 2)
+    COLOR 16, 15
+    LOCATE , x: PRINT USING "  ORD: ### / ### | PAT: ### / ### | ROW: ## / 63 | CHN: ### / ### | VOC: ### / ###  "; __Song.orderPosition; __Song.orders - 1; __Order(__Song.orderPosition); __Song.highestPattern; __Song.patternRow; __Song.activeChannels; __Song.channels; SampleMixer_GetActiveVoices; SampleMixer_GetTotalVoices
+    LOCATE , x: PRINT USING "  BPM: ###       | SPD: ###       | VOL: ###%    |  HQ: \       \ | REP: \       \  "; __Song.bpm; __Song.speed; GlobalVolume * 100.0!; FormatBoolean(HighQuality, 3); FormatBoolean(__Song.isLooping, 4)
 
     ' Print the sample list header
-    Color 16, 3
-    Locate , x: Print "  S#  SAMPLE-NAME              VOLUME C2SPD LENGTH LOOP-LENGTH LOOP-START LOOP-END  "
+    COLOR 16, 3
+    LOCATE , x: PRINT "  S#  SAMPLE-NAME              VOLUME C2SPD LENGTH LOOP-LENGTH LOOP-START LOOP-END  "
 
     ' Print the sample information
-    Dim As Long i, j
-    For i = 0 To __Song.samples - 1
-        Color 14, 0
-        For j = 0 To __Song.channels - 1
-            If i + 1 = __Pattern(__Order(__Song.orderPosition), __Song.patternRow, j).sample Then
-                Color 13, 1
-            End If
-        Next
-        Locate , x: Print Using " ###: \                    \ ######## ##### ###### ########### ########## ########  "; i + 1; __Sample(i).sampleName; __Sample(i).volume; __Sample(i).c2Spd; __Sample(i).length; __Sample(i).loopLength; __Sample(i).loopStart; __Sample(i).loopEnd
-    Next
+    DIM AS LONG i, j
+    FOR i = 0 TO __Song.samples - 1
+        COLOR 14, 0
+        FOR j = 0 TO __Song.channels - 1
+            IF i + 1 = __Pattern(__Order(__Song.orderPosition), __Song.patternRow, j).sample THEN
+                COLOR 13, 1
+            END IF
+        NEXT
+        LOCATE , x: PRINT USING " ###: \                    \ ######## ##### ###### ########### ########## ########  "; i + 1; __Sample(i).sampleName; __Sample(i).volume; __Sample(i).c2Spd; __Sample(i).length; __Sample(i).loopLength; __Sample(i).loopStart; __Sample(i).loopEnd
+    NEXT
 
     x = 1 + WindowWidth \ 2 - PatternDisplayWidth \ 2 ' find x so that we can center everything
 
     ' Print the pattern header
-    Color 16, 3
-    Locate , x: Print " PAT RW ";
-    For i = 1 To __Song.channels
-        Print " CHAN NOT S# FX OP ";
-    Next
-    Print
+    COLOR 16, 3
+    LOCATE , x: PRINT " PAT RW ";
+    FOR i = 1 TO __Song.channels
+        PRINT " CHAN NOT S# FX OP ";
+    NEXT
+    PRINT
 
-    Dim As Long startRow, startPat, nNote, nChan
+    DIM AS LONG startRow, startPat, nNote, nChan
 
     ' Get the current line number
-    j = CsrLin
+    j = CSRLIN
 
     ' Find thw pattern and row we print
     startPat = __Order(__Song.orderPosition)
     startRow = __Song.patternRow - (1 + TEXT_LINE_MAX - j) \ 2
-    If startRow < 0 Then
+    IF startRow < 0 THEN
         startRow = 1 + __PATTERN_ROW_MAX + startRow
         startPat = startPat - 1
-    End If
+    END IF
 
     ' Now just dump everything to the screen
-    For i = j To TEXT_LINE_MAX - 1
-        Locate i, x
-        Color 15, 0
+    FOR i = j TO TEXT_LINE_MAX - 1
+        LOCATE i, x
+        COLOR 15, 0
 
-        If startPat >= 0 And startPat <= __Song.highestPattern Then
-            If i = j + (1 + TEXT_LINE_MAX - j) \ 2 Then
-                Color 15, 1
-            End If
+        IF startPat >= 0 AND startPat <= __Song.highestPattern THEN
+            IF i = j + (1 + TEXT_LINE_MAX - j) \ 2 THEN
+                COLOR 15, 1
+            END IF
 
-            Print Using " ### ##:"; startPat; startRow;
+            PRINT USING " ### ##:"; startPat; startRow;
 
-            For nChan = 0 To __Song.channels - 1
-                Color 14
-                Print Using " (##)"; nChan + 1;
+            FOR nChan = 0 TO __Song.channels - 1
+                COLOR 11
+                PRINT USING " (##)"; nChan + 1;
                 nNote = __Pattern(startPat, startRow, nChan).note
-                Color 10
-                If nNote = __NOTE_NONE Then
-                    Print "  -  ";
-                ElseIf nNote = __NOTE_KEY_OFF Then
-                    Print " ^^^ ";
-                Else
-                    Print Using " &# "; NoteTable(nNote Mod 12); nNote \ 12;
-                End If
-                Color 13
-                Print Using "## "; __Pattern(startPat, startRow, nChan).sample;
-                Color 11
-                Print Right$(" " + Hex$(__Pattern(startPat, startRow, nChan).effect), 2); " ";
-                Print Right$(" " + Hex$(__Pattern(startPat, startRow, nChan).operand), 2); " ";
-            Next
-        Else
-            Print Space$(PatternDisplayWidth);
-        End If
+                COLOR 10
+                IF nNote = __NOTE_NONE THEN
+                    PRINT "  -  ";
+                ELSEIF nNote = __NOTE_KEY_OFF THEN
+                    PRINT " ^^^ ";
+                ELSE
+                    PRINT USING " &# "; NoteTable(nNote MOD 12); nNote \ 12;
+                END IF
+                COLOR 14
+                PRINT USING "## "; __Pattern(startPat, startRow, nChan).sample;
+                COLOR 13
+                PRINT FormatLong(__Pattern(startPat, startRow, nChan).effect, "%.2X ");
+                COLOR 12
+                PRINT FormatLong(__Pattern(startPat, startRow, nChan).operand, "%.2X ");
+            NEXT
+        ELSE
+            PRINT SPACE$(PatternDisplayWidth);
+        END IF
 
         startRow = startRow + 1
         ' Wrap if needed
-        If startRow > __PATTERN_ROW_MAX Then
+        IF startRow > __PATTERN_ROW_MAX THEN
             startRow = 0
             startPat = startPat + 1
-        End If
-    Next
+        END IF
+    NEXT
 
     ' Print the footer
-    Color 16, 7
-    Locate TEXT_LINE_MAX, x: Print Using " ####ms "; SndRawLen(SoftSynth.soundHandle) * 1000;
-    For i = 0 To __Song.channels - 1
-        Print Using " (##) V: ## P: ### "; i + 1, Voice(i).volume; Voice(i).panning;
-    Next
+    COLOR 16, 7
+    LOCATE TEXT_LINE_MAX, x: PRINT USING " ####ms "; SampleMixer_GetBufferedSoundTime * 1000;
+    FOR i = 0 TO __Song.channels - 1
+        PRINT FormatLong(i + 1, " (%2i)"); FormatSingle(SampleMixer_GetVoiceVolume(i) * 100.0!, " V:%3.0f"); FormatSingle(SampleMixer_GetVoicePanning(i) * 100.0!, " P:%+4.0f ");
+    NEXT
 
-    Dim As Long fftSamples, fftSamplesHalf, fftBits
+    DIM AS LONG fftSamples, fftSamplesHalf, fftBits
 
     fftSamples = RoundDownToPowerOf2(__Song.samplesPerTick) ' we need power of 2 for our FFT function
     fftSamplesHalf = fftSamples \ 2
     fftBits = LeftShiftOneCount(fftSamples) ' Get the count of bits that the FFT routine will need
 
     ' Setup the FFT arrays (half of fftSamples)
-    ReDim SpectrumAnalyzerLeft(0 To fftSamplesHalf - 1) As Unsigned Integer
-    ReDim SpectrumAnalyzerRight(0 To fftSamplesHalf - 1) As Unsigned Integer
+    REDIM SpectrumAnalyzerLeft(0 TO fftSamplesHalf - 1) AS UNSIGNED INTEGER
+    REDIM SpectrumAnalyzerRight(0 TO fftSamplesHalf - 1) AS UNSIGNED INTEGER
 
-    AnalyzerFFTSingle Offset(SpectrumAnalyzerLeft(0)), Offset(MixerBufferLeft(0)), 1, fftBits ' the left samples first
-    AnalyzerFFTSingle Offset(SpectrumAnalyzerRight(0)), Offset(MixerBufferRight(0)), 1, fftBits ' and now the right ones
+    AnalyzerFFTSingle OFFSET(SpectrumAnalyzerLeft(0)), OFFSET(__MixerBufferL(0)), 1, fftBits ' the left samples first
+    AnalyzerFFTSingle OFFSET(SpectrumAnalyzerRight(0)), OFFSET(__MixerBufferR(0)), 1, fftBits ' and now the right ones
 
-    Color , 0
+    COLOR , 0
 
-    For i = 0 To fftSamplesHalf - 1
+    FOR i = 0 TO fftSamplesHalf - 1
         j = (i * SpectrumAnalyzerHeight) \ fftSamplesHalf ' this is the y location where we need to draw the bar
 
         ' First calculate and draw a bar on the left
-        If SpectrumAnalyzerLeft(i) >= ANALYZER_SCALE Then
+        IF SpectrumAnalyzerLeft(i) >= ANALYZER_SCALE THEN
             x = SpectrumAnalyzerWidth - 1
-        Else
+        ELSE
             x = (SpectrumAnalyzerLeft(i) * (SpectrumAnalyzerWidth - 1)) \ ANALYZER_SCALE
-        End If
+        END IF
 
         TextHLine SpectrumAnalyzerWidth - x, 1 + j, SpectrumAnalyzerWidth
 
         ' Next calculate for the one on the right and draw
-        If SpectrumAnalyzerRight(i) >= ANALYZER_SCALE Then
+        IF SpectrumAnalyzerRight(i) >= ANALYZER_SCALE THEN
             x = SpectrumAnalyzerWidth - 1
-        Else
+        ELSE
             x = (SpectrumAnalyzerRight(i) * (SpectrumAnalyzerWidth - 1)) \ ANALYZER_SCALE
-        End If
+        END IF
 
         TextHLine 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER, 1 + j, 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER + x
-    Next
+    NEXT
 
-    Display ' flip the framebuffer
-End Sub
+    DISPLAY ' flip the framebuffer
+END SUB
 
 
 ' Welcome screen loop
-Function DoWelcomeScreen~%%
-    Dim As Single starX(1 To TEXT_LINE_MAX), starY(1 To TEXT_LINE_MAX)
-    Dim As Long starZ(1 To TEXT_LINE_MAX), starC(1 To TEXT_LINE_MAX)
-    Dim k As Long, e As Unsigned Byte
+FUNCTION OnWelcomeScreen%%
+    DIM AS SINGLE starX(1 TO TEXT_LINE_MAX), starY(1 TO TEXT_LINE_MAX)
+    DIM AS LONG starZ(1 TO TEXT_LINE_MAX), starC(1 TO TEXT_LINE_MAX)
+    DIM k AS LONG, e AS BYTE
 
-    Do
-        Cls , 0 ' clear the framebuffer to black color
+    DO
+        CLS , 0 ' clear the framebuffer to black color
 
-        Locate 1, 1
-        Color 14, 0
-        Print "                                                 *        )  (       (                                                  "
-        Print "                       (     (   (         )   (  `    ( /(  )\ )    )\ )  (                                            "
-        Print "                     ( )\  ( )\  )\ )   ( /(   )\))(   )\())(()/(   (()/(  )\    )  (       (   (                       "
-        Print "                     )((_) )((_)(()/(   )\()) ((_)()\ ((_)\  /(_))   /(_))((_)( /(  )\ )   ))\  )(                      "
-        Print "                    ((_)_ ((_)_  /(_)) ((_)\  (_()((_)  ((_)(_))_   (_))   _  )(_))(()/(  /((_)(()\                     "
-        Print "                     / _ \ | _ )(_) / | | (_) |  \/  | / _ \ |   \  | _ \ | |((_)_  )(_))(_))   ((_)                    "
-        Print "                    | (_) || _ \ / _ \|_  _|  | |\/| || (_) || |) | |  _/ | |/ _` || || |/ -_) | '_|                    "
-        Print "_.___________________\__\_\|___/ \___/  |_|   |_|  |_| \___/ |___/  |_|   |_|\__,_| \_, |\___| |_|____________________._"
-        Print "                                                                                    |__/                                "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                         ";: Color 11: Print "F1";: Color 8: Print " ............ ";: Color 13: Print "MULTI-SELECT FILES";: Color 14: Print "                                         | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                         ";: Color 11: Print "F2";: Color 8: Print " .......... ";: Color 13: Print "PLAY FROM MODARCHIVE";: Color 14: Print "                                         | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                         ";: Color 11: Print "ESC";: Color 8: Print " .................... ";: Color 13: Print "NEXT/QUIT";: Color 14: Print "                                         | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                         ";: Color 11: Print "SPC";: Color 8: Print " ........................ ";: Color 13: Print "PAUSE";: Color 14: Print "                                         | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                         ";: Color 11: Print "=|+";: Color 8: Print " .............. ";: Color 13: Print "INCREASE VOLUME";: Color 14: Print "                                         | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                         ";: Color 11: Print "-|_";: Color 8: Print " .............. ";: Color 13: Print "DECREASE VOLUME";: Color 14: Print "                                         | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                         ";: Color 11: Print "L|l";: Color 8: Print " ......................... ";: Color 13: Print "LOOP";: Color 14: Print "                                         | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                         ";: Color 11: Print "Q|q";: Color 8: Print " ................ ";: Color 13: Print "INTERPOLATION";: Color 14: Print "                                         | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                         ";: Color 11: Print "<-";: Color 8: Print " ........................ ";: Color 13: Print "REWIND";: Color 14: Print "                                         | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                         ";: Color 11: Print "->";: Color 8: Print " ....................... ";: Color 13: Print "FORWARD";: Color 14: Print "                                         | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                                                                                                                    | "
-        Print " |                     ";: Color 9: Print "DRAG AND DROP MULTIPLE MOD FILES ON THIS WINDOW TO PLAY THEM SEQUENTIALLY.";: Color 14: Print "                     | "
-        Print " |                                                                                                                    | "
-        Print " |                     ";: Color 9: Print "YOU CAN ALSO START THE PROGRAM WITH MULTIPLE FILES FROM THE COMMAND LINE.";: Color 14: Print "                      | "
-        Print " |                                                                                                                    | "
-        Print " |                    ";: Color 9: Print "THIS WAS WRITTEN PURELY IN QB64 AND THE SOURCE CODE IS AVAILABLE ON GITHUB.";: Color 14: Print "                     | "
-        Print " |                                                                                                                    | "
-        Print " |                                     ";: Color 9: Print "https://github.com/a740g/QB64-MOD-Player";: Color 14: Print "                                       | "
-        Print "_|_                                                                                                                  _|_"
-        Print " `/__________________________________________________________________________________________________________________\' ";
+        LOCATE 1, 1
+        COLOR 14, 0
+        PRINT "                                                 *        )  (       (                                                  "
+        PRINT "                       (     (   (         )   (  `    ( /(  )\ )    )\ )  (                                            "
+        PRINT "                     ( )\  ( )\  )\ )   ( /(   )\))(   )\())(()/(   (()/(  )\    )  (       (   (                       "
+        PRINT "                     )((_) )((_)(()/(   )\()) ((_)()\ ((_)\  /(_))   /(_))((_)( /(  )\ )   ))\  )(                      "
+        PRINT "                    ((_)_ ((_)_  /(_)) ((_)\  (_()((_)  ((_)(_))_   (_))   _  )(_))(()/(  /((_)(()\                     "
+        PRINT "                     / _ \ | _ )(_) / | | (_) |  \/  | / _ \ |   \  | _ \ | |((_)_  )(_))(_))   ((_)                    "
+        PRINT "                    | (_) || _ \ / _ \|_  _|  | |\/| || (_) || |) | |  _/ | |/ _` || || |/ -_) | '_|                    "
+        PRINT "_.___________________\__\_\|___/ \___/  |_|   |_|  |_| \___/ |___/  |_|   |_|\__,_| \_, |\___| |_|____________________._"
+        PRINT "                                                                                    |__/                                "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                         ";: COLOR 11: PRINT "F1";: COLOR 8: PRINT " ............ ";: COLOR 13: PRINT "MULTI-SELECT FILES";: COLOR 14: PRINT "                                         | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                         ";: COLOR 11: PRINT "F2";: COLOR 8: PRINT " .......... ";: COLOR 13: PRINT "PLAY FROM MODARCHIVE";: COLOR 14: PRINT "                                         | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                         ";: COLOR 11: PRINT "ESC";: COLOR 8: PRINT " .................... ";: COLOR 13: PRINT "NEXT/QUIT";: COLOR 14: PRINT "                                         | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                         ";: COLOR 11: PRINT "SPC";: COLOR 8: PRINT " ........................ ";: COLOR 13: PRINT "PAUSE";: COLOR 14: PRINT "                                         | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                         ";: COLOR 11: PRINT "=|+";: COLOR 8: PRINT " .............. ";: COLOR 13: PRINT "INCREASE VOLUME";: COLOR 14: PRINT "                                         | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                         ";: COLOR 11: PRINT "-|_";: COLOR 8: PRINT " .............. ";: COLOR 13: PRINT "DECREASE VOLUME";: COLOR 14: PRINT "                                         | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                         ";: COLOR 11: PRINT "L|l";: COLOR 8: PRINT " ......................... ";: COLOR 13: PRINT "LOOP";: COLOR 14: PRINT "                                         | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                         ";: COLOR 11: PRINT "Q|q";: COLOR 8: PRINT " ................ ";: COLOR 13: PRINT "INTERPOLATION";: COLOR 14: PRINT "                                         | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                         ";: COLOR 11: PRINT "<-";: COLOR 8: PRINT " ........................ ";: COLOR 13: PRINT "REWIND";: COLOR 14: PRINT "                                         | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                         ";: COLOR 11: PRINT "->";: COLOR 8: PRINT " ....................... ";: COLOR 13: PRINT "FORWARD";: COLOR 14: PRINT "                                         | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                     ";: COLOR 9: PRINT "DRAG AND DROP MULTIPLE MOD FILES ON THIS WINDOW TO PLAY THEM SEQUENTIALLY.";: COLOR 14: PRINT "                     | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                     ";: COLOR 9: PRINT "YOU CAN ALSO START THE PROGRAM WITH MULTIPLE FILES FROM THE COMMAND LINE.";: COLOR 14: PRINT "                      | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                    ";: COLOR 9: PRINT "THIS WAS WRITTEN PURELY IN QB64 AND THE SOURCE CODE IS AVAILABLE ON GITHUB.";: COLOR 14: PRINT "                     | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                     ";: COLOR 9: PRINT "https://github.com/a740g/QB64-MOD-Player";: COLOR 14: PRINT "                                       | "
+        PRINT "_|_                                                                                                                  _|_"
+        PRINT " `/__________________________________________________________________________________________________________________\' ";
 
         ' Text mode starfield. Hell yeah!
-        For k = 1 To TEXT_LINE_MAX
-            If starX(k) < 1 Or starX(k) > WindowWidth Or starY(k) < 1 Or starY(k) > TEXT_LINE_MAX Then
+        FOR k = 1 TO TEXT_LINE_MAX
+            IF starX(k) < 1 OR starX(k) > WindowWidth OR starY(k) < 1 OR starY(k) > TEXT_LINE_MAX THEN
 
-                starX(k) = RandomBetween(1 + WindowWidth \ 4, WindowWidth - WindowWidth \ 4)
-                starY(k) = RandomBetween(1 + TEXT_LINE_MAX \ 4, TEXT_LINE_MAX - TEXT_LINE_MAX \ 4)
+                starX(k) = GetRandomValue(1 + WindowWidth \ 4, WindowWidth - WindowWidth \ 4)
+                starY(k) = GetRandomValue(1 + TEXT_LINE_MAX \ 4, TEXT_LINE_MAX - TEXT_LINE_MAX \ 4)
                 starZ(k) = 4096
-                starC(k) = RandomBetween(9, 15)
-            End If
+                starC(k) = GetRandomValue(9, 15)
+            END IF
 
-            Locate starY(k), starX(k)
-            Color starC(k)
-            Print "*";
+            LOCATE starY(k), starX(k)
+            COLOR starC(k)
+            PRINT "*";
 
             starZ(k) = starZ(k) + 1
             starX(k) = ((starX(k) - (WindowWidth / 2)) * (starZ(k) / 4096)) + (WindowWidth / 2)
             starY(k) = ((starY(k) - (TEXT_LINE_MAX / 2)) * (starZ(k) / 4096)) + (TEXT_LINE_MAX / 2)
-        Next
+        NEXT
 
-        k = KeyHit
+        k = KEYHIT
 
-        If k = KEY_ESCAPE Then
+        IF k = KEY_ESCAPE THEN
             e = EVENT_QUIT
-        ElseIf TotalDroppedFiles > 0 Then
+        ELSEIF TOTALDROPPEDFILES > 0 THEN
             e = EVENT_DROP
-        ElseIf k = KEY_F1 Then
+        ELSEIF k = KEY_F1 THEN
             e = EVENT_LOAD
-        ElseIf k = KEY_F2 Then
+        ELSEIF k = KEY_F2 THEN
             e = EVENT_HTTP
-        End If
+        END IF
 
-        Display ' flip the framebuffer
+        DISPLAY ' flip the framebuffer
 
-        Limit FRAME_RATE_MIN
-    Loop While e = EVENT_NONE
+        LIMIT FRAME_RATE_MIN
+    LOOP WHILE e = EVENT_NONE
 
-    DoWelcomeScreen = e
-End Function
+    OnWelcomeScreen = e
+END FUNCTION
 
 
 ' Loads the note string table
-Sub InitializeNoteTable
-    Dim As Unsigned Byte n, v
-    Restore NoteTab
-    Read v
-    ReDim NoteTable(0 To v - 1) As String * 2
-    For n = 0 To v - 1
-        Read NoteTable(n)
-    Next
+SUB InitializeNoteTable
+    DIM AS UNSIGNED BYTE n, v
+    RESTORE NoteTab
+    READ v
+    REDIM NoteTable(0 TO v - 1) AS STRING * 2
+    FOR n = 0 TO v - 1
+        READ NoteTable(n)
+    NEXT
 
     ' Note string table for UI
     NoteTab:
-    Data 12
-    Data "C-","C#","D-","D#","E-","F-","F#","G-","G#","A-","A#","B-"
-End Sub
+    DATA 12
+    DATA "C-","C#","D-","D#","E-","F-","F#","G-","G#","A-","A#","B-"
+END SUB
 
 
 ' Automatically selects, sets the window size and saves the text width
-Sub AdjustWindowSize
-    Shared __Song As __SongType
+SUB AdjustWindowSize
+    SHARED __Song AS __SongType
 
-    If __Song.isPlaying Then
+    IF __Song.isPlaying THEN
         PatternDisplayWidth = 8 + __Song.channels * 19 ' find the actual width
         WindowWidth = PatternDisplayWidth
-        If WindowWidth < TEXT_WIDTH_MIN Then WindowWidth = TEXT_WIDTH_MIN ' we don't want the width to be too small
+        IF WindowWidth < TEXT_WIDTH_MIN THEN WindowWidth = TEXT_WIDTH_MIN ' we don't want the width to be too small
         SpectrumAnalyzerWidth = (WindowWidth - TEXT_WIDTH_HEADER) \ 2
-        If PatternDisplayWidth <= TEXT_WIDTH_HEADER Then
+        IF PatternDisplayWidth <= TEXT_WIDTH_HEADER THEN
             SpectrumAnalyzerHeight = TEXT_LINE_MAX
-        Else
+        ELSE
             SpectrumAnalyzerHeight = 4 + __Song.samples
-        End If
-    Else
+        END IF
+    ELSE
         PatternDisplayWidth = 0
         WindowWidth = TEXT_WIDTH_MIN ' we don't want the width to be too small
         SpectrumAnalyzerWidth = 0
         SpectrumAnalyzerHeight = 0
-    End If
+    END IF
 
-    Width WindowWidth, TEXT_LINE_MAX ' we need 75 lines for the vizualization stuff
-    ControlChr Off ' turn off control characters
-    Font 8 ' force 8x8 pixel font
-    Blink Off ' we want high intensity colors
-    Cls ' clear the screen
-    Locate , , FALSE ' turn cursor off
-End Sub
+    WIDTH WindowWidth, TEXT_LINE_MAX ' we need 75 lines for the vizualization stuff
+    CONTROLCHR OFF ' turn off control characters
+    FONT 8 ' force 8x8 pixel font
+    BLINK OFF ' we want high intensity colors
+    CLS ' clear the screen
+    LOCATE , , FALSE ' turn cursor off
+END SUB
 
 
 ' Initializes, loads and plays a mod file
 ' Also checks for input, shows info etc
-Function PlaySong~%% (fileName As String)
-    Shared __Song As __SongType
-    Shared SoftSynth As SoftSynthType
+FUNCTION OnPlayTune%% (fileName AS STRING)
+    SHARED __Song AS __SongType
 
-    PlaySong = EVENT_PLAY ' default event is to play next song
+    OnPlayTune = EVENT_PLAY ' default event is to play next song
 
-    Dim buffer As String: buffer = LoadFile(fileName) ' load the whole file to memory
+    DIM buffer AS STRING: buffer = LoadFile(fileName) ' load the whole file to memory
 
-    If Not LoadMODFromMemory(buffer) Then
-        MessageBox APP_NAME, "Failed to load: " + fileName, "error"
+    IF NOT MODPlayer_LoadFromMemory(buffer) THEN
+        MESSAGEBOX APP_NAME, "Failed to load: " + fileName, "error"
 
-        Exit Function
-    End If
+        EXIT FUNCTION
+    END IF
 
     ' Set the app title to display the file name
-    Dim windowTitle As String: windowTitle = APP_NAME + " - " + GetFileNameFromPathOrURL(fileName)
-    Title windowTitle
+    DIM windowTitle AS STRING
+    IF LEN(GetDriveOrSchemeFromPathOrURL(fileName)) > 2 THEN
+        windowTitle = GetSaveFileName(fileName) + " - " + APP_NAME
+    ELSE
+        windowTitle = GetFileNameFromPathOrURL(fileName) + " - " + APP_NAME
+    END IF
+    TITLE windowTitle
 
-    StartMODPlayer
+    MODPlayer_Play
     AdjustWindowSize
 
-    SetGlobalVolume Volume
-    EnableHQMixer HighQuality
+    SampleMixer_SetGlobalVolume GlobalVolume
+    SampleMixer_SetHighQuality HighQuality
 
-    Dim As Long k, nFPS
+    DIM AS LONG k, nFPS
 
-    Do
-        UpdateMODPlayer
+    DO
+        MODPlayer_Update
 
         PrintVisualization
 
-        k = KeyHit
+        k = KEYHIT
 
-        Select Case k
-            Case KEY_SPACE_BAR
-                __Song.isPaused = Not __Song.isPaused
+        SELECT CASE k
+            CASE KEY_SPACE
+                __Song.isPaused = NOT __Song.isPaused
 
-            Case KEY_PLUS, KEY_EQUALS
-                SetGlobalVolume Volume + 1
-                Volume = SoftSynth.volume
+            CASE KEY_PLUS, KEY_EQUALS
+                SampleMixer_SetGlobalVolume GlobalVolume + 0.01!
+                GlobalVolume = SampleMixer_GetGlobalVolume
 
-            Case KEY_MINUS, KEY_UNDERSCORE
-                SetGlobalVolume Volume - 1
-                Volume = SoftSynth.volume
+            CASE KEY_MINUS, KEY_UNDERSCORE
+                SampleMixer_SetGlobalVolume GlobalVolume - 0.01!
+                GlobalVolume = SampleMixer_GetGlobalVolume
 
-            Case KEY_UPPER_L, KEY_LOWER_L
-                __Song.isLooping = Not __Song.isLooping
+            CASE KEY_UPPER_L, KEY_LOWER_L
+                MODPlayer_Loop NOT MODPlayer_IsLooping
 
-            Case KEY_UPPER_Q, KEY_LOWER_Q
-                HighQuality = Not HighQuality
-                EnableHQMixer HighQuality
+            CASE KEY_UPPER_Q, KEY_LOWER_Q
+                HighQuality = NOT HighQuality
+                SampleMixer_SetHighQuality HighQuality
 
-            Case KEY_LEFT_ARROW
-                __Song.orderPosition = __Song.orderPosition - 1
-                If __Song.orderPosition < 0 Then __Song.orderPosition = __Song.orders - 1
-                __Song.patternRow = 0
+            CASE KEY_LEFT_ARROW
+                MODPlayer_GoToPreviousPosition
 
-            Case KEY_RIGHT_ARROW
-                __Song.orderPosition = __Song.orderPosition + 1
-                If __Song.orderPosition >= __Song.orders Then __Song.orderPosition = 0
-                __Song.patternRow = 0
+            CASE KEY_RIGHT_ARROW
+                MODPlayer_GoToNextPosition
 
-            Case KEY_F1
-                PlaySong = EVENT_LOAD
-                Exit Do
+            CASE KEY_F1
+                OnPlayTune = EVENT_LOAD
+                EXIT DO
 
-            Case KEY_F6 ' quick save for files loaded from ModArchive
-                OnQuickSave buffer, fileName
+            CASE KEY_F6 ' quick save for files loaded from ModArchive
+                QuickSave buffer, fileName
 
-            Case 21248 ' Shift + Delete - you known what it does
-                If Len(GetDriveOrSchemeFromPathOrURL(fileName)) > 2 Then
-                    MessageBox APP_NAME, "You cannot delete " + fileName + "!", "error"
-                Else
-                    If MessageBox(APP_NAME, "Are you sure you want to delete " + fileName + " permanently?", "yesno", "question", 0) = 1 Then
-                        Kill fileName
-                        Exit Do
-                    End If
-                End If
-        End Select
+            CASE 21248 ' Shift + Delete - you known what it does
+                IF LEN(GetDriveOrSchemeFromPathOrURL(fileName)) > 2 THEN
+                    MESSAGEBOX APP_NAME, "You cannot delete " + fileName + "!", "error"
+                ELSE
+                    IF MESSAGEBOX(APP_NAME, "Are you sure you want to delete " + fileName + " permanently?", "yesno", "question", 0) = 1 THEN
+                        KILL fileName
+                        EXIT DO
+                    END IF
+                END IF
+        END SELECT
 
-        If TotalDroppedFiles > 0 Then
-            PlaySong = EVENT_DROP
+        IF TOTALDROPPEDFILES > 0 THEN
+            OnPlayTune = EVENT_DROP
 
-            Exit Do
-        End If
+            EXIT DO
+        END IF
 
-        HighQuality = SoftSynth.useHQMixer ' Since this can be changed by the playing MOD
+        HighQuality = SampleMixer_IsHighQuality ' Since this can be changed by the playing MOD
 
         nFPS = MaxLong(FRAME_RATE_MIN, (12 * __Song.bpm * (31 - __Song.speed)) \ 625) ' we'll only update at the rate we really need
-        If GetTicks Mod 15 = 0 Then Title windowTitle + " (" + LTrim$(Str$(nFPS)) + " FPS)"
+        IF GetTicks MOD 15 = 0 THEN TITLE windowTitle + " (" + LTRIM$(STR$(nFPS)) + " FPS)"
 
-        Limit nFPS
-    Loop Until Not __Song.isPlaying Or k = KEY_ESCAPE
+        LIMIT nFPS
+    LOOP UNTIL NOT __Song.isPlaying OR k = KEY_ESCAPE
 
-    StopMODPlayer
+    MODPlayer_Stop
     AdjustWindowSize
 
-    Title APP_NAME + " " + OS$ ' Set app title to the way it was
-End Function
+    TITLE APP_NAME + " " + OS$ ' Set app title to the way it was
+END FUNCTION
 
 
 ' Processes the command line one file at a time
-Function ProcessCommandLine~%%
-    Dim i As Unsigned Long
-    Dim e As Unsigned Byte: e = EVENT_NONE
+FUNCTION OnCommandLine%%
+    DIM e AS BYTE: e = EVENT_NONE
 
-    If (Command$(1) = "/?" Or Command$(1) = "-?") Then
-        MessageBox APP_NAME, APP_NAME + Chr$(13) + "Syntax: QB64MODP [modfile.mod]" + Chr$(13) + "    /?: Shows this message" + String$(2, 13) + "Copyright (c) 2023, Samuel Gomes" + String$(2, 13) + "https://github.com/a740g/", "info"
+    IF (COMMAND$(1) = "/?" OR COMMAND$(1) = "-?") THEN
+        MESSAGEBOX APP_NAME, APP_NAME + CHR$(13) + "Syntax: QB64MODP [modfile.mod]" + CHR$(13) + "    /?: Shows this message" + STRING$(2, 13) + "Copyright (c) 2023, Samuel Gomes" + STRING$(2, 13) + "https://github.com/a740g/", "info"
         e = EVENT_QUIT
-    Else
-        For i = 1 To CommandCount
-            e = PlaySong(Command$(i))
-            If e <> EVENT_PLAY Then Exit For
-        Next
-    End If
+    ELSE
+        DIM i AS LONG: FOR i = 1 TO COMMANDCOUNT
+            e = OnPlayTune(COMMAND$(i))
+            IF e <> EVENT_PLAY THEN EXIT FOR
+        NEXT
+    END IF
 
-    ProcessCommandLine = e
-End Function
+    OnCommandLine = e
+END FUNCTION
 
 
 ' Processes dropped files one file at a time
-Function ProcessDroppedFiles~%%
+FUNCTION OnDroppedFiles%%
     ' Make a copy of the dropped file and clear the list
-    ReDim fileNames(1 To TotalDroppedFiles) As String
-    Dim i As Unsigned Long
-    Dim e As Unsigned Byte: e = EVENT_NONE
+    REDIM fileNames(1 TO TOTALDROPPEDFILES) AS STRING
 
-    For i = 1 To TotalDroppedFiles
-        fileNames(i) = DroppedFile(i)
-    Next
-    FinishDrop ' This is critical
+    DIM e AS BYTE: e = EVENT_NONE
+
+    DIM i AS LONG: FOR i = 1 TO TOTALDROPPEDFILES
+        fileNames(i) = DROPPEDFILE(i)
+    NEXT
+    FINISHDROP ' This is critical
 
     ' Now play the dropped file one at a time
-    For i = LBound(fileNames) To UBound(fileNames)
-        e = PlaySong(fileNames(i))
-        If e <> EVENT_PLAY Then Exit For
-    Next
+    FOR i = LBOUND(fileNames) TO UBOUND(fileNames)
+        e = OnPlayTune(fileNames(i))
+        IF e <> EVENT_PLAY THEN EXIT FOR
+    NEXT
 
-    ProcessDroppedFiles = e
-End Function
+    OnDroppedFiles = e
+END FUNCTION
 
 
 ' Processes a list of files selected by the user
-Function ProcessSelectedFiles~%%
-    Dim ofdList As String
-    Dim e As Unsigned Byte: e = EVENT_NONE
+FUNCTION OnSelectedFiles%%
+    DIM ofdList AS STRING
+    DIM e AS BYTE: e = EVENT_NONE
 
-    ofdList = OpenFileDialog$(APP_NAME, "", "*.mod|*.MOD|*.Mod", "Music Tracker Files", TRUE)
+    ofdList = OPENFILEDIALOG$(APP_NAME, "", "*.mod|*.MOD|*.Mod", "Music Tracker Files", TRUE)
 
-    If ofdList = NULLSTRING Then Exit Function
+    IF ofdList = EMPTY_STRING THEN EXIT FUNCTION
 
-    ReDim fileNames(0 To 0) As String
-    Dim As Long i, j
+    REDIM fileNames(0 TO 0) AS STRING
 
-    j = TokenizeString(ofdList, "|", NULLSTRING, FALSE, fileNames())
+    DIM j AS LONG: j = TokenizeString(ofdList, "|", EMPTY_STRING, FALSE, fileNames())
 
-    For i = 0 To j - 1
-        e = PlaySong(fileNames(i))
-        If e <> EVENT_PLAY Then Exit For
-    Next
+    DIM i AS LONG: FOR i = 0 TO j - 1
+        e = OnPlayTune(fileNames(i))
+        IF e <> EVENT_PLAY THEN EXIT FOR
+    NEXT
 
-    ProcessSelectedFiles = e
-End Function
+    OnSelectedFiles = e
+END FUNCTION
 
 
 ' Loads and plays random MODs from modarchive.org
-Function ProcessModArchiveFiles~%%
-    Dim e As Unsigned Byte: e = EVENT_NONE
-    Dim modArchiveFileName As String
+FUNCTION OnModArchiveFiles%%
+    DIM e AS BYTE: e = EVENT_NONE
+    DIM modArchiveFileName AS STRING
 
-    Do
-        Do
+    DO
+        DO
+            IF TOTALDROPPEDFILES > 0 THEN
+                e = EVENT_DROP
+                EXIT DO
+            ELSEIF KEYHIT = KEY_F1 THEN
+                e = EVENT_LOAD
+                EXIT DO
+            END IF
+
             modArchiveFileName = GetRandomModArchiveFileName$
 
-            Title APP_NAME + " - Downloading: " + GetFileNameFromPathOrURL(modArchiveFileName)
+            TITLE "Downloading: " + GetSaveFileName(modArchiveFileName) + " - " + APP_NAME
+        LOOP UNTIL LCASE$(GetFileExtensionFromPathOrURL(modArchiveFileName)) = ".mod"
 
-            If TotalDroppedFiles > 0 Then
-                e = EVENT_DROP
-                Exit Do
-            End If
+        e = OnPlayTune(modArchiveFileName)
+    LOOP WHILE e = EVENT_NONE OR e = EVENT_PLAY
 
-            If KeyHit = KEY_F1 Then
-                e = EVENT_LOAD
-                Exit Do
-            End If
-        Loop Until LCase$(GetFileExtensionFromPathOrURL(modArchiveFileName)) = ".mod"
+    TITLE APP_NAME + " " + OS$ ' Set app title to the way it was
 
-        If e <> EVENT_NONE And e <> EVENT_PLAY Then Exit Do
-
-        e = PlaySong(modArchiveFileName)
-    Loop
-
-    Title APP_NAME + " " + OS$ ' Set app title to the way it was
-
-    ProcessModArchiveFiles = e
-End Function
+    OnModArchiveFiles = e
+END FUNCTION
 
 
 ' Draw a horizontal line using text and colors it too! Sweet! XD
-Sub TextHLine (xs As Long, y As Long, xe As Long)
-    Dim l As Long
+SUB TextHLine (xs AS LONG, y AS LONG, xe AS LONG)
+    DIM l AS LONG
     l = 1 + xe - xs
-    Color 9 + l Mod 7
-    Locate y, xs
-    Print String$(l, 254);
-End Sub
+    COLOR 9 + l MOD 7
+    LOCATE y, xs
+    PRINT STRING$(l, 254);
+END SUB
 
 
 ' Gets a random file URL from www.modarchive.org
-Function GetRandomModArchiveFileName$
-    Const THE_MOD_ARCHIVE_SEARCH_URL = "https://api.modarchive.org/downloads.php?moduleid="
+FUNCTION GetRandomModArchiveFileName$
+    DIM buffer AS STRING: buffer = LoadFileFromURL("https://modarchive.org/index.php?request=view_random")
+    DIM bufPos AS LONG: bufPos = INSTR(buffer, "https://api.modarchive.org/downloads.php?moduleid=")
 
-    Dim buffer As String: buffer = LoadFileFromURL("https://modarchive.org/index.php?request=view_random")
-    Dim bufPos As Long: bufPos = InStr(buffer, THE_MOD_ARCHIVE_SEARCH_URL)
+    IF bufPos > 0 THEN
+        GetRandomModArchiveFileName = MID$(buffer, bufPos, INSTR(bufPos, buffer, CHR$(34)) - bufPos)
+    END IF
+END FUNCTION
 
-    If bufPos > 0 Then
-        GetRandomModArchiveFileName = Mid$(buffer, bufPos, InStr(bufPos, buffer, Chr$(34)) - bufPos)
-    End If
-End Function
+
+' Returns a good file name for a modarchive file
+FUNCTION GetSaveFileName$ (url AS STRING)
+    DIM saveFileName AS STRING: saveFileName = GetFileNameFromPathOrURL(url)
+    GetSaveFileName = GetLegalFileName(MID$(saveFileName, INSTR(saveFileName, "=") + 1)) ' this will get a file name of type: 12312313#filename.mod
+END FUNCTION
 
 
 ' Saves a file loaded from the internet
-Sub OnQuickSave (buffer As String, fileName As String)
-    Static savePath As String, alwaysUseSamePath As Byte, stopNagging As Byte
+SUB QuickSave (buffer AS STRING, url AS STRING)
+    STATIC savePath AS STRING, alwaysUseSamePath AS BYTE, stopNagging AS BYTE
 
-    If Len(GetDriveOrSchemeFromPathOrURL(fileName)) > 2 Then
+    IF LEN(GetDriveOrSchemeFromPathOrURL(url)) > 2 THEN
         ' This is a file from the web
-        If Not DirExists(savePath) Or Not alwaysUseSamePath Then ' only get the path if path does not exist or user wants to use a new path
-            savePath = SelectFolderDialog$("Select a folder to save the file:", savePath)
-            If savePath = NULLSTRING Then Exit Sub ' exit if user cancelled
+        IF NOT DIREXISTS(savePath) OR NOT alwaysUseSamePath THEN ' only get the path if path does not exist or user wants to use a new path
+            savePath = SELECTFOLDERDIALOG$("Select a folder to save the file:", savePath)
+            IF savePath = EMPTY_STRING THEN EXIT SUB ' exit if user cancelled
 
             savePath = FixPathDirectoryName(savePath)
-        End If
+        END IF
 
-        Dim saveFileName As String: saveFileName = savePath + GetLegalFileName(fileName)
+        DIM saveFileName AS STRING: saveFileName = savePath + GetSaveFileName(url)
 
-        If FileExists(saveFileName) Then
-            If MessageBox(APP_NAME, "Overwrite " + saveFileName + "?", "yesno", "warning", 0) = 0 Then Exit Sub
-        End If
+        IF FILEEXISTS(saveFileName) THEN
+            IF MESSAGEBOX(APP_NAME, "Overwrite " + saveFileName + "?", "yesno", "warning", 0) = 0 THEN EXIT SUB
+        END IF
 
-        If SaveFile(buffer, saveFileName, TRUE) Then MessageBox APP_NAME, saveFileName + " saved.", "info"
+        IF SaveFile(buffer, saveFileName, TRUE) THEN MESSAGEBOX APP_NAME, saveFileName + " saved.", "info"
 
         ' Check if user want to use the same path in the future
-        If Not stopNagging Then
-            Select Case MessageBox(APP_NAME, "Do you want to use " + savePath + " for future saves?", "yesnocancel", "question", 1)
-                Case 0
+        IF NOT stopNagging THEN
+            SELECT CASE MESSAGEBOX(APP_NAME, "Do you want to use " + savePath + " for future saves?", "yesnocancel", "question", 1)
+                CASE 0
                     stopNagging = TRUE
-                Case 1
+                CASE 1
                     alwaysUseSamePath = TRUE
-                Case 2
+                CASE 2
                     alwaysUseSamePath = FALSE
-            End Select
-        End If
-    Else
+            END SELECT
+        END IF
+    ELSE
         ' This is a local file - do nothing
-        MessageBox APP_NAME, "You cannot save local file " + fileName + "!", "error"
-    End If
-End Sub
-
-
-' Generates a legal filename from a modarchive download URL
-Function GetLegalFileName$ (url As String)
-    Dim fileName As String: fileName = GetFileNameFromPathOrURL(url)
-    fileName = Mid$(fileName, InStr(fileName, "=") + 1) ' this will get a file name of type: 12312313#filename.mod
-
-    Dim i As Long, s As String, c As Unsigned Byte
-
-    ' Clean any unwanted characters
-    For i = 1 To Len(fileName)
-        c = Asc(fileName, i)
-        Select Case c
-            Case 92, 47, 42, 63, 124
-                s = s + "_"
-            Case 58
-                s = s + "-"
-            Case 60
-                s = s + "{"
-            Case 62
-                s = s + "}"
-            Case 34
-                s = s + "'"
-            Case Else
-                s = s + Chr$(c)
-        End Select
-    Next
-
-    GetLegalFileName = s
-End Function
+        MESSAGEBOX APP_NAME, "You cannot save local file " + url + "!", "error"
+    END IF
+END SUB
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
 ' MODULE FILES
 '-----------------------------------------------------------------------------------------------------------------------
-'$Include:'include/MODPlayer.bas'
-'$Include:'include/StringOps.bas'
-'$Include:'include/FileOps.bas'
+'$INCLUDE:'include/FileOps.bas'
+'$INCLUDE:'include/StringOps.bas'
+'$INCLUDE:'include/SoftSynth.bas'
+'$INCLUDE:'include/MODPlayer.bas'
 '-----------------------------------------------------------------------------------------------------------------------
 '-----------------------------------------------------------------------------------------------------------------------

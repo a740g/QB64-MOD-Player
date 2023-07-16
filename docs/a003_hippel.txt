@@ -1,0 +1,106 @@
+|============================================================================|
+| [AMoRE] - Hippel(-TFMX) <HIP.*>              <jaegermeister.markus@gmx.de> |
+|           document version 1.00                                            |
+|----------------------------------------------------------------------------|
+| This document is part of the AMoRE (Amiga Module Ripping Encyclopedia)     |
+| package. It is released under the OpenContent license.                     |
+| The OpenContent license can be found at ........... http://opencontent.org |
+| The latest AMoRE package can be found at .... http://amore68k.netfirms.com |
+|----------------------------------------------------------------------------|
+
+
+  FORMAT DESCRIPTION
+  --------------------------------------------------------------------------
+
+     0000       code   $60xx        (short branch to init routine => $02+xx)
+     0002       code   $60xx        (short branch to play routine => $04+xx)
+      or
+     0000       code   $6000xxxx (long branch to init routine => $0004+xxxx)
+     0004       code   $6000xxxx (long branch to play routine => $0008+xxxx)
+   __....
+     (a1)-0032  words  each set to $0071,       (this is what to search for)
+                         seems to be part of a frequency or period table
+     (a1)-0018  data   unknown content
+     (a1)+0000  char   "TFMX" 
+     (a1)+0004  word   number of ??? - $01                              (u1)
+     (a1)+0006  word   number of ??? - $01                              (u2)
+     (a1)+0008  word   number of ??? - $01                              (u3)
+     (a1)+000a  word   number of patterns/notes? - $01                  (p1)
+     (a1)+000c  word   ??? (I thought of a multiplyer, but use $0040!)  (um)
+     (a1)+000e  word   amount of bytes in one note? ($0003),            (pb)
+                       pattern size multiplier is set to ($000c)        (pm)
+     (a1)+0010  word   number of subsongs                               (s1)
+                       size multiplier is set to $0006                  (sm)
+     (a1)+0012  word   number of instruments,                           (i1)
+                       instrument size multiplier is set to $001e       (im)
+   __(a1)+0014  words  each set to $0000, (a2) becomes (a1)+$0020
+   __(a2)+0000  block  data block #1,     size (u1+$01)*(um), (a3)=(a2)+size
+   __(a3)+0000  block  data block #2,     size (u2+$01)*(um), (a4)=(a3)+size
+   __(a4)+0000  block  data block #3,     size (u3+$01)*(um), (a5)=(a4)+size
+   __(a5)+0000  block  ptn/note block,    size (p1+$01)*(pm), (a6)=(a5)+size
+   __(a6)+0000  words  subsong block,     size (s1)*(sm),     (a7)=(a6)+size
+   __(a7)+0000  block  instruments block, size (i1)*(im),     (a8)=(a7)+size
+   __(a8)+0000  block  samples, size calculates from instruments block
+   __EOF__
+
+
+  INSTRUMENT BLOCK DESCRIPTION (size $1e, appearing i1 times)
+  --------------------------------------------------------------------------
+
+     0000       char   instrument name (nullpadded)
+     0012       dword  sample offset (in sample block)                 (iso)
+     0016       word   sample length / $02                             (isl)
+     0018       dword  sample loop start                               (ils)
+     001c       word   sample loop length                              (ill)
+
+
+  RIPPING INSTRUCTIONS
+  --------------------------------------------------------------------------
+
+     A Hippel module is quite easy to rip if you are aware of the format
+     description I've given above.
+       1. Search for the word $0071 in memory and check if it repeats
+            $0d times, if so, store the address of the $0071-couples
+            plus $0032 to a variable (a1)
+       2. Check if the 4-char string "TFMX" is available at (a1)
+       3. Calculate all block sizes as in the format description
+       4. The end address is the address of the last byte in the sample block
+       5. To find the start address, you have to search backwards for
+            the two branches mentioned above. Just if you want to get sure,
+            you also can search for the dword $48e7fffe twice instead as this
+            is the first data both branches jump to. If you have done it the
+            first way, continue with point 7!
+       6. The start address now is the address of the second $48e7fffe dword
+            found before the $0071....-"TFMX" thing, i.e. the one locating
+            before the other one. Then you've got to save two branches (take
+            long branches in the form of $6000xxxx if any branch jumps farer
+            than $7f bytes). A branch always jumps to the address of the
+            branch command (i.e. where $60 stands) plus $02 plus branch-
+            operand! After that save the memory from the first $48e7fffe
+            dword to the last sample.
+       7. The module starts where the first branch found before the $0071's.
+            Simply save that area from the first branch to the last sample
+            now and you've got your Hippel module!
+
+
+  DOCUMENT HISTORY
+  --------------------------------------------------------------------------
+
+     * v1.00 - first officially released version
+             - ripping method is accurate but uses the ID string, so
+                 modules with overwritten IDs are playable but not rippable
+                 through this method (I'll work on it later...)
+
+
+  CREDITS
+  --------------------------------------------------------------------------
+
+     * Document and amore.pas/amore.exe implementation done by
+         Jaegermeister Markus <jaegermeister.markus@gmx.de>
+
+     * Ripping method taken (and slightly changed) by the sourcecode of
+         Exotic Ripper v3.2 by Turbo and Marley of Infect
+
+     * Everything done with the help of the following sites
+         http://exotica.fix.no         (lots of exotic modules to test with)
+         http://www.multimania.com/asle        (amiga mod packers described)

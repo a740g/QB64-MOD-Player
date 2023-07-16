@@ -1,0 +1,58 @@
+Extension:	.669
+Version:	1.0
+Created by:	???
+Tracker:	669 Mod Composer, Composd 669
+Players:	DMP, FireMod, ...
+Description by: Max Maischein
+Taken from:	FileFormats List v1.50
+Note:		Digital music format
+
+
+OFFSET              Count TYPE   Description
+0000h                   1 word   ID=6669h
+0002h                 108 byte   ASCII song message
+006Eh                   1 byte   Number of saved samples (0-40h)
+                                 ="NOS"
+006Fh                   1 byte   Number of saved patterns (0-80h)
+                                 ="NOP"
+0070h                   1 byte   Loop order number
+0071h                 128 byte   Order list
+00F1h                 128 byte   Tempo list for patterns
+0171h                 128 byte   Break location list for patterns
+01F1h               "NOS" rec    Sample data
+                                 The sample data is in the file
+                                 for "NOS"
+                       13 byte   ASCIIZ filename of instrument
+                        1 dword  Length of instrument sample
+                        1 dword  Offset of beginning of loop
+                        1 dword  Offset of end of loop
+01F1h+          "NOP"*600 rec    The note patterns
+ "NOS"*19h                       Those patterns are repeated for each row,
+                                 and the array of these is repeated 64 times
+                                 for each pattern.
+                        3 byte   Note(see table 0000)
+01F1h+                  ? byte   Sample data (unsigned)
+ "NOS"*0x19+
+ "NOP"*0x600
+
+(Table 0000)
+669 Note format
+Each note looks like this :
+BYTE[0]: BYTE[1]: BYTE[2]:
+nnnnnnii iiiivvvv ccccdddd
+
+  n : note value
+  i : 6-bit instrument number
+  v : 4-bit volume
+  c : command data (Protracker format mapped) :
+     0 = a
+     1 = b
+     2 = c
+     3 = d
+     4 = e
+     5 = f
+     d : command value (Protracker format)
+
+Special values for byte 0 :
+  0FEh : no note, only volume
+  0FFh : no note or no command, if byte 2 = 0FFh

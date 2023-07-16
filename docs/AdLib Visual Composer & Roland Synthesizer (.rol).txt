@@ -1,0 +1,90 @@
+Files containing note information (i.e. songs) are suffixed with ".ROL".
+("File version" and "editing scale" are non-musical information used by Visual
+Composer (TM).)
+
+Structure of .ROL files:
+__________________________________________________________________
+
+fld #   size   type     description
+        (bytes)
+
+1       2       int     file version, major
+2       2       int     file version, minor
+3       40      char    unused
+4       2       int     ticks per beat
+5       2       int     beats per measure
+6       2       int     editing scale (Y axis)
+7       2       int     editing scale (X axis)
+8       1       char    unused
+9       1       char    0 = percussive mode
+                        1 = melodic mode
+10      90      char    unused
+11      38      char    filler
+12      15      char    filler
+13      4       float   basic tempo
+
+Field 14 indicates the number of times to repeat fields 15 and 16:
+
+14      2       int     number of tempo events
+15      2       int     time of events, in ticks
+16      4       float   tempo multiplier (0.01 - 10.0)
+
+The remaining fields (17 to 34) are to be repeated for each of 11 voices:
+
+17      15      char    filler
+18      2       int     time (in ticks) of last note +1
+
+Repeat the next two fields (19 and 20) while the summation of field 20 is
+less than the value of field 18:
+
+19      2       int     note number: 0 => silence
+                        from 12 to 107 => normal note (you must
+                        subtract 60 to obtain the correct value
+                        for the sound driver)
+20      2       int     note duration, in ticks
+21      15      char    filler
+
+Field 22 indicates the number of times to repeat fields 23 to 26:
+
+22      2       int     number of instrument events
+23      2       int     time of events, in ticks
+24      9       char    instrument name
+25      1       char    filler
+26      2       int     unused
+27      15      char    filler
+
+Field 28 indicates the number of times to repeat fields 29 and 30:
+
+28      2       int     number of volume events
+29      2       int     time of events, in ticks
+30      4       float   volume multiplier (0.0 - 1.0)
+31      15      char    filler
+
+Field 32 indicates the number of times to repeat fields 33 and 34:
+
+32      2       int     number of pitch events
+33      2       int     time of events, in ticks
+34      4       float   pitch variation (0.0 - 2.0, nominal is 1.0)
+
+Notes
+_____
+
+Fields #1 and #2 should be set to 0 and 4 respectively. Field #10 should
+be filled with zeros.
+
+PS:
+a 4 byte 'float' in the 80x86 family look like follows:
+
+Sign   biased
+-bit  exponent  significant
+ 31    30..23     22..0
+               ^
+                `- here an implicite "1." is assumed
+               exponent bias = 127 (0x7F)
+
+eg. 0.5 = 1* 2^(-1) ==> sign=0, exp=127-1, signif=(1.)0000000
+
+10987654 32109876 54321098 76543210
+33222222 22221111 11111100 00000000
+0         0000000 00000000 00000000
+ 0111111 0

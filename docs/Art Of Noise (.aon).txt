@@ -1,0 +1,233 @@
+Art Of Noise 1.5 preview module structure
+-----------------------------------------
+by Laurent Clevy (lclevy@club-internet.fr)
+
+version : 29 nov 1999
+
+
+Chorus - Art of Noise was written by Bastian Spiegel (Twice/Lego)
+
+
+
+offset	type 	size 	comments
+--------------------------------------------------------------------
+0x0000	B	4	"AON4"/"AON8" (4 voices/8 voices)
+0x0004	B	42	"artofnoise by bastian spiegel (twice/lego)"
+
+0x002e	B	4	"NAME"
+	L	1	length
+	B	???	songname
+
+???	B	4	"AUTH"
+	L	1	length
+	B	???	author name
+
+???	B	4	"DATE"
+	L	1	length
+	B	???	song date
+
+???	B	4	"RMRK"
+	L	1	length
+	B	???	remark text
+
+???	B	4	"INFO"
+	L	1	length (=4 ?)
+	B	1	(always 0x34 ?)
+	B	1	song length
+	B	1
+	B	1
+
+???	B	4	"ARPG"
+	L	1	length (=0x40 ?)
+	L	???	arpeggio
+
+???	B	4	"PLST"
+	L	1	length
+	B	???	playlist (patterns playing order)
+
+???	B	4	"PATT"
+	L	1	total patterns length (0x400*nb patterns)
+
+	1 pattern = 64 pos
+	1 pos = 4 voices
+	1 voice =
+		bytes
+		0	B	1	note
+		1	B	1	instrument (0-9A-Za-z)
+		2	B	1	command
+		3	B	1	parameter(s)
+
+	total = 1024 bytes
+
+???	B	4	"INST"
+	L	1	length (0x20*number of inst)
+
+	0x00	B	1	00=synth/01=sample
+	0x01	B	1	volume
+	0x02	B	1	finetune
+	0x03	B	1	waveform-1
+
+		Inst
+		0x04	L	1	sample offset
+		0x08	L	1	sample length
+		0x0c	L	1	repeat offset
+		0x10	L	1	repeat length
+
+	or	Sample
+		0x04	B	1	repeat len
+		0x05	B	9	always 0 ?
+		0x0a	B	1	vib param
+		0x0b	B	1	vib delay
+		0x0c	B	1	vib wave : 0=sinus, 1=triangle, 2=square, 3=off
+		0x0d	B	1	wave speed
+		0x0e	B	1	wave speed len
+		0x0f	B	1	wave repeat
+		0x10	B	1	wave rep len
+		0x11	B	1	repctrl : 0=normal, 1=backwards, 2=pingpong
+		0x12	B	11	always 0 ?
+		0x1c	B	1	start
+		0x1d	B	1	add
+		0x1e	B	1	end
+		0x1f	B	1	sub
+
+
+???	B	4	"INAM"	(exists only if insts have names :-) )
+	L	1	length (=0x7a0 ?  61 inst max * 0x20)
+		0	B	32	inst name (zero terminated)
+		...
+
+???	B	4	"WLEN"
+	L	1	length (=0x100 ? 0x40*4)
+		0	L	1	1st wave length
+		...
+
+???	B	4	"WAVE"
+	L	1	total waves length
+		0	B	???	1st wave
+		...
+
+
+Example:
+--------
+
+000000	"AON4"
+000004	"artofnoise by bastian spiegel (twice/lego)"
+0x002e	"NAME"
+	0000000c
+	"back in time
+	"AUTH"
+	0000000a
+	"twice/lego"
+	"DATE"
+	00000010
+	"17-november-1994"
+	"RMRK"
+	00000190
+	0a
+	"Brr.. a cold and rainy november day.. I just came back from school"
+	0a
+	"and it's still quite early (9:30).. As I looked out of the window"
+...
+	"INFO"
+	00000004
+	34140000
+	"ARPG"
+	00000040
+	00000000 30470000 30370000 30580000 30590000 00000000 00000000 00000000
+	00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+	"PLST"
+	00000014
+	00000102 03040405 05060707 03040405 05060707
+	"PATT"
+	00002000
+	1e0 10 f06	000 00 c00	360 20 f7d	000 00 e01
+	000 01 210	000 00 000	000 00 000	000 00 000
+	2a0 11 110	000 00 000	000 00 000	310 20 c38
+...
+	25050000 20031110 00000000 00000000
+
+0x0227c	"INST"
+	00000100
+0x02284	01 40 00 00  20 011e00  0001 72 0a  00 01 10 00  0c 02 0000 00000000
+		00000000 00000000
+	01 40 00 02  10 011e00  0004 72 0a  00 01 10 00  0c 02 0000 00000000
+		00000000 00000000
+	01 40 00 05  10 010d00  0006 73 0a  01 01 10 00  10 02 0000 00000000
+		00000000 00000000
+	00 29 00 07 00000000 00000208 00000000 00000001 00000000 00000000
+		00000000
+	00 40 00 08 00000000 000001bc 00000000 00000001 00000000 00000000
+		00000000
+	00 40 00 09 00000000 000001fc 00000000 00000000 00000000 00000000
+		00000000
+	01 40 00 0a  08 011e00  0004 72 0a  00 01 10 00  0c 02 0000 00000000
+		00000000 00000000
+	01 2a 00 05  10 010d00  0006 71 0a  01 06 10 00  10 02 0000 00000000
+		00000000 00000000
+0x2384	"WLEN"
+	00000100
+	00000400 0000001e 00000200 0000001e 0000001e 00000200 0000000d 00000410
+	00000378 000003f8 00000100 00000000 00000000 00000000 00000000 00000000
+...
+00248c	"WAVE"
+	000014e7
+	a6a6a6a6 a6a6a6a6 a6a6a6a6 a6a6a6a6 a6a6a6a6 a6a6a6a6 a6a6a6a6
+...
+	7f7f7f7f 7f7f7f7f 7f7f0000 7f7f7f7f
+0x3970	7f7f7f7f 7f7f7f7f 7f7f7f
+
+
+
+ART OF NOISE V1.5  -  Player commands
+-----------------------------------------------------------------------
+0 - normal play or Arpeggio       0xy : x-first halfnote add, y-second
+1 - slide Up                      1xx : upspeed
+2 - slide Down                    2xx : downspeed
+3 - tone Portamento               3xx : up/down speed
+4 - vibrato                       4xy : x-speed,   y-depth
+5 - tone Portamento + Vol. Slide  5xy : x-upspeed, y-downspeed
+6 - vibrato + Volume Slide        6xy : x-upspeed, y-downspeed
+7 - tremolo                       7xy : x-speed,   y-depth
+8 - NOT USED
+9 - set SampleOffset              9xx : offset (23 -> 2300)
+A - volumeSlide                   Axy : x-upspeed, y-downspeed
+B - position Jump                 Bxx : songposition
+C - set Volume                    Cxx : volume, 00-40
+D - pattern Break                 Dxx : break position in next patt
+E0- set Filter                    E0x : 0-filter on, 1-filter off
+E1- fineSlide Up                  E1x : value
+E2- fineSlide Down                E2x : value
+E3- glissando Control             E3x : 0-off, 1-on (use with tonep.)
+E4- set Vibrato Waveform          E4x : 0-sine, 1-ramp down, 2-square
+E5- set Loop                      E5x : set loop point
+E6- jump to Loop                  E6x : jump to loop, play x times
+E7- set Tremolo Waveform          E7x : 0-sine, 1-ramp down. 2-square
+E8- NOT USED
+E9- retrig Note                   E9x : retrig from note + x vblanks
+EA- fine VolumeSlide Up           EAx : add x to volume
+EB- fine VolumeSlide Down         EBx : subtract x from volume
+EC- noteCut                       ECx : cut from note + x vblanks
+ED- noteDelay                     EDx : delay note x vblanks
+EE- patternDelay                  EEx : delay pattern x notes
+F - Set Speed                     Fxx : speed (00-1F) / tempo (20-FF)
+G - new volume                    Gxy : set vol. to 4+(x*$4)+y vblanks
+H - synth control                 Hxy : x<>0=Keep wave, y<>0=Keep Env.
+I - wavetable speedcontrol        Ixy : wavespeed=x
+J - set arpspeed                  Jxy : Set arpspd=y
+K - set volume &do vibrato        Kxx : set volume=xx
+L - fineslide&portamento UP       Lxy : volslide=x  , portamento=y
+M - fineslide&portamento DOWN     Mxy : volslide=x  , portamento=y
+N - avoid noise (wave<512bytes)   Nxy : y<>0=noiseavoid on y=0=off
+O - play samples >128k            Oxy : y<>0=on y=0=off
+P - fine volslide&vibrato         Pxy : x=up , y=down
+Q - vol&portdown-slide (syndrums) Qxy : x=portdown , y=volslidedown
+R - set volume & tone portamento  Rxx : xx=new volume
+S - finevolslide & tone portam.   Sxy : x=finevol up , y=finevol down
+T - set track-volume              Txx : xx=new track-volume
+U - set wavetable-mode            Uxy : x<>0=freeze wavetable
+                                        y<>0=never reset wavetable
+V - unused
+W - unused
+X - external event 1 (synchro)    Xxx : Event #1 set to xx
+Y - external event 2 (synchro)    Yxx : Event #2 set to xx
+Z - external event 3 (synchro)    Zxx : Event #3 set to xx

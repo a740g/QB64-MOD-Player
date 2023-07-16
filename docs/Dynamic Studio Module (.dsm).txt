@@ -1,0 +1,822 @@
+The Dynamic Studio Module (DSM) format                  by proton / n-factor
+
+
+Description of the structure in a DSM Module.
+
+
+Header:
+
+000     004     "DSm",1ah
+004     001     Version, current is 20h
+005     020     Songname
+025     020     Composer
+045     001     Channels used
+046     001     Samples used
+047     001     Songlength
+048     001     Packinformation
+049     001     Mastervolume (0-100%)
+050     014     ** reserved **
+
+
+Songinfo:
+
+000     Chn     Balance Control (0-15)
+xxx     Sng     Songlist
+
+
+Trackinfo:
+
+000  Chn*Pat*8  Tracknames
+
+
+Sampleinfo: (*number of samples)
+
+000     022     Samplename
+022     001     Typ (8=8bit,16=16bit)
+023     002     Length
+025     001     Finetune (signed nibble)
+026     001     Volume (0-64)
+027     002     Repeat Start
+029     002     Repeat Length
+031     001     ** reserved **
+
+
+Channelinfo: (*number of channels *number of patterns)
+
+000     001     Sample
+001     001     Note
+002     001     Command
+003     001     Databyte for command
+
+Samples:
+
+000     ???     signed samples
+
+
+
+
+ Description of all commands in Dynamic Studio v1.0             (by ???)
+
+
+ To understand how to use effects with your samples, a description of the
+ patternstructure will be needed. A pattern is built up out of tracks,
+ or channels. Every channel can play one sample at a time. Now, without
+ adding some effects, the samples will sound pretty much the same in all of
+ your compositions. To avoid that, effects are used! There are currently
+ 35 different effects supported in Dynamic Studio v1.00.
+
+ Every channel consists of three sections: Note, Sample and Effect (the first
+ two parts will not be mentioned in this chapter!). The Effect section con-
+ sists of four sequential digits, like this:
+
+        C-2     01      0000
+        Note    Sample  Effect
+
+ Effects are created by changing the effect section from other values than 0.
+ To be able to separate the four digits building up an effect, they will be
+ referred to as HiCmd, LoCmd, HiData and LoData, see figure below:
+
+ HiCmd----------+
+ LoCmd--------+ |
+ HiData-----+ | |
+ LoData---+ | | |
+          | | | |
+          | | | |
+          0 0 0 0
+          Effect
+
+ All commands below will be described in the above format. For instance, the
+ Volumeslide (Effect #A) will be described something like this:
+
+        HiCmd: 0 LoCmd: A HiData: 0-F LoData: 0-F
+
+ The above means that to produce the Volumeslide effect, you place a 0 in the
+ HiCmd column, an "A" in the LoCmd column and a value from 0-F in the Hi- and
+ LoData columns. This is what a channel might look like if we followed the
+ above description:
+
+        C-2     01      0A03
+        Note    Sample  Effect
+
+ In this case, we play the note C-2 with sample No.#1 and use the Volume-
+ slide command. We also put a value of 3 in the LoData column and left the
+ HiData column empty (0).
+
+ Since all commands are built up differently, there may be combinations of
+ the four digits like this:
+
+        HiCmd: 0 LoCmd: 1 HiData: 00-FF
+
+ This means that the HiData field has been combined with the LoData column.
+ An example of this is the Portamento Up command, that requires two digits
+ of data:
+
+        C-2     01      0129
+        Note    Sample  Effect
+
+ In this case, we play the note C-2 with sample #2 and use the Portamento
+ Up command. The HiData in this case equals to "29" (the LoData column has
+ been combined with the HiData column).
+
+ The full description for all different commands now follows.
+
+
+
+1    Portamento Up
+
+        HiCmd: 0 LoCmd: 1 HiData: 00-FF
+
+        Portamento means "Sliding the frequency". This effect slides the
+        current note upwards until it reaches the highest frequency, B-4.
+        The HiData represents the speed with which you want to slide the
+        note.
+
+        Example:
+        C-2     01      0109
+        Note    Sample  Effect
+
+        The above example will play a C-2 with Sample #1 and slide the
+        frequency up 9 times for that row.
+
+        Try this:
+        The portamento could be used to create a police sireen effect. Load
+        a looped clean sound (like a sinewave) into Sample #1. Play a note
+        slide the frequency up with this command and slide it down with the
+        Portamento Down effect (later described!).
+
+
+
+2    Portamento Down
+
+        HiCmd: 0 LoCmd: 2 HiData: 00-FF
+
+        This command works just like the Portamento Up effect, with the
+        difference that it slides the frequency down.
+
+        Example:
+        C-2     01      0207
+        Note    Sample  Effect
+
+        The above example will play a C-2 with Sample #1 and slide the
+        frequency down 7 times for that row.
+
+
+
+3    Tone-Portamento
+
+        HiCmd: 0 LoCmd: 3 HiData: 00-FF
+
+        This command will automatically slide from one note to another. The
+        effect requires two different notes to work properly. The HiData is
+        the speed for the frequency slide.
+
+        Example:
+        C-2     01      0000
+        D#3     01      0304
+        ---     --      0304
+        ---     --      0304
+        Note    Sample  Effect
+
+        The above example will first play note C-2. When it reaches the 2nd
+        line, the D#3 will not be played as normal. Instead a slide from C-2
+        will begin and end at D#3. Note, that the D#3 might not be reached
+        at the first line. Therefore, the two empty effect lines
+        (--- -- 0304) are used in this case.
+
+        Try this:
+        The toneportamento is excellent to use with strings to avoid the
+        string to be started all over. The string will just continue to loop
+        and thereby give a smoother overlap to the next string.
+
+
+
+4    Vibrato
+
+        HiCmd: 0 LoCmd: 4 HiData: 0-F LoData: 0-F
+
+        Vibrato means exactly what it sounds like, vibrating the frequency
+        of a sound. The HiData describes the speed of the vibrato and the
+        LoData describes the depth. The depth could better be described as
+        how much from the original frequency the minimum and maximum fre-
+        quencies should be.
+
+        Example:
+        C-2     01      0493
+        ---     --      0400
+        ---     --      0400
+        ---     --      0400
+        Note    Sample  Effect
+
+        The above example will vibrate the sound with a speed of 9 and a
+        depth of 3. Try different values out to see the result.
+
+        Note: The three empty lines keep on vibrating the sound with the given
+        Data values.
+
+
+
+5    Toneportamento + VolumeSlide
+
+        HiCmd: 0 LoCmd: 5 HiData: 0-F LoData: 0-F
+
+        This command will continue the current Toneportamento and at the same
+        time slide the volume either up or down. The HiData is the amount
+        the volume should slide up and the LoData the opposite.
+
+        Example:
+        C-2     01      0501
+        Note    Sample  Effect
+
+        The above example will continue a toneportamento and slide the volume
+        down at a fairly slow speed.
+
+        Try this:
+        The command is of course used together with the Toneportamento
+        effect. Use the effect on looped sounds.
+
+
+
+6    Vibrato + Volumeslide
+
+        HiCmd: 0 LoCmd: 6 HiData: 0-F LoData: 0-F
+
+        This works like the Toneportamento + Volumeslide effect, except that
+        it continues vibrating a sound instead of sliding the frequency. The
+        HiData digit specifies the value with which you want to slide the
+        volume up, and LoData the slide down value.
+
+        Example:
+        C-2     01      0620
+        Note    Sample  Effect
+
+        The above example will continue a previous vibrato and at the same
+        time slide the volume up at a speed of 2.
+
+
+
+7    Tremolo
+
+        HiCmd: 0 LoCmd: 7 HiData: 0-F LoData: 0-F
+
+        Tremolo is a variant of Vibrato. Vibrato vibrates the frequency of
+        a sound, tremolo vibrates the volume of a sound.
+
+        Example:
+        C-2     01      0793
+        ---     --      0700
+        ---     --      0700
+        ---     --      0700
+        Note    Sample  Effect
+
+        The above example will vibrate the sounds volume with a speed of 9
+        and a depth of 3. Try different values out to see the result.
+
+        Note: The three empty lines keep on vibrating the volume with the given
+        Data values.
+
+
+
+9    Sampleoffset
+
+        HiCmd: 0 LoCmd: 9 HiData: 00-FF
+
+        This command will play a sound beginning at a specified offset. Let's
+        say we have a voice sample saying "DYNAMIC STUDIO IS GREAT!". With
+        this command we can get the sample to play "GREAT!" instead of the
+        entire sample by adjusting the offset.
+
+        The HiData represents the HiByte of the sample's size. If a sound
+        has got a length of 2000 hexadecimally and we want to play the sound
+        from the middle and forward we type:
+
+        Example:
+        C-2     01      0910
+        Note    Sample  Effect
+
+        The above example will play sound #1 from offset 1000 and forward.
+
+
+
+A    Volumeslide
+
+        HiCmd: 0 LoCmd: A HiData: 0-F LoData: 0-F
+
+        Volumeslide slides the volume for a sound either up or down. The
+        HiData is the amount to slide the volume up and LoData the opposite.
+
+        Example:
+        C-2     01      0A0F
+        Note    Sample  Effect
+
+        The above example will slide the value down 15 steps times the speed
+        for that line.
+
+        Try this:
+        This command can be used to creating bumping sounds. Load a looped
+        sound into sample #1 and try the following:
+
+        C-2     01      0A0F
+        ---     01      0A0F
+        ---     01      0A0F
+        ---     01      0A0F
+        ---     01      0A0F
+        Note    Sample  Effect
+
+
+
+B    Positionjump
+
+        HiCmd: 0 LoCmd: B HiData: 00-7F
+
+        The positionjump will let you jump from different positions in your
+        song.
+
+        Example:
+        C#1     01      0B04
+        Note    Sample  Effect
+
+        The above example will first play the C#1 and then jump to position 4
+        in your song.
+
+
+
+11   Portamento Up - 5
+
+        HiCmd: 1 LoCmd: 1 HiData: 00-FF
+
+        This command works like the normal Portamento Up command. The differ-
+        ence is that it utilizes all five octaves that are available in
+        Dynamic Studio.
+
+        Example:
+        C#4     01      1102
+        Note    Sample  Effect
+
+        The above example slides the current note up two steps.
+
+        Note: This command is Dynamic Studio only.
+
+
+
+12   Portamento Down - 5
+
+        HiCmd: 1 LoCmd: 2 HiData: 00-FF
+
+        This command works like the normal Portamento Down command. The
+        difference is that it utilizes all five octaves that are available in
+        Dynamic Studio.
+
+        Example:
+        C#4     01      1203
+        Note    Sample  Effect
+
+        The above example slides the current note down two steps.
+
+        Note: This command is Dynamic Studio only.
+
+
+
+13   3D Simulate
+
+        HiCmd: 1 LoCmd: 3 HiData: 00-FF
+
+        This command is used fake a 3D sound. The HiData byte represents an
+        angle for the sound to played at. The angles ranges from 00-FF and
+        represents 0-360 degress. This is how you interpret the HiData
+        values:
+
+                                (Far Back)
+                                    80
+                                    /\
+                                  /    \
+                                /        \
+                (Far Left) C0 /            \ 40 (Far Right)
+                              \            /
+                                \        /
+                                  \    /
+                                    \/
+                                    00
+                               (Far Front)
+
+        Example:
+        C#4     01      1380
+        Note    Sample  Effect
+
+        The above example plays a '3D-sound' at the back center.
+
+        Note: This command is Dynamic Studio only.
+
+
+
+80   Panning Control
+
+        HiCmd: 0 LoCmd: 8 HiData: 0 LoData: 0-F
+
+        This command controls the balance. The LoData controls the balance
+        value from 0-F.
+
+        Example:
+        C#4     01      080F
+        Note    Sample  Effect
+
+        The example above plays a sound at the far right.
+
+        Note: This command is Dynamic Studio only.
+
+
+
+81   Default Volumeslide Up
+
+        HiCmd: 0 LoCmd: 8 HiData: 1 LoData: 0-F
+
+        Works like the standard volumeslide with the difference that the
+        volume stops fading at the sample's defaultvolume.
+
+        Example:
+        C#4     01      0812
+        Note    Sample  Effect
+
+        The above example will slide the value up 2 steps times the speed
+        for that line. It won't fade higher than the set default volume!
+
+        Note: This command is Dynamic Studio only.
+
+
+
+82   Default Fine Volumeslide Up
+
+        HiCmd: 0 LoCmd: 8 HiData: 2 LoData: 0-F
+
+        Works like the standard fine volumeslide with the difference that the
+        volume stops fading at the sample's defaultvolume.
+
+        Example:
+        C#4     01      0822
+        Note    Sample  Effect
+
+        The above example will slide the value up 2 steps for that line. It
+        won't fade higher than the set default volume.
+
+        Note: This command is Dynamic Studio only.
+
+
+
+83   Default Fine Portamento Up - 5
+
+        HiCmd: 0 LoCmd: 8 HiData: 3 LoData: 0-F
+
+        Works like the standard fine portamento with the difference that the
+        frequency utilizes all five octaves.
+
+        Example:
+        C#4     01      0832
+        Note    Sample  Effect
+
+        The above example will slide the frequency value up 2 steps for that
+        line.
+
+        Note: This command is Dynamic Studio only.
+
+
+
+84   Default Fine Portamento Down - 5
+
+        HiCmd: 0 LoCmd: 8 HiData: 4 LoData: 0-F
+
+        Works like the standard fine portamento with the difference that the
+        frequency utilizes all five octaves.
+
+        Example:
+        C#4     01      0842
+        Note    Sample  Effect
+
+        The above example will slide the frequency value down 2 steps for
+        that line.
+
+        Note: This command is Dynamic Studio only.
+
+
+
+20   Set volume + Sampleoffset
+
+        HiCmd: 2 LoCmd: 0-F HiData: 00-FF
+
+        This example works like the Sampleoffset and Set volume commands
+        together. The HiCmd represents the effect, the LoCmd represents the
+        volume (see below for values) and the HiData represents the sample-
+        offset the sound should be played from, just like the standard
+        Sampleoffset command.
+
+        LoCmd Volume     LoCmd Volume
+          0      4         8     36
+          1      8         9     40
+          2     12         A     44
+          3     16         B     48
+          4     20         C     52
+          5     24         D     56
+          6     28         E     60
+          7     32         F     64
+
+        Note: All Volume in the above table are decimal values, NOT hexa-
+              decimal!
+
+        Example:
+        C#4     01      2730
+        Note    Sample  Effect
+
+        The above example will play a sound from sampleoffset 3000 hexadeci-
+        mally at volume 32 (=20 hexadecimally!). The '32' is taken from the
+
+
+
+C    Set volume
+
+        HiCmd: 0 LoCmd: C HiData: 00-40
+
+        Sets the volume for a certain channel, or in other words, the current
+        sample. The HiData ranges from 0-40 hexadecimally where 0 means no
+        volume at all and 40 means full volume.
+
+        Example:
+        C#1     01      0C20
+        Note    Sample  Effect
+
+        The above example will set the volume to 20 (half the maximum
+        volume).
+
+
+
+D    PatternBreak
+
+        HiCmd: 0 LoCmd: D HiData: 00-63
+
+        This command lets you break a pattern and step to the next. The Hi-
+        Data equals the line on the next pattern you want to jump to. This is
+        entered decimally.
+
+        Example:
+        C#1     01      0D20
+        Note    Sample  Effect
+
+        The above example will play the sound first and then directly jump
+        to the middle of the next pattern.
+
+        Try this:
+        Use this command to get a different rhythm ######## than the standard
+        4/4, e.g 3/4, 2/3, ...
+
+
+
+E1    Fine Portamento Up
+
+        HiCmd: 0 LoCmd: E HiData: 1 LoData: 0-F
+
+        This command works like the Portamento Up command described before,
+        with the difference that it will slide the frequency one time / line.
+
+        Example:
+        C#1     01      0E14
+        Note    Sample  Effect
+
+        The above example will slide the note up four times. Note how to
+        setup the E1 command!
+
+        Try this:
+        You can use this command to create chorus effects by using two
+        channels and slightly slide one of the channels up.
+
+
+
+E2    Fine Portamento Down
+
+        HiCmd: 0 LoCmd: E HiData: 2 LoData: 0-F
+
+        Works like the Fine Portamento Up command, but slides the frequency
+        down.
+
+        Example:
+        C#1     01      0E24
+        Note    Sample  Effect
+
+        The above example will slide the note down four times.
+
+
+
+E3    Glissando Control
+
+        HiCmd: 0 LoCmd: E HiData: 3 LoData: 0-1
+
+        Glissando is used together with the Toneportamento effect. What it
+        does is to switch between two modes of frequency sliding. Normally
+        Toneportamento slides straight up to the next note. With Glissando
+        turned on the toneportamento effect slides one semitone at a time.
+
+        Example:
+        C#1     01      0E31
+        Note    Sample  Effect
+
+        The above example will turn Glissando ON.
+
+
+
+E4    Set Vibrato Waveform
+
+        HiCmd: 0 LoCmd: E HiData: 4 LoData: 0-3
+
+        This effect changes the waveform for the Vibrato command. As default
+        the vibrato command uses a standard sinewave but that can be changed
+        with this command.
+
+        Example:
+        C#1     01      0E40
+        C#1     01      0E41
+        C#1     01      0E42
+        C#1     01      0E43
+        Note    Sample  Effect
+
+        The first line sets a standard sinewave for the vibrato, the second
+        a Ramp Down wave, the third a standard Squarewave and the last line
+        a random curve.
+
+
+
+E5    Finetune current sample
+
+        HiCmd: 0 LoCmd: E HiData: 5 LoData: 0-F
+
+        All samples can have different finetunes. For some parts in your
+        song you might want to temporarily change the default finetune value
+        for a specific sample. This is acomplished with this command.
+
+        Example:
+        C#1     01      0E56
+        Note    Sample  Effect
+
+        The above example will set the finetune to +6. To understand the
+        different values for this command, see the Finetune table in this
+        manual.
+
+
+
+E6    PatternLoop
+
+        HiCmd: 0 LoCmd: E HiData: 6 LoData: 0-F
+
+        The PatternLoop command is used to loop specific parts of a certain
+        pattern. The LoData byte has two states. If a LoData of 0 is set,
+        it means "this is the line I want to loop from". If LoData is set
+        to any other value it indicates the times the loop should run.
+
+        Example:
+        C#1     01      0C07
+        ---     --      0E60
+        ---     --      0EB1
+        ---     --      0E67
+        Note    Sample  Effect
+
+        The above examples utilizes the PatternLoop command to fade a samples
+        volume down to zero.
+
+
+
+E7    Set Tremolo Waveform
+
+        HiCmd: 0 LoCmd: E HiData: 7 LoData: 0-3
+
+        This effect changes the waveform for the Tremolo command. As default
+        the tremolo command uses a standard sinewave but that can be changed
+        with this command.
+
+        Example:
+        C#1     01      0E70
+        C#1     01      0E71
+        C#1     01      0E72
+        C#1     01      0E73
+        Note    Sample  Effect
+
+        The first line sets a standard sinewave for the tremolo, the second
+        a Ramp Down wave, the third a standard Squarewave and the last line
+        a random curve.
+
+
+
+E9    NoteRetrig
+
+        HiCmd: 0 LoCmd: E HiData: 9 LoData: 0-F
+
+        This command will 'trig' a note for a certain amount of times. The
+        LoData is the number of times the note should be retrigged. This
+        command is dependant of the speed of the song. If you're playing
+        a pattern at speed 6 and retrig a note with a value of 1. The note
+        will be played every 1/6th of the current line. In other words, the
+        note will be played six times. Specifying a '2' for the above con-
+        ditions will trig the note every 2/6 times, in other words the note
+        will be played 3 times, like this:
+
+        Example:
+        C#1     01      0E93
+        Note    Sample  Effect
+
+
+
+EA    Fine Volumeslide Up
+
+        HiCmd: 0 LoCmd: E HiData: A LoData: 0-F
+
+        Works just like the standard Volumeslide except that it only slides
+        the volume once / line.
+
+        Example:
+        C#1     01      0EA2
+        Note    Sample  Effect
+
+        The above example will slide the volume up two steps.
+
+
+
+EB    Fine Volumeslide Down
+
+        HiCmd: 0 LoCmd: E HiData: B LoData: 0-F
+
+        Works just like the standard Volumeslide except that it only slides
+        the volume once / line.
+
+        Example:
+        C#1     01      0EB2
+        Note    Sample  Effect
+
+        The above example will slide the volume down two steps.
+
+
+
+EC    NoteCut
+
+        HiCmd: 0 LoCmd: E HiData: C LoData: 0-F
+
+        This commands cuts or stops the sample after a certain amount of
+        time within one line. It is used to cut sounds that must be stopped
+        before the next line, the next line is too far away so to speak.
+
+        Example:
+        C#1     01      0EC3
+        Note    Sample  Effect
+
+        The above example will cut a note at tick three within the current
+        line. 'Ticks' are equal to the current speed's value. Playing a song
+        at speed 6, means we have 6 ticks before getting to the next line and
+        so on.
+
+
+
+ED    NoteDelay
+
+        HiCmd: 0 LoCmd: E HiData: D LoData: 0-F
+
+        NoteDelay is used to delay a note a certain amount of time within
+        a single line. This will get a sample to play slightly after it
+        normally should be played.
+
+        Example:
+        C#1     01      0ED3
+        Note    Sample  Effect
+
+        The above example will delay a note to be played at tick three within
+        the current line. 'Ticks' are equal to the current speed's value.
+        Playing a song at speed 6, means we have 6 ticks before getting to
+        the next line and so on.
+
+
+
+EE    PatternDelay
+
+        HiCmd: 0 LoCmd: E HiData: E LoData: 0-F
+
+        This commands delays the entire pattern for a certain amount of time.
+        It is used to 'pause' the pattern. The LoData is the number of notes
+        the pattern is to be delayed before playing the next line.
+
+        Example:
+        C#1     01      0EE9
+        Note    Sample  Effect
+
+        The above example will delay the entire pattern for nine notes.
+
+
+
+F    Set Speed / BPM
+
+        HiCmd: 0 LoCmd: F HiData: 00-FF
+
+        This command controls the speed of the song. All values for HiData
+        between 00-1F will set the speed of the song. Values between 20-FF
+        hexadecimally will set the BPM (BeatsPerMinute). All songs have
+        a default speed of 6 and 125 BPM.
+
+        Example:
+        C#1     01      0F03
+        C#1     01      0F85
+        Note    Sample  Effect
+
+        The first line sets the patternspeed to three, the second changes the
+        BPM to 133 decimally.
+

@@ -1,0 +1,197 @@
+|============================================================================|
+| [AMoRE] - TFMX <MDAT.* and SMPL.*>           <jaegermeister.markus@gmx.de> |
+|           document version 1.00                                            |
+|----------------------------------------------------------------------------|
+| This document is part of the AMoRE (Amiga Module Ripping Encyclopedia)     |
+| package. It is released under the OpenContent license.                     |
+| The OpenContent license can be found at ........... http://opencontent.org |
+| The latest AMoRE package can be found at .... http://amore68k.netfirms.com |
+|----------------------------------------------------------------------------|
+
+  NOTE: Some terms explained - MACRO is something like a instrument.
+        In TFMX you have many options to do something special with the pure
+        samples, for example a macro can play a sample and play its echo on
+        another channel TRACKSTEP contains the "pattern order" and global
+        effects.
+
+
+  FORMAT DESCRIPTION
+  --------------------------------------------------------------------------
+
+     0000 (a0)  ID      "TFMX" - this ID is compledet by some
+                          other bytes following. A very common ID is
+                        "TFMX-SONG". It can be in lower or uppercase and
+                          sometimes simply no ID is included (as in the
+                          Turrican 2 Loading Tune or B.C. Kid)
+                          DeliTracker/Player must have the first bytes
+                          giving the string "TFMX" to detect the file as
+                          a TFMX module! If you found a module with no
+                          ID, then correct by setting the first 9 bytes to
+                          "TFMX-SONG"
+     0010       text    author's comment or whatever, a 40x6 text field
+     0100       words   this area contains the trackstep start numbers
+                          for all subsongs. the data before offset $0100
+                          is unneded for replay, so it may be overwritten
+                          or whatever. the real songdata starts right here!
+     013e       word    $01ff, sometimes overwritten
+     0140       words   the trackstep end numbers for all subsongs
+     017e       word    $01ff, sometimes overwritten
+     0180       words   the speed values for all subsongs
+     01be       word    a speed value, too?
+     01c0       data    filled with $00
+     01d0       dword   pointer to the trackstep
+                          if $0000 then use $0800 instead
+     01d4       dword   pointer to the pattern pointers (a0-relative dwords)
+                          if $0000 then use $0400 instead
+     01d8       dword   pointer to the macro pointers (a0-relative dwords)
+                          if $0000 then use $0600 instead
+     01dc       data    filled with unused bytes till some of the
+                          pattern/macro/trackstep data or pointers appears
+     ....       data    shit
+                       -PACKED-           -UNPACKED-
+     ....       data    trackstep data     pattern pointers
+     ....       data    pattern data       macro pointers
+     ....       data    macro data         trackstep data
+     ....       data    pattern pointers   pattern data
+     ....       data    macro pointers     macro data
+
+     NOTE: If the three pointers at $01d0 are set to $0000 then the module
+           is "UNPACKED" and always $80 pointers are included for macros
+           and patterns. Unused macros and patterns are filled with dummy
+           data (some dword and an end-mark dword) so that all pointers
+           can be taken for real. In that case the pattern and macro DATA
+           are behind the pointers to it. In the other case the module
+           is "PACKED" and the pattern and macro data are before the
+           pattern and macro pointers.
+           And another thing: macro data always are behind pattern data
+           and macro pointers always are behind the pattern pointers. We
+           use that fact for successful ripping later...
+           The macro and pattern data consists of dwords and at the end of
+           one single macro or pattern an end-mark is set:
+           $07xxxxxx for macros (used in the ripping method)
+           $f0xxxxxx for patterns
+
+
+  RIPPING INSTRUCTIONS
+  --------------------------------------------------------------------------
+     1. To test if TFMX songdata are available at memory address (a0),
+          (a0) is the address of the sometimes not existing "TFMX"-ID, check
+          the three dwords at (a0)+$1d0 (the pointers) for having values
+          lower than $10000 (I have never seen a module with values higher
+          than that). After that take the first dword before the beginning
+          of the macro data (the address is (a0) plus the first macro
+          pointer minus $0004) and check if it's of the form $f0xxxxxx,
+          since it must be a pattern end mark. Then check the first
+          two pattern pointers for being lower than $10000. After that
+          grab the second macro pointer, get the address of the last dword
+          of the first macro by taking the second macro pointer, adding it
+          to (a0) and substracting $0004. Take the dword located at that
+          address and check if it's $07xxxxxx - a macro end-mark.
+          If you want you can do this on more than just one or two macros
+          and patterns, but be aware: You don't know (at least on packed
+          modules) how many macros are included!
+     2. If the module is UNPACKED then do the following to calculate the
+          songdata size: Take the highest of all dword values in the range
+          from (a0)+$400 - (a0)+$800 (all the macro and pattern pointers)
+          and recognize if those highest value points to pattern or macro
+          data (if the pointer is located at an address lower than
+          (a0)+$600 then the pointer points to pattern data).
+          Go to the address the highest pointer points at and read the data
+          at that address dword-wise until an end-mark occurs (therefore
+          you had to remeber if it was a pattern or macro pointer, till
+          the end-marks are not of the same form).
+          When you found the end-mark you know that this is the last data
+          to save, so the end address is the address of the end-mark
+          plus $0004. And ready...
+     3. If the module is PACKED then do the following to calculate the
+          songdata size: Go to the address of the pattern pointers (the
+          pattern pointers are directly behind the last macro's data ;))
+          go back two dwords and go dword-wise backwards until you find
+          a macro end-mark ($07xxxxxx). This is then the end-mark of the
+          macro before the last. So the pointer to the last macro must
+          be the address of the end-mark you found minus (a0) plus $0004,
+          the size of a dword. (Cool, isn't it?)
+          Having then the value of the last macro pointer (the last macro
+          pointer is the last data in the songdata file) just go to the
+          address of the macropointers, read dword-wise until you reach
+          the pointer that fits to the value you've calculated before.
+          And this pointer then is the last data to be saved and we've got
+          the module end address. Simple, isn't it? - Hehe!!!
+     4. After having found the end address we can calculate the number of
+          macros for PACKED modules. On unpacked modules the number of
+          macros is always $80. You can calculate by dividing the difference
+          between the macro pointers start address and the end address by
+          $04 (the size of one pointer/dword). Having the number of macros
+          now you've got to find out how many bytes of sampledata are used.
+          For that jump into every macro's data and read dword-wise...
+          If you find a dword value in the form of $02xxxxxx or $22xxxxxx it
+          stands for the sample offset (within the sampledata block) and
+          xxxxxx is that offset. If you find a dword in the form of
+          $03zzyyyy or $23zzyyyy then yyyy is the sample size in words.
+          So the end address (addresses start at $00000000, so they are
+          always relative, not absolute) of the actual macro's sampledata
+          is xxxxxx+yyyy*$02 and the highest of the end addresses is the size
+          of the sampledata in bytes, but where are they located...
+     5. To get the start address of the sampledata block you have to search
+          for the replayer. Below are described ways for three different
+          replayer versions. Other versions may exist, so if they manage it
+          to store the start addresses other than described below, then
+          new methods have to be added. If you find a game or whatever
+          on which a module is playing, you make a memdump, and no replayer
+          is found, please mail me and tell me the name of that game.
+          1. Let's say you find the word $4e75 at memory position (a1), then
+             check the dword at (a1)+$02 for containing the address of the
+             songdata you've found. If so, then the address of the sampledata
+             is located as a dword at (a1)+$06. This way the address could
+             be figured out on newer replayers like the ones in the games
+             B.C. Kid, Turrican 2 and Turrican 3 (TFMX Pro/V7)
+          2. Let's say you find the dword $4e754348 at memory position (a1),
+             then check the dword at (a1)+$0a for being the address of the
+             songdata. If so, the dword at (a1)+$0e is your sampledata
+             address. It worked on an earlier replayer
+             used on the game Danger Freak (TFMX 1.5)
+     6. Whaaa! I hope that method works on all TFMX versions. Anyway there
+             can be hacked modules with macro data in front of the pattern
+             data for example. For that cases (which I haven't encountered
+             yet) you'd have to think about other rip-methods for yourself.
+             In the amore.pas I've implemented a ripper version which
+             optimizes the module (this wasn't my aim). It goes through
+             the pattern data, remembers which macros have been used, goes
+             through the used-only macro data and determines if a macro
+             calls another macro (which is maybe not used in pattern data
+             directly) and that way the ripper remembers which macro and
+             pattern numbers have been used and reorganizes all data and
+             then saves it. The result is that unused things are left out.
+             If macro number 1 is not used, but macro number 2, number 2
+             becomes number 1, 3 becomes 2 and so on... Therefore the whole
+             pattern and macro data have to be changed to fit to the new
+             macro and pattern order, since at least some numbers have to
+             be changed. I don't have the time to describe this in detail.
+             Just grab Marx Marvelou's format description to get further
+             information about the pattern and macro data. I gave the theory
+             about that and the theory combined with Marx' description is
+             enough you need to understand what I mean.
+
+
+  DOCUMENT HISTORY
+  --------------------------------------------------------------------------
+
+     * v1.00 - first officially released version
+             - ripping method is accurate enough and works 100% on
+                 modules which the TFMX editor would save in the same form
+
+
+  CREDITS
+  --------------------------------------------------------------------------
+
+     * Document and amore.pas/amore.exe implementation done by
+         Jaegermeister Markus <jaegermeister.markus@gmx.de>
+
+     * Ripping method as well as this description was possible only due to
+       the ORIGINAL format description done by
+         Marx Marvelous <marxmarv@antigates.com>
+
+     * Everything done with the help of the following sites
+         http://www.antigates.com/~marxmarv    (THE tfmx format description)
+         http://exotica.fix.no         (lots of exotic modules to test with)
+         http://www.multimania.com/asle        (amiga mod packers described)

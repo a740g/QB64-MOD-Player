@@ -1,0 +1,177 @@
+MASTER TRACKER file formats
+[PYRO-FYRE]/ARKHAM 06/05/95
+
+
+The old music files formats .MTR (v1.x) consist of:
+---------------------------------------------------
+'-------------------------
+'FILE FORMAT:      LENGTH
+'-------------------------
+'INFORMATION      | 0050 | MTRACK NOM_MUSIQUE (20 CHAR) 00 (NBVOICES%-1) 00 (NB PATTERN-1) 00 (LENGTH) 01F3 (RESTART)  00000000 (LONGUEUR) + CHR(1AH)
+'SPEED            | 0002 |
+'DEVICE           | 0001 | 0=SPK 1=ADL 2=SBP ;NOT USED NOW
+'POSITIONS        | 0256 |
+'VOICES TYPE      | 0256 |
+'-------------------------
+'INSTRUMENTS:     | 4096 | (TOTAL BYTES, 64 INSTRUMENTS)
+'-------------------------
+'INSTRUM NAME     | 0020 |
+'DATAS            | 0044 | (TOTAL BYTES, 1 INSTRUMENT
+'IDENTIFICATION---|------|------|
+'                 | 0001 | 0001 | IDENTIFICATION: THIS BYTE=02 WHEN IT IS USED OR 00 WHEN NOT.
+'1~ OPPERATOR-----|------|------|
+'                 |      | 0004B| MODULATOR FREQUECY MULTIPLE
+'                 |      | 0001B| KSR
+'                 |      | 0001B| EG TYPE
+'                 |      | 0001B| VIBRATO
+'                 |      | 0001B| AMPLITUDE MODULATION
+'                 |      |      |
+'                 |      | 0006B| TOTAL LEVEL
+'                 |      | 0002B| SCALING LEVEL
+'                 |      |      |
+'                 |      | 0004B| DECAY RATE
+'                 |      | 0004B| ATTACK RATE
+'                 |      |      |
+'                 |      | 0004B| RELEASE RATE
+'                 |      | 0004B| SUBSTAIN LEVEL
+'                 |      |      |
+'                 |      | 0001B| ALGORITHM
+'                 |      | 0003B| CONNECTION
+'                 |      |      |
+'                 |      | 0002B| WAVEFORM SELECT
+'                 |      | 0004B| MODULATOR FREQUECY MULTIPLE
+'                 |      | 0001B| KSR
+'                 |      | 0001B| EG TYPE
+'                 |      | 0001B| VIBRATO
+'                 |      | 0001B| AMPLITUDE MODULATION
+'2~ OPPERATOR-----|------|------|
+'                 |      | 0006B| TOTAL LEVEL
+'                 |      | 0002B| SCALING LEVEL
+'                 |      |      |
+'                 |      | 0004B| DECAY RATE
+'                 |      | 0004B| ATTACK RATE
+'                 |      |      |
+'                 |      | 0004B| RELEASE RATE
+'                 |      | 0004B| SUBSTAIN LEVEL
+'                 |      |      |
+'                 |      | 0001B| ALGORITHM
+'                 |      | 0003B| CONNECTION
+'                 |      |      |
+'                 |      | 0002B| WAVEFORM SELECT
+' OTHER BYTES UNUSED     |      |
+'-------------------------
+'PATTERN          | ???? | ????=NUMBER OF VOICES * NUMBER OF PATTERN * 256 -> MAX=65536
+'-------------------------
+
+The new music files formats .MTR (v2.x) consist of:
+---------------------------------------------------
+'-------------------------
+'FILE FORMAT:      LENGTH
+'-------------------------
+'INFORMATION      | 0050 | MTRACK MUSICNAME (20 CHAR) 00 (NBVOICES%-1) 00 (NBDIGITVOICES%) 00 (NB PATTERN-1) 00 (LENGTH) 00 (NB INSTRUM)  01F3 (RESTART)  00000000 (LENGHT) + CHR(1AH)
+'POSITIONS        | 0256 |
+'-------------------------
+'INSTRUM NAME     | 0020 |
+'DATAS            | 0044 | (TOTAL BYTES, 1 INSTRUMENT
+'IDENTIFICATION---|------|------|
+'                 | 0001 | 0001 | IDENTIFICATION: THIS BYTE=02 WHEN IT IS USED OR 00 WHEN NOT.
+'1~ OPPERATOR-----|------|------|
+'                 |      | 0004B| MODULATOR FREQUECY MULTIPLE
+'                 |      | 0001B| KSR
+'                 |      | 0001B| EG TYPE
+'                 |      | 0001B| VIBRATO
+'                 |      | 0001B| AMPLITUDE MODULATION
+'                 |      |      |
+'                 |      | 0006B| TOTAL LEVEL
+'                 |      | 0002B| SCALING LEVEL
+'                 |      |      |
+'                 |      | 0004B| DECAY RATE
+'                 |      | 0004B| ATTACK RATE
+'                 |      |      |
+'                 |      | 0004B| RELEASE RATE
+'                 |      | 0004B| SUBSTAIN LEVEL
+'                 |      |      |
+'                 |      | 0001B| ALGORITHM
+'                 |      | 0003B| CONNECTION
+'                 |      |      |
+'                 |      | 0002B| WAVEFORM SELECT
+'                 |      | 0004B| MODULATOR FREQUECY MULTIPLE
+'                 |      | 0001B| KSR
+'                 |      | 0001B| EG TYPE
+'                 |      | 0001B| VIBRATO
+'                 |      | 0001B| AMPLITUDE MODULATION
+'2~ OPPERATOR-----|------|------|
+'                 |      | 0006B| TOTAL LEVEL
+'                 |      | 0002B| SCALING LEVEL
+'                 |      |      |
+'                 |      | 0004B| DECAY RATE
+'                 |      | 0004B| ATTACK RATE
+'                 |      |      |
+'                 |      | 0004B| RELEASE RATE
+'                 |      | 0004B| SUBSTAIN LEVEL
+'                 |      |      |
+'                 |      | 0001B| ALGORITHM
+'                 |      | 0003B| CONNECTION
+'                 |      |      |
+'                 |      | 0002B| WAVEFORM SELECT
+' OTHER BYTES UNUSED     |      |
+'-------------------------
+'PATTERN          | ???? | ????=NUMBER OF VOICES * NUMBER OF PATTERN * 256 -> MAX=65536
+'-------------------------
+
+'-------------------------
+'NEW FILE FORMAT           MTRACK NC 00 00 00 00 00 00 0000 00000000
+'-------------------------
+'INFORMATIONS     | 0050 | MTRACK NC (NO CRUNCHED) MUSICNAME (20 CHAR) 00 (NBVOICES%-1) 00 (NBDIGITVOICES%) 00 (NB PATTERN-1) 00 (LENGTH) 00 (NB INSTRUM)  01F3 (RESTART)  00000000 (LENGHT) + CHR(1AH)
+'MUSIC NAME       | 0020 |
+'POSITIONS        | 0256 |
+'-------------------------
+'INSTRUMENTS:
+'-------------------------
+'SAMPLENAME       | 0020 | SAMPLES TOTAL MAX=16384, 1 SAMPLE=64 BYTES
+'DATAS            | 0044 | (TOTAL BYTES, 1 INSTRUMENT
+'IDENTIFICATION---|------|------|
+'                 | 0001 | 0001 | IDENTIFICATION: THIS BYTE=02 WHEN IT IS USED OR 00 WHEN NOT.
+'1~ OPPERATOR-----|------|------|
+'                 |      | 0004B| MODULATOR FREQUECY MULTIPLE
+'                 |      | 0001B| KSR
+'                 |      | 0001B| EG TYPE
+'                 |      | 0001B| VIBRATO
+'                 |      | 0001B| AMPLITUDE MODULATION
+'                 |      |      |
+'                 |      | 0006B| TOTAL LEVEL
+'                 |      | 0002B| SCALING LEVEL
+'                 |      |      |
+'                 |      | 0004B| DECAY RATE
+'                 |      | 0004B| ATTACK RATE
+'                 |      |      |
+'                 |      | 0004B| RELEASE RATE
+'                 |      | 0004B| SUBSTAIN LEVEL
+'                 |      |      |
+'                 |      | 0001B| ALGORITHM
+'                 |      | 0003B| CONNECTION
+'                 |      |      |
+'                 |      | 0002B| WAVEFORM SELECT
+'                 |      | 0004B| MODULATOR FREQUECY MULTIPLE
+'                 |      | 0001B| KSR
+'                 |      | 0001B| EG TYPE
+'                 |      | 0001B| VIBRATO
+'                 |      | 0001B| AMPLITUDE MODULATION
+'2~ OPPERATOR-----|------|------|
+'                 |      | 0006B| TOTAL LEVEL
+'                 |      | 0002B| SCALING LEVEL
+'                 |      |      |
+'                 |      | 0004B| DECAY RATE
+'                 |      | 0004B| ATTACK RATE
+'                 |      |      |
+'                 |      | 0004B| RELEASE RATE
+'                 |      | 0004B| SUBSTAIN LEVEL
+'                 |      |      |
+'                 |      | 0001B| ALGORITHM
+'                 |      | 0003B| CONNECTION
+'                 |      |      |
+'                 |      | 0002B| WAVEFORM SELECT
+' OTHER BYTES UNUSED     |      |
+'-------------------------
+'PATTERN          | ???? | NB VOICES * NB PATTERN * 256 -> MAX=256 PATTERN 2097152 BYTES
+'-------------------------

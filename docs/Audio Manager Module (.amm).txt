@@ -1,0 +1,516 @@
+[]---------------------------------------------------------------------[]
+| AMM (Audio Manager Module) Format by TechnoMaestro/RDG.  1995.        |
+| Technical documentation. Revision 1.1                                 |
+[]---------------------------------------------------------------------[]
+
+Below are the file formats supported by AudioManager 3.x and Platinum Play III.
+This DOC is meant for programmers only.
+Enjoy!
+
+PROS:
+	ş It's supports what S3M, MOD, 669, MTM ... can do. Except some
+	  formats, like XM! (Argh!)
+	ş It's usually smaller, and compresses quite well.
+	ş Quite expandable? (Not expandable for XM compatibility)
+
+CONS:
+	ş It's proprietary, and thus, there's little support.
+	ş Not easy to implement
+	ş I myself will be dumping it for a newer no-limit and XM-compatible
+	  format!
+
+TERMS USED:
+	Track           =       Channel
+
+
+²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²
+
+	F I L E     F O R M A T S
+
+²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²
+
+±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±
+AUDIO MANAGER MODULE (AMM)±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±
+Bytes ³ Stuff ±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+3     ³ Signature 'AMM' (Audio Manager Module)
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+1     ³ Character 1Ah. (End Of File marker).
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+2     ³ Version of AM tracker used. LO=Minor HI=Major. 0205h = 2.05.
+      ³ Since there ain't any AM tracker yet (maybe will never be one),
+      ³ set this version to 0.
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+2     ³ Info
+      ³         Bit 0   1=Set MOD note range limit. (Octave 1-6) (MOD)
+      ³                 (S3M uses limit 2-5! But what the hell!)
+      ³             1   Reserved
+      ³             2   1=S3M effect bugs emulation
+      ³             3   1=Force mono playback
+      ³             4   1=Stereo music
+      ³          4-13   Reserved. Set to 0.
+      ³            14  0=Standard packed patterns 1=Extra packed
+      ³                (Bit 15 must be set for this bit to take effect)
+      ³            15  0=Unpacked patterns (standard) 1=Packed
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+40    ³ Song name.
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+2     ³ Number of Tracks (Suggested max = 32) (Also PP3 max)
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+2     ³ Number of patterns (Suggested max = 128. True max = 255)
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+2     ³ Number of samples (Suggested max = 128. True max = 255)
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+2     ³ Song length (number of orders) (Suggested max = 255)
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+2     ³ Master volume (Affects the note volume.) (S3M's Global vol)
+      ³ The resultant volume = (NoteVolume*MasterVolume)/64
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+2     ³ Amplification/Mixing mode. Controls amount of multiplication on
+      ³ resultant mixed sound wave. (S3M's Master volume)
+      ³ 0-32767 = Amplification. Observe the below chunk of code for signed
+      ³           samples multiplication. Note: This multiplication is not
+      ³           done on individual samples, but on the final resultant
+      ³           waveform to ensure quality and speed!
+      ³
+      ³         MOV  AX,TheSignedSoundWaveWord
+      ³         IMUL AmplificationValue
+      ³         SAR  AX,8
+      ³         (CLIP WAVEFORM HERE)
+      ³
+      ³           This is not the actual code in AudioManager/PP3. It's
+      ³           actually some sort more complicated.
+      ³           I realize that there are better methods other than
+      ³           this...but I dare not touch my code again!! Hahaha.
+      ³           For 16-bit waveform output, the amplification is multiplied
+      ³           by 256. (That means you can throw off the SAR AX,8 there).
+      ³
+      ³ 32768   = Quality SHIFT mode. Real quality shift value = Value-32768.
+      ³ -32775    0 being the loudest. This is a method faster than using
+      ³           master volume, but slower than the standard mixing mode.
+      ³           The final waveform is SHIFTED x-32768 number of bits to
+      ³           the right. (Div by exponents of 2).
+      ³
+      ³ 65535   = Standard mixing mode. Lowest quality, but ensures all sound
+      ³           are played correctly without clippings.
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+1     ³ Startup speed (as in effect 1)
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+1     ³ Startup tempo (as in effect 2)
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+1     ³ Song source
+      ³ 0=Unknown
+      ³ 1=AM Tracker
+      ³ 2=MOD/NST
+      ³ 3=S3M
+      ³ 4=MTM
+      ³ 5=669
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+      ³
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+4     ³ Number of bytes in extra data section (located after samples).
+      ³
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+13    ³ Reserved
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+		  UP TO HERE, HEADER IS 80 BYTES LONG
+	      AFTER THIS, ALMOST ALL DATA ARE VARIABLE SIZED
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+x     ³ Track pan flags. Each Track has one byte flag here.
+      ³ These Track flags contains the position of of Track at
+      ³ startup.
+      ³  0 (Left most)           64 (Middle)            128 (Right)
+      ³  255=Disabled Track      254=Surround (not supported yet)
+      ³  129-137=Adlib channel 1-9. (NOT SUPPORTED YET & WILL CAUSE PROBLEMS)
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+x     ³ Pattern sequence. Each element is 2 bytes long.
+      ³ 65534=Skipped order (padding...S3M)
+      ³ 65535=End of song marker.
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+x     ³ Patterns in this format...
+      ³ All notes throughout the song are divided into Tracks.
+      ³ Therefore, patterns for Track 1 comes first, followed by Track 2,
+      ³ etc... There are 64 rows per pattern. Therefore, for one pattern
+      ³ of a one Track song, 5*64 = 320 bytes are required.
+      ³
+      ³ aaaabbbb cccccccc dddddddd 00yyyyyy zzzzzzzz
+      ³ BYTE 1  (255=No note, 254=Key off (stop sample))
+      ³         aaaa = Octave (0-7...maybe next time up to 15? :)
+      ³         bbbb = Note (0=C, 1=C#, etc... B=B)
+      ³ BYTE 2  (0=No sample/instrument)
+      ³         cccccccc = Instrument number (1=1st instrument, etc...)
+      ³ BYTE 3  dddddddd = Volume (0-64)
+      ³ BYTE 4  xx = Unused. Keep to 0.
+      ³         yyyyyy = Effect number
+      ³ BYTE 5  zzzzzzzz = Effect data
+      ³
+      ³ Value 255 is used throughout the patterns as no-data.
+      ³ Note 255   = No note (use previous)
+      ³ Volume 255 = No volume
+      ³ Sample 255 = No sample (use previous)
+      ³ Efx 255    = No efx
+      ³
+      ³ However, this method wastes alot of space, and thus, I've abandoned
+      ³ it (I still, however, use it in memory) for a new packed format.
+      ³ As before, each tracks are separated into separate blocks...
+      ³ For one Track, the format is as follows...
+      ³
+      ³ 4       Length of whole block, excluding these 4 bytes.
+      ³ x       Event
+      ³ x       Event
+      ³ x       ..
+      ³ .       ..
+      ³
+      ³ Each event is as follows...
+      ³ aa [bb] [cc] [dd] [ee & ff]
+      ³ BYTE 1  - Information byte
+      ³           BIT 0 1=Note & instrument present (Val 255=Use previous)
+      ³               1 1=Volume present
+      ³               2 1=Change in effect number
+      ³               3 1=Change in effect data
+      ³               7 1=Data present  0=Empty rows RLE encoded .
+      ³                   If bit set, then Bit 0-6 = Number of empty rows-1.
+      ³                   We do not have a signal for end of pattern because
+      ³                   it isn't necessary, as each pattern must be 64-rows
+      ³                   and if we reach more than 64 rows, it's time to
+      ³                   increment the pattern count.
+      ³                   This bit can save up to 128 empty rows with just
+      ³                   one byte! :-) Now that's COOL! :-)
+      ³
+      ³                   In Extended Compression mode (Bit 14 of info word)
+      ³                   is set, this bit 7 may remain to be 0, but the next
+      ³                   3 bits after the events (bit 4-6) = number of empty
+      ³                   rows follows this event, 0-7.
+      ³ aa = Info byte
+      ³ bb = Optional note number
+      ³ cc = Optional instrument number
+      ³ dd = Optional volume number
+      ³ ee = Optional effect number
+      ³ ff = Optional effect data
+      ³
+      ³ All of them can be present at one time, and after this info byte,
+      ³ it is followed by...
+      ³ 1-BYTE Note & Instrument number (if present)
+      ³ 1-BYTE Volume number (if present)
+      ³ 1-BYTE New effect number (if present)
+      ³ 1-BYTE New effect data (if present)
+      ³
+      ³ I used change in effect number as opposed to present effect because
+      ³ I notice many songs, particularly S3Ms by Purple Motion/Skaven
+      ³ uses a same effect for more than 1 row. (Esp. Vibrato,etc...)
+      ³ Thus, I took advantage of this to create smaller files.
+      ³ For each track, by startup, the previous effect and effect data are
+      ³ assumed to be 255 (no efx).
+      ³
+      ³ The RLE, however, *DOES NOT FALL INTO THIS CONTEXT*. It is purely
+      ³ meant for really empty tracks, with all it's values 255 in memory.
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+x     ³ Sample structure x NumberSamples (info for each sample)
+      ³ Each info is 80 bytes long and is identical to the AMS format.
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+x     ³ Sample data
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+x     ³ Special data (Author name, etc...)
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+x     ³ Any other data that would not be loaded. :)
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+
+±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±
+AUDIO MANAGER SAMPLE (AMS)±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±
+Bytes ³ Stuff ±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±±
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+3     ³ Signature 'AMS' (Audio Manager Digital Sample)
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+1     ³ Character 1Ah. (End Of File marker).
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+4     ³ Reserved for internal use. Used to store memory handle.
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+4     ³ Position within the memory block
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+4     ³ Reserved. TO BE USED IN SAMPLE LIBRARY AS POINTERS TO POS IN FILE.
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+4     ³ Length (NOTE! AMM can use samples much larger than 64k)
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+4     ³ Loop begin offset
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+4     ³ Loop past offset (the offset right after the last byte in sample)
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+4     ³ C2 Sample rate (8363 is the standard value) (Not C2 actually)
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+2     ³ Default playback rate (for SFX in games) ??????????????/
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+1     ³ Volume (0-64)
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+2     ³ Info
+      ³         Bit 0-1 Type. 00=Adlib 01=4 bit 10=8 bit 11=16 bit
+      ³                 4 bit samples are not linear, but logarithmic
+      ³                 values based on internal tables.
+      ³               2 0=Mono 1=Stereo (left right left right)
+      ³               3 1=Looped (Loop past offset must not be 0)
+      ³               4 0=Unsigned 1=Signed
+      ³               5 0=Normal RAW samples 1=Delta-encoded samples
+      ³            6-14 Reserved
+      ³              15 0=Not loaded 1=Loaded
+      ³
+      ³
+      ³                 Delta-Encoded samples use difference between two
+      ³                 sample bytes/words to encode sample. This method,
+      ³                 while produces the same file size, compresses
+      ³                 better using a general purpose compressor, as
+      ³                 their value ranges are usually small, which helps
+      ³                 considerably the Huffman Coding compression algo.
+      ³
+      ³                 RAW TO DELTA-ENCODED:
+      ³                 The starting 'previous value' for each sample is 0.
+      ³                 Then, as each sample element is taken, it is subtracted
+      ³                 by 'PreviousValue'. The new 'previous value' is taken
+      ³                 as the current sample value (not the delta-encoded val)
+      ³
+      ³                 DELTA-ENCODED TO RAW:
+      ³                 The starting 'previous value' for each sample is 0.
+      ³                 Then, a delta-encoded sample is taken and added with
+      ³                 'previous value'. The new 'previous value' is taken
+      ³                 as the current decoded value.
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+30    ³ Sample name
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+13    ³ Sample file name
+ÄÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+80      TOTAL BYTES
+
+
+
+²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²
+
+	E F F E C T S
+
+²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²²
+
+00xx    No effect
+
+01xx    Set speed
+	00      Use previous value
+	Others  Set speed. Default is 6.
+
+02xx    Set tempo (BPM)
+	00      Use previous value
+	Others  Set tempo (BPM) to xx. Default is 125.
+
+03xx    Set master volume (global volume in S3M)
+	Set master volume. Varies from 0 to 64.
+	Internally, it is multiplied by 4 for range of 0-256 used in AM3.
+
+04xx    Jump to order xx (hexadecimal)
+	Jump to next order, at row 0 (if Pattern break was not set) or
+	the row specified by pattern break if pattern break was set on
+	the same line as this command.
+
+05xx    Pattern break to row xx (hexdecimal! Not decimal as in other formats)
+	Jump to next order (if jump to order command was not used to set
+	the next target order), row xx.
+
+06xy    Volume slide.
+	00      Continue previous (fine/slide)
+	x0      Volume slide up by x
+	0y      Volume slide down by y
+	xF      Fine volume slide up by x
+	Fy      Fine volume slide down by y
+	FF      Fine volume slide up by F (slide up has more priority).
+
+07xy    Slide up
+	00      Continue previous (extra/fine/slide)
+	Ey      Extra fine slide up with speed y.
+	Fy      Fine slide up with speed y.
+	Others  Slide up with speed xy (if xy not [extra] fine).
+
+08xy    Slide down
+	00      Continue previous (extra/fine/slide)
+	Ey      Extra fine slide down with speed y.
+	Fy      Fine slide down with speed y.
+	Others  Slide down with speed xy (if xy not [extra] fine).
+
+09xx    Slide to note
+	00      Continue slide with previous *slide to note* speed.
+	xx      Slide to note by with speed xx.
+
+0Axy    Vibrato
+	00      Continue previous.
+	xy      Vibrate pitch using active waveform with speed x and
+		depth y.
+	0y      Retains speed. Sets depth to y.
+
+0Bxy    Tremolo
+	00      Continue previous.
+	Others  Vibrate volume using active waveform with speed x and
+		depth y.
+
+0Cxy    Arpeggio
+	00      Continue previous.
+	Others  Switch between 3 notes, including the current note quickly
+		at every tick. Plays in the order... Current Note,
+		Current Note+x semitones, Current Note+y semitones.
+
+0Dxy    Continue vibrato and do volume slide
+	00      Continue previous volume slide speed.
+	Others  Volume slide, with the same parameters as the normal volume
+		slide.
+
+0Exy    Continue slide to note and do volume slide
+	00      Continue previous volume slide speed.
+	Others  Volume slide, with the same parameters as the normal volume
+		slide.
+
+0Fxx    Set sample offset
+	Sets sample offset to xx*256.
+
+10xy    Retrigger note [+ optional volume slide]
+	Retriggers note and optionally do volume slide too.
+	x=Volume slide type
+		0: 0    (No volumeslide)
+		1: -1
+		2: -2
+		3: -4
+		4: -8
+		5: -16
+		6: 2/3 times the original volume
+		7: 1/2 times the original volume
+		8: ?
+		9: +1
+		A: +2
+		B: +4
+		C: +8
+		D: +16
+		E: 3/2 times the original volume
+		F: 2 times the original volume
+		Where the original volume is the CURRENT volume.
+	y=Retrigger note at every y ticks.
+
+11xx    Set panning
+	00-128  Left(0)   Middle(64)    Right(128)
+	254     Surround (Not supported yet)
+	255     Disable channel
+
+12xx    Cut note
+	00      No cut
+	Others  Cut notes after xx ticks.
+
+13xx    Delay note
+	00      Note not played.
+	Others  Delays note and triggers it only after xx ticks.
+
+14xy    Tremor
+	Turns sound on for x+1 ticks and off for y+1 ticks throughout
+	the row.
+
+15xx    Pattern loop
+	00      Set start of loop
+	Others  Set end of loop and number of repetitions.
+
+16xx    Pattern delay
+	00      No delay
+	Others  Repeats current row x times without triggering the notes again,
+		but applyin the effects.
+
+17xx    Set vibrato waveform to
+					     xx VALUES
+	Waveform   Name                Retriggered  No Retrigger
+	---------- ------------------- -----------  ------------
+	/\  /\     Sine (default)           0            4
+	  \/  \/
+
+	|\ |\      Ramp down                1            5
+	  \| \|
+
+	,-, ,-,    Square                   2            6
+	  '-' '-'
+
+	?????????  Random                   3            7
+
+	Retrigger means that it will reset the position within the sine
+	table everytime a new note is encountered. By default, the
+	waveform is 0.
+
+18xx    Set tremolo waveform to xx.
+	See 17xx, Set vibrato waveform.
+
+19xx    Set glissando (Slide to note will slide in halfnotes).
+	00      Disable glissando
+	Others  Enable glissando. Usually, people use value 1 for enabling
+		glissando.
+
+1Axx    Set sample fine tune (set C-2's frequency)
+	Set sample fine tune, where xx corresponds to the appropriate
+	frequency of C-2.
+	Values for X:
+		0       - 7895 Hz
+		1       - 7941 Hz
+		2       - 7985 Hz
+		3       - 8046 Hz
+		4       - 8107 Hz
+		5       - 8169 Hz
+		6       - 8232 Hz
+		7       - 8280 Hz
+		8       - 8363 Hz (No finetune)
+		9       - 8413 Hz
+		A       - 8463 Hz
+		B       - 8529 Hz
+		C       - 8581 Hz
+		D       - 8651 Hz
+		E       - 8723 Hz
+		F       - 8757 Hz
+	To convert old amiga fine tunes to current fine tune value,
+	perform [(ADD 8) AND 1111b].
+
+1Bxx    Set filter
+	Amiga hardware stuff (plays with Amiga LED or something).
+	Not implemented.
+
+1Cxx    Set stereo control.
+	An old Scream Tracker command. Not implemented.
+
+1Dxx    Invert loop (aka InvertFunk/FunkRepeat?)
+	Plays sample backwards with speed xx. Not implemented.
+
+1Exx    Set event.
+	Sets the event flag in AM3 and sets the value of AM.MI_Event to xx.
+	Similar command in Scream Tracker is Zxx.
+
+1Fxx    Fine vibrato (S3M)
+	Similar to Vibrato, but 4x finer.
+
+
+SUMMARY:
+	MI@EFXnoEffect                  = 000h
+	MI@EFXsetSpeed                  = 001h
+	MI@EFXsetTempo                  = 002h
+	MI@EFXsetMasterVolume           = 003h
+	MI@EFXpatternJump               = 004h
+	MI@EFXpatternBreak              = 005h
+	MI@EFXvolumeSlide               = 006h
+	MI@EFXslideUp                   = 007h
+	MI@EFXslideDown                 = 008h
+	MI@EFXslideToNote               = 009h
+	MI@EFXvibrato                   = 00Ah
+	MI@EFXtremolo                   = 00Bh
+	MI@EFXarpeggio                  = 00Ch
+	MI@EFXvibrato_VolumeSlide       = 00Dh
+	MI@EFXslidetoNote_VolumeSlide   = 00Eh
+	MI@EFXsetSampleOffset           = 00Fh
+	MI@EFXretrigger                 = 010h
+	MI@EFXsetPan                    = 011h
+	MI@EFXcutNote                   = 012h
+	MI@EFXdelayNote                 = 013h
+	MI@EFXtremor                    = 014h
+	MI@EFXpatternLoop               = 015h
+	MI@EFXpatternDelay              = 016h
+	MI@EFXsetVibratoWaveform        = 017h
+	MI@EFXsetTremoloWaveform        = 018h
+	MI@EFXsetGlissando              = 019h
+	MI@EFXsetFineTune               = 01Ah
+	MI@EFXsetFilter                 = 01Bh
+	MI@EFXstereoControl             = 01Ch
+	MI@EFXinvertLoop                = 01Dh
+	MI@EFXevent                     = 01Eh
+

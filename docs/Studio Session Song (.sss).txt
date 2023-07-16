@@ -1,0 +1,227 @@
+This Document release Date: 11/8/93 (ver 1.0 of "SSS-form.txt")
+
+THE STUDIO SESSION SONG FILE FORMAT (Editor version 1.0)
+--------------------------------------------------------
+Format created by: Steve Capps <capps@applelink.apple.com>, Mark Zimmer,
+Tom Hedges, Ed Bogas, Nick Borelli, Ty Roberts, and Neil Cormia
+of Bogas Software in 1986.
+
+This hacked-together description by: Jamal Hannah <jamal@gnu.ai.mit.edu>
+
+There are 12 fields and 6 tracks to this format.. on old Macs, since you
+use complex waveforms for these sounds, you'll probabaly have to
+simulate the multiple sound channels by combining them on the fly
+with some fancy math.  I think there is actualy a Mac Toolbox call
+to do this in the origional "Sound Driver" chapter of Inside Macintosh.
+
+File Signatures (Macintosh Only)
+Type:		'XSNG' (sometimes 'DSNG' or 'JSNG')
+Creator:	'XPRT'
+
+Offset	Field		Length
+0	Tempo		2	range: 10-450
+2	unused		2	should be nul ($0000)
+4	TimeSignature	2	decimal ranges of each byte: 1-32,1-32
+6	Pascal string names of Instrument Files begin here, each followed
+by 2 nul bytes. ($00 $00)
+??	unused		1	(should be $00.. if there are no instruments,
+				this will come right after TimeSignature)
+??	unused		64
+??	Data for track 1, terminated by $B0
+??	Data for track 2, terminated by $B0
+??	Track 3  "
+??	Track 4  "
+??	Track 5  "
+??	Track 6  "
+
+Instruments are implicitly numbered from 01 onward, starting with the
+first one listed.  They are the exact name of the Studio Session
+Instrument file, which should be on the same volume or directory.
+
+Track data consists of the following commands, which represent notes
+and other components on a musical staff:
+
+COMMANDS (with fields and field names):
+
+ending          $C0 xx (endingNumber)
+timeSignature	$BD xx xx (timeSigTop,timeSigBottom)
+barLine		$BA
+newInstrument	$B9 xxxx (instrumentNumber)
+dashedBarLine	$B5
+keySignature	$B4 xx (keyMode)
+tempoChange	$B3 xxxx (tempoSpeed)
+repeatBarEnd	$B2
+repeatBarStart	$B1 xxxx (numRepeats)
+coda		$B0
+musicalNote	xx xx xx  (pitch, unit#, slurStatus)
+
+NOTE UNITS:
+A "musicalNote" is really either a rest, or a note. Normaly a unit is
+a rest, but if it has anything in the pitch field (mentioned above)
+then it is a note.  A rest always has $00 in the pitch and slurStatus
+fields.
+
+unit32		$03	1/32nd rest or note
+unit32_3	$02	1/32nd rest or note triplet
+unit32_2	none
+unit32_1	none
+unit16		$06	1/16th rest or note
+unit16_3	$04	1/16th rest or note triplet
+unit16_2	none
+unit16_1	$09	1/16th rest or note, dotted
+unit8		$0C	1/8th rest or note
+unit8_3		$08	1/8th rest or note triplet
+unit8_2		$15	1/8th rest or note, double-dotted
+unit8_1		$12	1/8th rest or note, dotted
+unit4		$18	1/4th rest or note
+unit4_3		$10	1/4th rest or note triplet
+unit4_2		$2A	1/4th rest or note, double-dotted
+unit4_1		$24	1/4th rest or note, dotted
+unit2		$30	1/2 rest or note
+unit2_3		$20	1/2 rest or note triplet
+unit2_2		$54	1/2 rest or note, double-dotted
+unit2_1		$48	1/2 rest or note, dotted
+unit1		$60	Whole rest or note
+unit1_3		$40	Whole rest or note, triplet
+unit1_2		$A8	Whole rest or note, double-dotted
+unit1_1		$90	Whole rest or note, dotted
+
+(A triplet is a rest/note with a little 3 over it, with playing length
+multiplied by 2/3 (shortened).  A double-dotted unit's length is multiplied
+by 1 3/4, and a single dotted unit length is multiplied by 1 1/2... if
+I am wrong, a good book on musical notation can clear this up!)
+
+PITCH:
+Pitch values range from "C0" (lower C, at the bottom of the scale) up to
+"C6" (upper C, at the top of the scale).. and are represented by the
+numbers $01-$2B (1-43).
+Accidentals: If the pitch value has $40 added to it, then it is "flat".
+If it is "sharp", it has $80 added.
+
+SLUR STATUS:
+The slur is that little curvy line that links two notes together and "slurs"
+them together at playtime.  Here are the byte values:
+
+$00	No slur on this note
+$01	Slur start/line curving from this note toward one on the right
+$02	Slur end/line coming from a note to the left
+$03	Slur joint (two slur lines coming from both left and right)
+
+(There are other codes that go here too.. sometimes a note has a little
+letter floating over it.  I still have yet to decode these variations.)
+
+BAR LINE:
+This byte represents the vertical bar line that marks the end of a measure.
+I'm not sure what a dashed bar line is for!
+
+ENDING:
+An "ending" command is followed by the number that the ending is repeated,
+ranging from 1-10 ($01-$0A)
+
+REPEAT BAR:
+The Command byte is followed by a word-length number representing the number
+of times to repeat the following notes.  The repeated section is terminated
+by the next instance of a "repeatBarEnd" command.
+
+TIME SIGNATURE:
+The "timeSignature" command is followed by bytes representing the top and
+bottom of the time signature, respectivly.
+
+KEY SIGNATURE:
+The key signature command is followed by codes representing the following
+modes of the notes that follow:
+
+Value	Key		Number to add to pitch-bytes of notes following
+$00	C Major		$00
+$01	G Major		$00
+$02	D Major		$80
+$03	A Major		$80
+$04	E Major		$80
+$05	B Major		$80
+$06	F Sharp Major	$80
+$07	C Sharp Major	$80
+$08	F Major		$00
+$09	B flat Major	$00
+$0A	E flat Major	$00
+$0B	A flat Major	$00
+$0C	D flat Major	$00
+$0D	G flat Major	$40
+			(note: dont add this value if the note already has
+			a sharp or a flat)
+
+TEMPO CHANGE:
+A tempo change command byte is followed by a word-length value representing
+the new tempo speed, ranging (in decimal) from 10-450.
+
+CODA
+A coda is a byte representing the end of a track.  If a track is empty,
+the coda byte holds it's place.  Since the file ends with the end of the
+6th track, there will always be at least one $B0 at the end of the file.
+
+
+SUPER STUDIO SESSION SONG FILE FORMAT (Editor version 2.1)
+----------------------------------------------------------
+The only real difference between verion 1 and 2 is the addition of two more
+tracks, for a total of eight.  The second two are represented just like
+the 1st six, with $B0 bytes as ending markers.  There is also one additional
+command:
+
+VOLUME:
+The volume command is represented by (hex) byte $BF, with a word-length
+value following, and 3 bytes after that which I havn't figured out.
+Volume always defaults at "fff" (loudest).  "ppp" is the softest volume.
+
+BF xxxx xx xx xx	Volume
+
+BF 0000 58 88 9A	ppp
+BF 0001 12 40 80	pp
+BF 0002 12 40 80	p
+BF 0003 12 40 80	mp
+BF 0004 58 88 9A	mf
+BF 0005 12 40 80	f
+BF 0006 58 88 9A	ff
+BF 0007 58 88 9A	fff
+
+Editor version 2 also places a (incremental) number above most bar lines,
+but this has nothing to do with the file format.
+
+
+(SUPER) STUDIO SESSION INSTRUMENT FILES (From Bogus Prod. Docs)
+---------------------------------------------------------------
+The format of instrument files is very simple.  The samples are eight bit
+unsigned samples (silence =128).  There is an eight byte header with the
+following format followed by the samples themselves.
+
+No. Bytes	Description
+
+2		Loop Start: byte offset of loop start
+2		Loop End:  byte offset of loop end
+1		Recorded pitch:  #37 is middle C
+1		0:  reserved
+2		Length in bytes
+n		The samples
+
+Note:  If loopback is used, there must be at least 370 samples after the
+loop end.
+
+For more information, look at "Flute mid" in SoundEdit(tm) and then look at
+the binary version of the file with any file utility.
+Note:  some older files are compressed on disk so they won't follow the above
+description and some files have "0" for the pitch which implies middle C.
+
+(Special Note: This file format is basicly the origional Macintosh "Sound Cap"
+and SoundEdit recorded instrument format (Type/Creator: 'DEWF'/'FSSC' or
+'DEWF'/'SFX!') respectivly. - JH )
+
+The SoundEdit manual has a good explanation of sampling techniques.
+SoundEdit will create Super Studio Session(tm) or Jam Session(tm) instrument
+files or convert them from most other formats.
+
+
+	Bogas Productions
+	751 Laurel Street, #213
+	San Carlos, California  94070
+	Phone:	(415) 592-5129
+	Fax:	(415) 592-5196
+
+(April, 1992)

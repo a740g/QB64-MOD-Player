@@ -1,0 +1,319 @@
+Extension:	.PAC
+Version:	1.04
+Created by:	Henning Helstrom
+Tracker:	SBStudio II
+Players:	-
+Description by: Henning Hellstrom
+Taken from:	SBStudio II rev 4
+Note:		Digital music format
+
+
+
+            SBStudio II
+            (C) 1991-94 Henning Hellstr”m
+            All rights reserved
+
+
+            Program documentation
+
+            The SBStudio file format
+
+            ÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ
+
+
+
+            ¯The basic idea¯
+            ÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+            When I created SBStudio II, I also created the need for
+            a new file format to support the new features.
+
+            The format I came up with has many advantages. It is
+            easy to make loaders and savers for it, it has few
+            limitations, it takes up less diskspace than most other
+            formats and it is very easy to upgrade.
+
+            The greatest advantage is that the format is built up
+            of data blocks, each starting with a four byte text ID
+            and a doubleword saying the length of the block.
+            This makes it possible for loaders to skip data they
+            don't support.
+            This is also what makes the format so easy to upgrade.
+
+
+            This file will cover the new format in great detail,
+            and i hope it will become a new standard in music file
+            formats.
+
+
+
+            ¯Some background information¯
+            ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+            The new format actually consists of three file types;
+
+            PACKAGES (.PAC), SONGS (.SON) and SOUNDS (.SOU).
+
+            A PACKAGE is really a SONG file with the needed SOUND
+            files attached to it.
+
+
+            As mentioned before, the format is built up of data
+            blocks starting with a four byte identifier.
+            This identifier is followed by a doubleword saying the
+            length of the data block, *excluding* these first eight
+            bytes.
+
+            This makes it easy to find and read wanted elements
+            from the file without doing heavy calculations.
+
+            Let's say you want to find a data block called 'TEST':
+
+
+              1. Ignore the first 8 bytes, start at byte 9.
+              2. Read four bytes.
+              3. If these four bytes are 'TEST', go to step 7.
+              4. If these four bytes are 'END ', the file doesn't
+                 contain the wanted block. Terminate.
+              5. Read a doubleword and add it to the read pointer.
+              6. Go to step 2.
+              7. Process data.
+
+
+            Please note that the files always start with a file
+            identifier with a block length of <file length-8>,
+            and end with an 'END ' identifier with a block length
+            of zero.
+
+            I think you get the picture now, let's get down to
+            business!
+
+
+
+            ¯The file format¯
+            ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+            This current format version is v1.04.
+
+            Here is a list of the identifiers you should expect to
+            find in a v1.04 file.
+
+            'Block length' represents the doubleword immediately
+            following the block identifier.
+            'DWord' means long integer or 4 bytes.
+            'Word' means integer or 2 bytes.
+
+
+            Package
+            ÄÄÄÄÄÄÄ
+
+            Identifier      : 'PACG'
+            Location        : At the beginning of a PACKAGE.
+            Block length    : File size - 8.
+            Block structure : None.
+
+            Identifier      : 'PAIN'
+            Location        : Usually after the 'PACG' block.
+            Block length    : Expect anything.
+            Block structure : Word  - Package version.
+                              Word  - SBStudio version that saved
+                                      the package.
+                                      Other savers should write 0
+                                      here.
+                              Word  - Number of sounds in package
+                                      (may be 0).
+
+
+            Song
+            ÄÄÄÄ
+
+            Identifier      : 'SONG'
+            Location        : At the beginning of a SONG file or
+                              inside a PACKAGE, usually after the
+                              'PAIN' block.
+                              Represents the start of a song
+                              structure.
+            Block length    : File size - 8 if it's at the
+                              beginning of a SONG file, 0 if it's
+                              inside a PACKAGE file.
+            Block structure : None.
+
+            Identifier      : 'SONA'
+            Location        : In a song structure.
+            Block length    : Expect anything.
+            Block structure : The name of the song.
+                              This block is not needed.
+
+            Identifier      : 'SOOR'
+            Location        : In a song structure.
+            Block length    : Expect anything.
+            Block structure : Block length/2 words, saying the
+                              playback order of the song sheets.
+                              This block is not needed.
+
+            Identifier      : 'SOIN'
+            Location        : In a song structure.
+            Block length    : Expect anything.
+            Block structure : Byte  - Base speed, usually 6.
+                              Byte  - Base BPM, usually 125.
+                              Word  - Number of sheets in song,
+                                      must be at least 1.
+                              Byte  - Number of channels used in
+                                      song. 4-16 channels is
+                                      normal for v1.04.
+                              Byte  - Number of lines in sheet.
+                                      Should always be 64.
+                              Byte  - Number of bytes per channel
+                                      cell. Should always be 5.
+                              Byte  - Sheet packing:
+                                        Bit 0 - 0 = Unpacked.
+                                                1 = Packed.
+                              Byte * channels - Pan positions for
+                                                each channel. Pan
+                                                range is 0h-Fh.
+
+            Identifier      : 'SOSH'
+            Location        : In a song structure.
+            Block length    : Expect anything.
+            Block structure : This block contains one sheet.
+                              Read the chapter 'The sheet format'
+                              later in this file for details on
+                              the sheet structure.
+
+
+            Sound
+            ÄÄÄÄÄ
+
+            Identifier      : 'SND '
+            Location        : At the beginning of a SOUND file or
+                              inside a PACKAGE, usually after the
+                              song structure.
+                              Represents the start of a sound
+                              structure, which contain one sound.
+            Block length    : File size - 8 if it's at the
+                              beginning of a SOUND file, 0 if it's
+                              inside a PACKAGE file.
+            Block structure : None.
+
+            Identifier      : 'SNNA'
+            Location        : In a sound structure.
+            Block length    : Expect anything.
+            Block structure : The name of the sound.
+
+            Identifier      : 'SNIN'
+            Location        : In a sound structure.
+            Block length    : Expect anything.
+            Block structure : Word  - Sound number, only used in
+                                      PACKAGE.
+                              Word  - Reserved.
+                              Byte  - Fine tuning.
+                              Word  - Sound volume, 0-16384.
+                              Word  - Sound type:
+                                        Bit 0 - 1=PCM/0=Other.
+                                        Bit 1 - 1=16bit/0=8bit.
+                                      Format version 1.04 only
+                                      supports PCM sounds.
+                              DWord - Sound loop start.
+                              DWord - Sound loop end.
+                              Byte  - Sound packing:
+                                        Bit 0 - 0 = Unpacked.
+                                                1 = Packed.
+                                      Format version 1.04 only
+                                      supports unpacked sounds.
+
+            Identifier      : 'SNDT'
+            Location        : In a sound structure.
+            Block length    : Sample length.
+            Block structure : This block contains one sampled
+                              sound.
+
+
+            All
+            ÄÄÄ
+
+            Identifier      : 'END '
+            Location        : At the end of all PACKAGE, SONG and
+                              SOUND files.
+            Block length    : 0
+            Block structure : None.
+
+
+
+            ¯The sheet format¯
+            ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+            The sheet is where the song notes are stored.
+
+            SBStudio v2.05 limits the total number of different
+            sheets to 64, but a song structure may contain up to
+            65535 sheets.
+
+
+            The sheet consists of 5 bytes per channel, 64 times.
+
+            NOTE:
+
+              This MAY change in future versions, but let's say
+              it won't for now. Check the values in the 'SOIN'
+              block of the song structure to be sure.
+
+
+            The 5 bytes represent one note. This is the format:
+
+              Byte 0 - Note number 1-48, 0 = No note.
+
+                       1 = C-1, 2 = C#1, 3 = D-1 ... 48 = B-4.
+
+              Byte 1 - Sound number 1-99, 0 = No change.
+
+              Byte 2 - Volume 1-65, 0 = No change.
+
+              Byte 3 - Command 00h-0Fh.
+
+              Byte 4 - Command parameter 00h-FFh.
+
+
+            Read the documentation part 'Programming the sheet'
+            for details on what the different commands do.
+
+            When writing a loader, keep in mind that support for
+            more octaves, sounds and commands may be added to
+            future versions of the format.
+
+
+
+            ¯The packed sheet format¯
+            ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+            SBStudio v2.05 saves all sheets in a packed format.
+
+            The packed format is very simple, but may sometimes
+            dramatically reduce the file size.
+
+
+            When loading a sheet, you should always assume it is
+            type 1 packed. This will make your loader compatible
+            with both type 0 and 1 sheets, and reduce the number
+            of instructions needed.
+
+            Because more packing types may come in the future, you
+            should always check the 'sheet packing' byte in the
+            'SOIN' block to see what type of packing is used.
+
+
+            Here is the format description.
+
+            In a type 1 packed sheet, byte 0 or 2 in the 5 byte
+            channel cell may contain a special byte. The special
+            bytes are:
+
+                Value    Meaning
+                ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+                 0FDh    End of channel cell. Next byte is the
+                         first byte of the next channel cell.
+
+                 0FEh    End of sheet row. Next byte is the
+                         first byte of the next row.
+
+                 0FFh    End of sheet. You are finished!
+                ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ

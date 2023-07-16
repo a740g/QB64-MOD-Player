@@ -1,0 +1,19 @@
+Piston Collage (unofficial) specs:
+----------------------------------
+
+* Up to 36 simulataneous VOICES. Each voice can be either a 2 oscillator
+  .ptvoice (created with PtVoice program), 4 oscillator .ptnoise (created
+  with PtNoise program, generally used for non pitched sounds like drums
+  or sound effects) and lastly .wav (up to 16bit, 44.1khz stereo).
+
+  Each voice is permanantly attatched to it's own track. This includes
+  .wav (i.e. if you want a 3 note .wav chord,you must load the same .wav
+  into PxTone 3 times. NOTE: This limitation will be relinquished in an
+  upcoming version).
+
+* Each voice can have one of 2 simple delays, be panned, pitch bent,
+  and also allows volume and velocity data.
+
+* Other features include: comments and song title information stored
+  inside the song and .wav rendering of songs for use in other
+  applications (or for making into an mp3) and custom time signatures.

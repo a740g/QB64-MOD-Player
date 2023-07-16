@@ -1,0 +1,143 @@
+|============================================================================|
+| [AMoRE] - Vectordean <*.SNG and *.INS>       <jaegermeister.markus@gmx.de> |
+|           document version 1.00                                            |
+|----------------------------------------------------------------------------|
+| This document is part of the AMoRE (Amiga Module Ripping Encyclopedia)     |
+| package. It is released under the OpenContent license.                     |
+| The OpenContent license can be found at ........... http://opencontent.org |
+| The latest AMoRE package can be found at .... http://amore68k.netfirms.com |
+|----------------------------------------------------------------------------|
+
+
+  NOTE: If a module is initialized (and played) some offsets/pointers
+        are changed to absolute memory (not relative) values.
+        Yet I have not figured out for what Block #2 is good. If you
+        have any info about that, let me know, I'll give credits!
+
+
+  FORMAT DESCRIPTION
+  --------------------------------------------------------------------------
+     0000 (a0)  ID      "RJP1SMOD" or "RJP1MODS"
+     0008       blocks  After the header seven data blocks follow
+
+
+  DATA BLOCK DESCRIPTION (general)
+  --------------------------------------------------------------------------
+     0000       dword   block size (without this dword)
+     0004       data
+
+
+  BLOCK #1 DESCRIPTION (Instrument definitions, $20 bytes each)
+  --------------------------------------------------------------------------
+     0000       dword   sample start address (absolute if initialized)
+     0004       dword   unknown address (absolute if initialized or null)
+     0008       8-byte  unknown
+     0010       word    instrument additional size / size of synth data?
+     0012       word    sample size in words
+     0014       10-byte unknown
+     
+
+  BLOCK #3 DESCRIPTION (Sequence numbers for every subsong, $04 bytes each)
+  --------------------------------------------------------------------------
+     0000       byte    sequence number for channel #1
+     0001       byte    sequence number for channel #2
+     0002       byte    sequence number for channel #3
+     0003       byte    sequence number for channel #4
+
+
+  BLOCK #4 DESCRIPTION (Pointers to sequence data for each sequence)
+  --------------------------------------------------------------------------
+     0000       dword   relative pointer to sequence data
+
+
+  BLOCK #5 DESCRIPTION (Pointers to pattern data for each pattern)
+  --------------------------------------------------------------------------
+     0000       dword   relative pointer to pattern data,
+                        pattern data means note table for one channel 
+
+
+  BLOCK #6 DESCRIPTION (Sequence data, $01 each)
+  --------------------------------------------------------------------------
+     0000       byte    pattern number to be played,
+                        pattern number bytes following until a nullbyte
+                        which means the sequence end and the whole sequence
+                        is repeated
+
+
+  RIPPING INSTRUCTIONS
+  --------------------------------------------------------------------------
+     1. To find out if we have Vectordean songdata at memory position (a0)
+          we have to do as follows.
+          First grab the byte at (a0)+$23 and check if it's $01 (don't ask
+          me why $01 stands there, but in every Vectordean I got, this
+          byte of the first instrument descriptor is $01).
+          After that check if the first instrument uses at least $02 bytes
+          of sampledata. Do it by checking the second sample start address
+          for being higher than $00000001.
+          Calculate all blocksizes and start addresses (start address
+          means that it points to the data, not the dword size value).
+          Check the blocksizes as follows:
+          Size #1 must be dividable by $20 and higher than $00.
+          Sizes #3-#5 must be dividable by $04 and higher than $00.
+          Size #1 must be lower than $1000 - 128 instruments are enough.
+          Size #3 must be lower than $0400 - maximal 256 subsongs possible.
+          Size #4 must be lower than $03fc - maximal 255 sequences possible.
+          Size #5 must be lower than $03fc - maximal 255 patterns possible.
+          If you have done so, check all the dwords in Block #4 (pointers)
+          to be lower than the size of the sequence data (Block #6 size).
+          If that was okay, check all the dwords in Block #5 (pointers) to
+          be lower than the size of the pattern data (Block #7 size).
+     2. To calculate the size of the sample block (may be anywhere)
+          jump into the sampleblock and do the following with every sample,
+          the number of samples is the blocksize divided by $20...
+          Read the sample start address and calculate the end address by
+          taking the sample size * $02 plus sample start address plus
+          extended instrument info / synth data size.
+          Take the lowest sample start address of all instruments and take
+          the highest sample end address.
+          If the lowest sample start address is not null, then the module
+          is INITIALIZED (you'll need that info later) and the samples
+          are present in the area from the lowest start address up to the
+          highest end address and ready to save. Don't forget to save the
+          four character long "RJP1" sign in front of the sampledata.
+     3. If the module is not INITIALIZED you already got the size of the
+          sampledata, cause it's the highest end address. But you'll have
+          to find the sample start address in memory. Therefore simply
+          search the memory for the 4-char ID "RJP1" and make sure that no
+          further 4-char "SMOD" or "MODS" are following. If you find more
+          than one "RJP1" IDs simply save all possible sampledata and
+          find the right one by manual testing around.
+     4. The song needs to be un-initialized before saving if it is
+          INITIALIZED. Correct all sample start addresses in the instru-
+          ments block by substracting the lowest sample start address.
+          Do the same with the unknown addresses mentioned in Block #1
+          description. A quite interesting thing is that the extended
+          instrument data size has to be halfed then. I don't know why, but
+          you'll have to do so.
+     5. The songdata length is all blocksizes added together
+          plus $0008 (the header) plus $001c (for seven dwords / blocksizes)
+          not more not less. Very easy!
+     6. After having saved an INITIALIZED module you can make the un-
+          initialization undone by doing the things mentioned in step 4
+          vice versa.
+
+
+  DOCUMENT HISTORY
+  --------------------------------------------------------------------------
+
+     * v1.00 - first officially released version
+             - ripping method is accurate enough
+
+
+  CREDITS
+  --------------------------------------------------------------------------
+
+     * Document and amore.pas/amore.exe implementation done by
+         Jaegermeister Markus <jaegermeister.markus@gmx.de>
+
+     * No sources except Exotica's example modules were used, everything
+         was figured out by myself
+
+     * Everything done with the help of the following sites
+         http://exotica.fix.no         (lots of exotic modules to test with)
+         http://www.multimania.com/asle        (amiga mod packers described)
