@@ -29,7 +29,19 @@ This is a [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible
 ' Main Player API
 FUNCTION MODPlayer_LoadFromMemory%% (buffer AS STRING)
 FUNCTION MODPlayer_LoadFromDisk%% (fileName AS STRING)
+FUNCTION MODPlayer_GetName$
+FUNCTION MODPlayer_GetType$
 SUB MODPlayer_Play
+FUNCTION MODPlayer_IsPlaying%%
+SUB MODPlayer_Pause (state AS _BYTE)
+FUNCTION MODPlayer_IsPaused%%
+SUB MODPlayer_Loop (state AS _BYTE)
+FUNCTION MODPlayer_IsLooping%%
+SUB MODPlayer_GoToNextPosition
+SUB MODPlayer_GoToPreviousPosition
+SUB MODPlayer_SetPosition (position AS INTEGER)
+FUNCTION MODPlayer_GetPosition%
+FUNCTION MODPlayer_GetOrders%
 SUB MODPlayer_Stop
 SUB MODPlayer_Update
 ' Sample Mixer API (used internally by the Player)
