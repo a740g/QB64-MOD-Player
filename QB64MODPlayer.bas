@@ -537,7 +537,7 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
         IF GetTicks MOD 15 = 0 THEN TITLE windowTitle + " (" + LTRIM$(STR$(nFPS)) + " FPS)"
 
         LIMIT nFPS
-    LOOP UNTIL NOT __Song.isPlaying OR k = KEY_ESCAPE
+    LOOP UNTIL NOT MODPlayer_IsPlaying OR k = KEY_ESCAPE
 
     MODPlayer_Stop
     AdjustWindowSize
