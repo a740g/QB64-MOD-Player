@@ -1,6 +1,13 @@
 # QB64 MOD PLAYER
 
-This is a [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible) [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player library written in [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe).
+This is a [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player library written in [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe).
+
+It currently supports the following formats:
+
+- [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible)
+- [MultiTracker](https://en.wikipedia.org/wiki/Module_file#Popular_formats)
+
+---
 
 ![Screenshot 1](screenshots/screenshot1.png)
 ![Screenshot 2](screenshots/screenshot2.png)
@@ -47,6 +54,7 @@ SUB MODPlayer_Update
 ' Sample Mixer API (used internally by the Player)
 SUB SampleMixer_Initialize (nVoices AS _UNSIGNED _BYTE)
 SUB SampleMixer_Finalize
+FUNCTION SampleMixer_IsInitialized%%
 FUNCTION SampleMixer_NeedsUpdate%%
 SUB SampleMixer_Update (nSamples AS _UNSIGNED INTEGER)
 SUB SampleMixer_SetVoiceVolume (nVoice AS _UNSIGNED _BYTE, nVolume AS SINGLE)
@@ -128,12 +136,5 @@ I see that the miniaudio backend version of QB64-PE already has MOD, S3M, XM, IT
 ## TODO
 
 - Mixer volume ramping
-- OKT loader
-- MTM loader
-- MED loader
-- FAR loader
-- 669 loader
 - STM loader
-- AHX loader (with proper PSG support)
-- S3M loader (with proper FMS support)
-- XM loader
+- S3M loader (with OPL3 emulation)
