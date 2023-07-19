@@ -116,7 +116,7 @@ SUB PrintVisualization
     ' These are internal variables and arrays used by the MODPlayer library and are used for showing internal info and visualization
     ' In a general use case, accessing these directly is not required at all
     SHARED __Song AS __SongType
-    SHARED __Order() AS UNSIGNED BYTE
+    SHARED __Order() AS UNSIGNED INTEGER
     SHARED __Pattern() AS __NoteType
     SHARED __Sample() AS __SampleType
     SHARED __MixerBufferL() AS SINGLE
@@ -138,7 +138,7 @@ SUB PrintVisualization
 
     ' Print the header
     COLOR 16, 15
-    LOCATE , x: PRINT USING "  ORD: ### / ### | PAT: ### / ### | ROW: ## / 63 | CHN: ### / ### | VOC: ### / ###  "; __Song.orderPosition; __Song.orders - 1; __Order(__Song.orderPosition); __Song.highestPattern; __Song.patternRow; __Song.activeChannels; __Song.channels; SampleMixer_GetActiveVoices; SampleMixer_GetTotalVoices
+    LOCATE , x: PRINT USING "  ORD: ### / ### | PAT: ### / ### | ROW: ## / 63 | CHN: ### / ### | VOC: ### / ###  "; __Song.orderPosition; __Song.orders - 1; __Order(__Song.orderPosition); __Song.patterns - 1; __Song.patternRow; __Song.activeChannels; __Song.channels; SampleMixer_GetActiveVoices; SampleMixer_GetTotalVoices
     LOCATE , x: PRINT USING "  BPM: ###       | SPD: ###       | VOL: ###%    |  HQ: \       \ | REP: \       \  "; __Song.bpm; __Song.speed; GlobalVolume * 100.0!; FormatBoolean(HighQuality, 3); FormatBoolean(__Song.isLooping, 4)
 
     ' Print the sample list header
@@ -172,11 +172,11 @@ SUB PrintVisualization
     ' Get the current line number
     j = CSRLIN
 
-    ' Find thw pattern and row we print
+    ' Find the pattern and row we need to print
     startPat = __Order(__Song.orderPosition)
     startRow = __Song.patternRow - (1 + TEXT_LINE_MAX - j) \ 2
     IF startRow < 0 THEN
-        startRow = 1 + __PATTERN_ROW_MAX + startRow
+        startRow = __Song.rows + startRow
         startPat = startPat - 1
     END IF
 
@@ -185,7 +185,7 @@ SUB PrintVisualization
         LOCATE i, x
         COLOR 15, 0
 
-        IF startPat >= 0 AND startPat <= __Song.highestPattern THEN
+        IF startPat >= 0 AND startPat < __Song.patterns THEN
             IF i = j + (1 + TEXT_LINE_MAX - j) \ 2 THEN
                 COLOR 15, 1
             END IF
@@ -217,7 +217,7 @@ SUB PrintVisualization
 
         startRow = startRow + 1
         ' Wrap if needed
-        IF startRow > __PATTERN_ROW_MAX THEN
+        IF startRow >= __Song.rows THEN
             startRow = 0
             startPat = startPat + 1
         END IF
@@ -591,7 +591,7 @@ FUNCTION OnSelectedFiles%%
     DIM ofdList AS STRING
     DIM e AS BYTE: e = EVENT_NONE
 
-    ofdList = OPENFILEDIALOG$(APP_NAME, "", "*.mod|*.MOD|*.Mod", "Music Tracker Files", TRUE)
+    ofdList = OPENFILEDIALOG$(APP_NAME, "", "*.mod|*.MOD|*.Mod|*.mtm|*.MTM|*.Mtm", "Music Tracker Files", TRUE)
 
     IF ofdList = EMPTY_STRING THEN EXIT FUNCTION
 
