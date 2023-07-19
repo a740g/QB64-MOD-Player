@@ -1,6 +1,6 @@
 # QB64 MOD PLAYER
 
-This is a [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player library written in [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe).
+This is a [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player and library written in [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe).
 
 It currently supports the following formats:
 
@@ -125,6 +125,7 @@ I see that the miniaudio backend version of QB64-PE already has MOD, S3M, XM, IT
 - [MODFIL10.TXT](docs/MODFIL10.TXT) by Thunder
 - [Protracker Module](https://wiki.multimedia.cx/index.php/Protracker_Module) from MultimediaWiki
 - [MOD Effect Commands](https://wiki.openmpt.org/Manual:_Effect_Reference#MOD_Effect_Commands) from OpenMPT Wiki
+- [MultiTracker Module (MTM) Format](docs/MultiTracker%20(.mtm).txt) by Renaissance
 - [Digital Audio Mixing Techniques](docs/FSBDOC.TXT) by jedi / oxygen
 - [Writing Mixing Routines](docs/MIXING10.TXT) by BYTERAVER/TNT
 - [Audio Mixer Tutorial](https://github.com/benhenshaw/mixer_tutorial) by benhenshaw

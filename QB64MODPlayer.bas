@@ -611,7 +611,7 @@ END FUNCTION
 ' Loads and plays random MODs from modarchive.org
 FUNCTION OnModArchiveFiles%%
     DIM e AS BYTE: e = EVENT_NONE
-    DIM modArchiveFileName AS STRING
+    DIM AS STRING modArchiveFileName, fileExtension
 
     DO
         DO
@@ -624,9 +624,10 @@ FUNCTION OnModArchiveFiles%%
             END IF
 
             modArchiveFileName = GetRandomModArchiveFileName$
+            fileExtension = LCASE$(GetFileExtensionFromPathOrURL(modArchiveFileName))
 
             TITLE "Downloading: " + GetSaveFileName(modArchiveFileName) + " - " + APP_NAME
-        LOOP UNTIL LCASE$(GetFileExtensionFromPathOrURL(modArchiveFileName)) = ".mod"
+        LOOP UNTIL fileExtension = ".mod" OR fileExtension = ".mtm"
 
         e = OnPlayTune(modArchiveFileName)
     LOOP WHILE e = EVENT_NONE OR e = EVENT_PLAY
