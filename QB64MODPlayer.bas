@@ -167,7 +167,7 @@ SUB PrintVisualization
     NEXT
     PRINT
 
-    DIM AS LONG startRow, startPat, nNote, nChan
+    DIM AS LONG startRow, startPat, nNote, nChan, nSample, nEffect, nOperand
 
     ' Get the current line number
     j = CSRLIN
@@ -196,20 +196,44 @@ SUB PrintVisualization
                 COLOR 11
                 PRINT USING " (##)"; nChan + 1;
                 nNote = __Pattern(startPat, startRow, nChan).note
-                COLOR 10
                 IF nNote = __NOTE_NONE THEN
+                    COLOR 8
                     PRINT "  -  ";
                 ELSEIF nNote = __NOTE_KEY_OFF THEN
+                    COLOR 2
                     PRINT " ^^^ ";
                 ELSE
+                    COLOR 10
                     PRINT USING " &# "; NoteTable(nNote MOD 12); nNote \ 12;
                 END IF
-                COLOR 14
-                PRINT USING "## "; __Pattern(startPat, startRow, nChan).sample;
-                COLOR 13
-                PRINT FormatLong(__Pattern(startPat, startRow, nChan).effect, "%.2X ");
-                COLOR 12
-                PRINT FormatLong(__Pattern(startPat, startRow, nChan).operand, "%.2X ");
+
+                nSample = __Pattern(startPat, startRow, nChan).sample
+                IF nSample = 0 THEN
+                    COLOR 8
+                    PRINT "-- ";
+                ELSE
+                    COLOR 14
+                    PRINT FormatLong(nSample, "%.2i ");
+                END IF
+
+                nEffect = __Pattern(startPat, startRow, nChan).effect
+                nOperand = __Pattern(startPat, startRow, nChan).operand
+
+                IF nEffect = 0 AND nOperand = 0 THEN
+                    COLOR 8
+                    PRINT "-- ";
+                ELSE
+                    COLOR 13
+                    PRINT FormatLong(nEffect, "%.2X ");
+                END IF
+
+                IF nOperand = 0 THEN
+                    COLOR 8
+                    PRINT "-- ";
+                ELSE
+                    COLOR 12
+                    PRINT FormatLong(nOperand, "%.2X ");
+                END IF
             NEXT
         ELSE
             PRINT SPACE$(PatternDisplayWidth);
