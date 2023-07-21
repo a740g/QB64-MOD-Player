@@ -6,6 +6,7 @@
 '-----------------------------------------------------------------------------------------------------------------------
 ' HEADER FILES
 '-----------------------------------------------------------------------------------------------------------------------
+'$INCLUDE:'include/BitwiseOps.bi'
 '$INCLUDE:'include/FileOps.bi'
 '$INCLUDE:'include/StringOps.bi'
 '$INCLUDE:'include/AnalyzerFFT.bi'
@@ -75,7 +76,7 @@ ACCEPTFILEDROP ' enable drag and drop of files
 InitializeNoteTable ' initialize note string table
 AdjustWindowSize ' set the initial window size
 ALLOWFULLSCREEN SQUAREPIXELS , SMOOTH ' allow the user to press Alt+Enter to go fullscreen
-srand TIMER ' seed RNG
+SetRandomSeed TIMER ' seed RNG
 GlobalVolume = SOFTSYNTH_GLOBAL_VOLUME_MAX ' set global volume to maximum
 HighQuality = TRUE ' enable interpolated mixing by default
 
@@ -384,10 +385,10 @@ FUNCTION OnWelcomeScreen%%
         FOR k = 1 TO TEXT_LINE_MAX
             IF starX(k) < 1 OR starX(k) > WindowWidth OR starY(k) < 1 OR starY(k) > TEXT_LINE_MAX THEN
 
-                starX(k) = GetRandomValue(1 + WindowWidth \ 4, WindowWidth - WindowWidth \ 4)
-                starY(k) = GetRandomValue(1 + TEXT_LINE_MAX \ 4, TEXT_LINE_MAX - TEXT_LINE_MAX \ 4)
+                starX(k) = GetRandomBetween(1 + WindowWidth \ 4, WindowWidth - WindowWidth \ 4)
+                starY(k) = GetRandomBetween(1 + TEXT_LINE_MAX \ 4, TEXT_LINE_MAX - TEXT_LINE_MAX \ 4)
                 starZ(k) = 4096
-                starC(k) = GetRandomValue(9, 15)
+                starC(k) = GetRandomBetween(9, 15)
             END IF
 
             LOCATE starY(k), starX(k)
