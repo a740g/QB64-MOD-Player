@@ -136,6 +136,5 @@ I see that the miniaudio backend version of QB64-PE already has MOD, S3M, XM, IT
 
 ## TODO
 
-- Mixer volume ramping
 - STM loader
 - S3M loader (with OPL3 emulation)
