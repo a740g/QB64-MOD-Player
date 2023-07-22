@@ -56,15 +56,13 @@ CONST EVENT_HTTP = 6 ' Downloads and plays random MODs from modarchive.org
 '-----------------------------------------------------------------------------------------------------------------------
 ' GLOBAL VARIABLES
 '-----------------------------------------------------------------------------------------------------------------------
+DIM SHARED GlobalVolume AS SINGLE ' this is needed because the replayer can reset volume across songs
+DIM SHARED HighQuality AS BYTE ' this is needed because the replayer can reset quality across songs
 REDIM SHARED NoteTable(0 TO 0) AS STRING * 2 ' this contains the note stings
 DIM SHARED WindowWidth AS LONG ' the width of our windows in characters
 DIM SHARED PatternDisplayWidth AS LONG ' the width of the pattern display in characters
-DIM SHARED SpectrumAnalyzerWidth AS LONG ' the width of the spectrum analyzer
-DIM SHARED SpectrumAnalyzerHeight AS LONG ' the height of the spectrum analyzer
-DIM SHARED GlobalVolume AS SINGLE ' this is needed because the replayer can reset volume across songs
-DIM SHARED HighQuality AS BYTE ' this is needed because the replayer can reset quality across songs
-REDIM SHARED SpectrumAnalyzerLeft(0 TO 0) AS UNSIGNED INTEGER ' left channel FFT data
-REDIM SHARED SpectrumAnalyzerRight(0 TO 0) AS UNSIGNED INTEGER ' right channel FFT data
+DIM SHARED AS LONG SpectrumAnalyzerWidth, SpectrumAnalyzerHeight ' the width & height of the spectrum analyzer
+REDIM SHARED AS UNSIGNED INTEGER SpectrumAnalyzerL(0 TO 0), SpectrumAnalyzerR(0 TO 0) ' left & right channel FFT data
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
@@ -262,11 +260,10 @@ SUB PrintVisualization
     fftBits = LeftShiftOneCount(fftSamples) ' Get the count of bits that the FFT routine will need
 
     ' Setup the FFT arrays (half of fftSamples)
-    REDIM SpectrumAnalyzerLeft(0 TO fftSamplesHalf - 1) AS UNSIGNED INTEGER
-    REDIM SpectrumAnalyzerRight(0 TO fftSamplesHalf - 1) AS UNSIGNED INTEGER
+    REDIM AS UNSIGNED INTEGER SpectrumAnalyzerL(0 TO fftSamplesHalf - 1), SpectrumAnalyzerR(0 TO fftSamplesHalf - 1)
 
-    AnalyzerFFTSingle OFFSET(SpectrumAnalyzerLeft(0)), OFFSET(__MixerBufferL(0)), 1, fftBits ' the left samples first
-    AnalyzerFFTSingle OFFSET(SpectrumAnalyzerRight(0)), OFFSET(__MixerBufferR(0)), 1, fftBits ' and now the right ones
+    AnalyzerFFTSingle SpectrumAnalyzerL(0), __MixerBufferL(0), 1, fftBits ' the left samples first
+    AnalyzerFFTSingle SpectrumAnalyzerR(0), __MixerBufferR(0), 1, fftBits ' and now the right ones
 
     COLOR , 0
 
@@ -274,19 +271,19 @@ SUB PrintVisualization
         j = (i * SpectrumAnalyzerHeight) \ fftSamplesHalf ' this is the y location where we need to draw the bar
 
         ' First calculate and draw a bar on the left
-        IF SpectrumAnalyzerLeft(i) >= ANALYZER_SCALE THEN
+        IF SpectrumAnalyzerL(i) >= ANALYZER_SCALE THEN
             x = SpectrumAnalyzerWidth - 1
         ELSE
-            x = (SpectrumAnalyzerLeft(i) * (SpectrumAnalyzerWidth - 1)) \ ANALYZER_SCALE
+            x = (SpectrumAnalyzerL(i) * (SpectrumAnalyzerWidth - 1)) \ ANALYZER_SCALE
         END IF
 
         TextHLine SpectrumAnalyzerWidth - x, 1 + j, SpectrumAnalyzerWidth
 
         ' Next calculate for the one on the right and draw
-        IF SpectrumAnalyzerRight(i) >= ANALYZER_SCALE THEN
+        IF SpectrumAnalyzerR(i) >= ANALYZER_SCALE THEN
             x = SpectrumAnalyzerWidth - 1
         ELSE
-            x = (SpectrumAnalyzerRight(i) * (SpectrumAnalyzerWidth - 1)) \ ANALYZER_SCALE
+            x = (SpectrumAnalyzerR(i) * (SpectrumAnalyzerWidth - 1)) \ ANALYZER_SCALE
         END IF
 
         TextHLine 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER, 1 + j, 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER + x
