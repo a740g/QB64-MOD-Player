@@ -118,8 +118,7 @@ SUB PrintVisualization
     SHARED __Order() AS UNSIGNED INTEGER
     SHARED __Pattern() AS __NoteType
     SHARED __Sample() AS __SampleType
-    SHARED __MixerBufferL() AS SINGLE
-    SHARED __MixerBufferR() AS SINGLE
+    SHARED __MixerBuffer() AS SINGLE
 
     ' Subscript out of range bugfix for player when song is 128 orders long and the song reaches the end
     ' In this case if the sub is allowed to proceed then __Order(__Song.orderPosition) will cause "subscript out of range"
@@ -262,8 +261,8 @@ SUB PrintVisualization
     ' Setup the FFT arrays (half of fftSamples)
     REDIM AS UNSIGNED INTEGER SpectrumAnalyzerL(0 TO fftSamplesHalf - 1), SpectrumAnalyzerR(0 TO fftSamplesHalf - 1)
 
-    AnalyzerFFTSingle SpectrumAnalyzerL(0), __MixerBufferL(0), 1, fftBits ' the left samples first
-    AnalyzerFFTSingle SpectrumAnalyzerR(0), __MixerBufferR(0), 1, fftBits ' and now the right ones
+    AnalyzerFFTSingle SpectrumAnalyzerL(0), __MixerBuffer(0), 2, fftBits ' the left samples first
+    AnalyzerFFTSingle SpectrumAnalyzerR(0), __MixerBuffer(1), 2, fftBits ' and now the right ones
 
     COLOR , 0
 
