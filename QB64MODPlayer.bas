@@ -254,7 +254,7 @@ SUB PrintVisualization
 
     DIM AS LONG fftSamples, fftSamplesHalf, fftBits
 
-    fftSamples = RoundDownToPowerOf2(__Song.samplesPerTick) ' we need power of 2 for our FFT function
+    fftSamples = RoundLongDownToPowerOf2(__Song.samplesPerTick) ' we need power of 2 for our FFT function
     fftSamplesHalf = fftSamples \ 2
     fftBits = LeftShiftOneCount(fftSamples) ' Get the count of bits that the FFT routine will need
 
@@ -294,8 +294,8 @@ END SUB
 
 ' Welcome screen loop
 FUNCTION OnWelcomeScreen%%
-    DIM AS SINGLE starX(1 TO TEXT_LINE_MAX), starY(1 TO TEXT_LINE_MAX)
-    DIM AS LONG starZ(1 TO TEXT_LINE_MAX), starC(1 TO TEXT_LINE_MAX)
+    DIM starP(1 TO TEXT_WIDTH_MIN) AS Vector3FType
+    DIM starC(1 TO TEXT_WIDTH_MIN) AS UNSIGNED LONG
     DIM k AS LONG, e AS BYTE
 
     DO
@@ -378,22 +378,26 @@ FUNCTION OnWelcomeScreen%%
         PRINT " `/__________________________________________________________________________________________________________________\' ";
 
         ' Text mode starfield. Hell yeah!
-        FOR k = 1 TO TEXT_LINE_MAX
-            IF starX(k) < 1 OR starX(k) > WindowWidth OR starY(k) < 1 OR starY(k) > TEXT_LINE_MAX THEN
-
-                starX(k) = GetRandomBetween(1 + WindowWidth \ 4, WindowWidth - WindowWidth \ 4)
-                starY(k) = GetRandomBetween(1 + TEXT_LINE_MAX \ 4, TEXT_LINE_MAX - TEXT_LINE_MAX \ 4)
-                starZ(k) = 4096
+        FOR k = LBOUND(starP) TO UBOUND(starP)
+            IF starP(k).x < 1! OR starP(k).x > WindowWidth OR starP(k).y < 1! OR starP(k).y > TEXT_LINE_MAX THEN
+                starP(k).x = GetRandomBetween(1 + WindowWidth \ 4, WindowWidth - WindowWidth \ 4)
+                starP(k).y = GetRandomBetween(1 + TEXT_LINE_MAX \ 4, TEXT_LINE_MAX - TEXT_LINE_MAX \ 4)
+                starP(k).z = 4096!
                 starC(k) = GetRandomBetween(9, 15)
             END IF
 
-            LOCATE starY(k), starX(k)
             COLOR starC(k)
-            PRINT "*";
+            IF starP(k).z < 4160! THEN
+                PRINTSTRING (starP(k).x, starP(k).y), CHR$(249)
+            ELSEIF starP(k).z < 4224! THEN
+                PRINTSTRING (starP(k).x, starP(k).y), "+"
+            ELSE
+                PRINTSTRING (starP(k).x, starP(k).y), "*"
+            END IF
 
-            starZ(k) = starZ(k) + 1
-            starX(k) = ((starX(k) - (WindowWidth / 2)) * (starZ(k) / 4096)) + (WindowWidth / 2)
-            starY(k) = ((starY(k) - (TEXT_LINE_MAX / 2)) * (starZ(k) / 4096)) + (TEXT_LINE_MAX / 2)
+            starP(k).z = starP(k).z + 1!
+            starP(k).x = ((starP(k).x - SHR(WindowWidth, 1)) * (starP(k).z / 4096!)) + SHR(WindowWidth, 1) + RND * 0.01! - RND * 0.01!
+            starP(k).y = ((starP(k).y - SHR(TEXT_LINE_MAX, 1)) * (starP(k).z / 4096!)) + SHR(TEXT_LINE_MAX, 1)
         NEXT
 
         k = KEYHIT
@@ -661,11 +665,9 @@ END FUNCTION
 
 ' Draw a horizontal line using text and colors it too! Sweet! XD
 SUB TextHLine (xs AS LONG, y AS LONG, xe AS LONG)
-    DIM l AS LONG
-    l = 1 + xe - xs
+    DIM l AS LONG: l = 1 + xe - xs
     COLOR 9 + l MOD 7
-    LOCATE y, xs
-    PRINT STRING$(l, 254);
+    PRINTSTRING (xs, y), STRING$(l, 254)
 END SUB
 
 
