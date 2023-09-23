@@ -17,7 +17,6 @@
 '-----------------------------------------------------------------------------------------------------------------------
 ' METACOMMANDS
 '-----------------------------------------------------------------------------------------------------------------------
-$NOPREFIX
 $RESIZE:SMOOTH
 $EXEICON:'./QB64MODPlayer.ico'
 $VERSIONINFO:CompanyName=Samuel Gomes
@@ -31,6 +30,7 @@ $VERSIONINFO:Web=https://github.com/a740g
 $VERSIONINFO:Comments=https://github.com/a740g
 $VERSIONINFO:FILEVERSION#=2,1,0,0
 $VERSIONINFO:PRODUCTVERSION#=2,1,0,0
+$COLOR:0
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
@@ -41,7 +41,7 @@ CONST APP_NAME = "QB64 MOD Player" ' application name
 CONST TEXT_LINE_MAX = 75 ' this the number of lines we need
 CONST TEXT_WIDTH_MIN = 120 ' minimum width we need
 CONST TEXT_WIDTH_HEADER = 84 ' width of the main header on the vis screen
-CONST ANALYZER_SCALE = 5120 ' values after this will be clipped in the analyzer array
+CONST ANALYZER_SCALE = 9 ' this is used to scale the fft values
 CONST FRAME_RATE_MIN = 60 ' minimum frame rate we'll allow
 ' Program events
 CONST EVENT_NONE = 0 ' idle
@@ -57,28 +57,28 @@ CONST EVENT_HTTP = 6 ' Downloads and plays random MODs from modarchive.org
 ' GLOBAL VARIABLES
 '-----------------------------------------------------------------------------------------------------------------------
 DIM SHARED GlobalVolume AS SINGLE ' this is needed because the replayer can reset volume across songs
-DIM SHARED HighQuality AS BYTE ' this is needed because the replayer can reset quality across songs
+DIM SHARED HighQuality AS _BYTE ' this is needed because the replayer can reset quality across songs
 REDIM SHARED NoteTable(0 TO 0) AS STRING * 2 ' this contains the note stings
 DIM SHARED WindowWidth AS LONG ' the width of our windows in characters
 DIM SHARED PatternDisplayWidth AS LONG ' the width of the pattern display in characters
 DIM SHARED AS LONG SpectrumAnalyzerWidth, SpectrumAnalyzerHeight ' the width & height of the spectrum analyzer
-REDIM SHARED AS UNSIGNED INTEGER SpectrumAnalyzerL(0 TO 0), SpectrumAnalyzerR(0 TO 0) ' left & right channel FFT data
+REDIM SHARED AS _UNSIGNED INTEGER SpectrumAnalyzerL(0 TO 0), SpectrumAnalyzerR(0 TO 0) ' left & right channel FFT data
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
 ' PROGRAM ENTRY POINT - Frankenstein retro TUI with drag & drop support
 '-----------------------------------------------------------------------------------------------------------------------
-TITLE APP_NAME + " " + OS$ ' set the program name in the titlebar
-CHDIR STARTDIR$ ' change to the directory specifed by the environment
-ACCEPTFILEDROP ' enable drag and drop of files
+_TITLE APP_NAME + " " + _OS$ ' set the program name in the titlebar
+CHDIR _STARTDIR$ ' change to the directory specifed by the environment
+_ACCEPTFILEDROP ' enable drag and drop of files
 InitializeNoteTable ' initialize note string table
 AdjustWindowSize ' set the initial window size
-ALLOWFULLSCREEN SQUAREPIXELS , SMOOTH ' allow the user to press Alt+Enter to go fullscreen
+_ALLOWFULLSCREEN _SQUAREPIXELS , _SMOOTH ' allow the user to press Alt+Enter to go fullscreen
 SetRandomSeed TIMER ' seed RNG
 GlobalVolume = SOFTSYNTH_GLOBAL_VOLUME_MAX ' set global volume to maximum
 HighQuality = TRUE ' enable interpolated mixing by default
 
-DIM event AS BYTE: event = EVENT_CMDS ' default to command line event first
+DIM event AS _BYTE: event = EVENT_CMDS ' default to command line event first
 
 ' Main loop
 DO
@@ -103,7 +103,7 @@ DO
     END SELECT
 LOOP
 
-AUTODISPLAY
+_AUTODISPLAY
 SYSTEM
 '-----------------------------------------------------------------------------------------------------------------------
 
@@ -115,60 +115,87 @@ SUB PrintVisualization
     ' These are internal variables and arrays used by the MODPlayer library and are used for showing internal info and visualization
     ' In a general use case, accessing these directly is not required at all
     SHARED __Song AS __SongType
-    SHARED __Order() AS UNSIGNED INTEGER
+    SHARED __Order() AS _UNSIGNED INTEGER
     SHARED __Pattern() AS __NoteType
     SHARED __Sample() AS __SampleType
-    SHARED __MixerBuffer() AS SINGLE
+    SHARED __SoftSynth_SoundBuffer() AS SINGLE
 
     ' Subscript out of range bugfix for player when song is 128 orders long and the song reaches the end
     ' In this case if the sub is allowed to proceed then __Order(__Song.orderPosition) will cause "subscript out of range"
     ' Note this is only a problem with this demo and not the actual library since we are trying to access internal stuff directly
     IF __Song.orderPosition >= __Song.orders THEN EXIT SUB
 
-    CLS , 0 ' clear the framebuffer to black color
+    CLS , Black ' clear the framebuffer to black color
 
-    DIM x AS LONG
-    x = 1 + WindowWidth \ 2 - TEXT_WIDTH_HEADER \ 2 ' find x so that we can center everything
+    DIM x AS LONG: x = 1 + WindowWidth \ 2 - TEXT_WIDTH_HEADER \ 2 ' find x so that we can center everything
 
     ' Print song type and name
-    COLOR 15, 5
-    LOCATE 1, x: PRINT USING "  \  \: \                                                                        \  "; __Song.subtype; __Song.songName
+    COLOR BrightWhite, Magenta
+    _PRINTSTRING (x, 1), FormatString(__Song.subtype, "  %-4.4s: ") + FormatString(__Song.songName, "%-74.74s  ")
 
     ' Print the header
-    COLOR 16, 15
-    LOCATE , x: PRINT USING "  ORD: ### / ### | PAT: ### / ### | ROW: ## / 63 | CHN: ### / ### | VOC: ### / ###  "; __Song.orderPosition; __Song.orders - 1; __Order(__Song.orderPosition); __Song.patterns - 1; __Song.patternRow; __Song.activeChannels; __Song.channels; SampleMixer_GetActiveVoices; SampleMixer_GetTotalVoices
-    LOCATE , x: PRINT USING "  BPM: ###       | SPD: ###       | VOL: ###%    |  HQ: \       \ | REP: \       \  "; __Song.bpm; __Song.speed; GlobalVolume * 100.0!; FormatBoolean(HighQuality, 3); FormatBoolean(__Song.isLooping, 4)
+    COLOR Blink, BrightWhite
+    _PRINTSTRING (x, 2), FormatLong(__Song.orderPosition, "  ORD: %3d / ") + _
+        FormatLong(__Song.orders - 1, "%3d | ") + _
+        FormatLong(__Order(__Song.orderPosition), "PAT: %3d / ") + _
+        FormatLong(__Song.patterns - 1, "%3d | ") + _
+        FormatLong(__Song.patternRow, "ROW: %2d / 63 | ") + _
+        FormatLong(__Song.activeChannels, "CHN: %3d / ") + _
+        FormatLong(__Song.channels, "%3d | ") + _
+        FormatLong(SoftSynth_GetActiveVoices, "VOC: %3d / ") + _
+        FormatLong(SoftSynth_GetTotalVoices, "%3d  ")
+
+    _PRINTSTRING (x, 3), FormatLong(__Song.bpm, "  BPM: %3d       | ") + _
+        FormatLong(__Song.speed, "SPD: %3d       | ") + _
+        FormatSingle(GlobalVolume * 100!, "VOL: %3.0f%%    | ") + _
+        FormatDouble(SoftSynth_GetBufferedSoundTime * 1000#, "BUF: %7.0fms | ") + _
+        FormatString(FormatBoolean(__Song.isLooping, 4), "REP: %-9.9s  ")
 
     ' Print the sample list header
-    COLOR 16, 3
-    LOCATE , x: PRINT "  S#  SAMPLE-NAME              VOLUME C2SPD LENGTH LOOP-LENGTH LOOP-START LOOP-END  "
+    COLOR Blink, Cyan
+    _PRINTSTRING (x, 4), "  S#  SAMPLE-NAME              VOLUME C2SPD LENGTH LOOP-LENGTH LOOP-START LOOP-END  "
 
     ' Print the sample information
     DIM AS LONG i, j
-    FOR i = 0 TO __Song.samples - 1
-        COLOR 14, 0
-        FOR j = 0 TO __Song.channels - 1
-            IF i + 1 = __Pattern(__Order(__Song.orderPosition), __Song.patternRow, j).sample THEN
-                COLOR 13, 1
-            END IF
-        NEXT
-        LOCATE , x: PRINT USING " ###: \                    \ ######## ##### ###### ########### ########## ########  "; i + 1; __Sample(i).sampleName; __Sample(i).volume; __Sample(i).c2Spd; __Sample(i).length; __Sample(i).loopLength; __Sample(i).loopStart; __Sample(i).loopEnd
-    NEXT
+    WHILE i < __Song.samples
+        COLOR Yellow, Black
 
+        j = 0
+        WHILE j < __Song.channels
+            IF i + 1 = __Pattern(__Order(__Song.orderPosition), __Song.patternRow, j).sample THEN
+                COLOR LightMagenta, Blue
+            END IF
+
+            j = j + 1
+        WEND
+
+        _PRINTSTRING (x, 5 + i), FormatLong(i + 1, " %3d: ") + _
+            FormatString(__Sample(i).sampleName, "%-22.22s ") + _
+            FormatLong(__Sample(i).volume, "%8d ") + _
+            FormatLong(__Sample(i).c2Spd, "%5d ") + _
+            FormatLong(__Sample(i).length, "%6d ") + _
+            FormatLong(__Sample(i).loopLength, "%11d ") + _
+            FormatLong(__Sample(i).loopStart, "%10d ") + _
+            FormatLong(__Sample(i).loopEnd, "%8d  ")
+
+        i = i + 1
+    WEND
+
+    j = 5 + i ' we starting updating from this line next
     x = 1 + WindowWidth \ 2 - PatternDisplayWidth \ 2 ' find x so that we can center everything
 
     ' Print the pattern header
-    COLOR 16, 3
-    LOCATE , x: PRINT " PAT RW ";
-    FOR i = 1 TO __Song.channels
-        PRINT " CHAN NOT S# FX OP ";
-    NEXT
-    PRINT
+    COLOR Blink, Cyan
+    _PRINTSTRING (x, j), " PAT RW "
+    i = 0
+    WHILE i < __Song.channels
+        _PRINTSTRING (x + 8 + i * 19, j), " CHAN NOT S# FX OP "
+        i = i + 1
+    WEND
 
     DIM AS LONG startRow, startPat, nNote, nChan, nSample, nEffect, nOperand
 
-    ' Get the current line number
-    j = CSRLIN
+    j = j + 1 ' move to the current line number
 
     ' Find the pattern and row we need to print
     startPat = __Order(__Song.orderPosition)
@@ -179,62 +206,82 @@ SUB PrintVisualization
     END IF
 
     ' Now just dump everything to the screen
-    FOR i = j TO TEXT_LINE_MAX - 1
-        LOCATE i, x
-        COLOR 15, 0
+    DIM AS LONG p, cLine: cLine = j + (1 + TEXT_LINE_MAX - j) \ 2
+    i = j
+    WHILE i < TEXT_LINE_MAX
+        COLOR BrightWhite, Black
 
         IF startPat >= 0 AND startPat < __Song.patterns THEN
-            IF i = j + (1 + TEXT_LINE_MAX - j) \ 2 THEN
-                COLOR 15, 1
+            IF i = cLine THEN
+                COLOR BrightWhite, Blue
             END IF
 
-            PRINT USING " ### ##:"; startPat; startRow;
+            p = x
 
-            FOR nChan = 0 TO __Song.channels - 1
-                COLOR 11
-                PRINT USING " (##)"; nChan + 1;
+            _PRINTSTRING (p, i), FormatLong(startPat, " %3d ") + FormatLong(startRow, "%2d:")
+
+            p = p + 8
+
+            nChan = 0
+            WHILE nChan < __Song.channels
+                COLOR LightCyan
+
+                _PRINTSTRING (p, i), FormatLong(nChan + 1, " (%2d)")
+
+                p = p + 5
+
                 nNote = __Pattern(startPat, startRow, nChan).note
                 IF nNote = __NOTE_NONE THEN
-                    COLOR 8
-                    PRINT "  -  ";
+                    COLOR Gray
+                    _PRINTSTRING (p, i), "  -  "
                 ELSEIF nNote = __NOTE_KEY_OFF THEN
-                    COLOR 2
-                    PRINT " ^^^ ";
+                    COLOR Green
+                    _PRINTSTRING (p, i), " ^^^ "
                 ELSE
-                    COLOR 10
-                    PRINT USING " &# "; NoteTable(nNote MOD 12); nNote \ 12;
+                    COLOR LightGreen
+                    _PRINTSTRING (p, i), FormatLong(nNote \ 12, " " + NoteTable(nNote MOD 12) + "%1d")
                 END IF
+
+                p = p + 5
 
                 nSample = __Pattern(startPat, startRow, nChan).sample
                 IF nSample = 0 THEN
-                    COLOR 8
-                    PRINT "-- ";
+                    COLOR Gray
+                    _PRINTSTRING (p, i), "-- "
                 ELSE
-                    COLOR 14
-                    PRINT FormatLong(nSample, "%.2i ");
+                    COLOR Yellow
+                    _PRINTSTRING (p, i), FormatLong(nSample, "%.2i ")
                 END IF
+
+                p = p + 3
 
                 nEffect = __Pattern(startPat, startRow, nChan).effect
                 nOperand = __Pattern(startPat, startRow, nChan).operand
 
                 IF nEffect = 0 AND nOperand = 0 THEN
-                    COLOR 8
-                    PRINT "-- ";
+                    COLOR Gray
+                    _PRINTSTRING (p, i), "-- "
                 ELSE
-                    COLOR 13
-                    PRINT FormatLong(nEffect, "%.2X ");
+                    COLOR LightMagenta
+                    _PRINTSTRING (p, i), FormatLong(nEffect, "%.2X ")
                 END IF
 
+                p = p + 3
+
                 IF nOperand = 0 THEN
-                    COLOR 8
-                    PRINT "-- ";
+                    COLOR Gray
+                    _PRINTSTRING (p, i), "-- "
                 ELSE
-                    COLOR 12
-                    PRINT FormatLong(nOperand, "%.2X ");
+                    COLOR LightRed
+                    _PRINTSTRING (p, i), FormatLong(nOperand, "%.2X ")
                 END IF
-            NEXT
+
+                p = p + 3
+
+                nChan = nChan + 1
+            WEND
         ELSE
-            PRINT SPACE$(PatternDisplayWidth);
+            _PRINTSTRING (x, i), SPACE$(PatternDisplayWidth)
         END IF
 
         startRow = startRow + 1
@@ -243,14 +290,28 @@ SUB PrintVisualization
             startRow = 0
             startPat = startPat + 1
         END IF
-    NEXT
+
+        i = i + 1
+    WEND
+
+    j = i ' save the line number
 
     ' Print the footer
-    COLOR 16, 7
-    LOCATE TEXT_LINE_MAX, x: PRINT USING " ####ms "; SampleMixer_GetBufferedSoundTime * 1000;
-    FOR i = 0 TO __Song.channels - 1
-        PRINT FormatLong(i + 1, " (%2i)"); FormatSingle(SampleMixer_GetVoiceVolume(i) * 100.0!, " V:%3.0f"); FormatSingle(SampleMixer_GetVoicePanning(i) * 100.0!, " P:%+4.0f ");
-    NEXT
+    COLOR Blink, White
+    IF __Song.isPaused THEN
+        _PRINTSTRING (x, j), "   ||  :"
+    ELSE
+        _PRINTSTRING (x, j), "   >>  :"
+    END IF
+
+    i = 0
+    WHILE i < __Song.channels
+        _PRINTSTRING (x + 8 + i * 19, j), FormatLong(i + 1, " (%2i)") + _
+            FormatSingle(SoftSynth_GetVoiceVolume(i) * 100.0!, " V:%3.0f") + _
+            FormatSingle(SoftSynth_GetVoiceBalance(i) * 100.0!, " B:%+4.0f ")
+
+        i = i + 1
+    WEND
 
     DIM AS LONG fftSamples, fftSamplesHalf, fftBits
 
@@ -259,50 +320,50 @@ SUB PrintVisualization
     fftBits = LeftShiftOneCount(fftSamples) ' Get the count of bits that the FFT routine will need
 
     ' Setup the FFT arrays (half of fftSamples)
-    REDIM AS UNSIGNED INTEGER SpectrumAnalyzerL(0 TO fftSamplesHalf - 1), SpectrumAnalyzerR(0 TO fftSamplesHalf - 1)
+    REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0 TO fftSamplesHalf - 1), SpectrumAnalyzerR(0 TO fftSamplesHalf - 1)
+    ' Get the FFT data and audio power level
+    DIM power AS SINGLE: power = (AnalyzerFFTSingle(SpectrumAnalyzerL(0), __SoftSynth_SoundBuffer(0), 2, fftBits) + AnalyzerFFTSingle(SpectrumAnalyzerR(0), __SoftSynth_SoundBuffer(1), 2, fftBits)) / 2!
 
-    AnalyzerFFTSingle SpectrumAnalyzerL(0), __MixerBuffer(0), 2, fftBits ' the left samples first
-    AnalyzerFFTSingle SpectrumAnalyzerR(0), __MixerBuffer(1), 2, fftBits ' and now the right ones
+    COLOR Black, Black
 
-    COLOR , 0
-
-    FOR i = 0 TO fftSamplesHalf - 1
+    i = 0
+    WHILE i < fftSamplesHalf
         j = (i * SpectrumAnalyzerHeight) \ fftSamplesHalf ' this is the y location where we need to draw the bar
 
         ' First calculate and draw a bar on the left
-        IF SpectrumAnalyzerL(i) >= ANALYZER_SCALE THEN
-            x = SpectrumAnalyzerWidth - 1
-        ELSE
-            x = (SpectrumAnalyzerL(i) * (SpectrumAnalyzerWidth - 1)) \ ANALYZER_SCALE
-        END IF
-
-        TextHLine SpectrumAnalyzerWidth - x, 1 + j, SpectrumAnalyzerWidth
+        x = _SHR(SpectrumAnalyzerL(i), ANALYZER_SCALE)
+        IF x > SpectrumAnalyzerWidth THEN x = SpectrumAnalyzerWidth
+        TextHLine 1 + SpectrumAnalyzerWidth - x, 1 + j, x
 
         ' Next calculate for the one on the right and draw
-        IF SpectrumAnalyzerR(i) >= ANALYZER_SCALE THEN
-            x = SpectrumAnalyzerWidth - 1
-        ELSE
-            x = (SpectrumAnalyzerR(i) * (SpectrumAnalyzerWidth - 1)) \ ANALYZER_SCALE
-        END IF
+        x = _SHR(SpectrumAnalyzerR(i), ANALYZER_SCALE)
+        IF x > SpectrumAnalyzerWidth THEN x = SpectrumAnalyzerWidth
+        TextHLine 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER, 1 + j, x
 
-        TextHLine 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER, 1 + j, 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER + x
-    NEXT
+        i = i + 1
+    WEND
 
-    DISPLAY ' flip the framebuffer
+    _DISPLAY ' flip the framebuffer
 END SUB
 
 
 ' Welcome screen loop
 FUNCTION OnWelcomeScreen%%
-    DIM starP(1 TO TEXT_WIDTH_MIN) AS Vector3FType
-    DIM starC(1 TO TEXT_WIDTH_MIN) AS UNSIGNED LONG
-    DIM k AS LONG, e AS BYTE
+    CONST S_LB = 1
+    CONST S_UB = 256
+    CONST Z_DIVIDER = 4096!
+
+    DIM starP(S_LB TO S_UB) AS Vector3FType
+    DIM starC(S_LB TO S_UB) AS _UNSIGNED LONG
+    DIM starA(S_LB TO S_UB) AS SINGLE
+    DIM widthHalf AS LONG: widthHalf = WindowWidth \ 2
+    DIM heightHalf AS LONG: heightHalf = TEXT_LINE_MAX \ 2
+    DIM e AS _BYTE: e = EVENT_NONE
 
     DO
-        CLS , 0 ' clear the framebuffer to black color
+        CLS , Black ' clear the framebuffer to black color
 
-        LOCATE 1, 1
-        COLOR 14, 0
+        COLOR Yellow
         PRINT "                                                 *        )  (       (                                                  "
         PRINT "                       (     (   (         )   (  `    ( /(  )\ )    )\ )  (                                            "
         PRINT "                     ( )\  ( )\  )\ )   ( /(   )\))(   )\())(()/(   (()/(  )\    )  (       (   (                       "
@@ -326,37 +387,34 @@ FUNCTION OnWelcomeScreen%%
         PRINT " |                                                                                                                    | "
         PRINT " |                                                                                                                    | "
         PRINT " |                                                                                                                    | "
-        PRINT " |                                         ";: COLOR 11: PRINT "F1";: COLOR 8: PRINT " ............ ";: COLOR 13: PRINT "MULTI-SELECT FILES";: COLOR 14: PRINT "                                         | "
+        PRINT " |                                         ";: COLOR LightCyan: PRINT "F1";: COLOR Gray: PRINT " ............ ";: COLOR LightMagenta: PRINT "MULTI-SELECT FILES";: COLOR Yellow: PRINT "                                         | "
         PRINT " |                                                                                                                    | "
         PRINT " |                                                                                                                    | "
-        PRINT " |                                         ";: COLOR 11: PRINT "F2";: COLOR 8: PRINT " .......... ";: COLOR 13: PRINT "PLAY FROM MODARCHIVE";: COLOR 14: PRINT "                                         | "
+        PRINT " |                                         ";: COLOR LightCyan: PRINT "F2";: COLOR Gray: PRINT " .......... ";: COLOR LightMagenta: PRINT "PLAY FROM MODARCHIVE";: COLOR Yellow: PRINT "                                         | "
         PRINT " |                                                                                                                    | "
         PRINT " |                                                                                                                    | "
-        PRINT " |                                         ";: COLOR 11: PRINT "ESC";: COLOR 8: PRINT " .................... ";: COLOR 13: PRINT "NEXT/QUIT";: COLOR 14: PRINT "                                         | "
+        PRINT " |                                         ";: COLOR LightCyan: PRINT "F6";: COLOR Gray: PRINT " ................ ";: COLOR LightMagenta: PRINT "QUICKSAVE FILE";: COLOR Yellow: PRINT "                                         | "
         PRINT " |                                                                                                                    | "
         PRINT " |                                                                                                                    | "
-        PRINT " |                                         ";: COLOR 11: PRINT "SPC";: COLOR 8: PRINT " ........................ ";: COLOR 13: PRINT "PAUSE";: COLOR 14: PRINT "                                         | "
+        PRINT " |                                         ";: COLOR LightCyan: PRINT "ESC";: COLOR Gray: PRINT " .................... ";: COLOR LightMagenta: PRINT "NEXT/QUIT";: COLOR Yellow: PRINT "                                         | "
         PRINT " |                                                                                                                    | "
         PRINT " |                                                                                                                    | "
-        PRINT " |                                         ";: COLOR 11: PRINT "=|+";: COLOR 8: PRINT " .............. ";: COLOR 13: PRINT "INCREASE VOLUME";: COLOR 14: PRINT "                                         | "
+        PRINT " |                                         ";: COLOR LightCyan: PRINT "SPC";: COLOR Gray: PRINT " ........................ ";: COLOR LightMagenta: PRINT "PAUSE";: COLOR Yellow: PRINT "                                         | "
         PRINT " |                                                                                                                    | "
         PRINT " |                                                                                                                    | "
-        PRINT " |                                         ";: COLOR 11: PRINT "-|_";: COLOR 8: PRINT " .............. ";: COLOR 13: PRINT "DECREASE VOLUME";: COLOR 14: PRINT "                                         | "
+        PRINT " |                                         ";: COLOR LightCyan: PRINT "=|+";: COLOR Gray: PRINT " .............. ";: COLOR LightMagenta: PRINT "INCREASE VOLUME";: COLOR Yellow: PRINT "                                         | "
         PRINT " |                                                                                                                    | "
         PRINT " |                                                                                                                    | "
-        PRINT " |                                         ";: COLOR 11: PRINT "L|l";: COLOR 8: PRINT " ......................... ";: COLOR 13: PRINT "LOOP";: COLOR 14: PRINT "                                         | "
+        PRINT " |                                         ";: COLOR LightCyan: PRINT "-|_";: COLOR Gray: PRINT " .............. ";: COLOR LightMagenta: PRINT "DECREASE VOLUME";: COLOR Yellow: PRINT "                                         | "
         PRINT " |                                                                                                                    | "
         PRINT " |                                                                                                                    | "
-        PRINT " |                                         ";: COLOR 11: PRINT "Q|q";: COLOR 8: PRINT " ................ ";: COLOR 13: PRINT "INTERPOLATION";: COLOR 14: PRINT "                                         | "
+        PRINT " |                                         ";: COLOR LightCyan: PRINT "L|l";: COLOR Gray: PRINT " ......................... ";: COLOR LightMagenta: PRINT "LOOP";: COLOR Yellow: PRINT "                                         | "
         PRINT " |                                                                                                                    | "
         PRINT " |                                                                                                                    | "
-        PRINT " |                                         ";: COLOR 11: PRINT "<-";: COLOR 8: PRINT " ........................ ";: COLOR 13: PRINT "REWIND";: COLOR 14: PRINT "                                         | "
+        PRINT " |                                         ";: COLOR LightCyan: PRINT "<-";: COLOR Gray: PRINT " ........................ ";: COLOR LightMagenta: PRINT "REWIND";: COLOR Yellow: PRINT "                                         | "
         PRINT " |                                                                                                                    | "
         PRINT " |                                                                                                                    | "
-        PRINT " |                                         ";: COLOR 11: PRINT "->";: COLOR 8: PRINT " ....................... ";: COLOR 13: PRINT "FORWARD";: COLOR 14: PRINT "                                         | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
+        PRINT " |                                         ";: COLOR LightCyan: PRINT "->";: COLOR Gray: PRINT " ....................... ";: COLOR LightMagenta: PRINT "FORWARD";: COLOR Yellow: PRINT "                                         | "
         PRINT " |                                                                                                                    | "
         PRINT " |                                                                                                                    | "
         PRINT " |                                                                                                                    | "
@@ -367,44 +425,61 @@ FUNCTION OnWelcomeScreen%%
         PRINT " |                                                                                                                    | "
         PRINT " |                                                                                                                    | "
         PRINT " |                                                                                                                    | "
-        PRINT " |                     ";: COLOR 9: PRINT "DRAG AND DROP MULTIPLE MOD FILES ON THIS WINDOW TO PLAY THEM SEQUENTIALLY.";: COLOR 14: PRINT "                     | "
         PRINT " |                                                                                                                    | "
-        PRINT " |                     ";: COLOR 9: PRINT "YOU CAN ALSO START THE PROGRAM WITH MULTIPLE FILES FROM THE COMMAND LINE.";: COLOR 14: PRINT "                      | "
         PRINT " |                                                                                                                    | "
-        PRINT " |                    ";: COLOR 9: PRINT "THIS WAS WRITTEN PURELY IN QB64 AND THE SOURCE CODE IS AVAILABLE ON GITHUB.";: COLOR 14: PRINT "                     | "
         PRINT " |                                                                                                                    | "
-        PRINT " |                                     ";: COLOR 9: PRINT "https://github.com/a740g/QB64-MOD-Player";: COLOR 14: PRINT "                                       | "
+        PRINT " |                     ";: COLOR LightBlue: PRINT "DRAG AND DROP MULTIPLE MOD FILES ON THIS WINDOW TO PLAY THEM SEQUENTIALLY.";: COLOR Yellow: PRINT "                     | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                     ";: COLOR LightBlue: PRINT "YOU CAN ALSO START THE PROGRAM WITH MULTIPLE FILES FROM THE COMMAND LINE.";: COLOR Yellow: PRINT "                      | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                    ";: COLOR LightBlue: PRINT "THIS WAS WRITTEN PURELY IN QB64 AND THE SOURCE CODE IS AVAILABLE ON GITHUB.";: COLOR Yellow: PRINT "                     | "
+        PRINT " |                                                                                                                    | "
+        PRINT " |                                     ";: COLOR LightBlue: PRINT "https://github.com/a740g/QB64-MOD-Player";: COLOR Yellow: PRINT "                                       | "
         PRINT "_|_                                                                                                                  _|_"
         PRINT " `/__________________________________________________________________________________________________________________\' ";
 
         ' Text mode starfield. Hell yeah!
-        FOR k = LBOUND(starP) TO UBOUND(starP)
+        DIM k AS LONG
+        FOR k = S_LB TO S_UB
             IF starP(k).x < 1! OR starP(k).x > WindowWidth OR starP(k).y < 1! OR starP(k).y > TEXT_LINE_MAX THEN
-                starP(k).x = GetRandomBetween(1 + WindowWidth \ 4, WindowWidth - WindowWidth \ 4)
-                starP(k).y = GetRandomBetween(1 + TEXT_LINE_MAX \ 4, TEXT_LINE_MAX - TEXT_LINE_MAX \ 4)
-                starP(k).z = 4096!
+                starP(k).x = GetRandomBetween(1, WindowWidth)
+                starP(k).y = GetRandomBetween(1, TEXT_LINE_MAX)
+                starP(k).z = Z_DIVIDER
                 starC(k) = GetRandomBetween(9, 15)
             END IF
 
-            COLOR starC(k)
-            IF starP(k).z < 4160! THEN
-                PRINTSTRING (starP(k).x, starP(k).y), CHR$(249)
-            ELSEIF starP(k).z < 4224! THEN
-                PRINTSTRING (starP(k).x, starP(k).y), "+"
-            ELSE
-                PRINTSTRING (starP(k).x, starP(k).y), "*"
+            ' Only print if there is no valid character in-place
+            DIM AS LONG x, y: x = starP(k).x: y = starP(k).y ' this is required because SCREEN() and _PUTSTRING() uses different types
+
+            IF SCREEN(y, x) <= KEY_SPACE THEN
+                COLOR starC(k)
+
+                SELECT CASE starP(k).z
+                    CASE IS < 4119!
+                        _PRINTSTRING (x, y), CHR$(249)
+                    CASE IS < 4149!
+                        _PRINTSTRING (x, y), CHR$(7)
+                    CASE IS < 4166!
+                        _PRINTSTRING (x, y), CHR$(43)
+                    CASE IS < 4190!
+                        _PRINTSTRING (x, y), CHR$(120)
+                    CASE ELSE
+                        _PRINTSTRING (x, y), CHR$(42)
+                END SELECT
             END IF
 
             starP(k).z = starP(k).z + 1!
-            starP(k).x = ((starP(k).x - SHR(WindowWidth, 1)) * (starP(k).z / 4096!)) + SHR(WindowWidth, 1) + RND * 0.01! - RND * 0.01!
-            starP(k).y = ((starP(k).y - SHR(TEXT_LINE_MAX, 1)) * (starP(k).z / 4096!)) + SHR(TEXT_LINE_MAX, 1)
+            starA(k) = starA(k) + 0.01!
+            DIM zd AS SINGLE: zd = starP(k).z / Z_DIVIDER
+            starP(k).x = ((starP(k).x - widthHalf) * zd) + widthHalf + COS(starA(k)) * 0.5!
+            starP(k).y = ((starP(k).y - heightHalf) * zd) + heightHalf + SIN(starA(k)) * 0.5!
         NEXT
 
-        k = KEYHIT
+        k = _KEYHIT
 
         IF k = KEY_ESCAPE THEN
             e = EVENT_QUIT
-        ELSEIF TOTALDROPPEDFILES > 0 THEN
+        ELSEIF _TOTALDROPPEDFILES > 0 THEN
             e = EVENT_DROP
         ELSEIF k = KEY_F1 THEN
             e = EVENT_LOAD
@@ -412,9 +487,9 @@ FUNCTION OnWelcomeScreen%%
             e = EVENT_HTTP
         END IF
 
-        DISPLAY ' flip the framebuffer
+        _DISPLAY ' flip the framebuffer
 
-        LIMIT FRAME_RATE_MIN
+        _LIMIT FRAME_RATE_MIN
     LOOP WHILE e = EVENT_NONE
 
     OnWelcomeScreen = e
@@ -423,7 +498,7 @@ END FUNCTION
 
 ' Loads the note string table
 SUB InitializeNoteTable
-    DIM AS UNSIGNED BYTE n, v
+    DIM AS _UNSIGNED _BYTE n, v
     RESTORE NoteTab
     READ v
     REDIM NoteTable(0 TO v - 1) AS STRING * 2
@@ -460,9 +535,9 @@ SUB AdjustWindowSize
     END IF
 
     WIDTH WindowWidth, TEXT_LINE_MAX ' we need 75 lines for the vizualization stuff
-    CONTROLCHR OFF ' turn off control characters
-    FONT 8 ' force 8x8 pixel font
-    BLINK OFF ' we want high intensity colors
+    _CONTROLCHR OFF ' turn off control characters
+    _FONT 8 ' force 8x8 pixel font
+    _BLINK OFF ' we want high intensity colors
     CLS ' clear the screen
     LOCATE , , FALSE ' turn cursor off
 END SUB
@@ -478,25 +553,24 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
     DIM buffer AS STRING: buffer = LoadFile(fileName) ' load the whole file to memory
 
     IF NOT MODPlayer_LoadFromMemory(buffer) THEN
-        MESSAGEBOX APP_NAME, "Failed to load: " + fileName, "error"
+        _MESSAGEBOX APP_NAME, "Failed to load: " + fileName, "error"
 
         EXIT FUNCTION
     END IF
 
-    ' Set the app title to display the file name
+    ' Set the app _TITLE to display the file name
     DIM windowTitle AS STRING
     IF LEN(GetDriveOrSchemeFromPathOrURL(fileName)) > 2 THEN
         windowTitle = GetSaveFileName(fileName) + " - " + APP_NAME
     ELSE
         windowTitle = GetFileNameFromPathOrURL(fileName) + " - " + APP_NAME
     END IF
-    TITLE windowTitle
+    _TITLE windowTitle
 
     MODPlayer_Play
     AdjustWindowSize
 
-    SampleMixer_SetGlobalVolume GlobalVolume
-    SampleMixer_SetHighQuality HighQuality
+    SoftSynth_SetGlobalVolume GlobalVolume
 
     DIM AS LONG k, nFPS
 
@@ -505,26 +579,26 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
 
         PrintVisualization
 
-        k = KEYHIT
+        k = _KEYHIT
 
         SELECT CASE k
             CASE KEY_SPACE
                 __Song.isPaused = NOT __Song.isPaused
 
             CASE KEY_PLUS, KEY_EQUALS
-                SampleMixer_SetGlobalVolume GlobalVolume + 0.01!
-                GlobalVolume = SampleMixer_GetGlobalVolume
+                SoftSynth_SetGlobalVolume GlobalVolume + 0.01!
+                GlobalVolume = SoftSynth_GetGlobalVolume
 
             CASE KEY_MINUS, KEY_UNDERSCORE
-                SampleMixer_SetGlobalVolume GlobalVolume - 0.01!
-                GlobalVolume = SampleMixer_GetGlobalVolume
+                SoftSynth_SetGlobalVolume GlobalVolume - 0.01!
+                GlobalVolume = SoftSynth_GetGlobalVolume
 
             CASE KEY_UPPER_L, KEY_LOWER_L
                 MODPlayer_Loop NOT MODPlayer_IsLooping
 
             CASE KEY_UPPER_Q, KEY_LOWER_Q
                 HighQuality = NOT HighQuality
-                SampleMixer_SetHighQuality HighQuality
+                'SoftSynth_SetHighQuality HighQuality
 
             CASE KEY_LEFT_ARROW
                 MODPlayer_GoToPreviousPosition
@@ -541,45 +615,45 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
 
             CASE 21248 ' Shift + Delete - you known what it does
                 IF LEN(GetDriveOrSchemeFromPathOrURL(fileName)) > 2 THEN
-                    MESSAGEBOX APP_NAME, "You cannot delete " + fileName + "!", "error"
+                    _MESSAGEBOX APP_NAME, "You cannot delete " + fileName + "!", "error"
                 ELSE
-                    IF MESSAGEBOX(APP_NAME, "Are you sure you want to delete " + fileName + " permanently?", "yesno", "question", 0) = 1 THEN
+                    IF _MESSAGEBOX(APP_NAME, "Are you sure you want to delete " + fileName + " permanently?", "yesno", "question", 0) = 1 THEN
                         KILL fileName
                         EXIT DO
                     END IF
                 END IF
         END SELECT
 
-        IF TOTALDROPPEDFILES > 0 THEN
+        IF _TOTALDROPPEDFILES > 0 THEN
             OnPlayTune = EVENT_DROP
 
             EXIT DO
         END IF
 
-        HighQuality = SampleMixer_IsHighQuality ' Since this can be changed by the playing MOD
+        'HighQuality = SampleMixer_IsHighQuality ' Since this can be changed by the playing MOD
 
         nFPS = MaxLong(FRAME_RATE_MIN, (12 * __Song.bpm * (31 - __Song.speed)) \ 625) ' we'll only update at the rate we really need
-        IF GetTicks MOD 15 = 0 THEN TITLE windowTitle + " (" + LTRIM$(STR$(nFPS)) + " FPS)"
+        IF GetTicks MOD 15 = 0 THEN _TITLE windowTitle + " (" + LTRIM$(STR$(nFPS)) + " FPS)"
 
-        LIMIT nFPS
+        _LIMIT nFPS
     LOOP UNTIL NOT MODPlayer_IsPlaying OR k = KEY_ESCAPE
 
     MODPlayer_Stop
     AdjustWindowSize
 
-    TITLE APP_NAME + " " + OS$ ' Set app title to the way it was
+    _TITLE APP_NAME + " " + _OS$ ' Set app title to the way it was
 END FUNCTION
 
 
 ' Processes the command line one file at a time
 FUNCTION OnCommandLine%%
-    DIM e AS BYTE: e = EVENT_NONE
+    DIM e AS _BYTE: e = EVENT_NONE
 
     IF (COMMAND$(1) = "/?" OR COMMAND$(1) = "-?") THEN
-        MESSAGEBOX APP_NAME, APP_NAME + CHR$(13) + "Syntax: QB64MODP [modfile.mod]" + CHR$(13) + "    /?: Shows this message" + STRING$(2, 13) + "Copyright (c) 2023, Samuel Gomes" + STRING$(2, 13) + "https://github.com/a740g/", "info"
+        _MESSAGEBOX APP_NAME, APP_NAME + CHR$(13) + "Syntax: QB64MODP [modfile.mod]" + CHR$(13) + "    /?: Shows this message" + STRING$(2, 13) + "Copyright (c) 2023, Samuel Gomes" + STRING$(2, 13) + "https://github.com/a740g/", "info"
         e = EVENT_QUIT
     ELSE
-        DIM i AS LONG: FOR i = 1 TO COMMANDCOUNT
+        DIM i AS LONG: FOR i = 1 TO _COMMANDCOUNT
             e = OnPlayTune(COMMAND$(i))
             IF e <> EVENT_PLAY THEN EXIT FOR
         NEXT
@@ -592,14 +666,14 @@ END FUNCTION
 ' Processes dropped files one file at a time
 FUNCTION OnDroppedFiles%%
     ' Make a copy of the dropped file and clear the list
-    REDIM fileNames(1 TO TOTALDROPPEDFILES) AS STRING
+    REDIM fileNames(1 TO _TOTALDROPPEDFILES) AS STRING
 
-    DIM e AS BYTE: e = EVENT_NONE
+    DIM e AS _BYTE: e = EVENT_NONE
 
-    DIM i AS LONG: FOR i = 1 TO TOTALDROPPEDFILES
-        fileNames(i) = DROPPEDFILE(i)
+    DIM i AS LONG: FOR i = 1 TO _TOTALDROPPEDFILES
+        fileNames(i) = _DROPPEDFILE(i)
     NEXT
-    FINISHDROP ' This is critical
+    _FINISHDROP ' This is critical
 
     ' Now play the dropped file one at a time
     FOR i = LBOUND(fileNames) TO UBOUND(fileNames)
@@ -614,9 +688,9 @@ END FUNCTION
 ' Processes a list of files selected by the user
 FUNCTION OnSelectedFiles%%
     DIM ofdList AS STRING
-    DIM e AS BYTE: e = EVENT_NONE
+    DIM e AS _BYTE: e = EVENT_NONE
 
-    ofdList = OPENFILEDIALOG$(APP_NAME, "", "*.mod|*.MOD|*.Mod|*.mtm|*.MTM|*.Mtm", "Music Tracker Files", TRUE)
+    ofdList = _OPENFILEDIALOG$(APP_NAME, "", "*.mod|*.MOD|*.Mod|*.mtm|*.MTM|*.Mtm", "Music Tracker Files", TRUE)
 
     IF ofdList = EMPTY_STRING THEN EXIT FUNCTION
 
@@ -635,15 +709,15 @@ END FUNCTION
 
 ' Loads and plays random MODs from modarchive.org
 FUNCTION OnModArchiveFiles%%
-    DIM e AS BYTE: e = EVENT_NONE
+    DIM e AS _BYTE: e = EVENT_NONE
     DIM AS STRING modArchiveFileName, fileExtension
 
     DO
         DO
-            IF TOTALDROPPEDFILES > 0 THEN
+            IF _TOTALDROPPEDFILES > 0 THEN
                 e = EVENT_DROP
                 EXIT DO
-            ELSEIF KEYHIT = KEY_F1 THEN
+            ELSEIF _KEYHIT = KEY_F1 THEN
                 e = EVENT_LOAD
                 EXIT DO
             END IF
@@ -651,23 +725,24 @@ FUNCTION OnModArchiveFiles%%
             modArchiveFileName = GetRandomModArchiveFileName$
             fileExtension = LCASE$(GetFileExtensionFromPathOrURL(modArchiveFileName))
 
-            TITLE "Downloading: " + GetSaveFileName(modArchiveFileName) + " - " + APP_NAME
+            _TITLE "Downloading: " + GetSaveFileName(modArchiveFileName) + " - " + APP_NAME
         LOOP UNTIL fileExtension = ".mod" OR fileExtension = ".mtm"
 
         e = OnPlayTune(modArchiveFileName)
     LOOP WHILE e = EVENT_NONE OR e = EVENT_PLAY
 
-    TITLE APP_NAME + " " + OS$ ' Set app title to the way it was
+    _TITLE APP_NAME + " " + _OS$ ' Set app title to the way it was
 
     OnModArchiveFiles = e
 END FUNCTION
 
 
 ' Draw a horizontal line using text and colors it too! Sweet! XD
-SUB TextHLine (xs AS LONG, y AS LONG, xe AS LONG)
-    DIM l AS LONG: l = 1 + xe - xs
-    COLOR 9 + l MOD 7
-    PRINTSTRING (xs, y), STRING$(l, 254)
+SUB TextHLine (x AS LONG, y AS LONG, l AS LONG)
+    IF l > 0 THEN
+        COLOR LightBlue + l MOD White
+        _PRINTSTRING (x, y), STRING$(l, 254)
+    END IF
 END SUB
 
 
@@ -691,12 +766,12 @@ END FUNCTION
 
 ' Saves a file loaded from the internet
 SUB QuickSave (buffer AS STRING, url AS STRING)
-    STATIC savePath AS STRING, alwaysUseSamePath AS BYTE, stopNagging AS BYTE
+    STATIC savePath AS STRING, alwaysUseSamePath AS _BYTE, stopNagging AS _BYTE
 
     IF LEN(GetDriveOrSchemeFromPathOrURL(url)) > 2 THEN
         ' This is a file from the web
-        IF NOT DIREXISTS(savePath) OR NOT alwaysUseSamePath THEN ' only get the path if path does not exist or user wants to use a new path
-            savePath = SELECTFOLDERDIALOG$("Select a folder to save the file:", savePath)
+        IF NOT _DIREXISTS(savePath) OR NOT alwaysUseSamePath THEN ' only get the path if path does not exist or user wants to use a new path
+            savePath = _SELECTFOLDERDIALOG$("Select a folder to save the file:", savePath)
             IF savePath = EMPTY_STRING THEN EXIT SUB ' exit if user cancelled
 
             savePath = FixPathDirectoryName(savePath)
@@ -704,15 +779,15 @@ SUB QuickSave (buffer AS STRING, url AS STRING)
 
         DIM saveFileName AS STRING: saveFileName = savePath + GetSaveFileName(url)
 
-        IF FILEEXISTS(saveFileName) THEN
-            IF MESSAGEBOX(APP_NAME, "Overwrite " + saveFileName + "?", "yesno", "warning", 0) = 0 THEN EXIT SUB
+        IF _FILEEXISTS(saveFileName) THEN
+            IF _MESSAGEBOX(APP_NAME, "Overwrite " + saveFileName + "?", "yesno", "warning", 0) = 0 THEN EXIT SUB
         END IF
 
-        IF SaveFile(buffer, saveFileName, TRUE) THEN MESSAGEBOX APP_NAME, saveFileName + " saved.", "info"
+        IF SaveFile(buffer, saveFileName, TRUE) THEN _MESSAGEBOX APP_NAME, saveFileName + " saved.", "info"
 
         ' Check if user want to use the same path in the future
         IF NOT stopNagging THEN
-            SELECT CASE MESSAGEBOX(APP_NAME, "Do you want to use " + savePath + " for future saves?", "yesnocancel", "question", 1)
+            SELECT CASE _MESSAGEBOX(APP_NAME, "Do you want to use " + savePath + " for future saves?", "yesnocancel", "question", 1)
                 CASE 0
                     stopNagging = TRUE
                 CASE 1
@@ -723,7 +798,7 @@ SUB QuickSave (buffer AS STRING, url AS STRING)
         END IF
     ELSE
         ' This is a local file - do nothing
-        MESSAGEBOX APP_NAME, "You cannot save local file " + url + "!", "error"
+        _MESSAGEBOX APP_NAME, "You cannot save local file " + url + "!", "error"
     END IF
 END SUB
 '-----------------------------------------------------------------------------------------------------------------------
