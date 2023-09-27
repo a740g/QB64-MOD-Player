@@ -51,18 +51,30 @@ CONST EVENT_LOAD = 3 ' user want to load files
 CONST EVENT_DROP = 4 ' user dropped files
 CONST EVENT_PLAY = 5 ' play next song
 CONST EVENT_HTTP = 6 ' Downloads and plays random MODs from modarchive.org
+' Background constants
+CONST STAR_COUNT = 256 ' the maximum stars that we can show
+'-----------------------------------------------------------------------------------------------------------------------
+
+'-----------------------------------------------------------------------------------------------------------------------
+' USER DEFINED TYPES
+'-----------------------------------------------------------------------------------------------------------------------
+TYPE StarType
+    p AS Vector3FType ' position
+    a AS SINGLE ' angle
+    c AS _UNSIGNED LONG ' color
+END TYPE
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
 ' GLOBAL VARIABLES
 '-----------------------------------------------------------------------------------------------------------------------
 DIM SHARED GlobalVolume AS SINGLE ' this is needed because the replayer can reset volume across songs
-DIM SHARED HighQuality AS _BYTE ' this is needed because the replayer can reset quality across songs
 REDIM SHARED NoteTable(0 TO 0) AS STRING * 2 ' this contains the note stings
 DIM SHARED WindowWidth AS LONG ' the width of our windows in characters
 DIM SHARED PatternDisplayWidth AS LONG ' the width of the pattern display in characters
 DIM SHARED AS LONG SpectrumAnalyzerWidth, SpectrumAnalyzerHeight ' the width & height of the spectrum analyzer
 REDIM SHARED AS _UNSIGNED INTEGER SpectrumAnalyzerL(0 TO 0), SpectrumAnalyzerR(0 TO 0) ' left & right channel FFT data
+DIM SHARED Stars(1 TO STAR_COUNT) AS StarType
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
@@ -76,7 +88,7 @@ AdjustWindowSize ' set the initial window size
 _ALLOWFULLSCREEN _SQUAREPIXELS , _SMOOTH ' allow the user to press Alt+Enter to go fullscreen
 SetRandomSeed TIMER ' seed RNG
 GlobalVolume = SOFTSYNTH_GLOBAL_VOLUME_MAX ' set global volume to maximum
-HighQuality = TRUE ' enable interpolated mixing by default
+InitializeStars Stars()
 
 DIM event AS _BYTE: event = EVENT_CMDS ' default to command line event first
 
@@ -349,15 +361,6 @@ END SUB
 
 ' Welcome screen loop
 FUNCTION OnWelcomeScreen%%
-    CONST S_LB = 1
-    CONST S_UB = 256
-    CONST Z_DIVIDER = 4096!
-
-    DIM starP(S_LB TO S_UB) AS Vector3FType
-    DIM starC(S_LB TO S_UB) AS _UNSIGNED LONG
-    DIM starA(S_LB TO S_UB) AS SINGLE
-    DIM widthHalf AS LONG: widthHalf = WindowWidth \ 2
-    DIM heightHalf AS LONG: heightHalf = TEXT_LINE_MAX \ 2
     DIM e AS _BYTE: e = EVENT_NONE
 
     DO
@@ -439,43 +442,9 @@ FUNCTION OnWelcomeScreen%%
         PRINT " `/__________________________________________________________________________________________________________________\' ";
 
         ' Text mode starfield. Hell yeah!
-        DIM k AS LONG
-        FOR k = S_LB TO S_UB
-            IF starP(k).x < 1! OR starP(k).x > WindowWidth OR starP(k).y < 1! OR starP(k).y > TEXT_LINE_MAX THEN
-                starP(k).x = GetRandomBetween(1, WindowWidth)
-                starP(k).y = GetRandomBetween(1, TEXT_LINE_MAX)
-                starP(k).z = Z_DIVIDER
-                starC(k) = GetRandomBetween(9, 15)
-            END IF
+        UpdateAndDrawStars Stars(), 1!
 
-            ' Only print if there is no valid character in-place
-            DIM AS LONG x, y: x = starP(k).x: y = starP(k).y ' this is required because SCREEN() and _PUTSTRING() uses different types
-
-            IF SCREEN(y, x) <= KEY_SPACE THEN
-                COLOR starC(k)
-
-                SELECT CASE starP(k).z
-                    CASE IS < 4119!
-                        _PRINTSTRING (x, y), CHR$(249)
-                    CASE IS < 4149!
-                        _PRINTSTRING (x, y), CHR$(7)
-                    CASE IS < 4166!
-                        _PRINTSTRING (x, y), CHR$(43)
-                    CASE IS < 4190!
-                        _PRINTSTRING (x, y), CHR$(120)
-                    CASE ELSE
-                        _PRINTSTRING (x, y), CHR$(42)
-                END SELECT
-            END IF
-
-            starP(k).z = starP(k).z + 1!
-            starA(k) = starA(k) + 0.01!
-            DIM zd AS SINGLE: zd = starP(k).z / Z_DIVIDER
-            starP(k).x = ((starP(k).x - widthHalf) * zd) + widthHalf + COS(starA(k)) * 0.5!
-            starP(k).y = ((starP(k).y - heightHalf) * zd) + heightHalf + SIN(starA(k)) * 0.5!
-        NEXT
-
-        k = _KEYHIT
+        DIM k AS LONG: k = _KEYHIT
 
         IF k = KEY_ESCAPE THEN
             e = EVENT_QUIT
@@ -595,10 +564,6 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
 
             CASE KEY_UPPER_L, KEY_LOWER_L
                 MODPlayer_Loop NOT MODPlayer_IsLooping
-
-            CASE KEY_UPPER_Q, KEY_LOWER_Q
-                HighQuality = NOT HighQuality
-                'SoftSynth_SetHighQuality HighQuality
 
             CASE KEY_LEFT_ARROW
                 MODPlayer_GoToPreviousPosition
@@ -800,6 +765,70 @@ SUB QuickSave (buffer AS STRING, url AS STRING)
         ' This is a local file - do nothing
         _MESSAGEBOX APP_NAME, "You cannot save local file " + url + "!", "error"
     END IF
+END SUB
+
+
+SUB InitializeStars (stars() AS StarType)
+    CONST Z_DIVIDER = 4096!
+
+    DIM L AS LONG: L = LBOUND(stars)
+    DIM U AS LONG: U = UBOUND(stars)
+    DIM W AS LONG: W = _WIDTH
+    DIM H AS LONG: H = _HEIGHT
+
+    DIM i AS LONG: FOR i = L TO U
+        stars(i).p.x = GetRandomBetween(1, W)
+        stars(i).p.y = GetRandomBetween(1, H)
+        stars(i).p.z = Z_DIVIDER
+        stars(i).c = GetRandomBetween(9, 15)
+    NEXT
+END SUB
+
+
+SUB UpdateAndDrawStars (stars() AS StarType, speed AS SINGLE)
+    CONST Z_DIVIDER = 4096!
+
+    DIM L AS LONG: L = LBOUND(stars)
+    DIM U AS LONG: U = UBOUND(stars)
+    DIM W AS LONG: W = _WIDTH
+    DIM H AS LONG: H = _HEIGHT
+    DIM W_Half AS LONG: W_Half = W \ 2
+    DIM H_Half AS LONG: H_Half = H \ 2
+
+    DIM i AS LONG: FOR i = L TO U
+        IF stars(i).p.x < 1 OR stars(i).p.x > W OR stars(i).p.y < 1 OR stars(i).p.y > H THEN
+            stars(i).p.x = GetRandomBetween(1, W)
+            stars(i).p.y = GetRandomBetween(1, H)
+            stars(i).p.z = Z_DIVIDER
+            stars(i).c = GetRandomBetween(9, 15)
+        END IF
+
+        ' Only print if there is no valid character in-place
+        DIM AS LONG x, y: x = stars(i).p.x: y = stars(i).p.y ' this is required because SCREEN() and _PUTSTRING() uses different types
+
+        IF IsWhiteSpace(SCREEN(y, x)) THEN
+            COLOR stars(i).c, 0
+
+            SELECT CASE stars(i).p.z
+                CASE IS < 4119!
+                    _PRINTSTRING (x, y), CHR$(249)
+                CASE IS < 4149!
+                    _PRINTSTRING (x, y), CHR$(7)
+                CASE IS < 4166!
+                    _PRINTSTRING (x, y), CHR$(43)
+                CASE IS < 4190!
+                    _PRINTSTRING (x, y), CHR$(120)
+                CASE ELSE
+                    _PRINTSTRING (x, y), CHR$(42)
+            END SELECT
+        END IF
+
+        stars(i).p.z = stars(i).p.z + speed
+        stars(i).a = stars(i).a + 0.01!
+        DIM zd AS SINGLE: zd = stars(i).p.z / Z_DIVIDER
+        stars(i).p.x = ((stars(i).p.x - W_Half) * zd) + W_Half + COS(stars(i).a) * 0.5!
+        stars(i).p.y = ((stars(i).p.y - H_Half) * zd) + H_Half + SIN(stars(i).a) * 0.5!
+    NEXT i
 END SUB
 '-----------------------------------------------------------------------------------------------------------------------
 
