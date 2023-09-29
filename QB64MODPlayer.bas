@@ -53,6 +53,7 @@ CONST EVENT_PLAY = 5 ' play next song
 CONST EVENT_HTTP = 6 ' Downloads and plays random MODs from modarchive.org
 ' Background constants
 CONST STAR_COUNT = 256 ' the maximum stars that we can show
+CONST SNAKE_COUNT = 64 ' the maximum snakes we can draw on the screen
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
@@ -61,6 +62,14 @@ CONST STAR_COUNT = 256 ' the maximum stars that we can show
 TYPE StarType
     p AS Vector3FType ' position
     a AS SINGLE ' angle
+    c AS _UNSIGNED LONG ' color
+END TYPE
+
+TYPE SnakeType
+    p AS STRING ' position buffer (x = 1 byte, y = 1 byte)
+    s AS SINGLE ' speed
+    t AS SINGLE ' movement counter
+    d AS Vector2LType ' direction
     c AS _UNSIGNED LONG ' color
 END TYPE
 '-----------------------------------------------------------------------------------------------------------------------
@@ -73,8 +82,9 @@ REDIM SHARED NoteTable(0 TO 0) AS STRING * 2 ' this contains the note stings
 DIM SHARED WindowWidth AS LONG ' the width of our windows in characters
 DIM SHARED PatternDisplayWidth AS LONG ' the width of the pattern display in characters
 DIM SHARED AS LONG SpectrumAnalyzerWidth, SpectrumAnalyzerHeight ' the width & height of the spectrum analyzer
-REDIM SHARED AS _UNSIGNED INTEGER SpectrumAnalyzerL(0 TO 0), SpectrumAnalyzerR(0 TO 0) ' left & right channel FFT data
-DIM SHARED Stars(1 TO STAR_COUNT) AS StarType
+REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0 TO 0), SpectrumAnalyzerR(0 TO 0) ' left & right channel FFT data
+DIM Stars(1 TO STAR_COUNT) AS StarType
+DIM Snakes(1 TO SNAKE_COUNT) AS SnakeType
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
@@ -89,6 +99,7 @@ _ALLOWFULLSCREEN _SQUAREPIXELS , _SMOOTH ' allow the user to press Alt+Enter to 
 SetRandomSeed TIMER ' seed RNG
 GlobalVolume = SOFTSYNTH_GLOBAL_VOLUME_MAX ' set global volume to maximum
 InitializeStars Stars()
+InitializeSnakes Snakes()
 
 DIM event AS _BYTE: event = EVENT_CMDS ' default to command line event first
 
@@ -124,6 +135,8 @@ SYSTEM
 '-----------------------------------------------------------------------------------------------------------------------
 ' This "prints" the current playing MODs visualization on the screen
 SUB PrintVisualization
+    SHARED AS _UNSIGNED INTEGER SpectrumAnalyzerL(), SpectrumAnalyzerR()
+
     ' These are internal variables and arrays used by the MODPlayer library and are used for showing internal info and visualization
     ' In a general use case, accessing these directly is not required at all
     SHARED __Song AS __SongType
@@ -361,6 +374,11 @@ END SUB
 
 ' Welcome screen loop
 FUNCTION OnWelcomeScreen%%
+    SHARED Stars() AS StarType
+    SHARED Snakes() AS SnakeType
+
+    DIM bgType AS LONG: bgType = GetRandomBetween(0, 1)
+
     DIM e AS _BYTE: e = EVENT_NONE
 
     DO
@@ -441,8 +459,13 @@ FUNCTION OnWelcomeScreen%%
         PRINT "_|_                                                                                                                  _|_"
         PRINT " `/__________________________________________________________________________________________________________________\' ";
 
-        ' Text mode starfield. Hell yeah!
-        UpdateAndDrawStars Stars(), 1!
+        SELECT CASE bgType
+            CASE 1
+                UpdateAndDrawSnakes Snakes()
+
+            CASE ELSE
+                UpdateAndDrawStars Stars(), 1!
+        END SELECT
 
         DIM k AS LONG: k = _KEYHIT
 
@@ -781,7 +804,7 @@ SUB InitializeStars (stars() AS StarType)
         stars(i).p.y = GetRandomBetween(1, H)
         stars(i).p.z = Z_DIVIDER
         stars(i).c = GetRandomBetween(9, 15)
-    NEXT
+    NEXT i
 END SUB
 
 
@@ -828,6 +851,98 @@ SUB UpdateAndDrawStars (stars() AS StarType, speed AS SINGLE)
         DIM zd AS SINGLE: zd = stars(i).p.z / Z_DIVIDER
         stars(i).p.x = ((stars(i).p.x - W_Half) * zd) + W_Half + COS(stars(i).a) * 0.5!
         stars(i).p.y = ((stars(i).p.y - H_Half) * zd) + H_Half + SIN(stars(i).a) * 0.5!
+    NEXT i
+END SUB
+
+
+SUB InitializeSnakes (snakes() AS SnakeType)
+    CONST SNAKE_SIZE_MIN = 3
+    CONST SNAKE_SIZE_MAX = 25
+
+    DIM L AS LONG: L = LBOUND(snakes)
+    DIM U AS LONG: U = UBOUND(snakes)
+    DIM W AS LONG: W = _WIDTH
+    DIM H AS LONG: H = _HEIGHT
+
+    DIM i AS LONG: FOR i = L TO U
+        snakes(i).p = SPACE$(GetRandomBetween(SNAKE_SIZE_MIN, SNAKE_SIZE_MAX) * 2)
+        snakes(i).s = 0.1! + RND * 0.9!
+        snakes(i).c = GetRandomBetween(1, 8)
+        snakes(i).d.x = GetRandomBetween(0, 1) * 2 - 1 ' -1 or 1
+        snakes(i).d.y = GetRandomBetween(0, 1) * 2 - 1 ' -1 or 1
+
+        DIM size AS LONG: size = LEN(snakes(i).p)
+        DIM x AS LONG: x = GetRandomBetween(1, W)
+        DIM y AS LONG: y = GetRandomBetween(1, H)
+
+        DIM j AS LONG: j = 1
+        WHILE j <= size
+            ASC(snakes(i).p, j) = x
+            j = j + 1
+            ASC(snakes(i).p, j) = y
+            j = j + 1
+        WEND
+    NEXT i
+END SUB
+
+
+SUB UpdateAndDrawSnakes (snakes() AS SnakeType)
+    DIM L AS LONG: L = LBOUND(snakes)
+    DIM U AS LONG: U = UBOUND(snakes)
+    DIM W AS LONG: W = _WIDTH
+    DIM H AS LONG: H = _HEIGHT
+
+    DIM i AS LONG: FOR i = L TO U
+        snakes(i).t = snakes(i).t + snakes(i).s
+
+        DIM p AS Vector2LType
+        DIM s AS LONG: s = LEN(snakes(i).p)
+
+        ' Only run movement code when it is time to move
+        IF snakes(i).t > 1! THEN
+            snakes(i).t = 0!
+
+            ' Get the position of the head and add velocity
+            p.x = ASC(snakes(i).p, 1) + snakes(i).d.x
+            p.y = ASC(snakes(i).p, 2) + snakes(i).d.y
+
+            IF p.x < 1 OR p.x > W THEN snakes(i).d.x = -snakes(i).d.x
+            IF p.y < 1 OR p.y > H THEN snakes(i).d.y = -snakes(i).d.y
+
+            DIM j AS LONG: j = s - 2
+            WHILE j > 0
+                ASC(snakes(i).p, j + 2) = ASC(snakes(i).p, j)
+                j = j - 1
+            WEND
+            ASC(snakes(i).p, 1) = ASC(snakes(i).p, 1) + snakes(i).d.x
+            ASC(snakes(i).p, 2) = ASC(snakes(i).p, 2) + snakes(i).d.y
+
+            IF GetRandomBetween(1, 100) <= 5 THEN ' change direction with a 5% chance
+                DO
+                    snakes(i).d.x = GetRandomBetween(-1, 1)
+                    snakes(i).d.y = GetRandomBetween(-1, 1)
+                LOOP WHILE snakes(i).d.x = 0 AND snakes(i).d.y = 0
+            END IF
+        END IF
+
+        j = s - 2
+        WHILE j > 2
+            p.y = ASC(snakes(i).p, j)
+            j = j - 1
+            p.x = ASC(snakes(i).p, j)
+            j = j - 1
+            IF IsWhiteSpace(SCREEN(p.y, p.x)) THEN
+                COLOR snakes(i).c, 0
+                _PRINTSTRING (p.x, p.y), CHR$(254)
+            END IF
+        WEND
+
+        p.x = ASC(snakes(i).p, 1)
+        p.y = ASC(snakes(i).p, 2)
+        IF IsWhiteSpace(SCREEN(p.y, p.x)) THEN
+            COLOR snakes(i).c, 0
+            _PRINTSTRING (p.x, p.y), CHR$(15)
+        END IF
     NEXT i
 END SUB
 '-----------------------------------------------------------------------------------------------------------------------
