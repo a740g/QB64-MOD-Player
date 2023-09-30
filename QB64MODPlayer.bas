@@ -856,7 +856,7 @@ END SUB
 
 
 SUB InitializeSnakes (snakes() AS SnakeType)
-    CONST SNAKE_SIZE_MIN = 3
+    CONST SNAKE_SIZE_MIN = 5
     CONST SNAKE_SIZE_MAX = 25
 
     DIM L AS LONG: L = LBOUND(snakes)
