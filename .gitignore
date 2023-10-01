@@ -10,5 +10,7 @@
 *.exe
 # Ignore .vscode dir
 .vscode
+# Ignore VS dir
+.vs
 # Ignore QB64 createed macOS shell scripts
 *.command
