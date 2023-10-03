@@ -178,7 +178,7 @@ SUB PrintVisualization
 
     ' Print the sample list header
     COLOR Blink, Cyan
-    _PRINTSTRING (x, 4), "  S#  SAMPLE-NAME              VOLUME C2SPD LENGTH LOOP-LENGTH LOOP-START LOOP-END  "
+    _PRINTSTRING (x, 4), "  S#  SAMPLE-NAME                 VOLUME C2SPD LENGTH LOOPING LOOP-START LOOP-STOP  "
 
     ' Print the sample information
     DIM AS LONG i, j
@@ -195,13 +195,13 @@ SUB PrintVisualization
         WEND
 
         _PRINTSTRING (x, 5 + i), FormatLong(i + 1, " %3d: ") + _
-            FormatString(__Sample(i).sampleName, "%-22.22s ") + _
+            FormatString(__Sample(i).sampleName, "%-25.25s ") + _
             FormatLong(__Sample(i).volume, "%8d ") + _
             FormatLong(__Sample(i).c2Spd, "%5d ") + _
             FormatLong(__Sample(i).length, "%6d ") + _
-            FormatLong(__Sample(i).loopLength, "%11d ") + _
+            FormatString(FormatBoolean(__Sample(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, 6), "%-7.7s ") + _
             FormatLong(__Sample(i).loopStart, "%10d ") + _
-            FormatLong(__Sample(i).loopEnd, "%8d  ")
+            FormatLong(__Sample(i).loopEnd, "%9d  ")
 
         i = i + 1
     WEND
