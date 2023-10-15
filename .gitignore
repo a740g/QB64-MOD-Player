@@ -12,5 +12,6 @@
 .vscode
 # Ignore VS dir
 .vs
-# Ignore QB64 createed macOS shell scripts
+# Ignore macOS stuff
+.DS_Store
 *.command
