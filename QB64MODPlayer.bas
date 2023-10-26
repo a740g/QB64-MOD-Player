@@ -10,7 +10,6 @@
 '$INCLUDE:'include/FileOps.bi'
 '$INCLUDE:'include/StringOps.bi'
 '$INCLUDE:'include/AnalyzerFFT.bi'
-'$INCLUDE:'include/SoftSynth.bi'
 '$INCLUDE:'include/MODPlayer.bi'
 '-----------------------------------------------------------------------------------------------------------------------
 
@@ -19,17 +18,17 @@
 '-----------------------------------------------------------------------------------------------------------------------
 $RESIZE:SMOOTH
 $EXEICON:'./QB64MODPlayer.ico'
-$VERSIONINFO:CompanyName=Samuel Gomes
-$VERSIONINFO:FileDescription=QB64 MOD Player executable
-$VERSIONINFO:InternalName=QB64MODPlayer
-$VERSIONINFO:LegalCopyright=Copyright (c) 2023 Samuel Gomes
-$VERSIONINFO:LegalTrademarks=All trademarks are property of their respective owners
-$VERSIONINFO:OriginalFilename=QB64MODPlayer.exe
-$VERSIONINFO:ProductName=QB64 MOD Player
-$VERSIONINFO:Web=https://github.com/a740g
-$VERSIONINFO:Comments=https://github.com/a740g
-$VERSIONINFO:FILEVERSION#=2,1,0,0
-$VERSIONINFO:PRODUCTVERSION#=2,1,0,0
+$VERSIONINFO:CompanyName='Samuel Gomes'
+$VERSIONINFO:FileDescription='QB64 MOD Player executable'
+$VERSIONINFO:InternalName='QB64MODPlayer'
+$VERSIONINFO:LegalCopyright='Copyright (c) 2023 Samuel Gomes'
+$VERSIONINFO:LegalTrademarks='All trademarks are property of their respective owners'
+$VERSIONINFO:OriginalFilename='QB64MODPlayer.exe'
+$VERSIONINFO:ProductName='QB64 MOD Player'
+$VERSIONINFO:Web='https://github.com/a740g'
+$VERSIONINFO:Comments='https://github.com/a740g'
+$VERSIONINFO:FILEVERSION#=2,1,1,0
+$VERSIONINFO:PRODUCTVERSION#=2,1,1,0
 $COLOR:0
 '-----------------------------------------------------------------------------------------------------------------------
 
@@ -42,7 +41,7 @@ CONST TEXT_LINE_MAX = 75 ' this the number of lines we need
 CONST TEXT_WIDTH_MIN = 120 ' minimum width we need
 CONST TEXT_WIDTH_HEADER = 84 ' width of the main header on the vis screen
 CONST ANALYZER_SCALE = 9 ' this is used to scale the fft values
-CONST FRAME_RATE_MIN = 60 ' minimum frame rate we'll allow
+CONST FRAME_RATE = 60 ' update frame rate
 ' Program events
 CONST EVENT_NONE = 0 ' idle
 CONST EVENT_QUIT = 1 ' user wants to quit
@@ -53,7 +52,7 @@ CONST EVENT_PLAY = 5 ' play next song
 CONST EVENT_HTTP = 6 ' Downloads and plays random MODs from modarchive.org
 ' Background constants
 CONST STAR_COUNT = 256 ' the maximum stars that we can show
-CONST SNAKE_COUNT = 64 ' the maximum snakes we can draw on the screen
+CONST SNAKE_COUNT = 48 ' the maximum snakes we can draw on the screen
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
@@ -264,7 +263,7 @@ SUB PrintVisualization
                     _PRINTSTRING (p, i), " ^^^ "
                 ELSE
                     COLOR LightGreen
-                    _PRINTSTRING (p, i), FormatLong(nNote \ 12, " " + NoteTable(nNote MOD 12) + "%1d")
+                    _PRINTSTRING (p, i), FormatLong(1 + nNote \ 12, " " + NoteTable(nNote MOD 12) + "%1d")
                 END IF
 
                 p = p + 5
@@ -481,7 +480,7 @@ FUNCTION OnWelcomeScreen%%
 
         _DISPLAY ' flip the framebuffer
 
-        _LIMIT FRAME_RATE_MIN
+        _LIMIT FRAME_RATE
     LOOP WHILE e = EVENT_NONE
 
     OnWelcomeScreen = e
@@ -564,10 +563,10 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
 
     SoftSynth_SetGlobalVolume GlobalVolume
 
-    DIM AS LONG k, nFPS
+    DIM AS LONG k
 
     DO
-        MODPlayer_Update
+        MODPlayer_Update SOFTSYNTH_SOUND_BUFFER_TIME_DEFAULT
 
         PrintVisualization
 
@@ -618,12 +617,7 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
             EXIT DO
         END IF
 
-        'HighQuality = SampleMixer_IsHighQuality ' Since this can be changed by the playing MOD
-
-        nFPS = MaxLong(FRAME_RATE_MIN, (12 * __Song.bpm * (31 - __Song.speed)) \ 625) ' we'll only update at the rate we really need
-        IF GetTicks MOD 15 = 0 THEN _TITLE windowTitle + " (" + LTRIM$(STR$(nFPS)) + " FPS)"
-
-        _LIMIT nFPS
+        _LIMIT FRAME_RATE
     LOOP UNTIL NOT MODPlayer_IsPlaying OR k = KEY_ESCAPE
 
     MODPlayer_Stop
@@ -952,7 +946,6 @@ END SUB
 '-----------------------------------------------------------------------------------------------------------------------
 '$INCLUDE:'include/FileOps.bas'
 '$INCLUDE:'include/StringOps.bas'
-'$INCLUDE:'include/SoftSynth.bas'
 '$INCLUDE:'include/MODPlayer.bas'
 '-----------------------------------------------------------------------------------------------------------------------
 '-----------------------------------------------------------------------------------------------------------------------
