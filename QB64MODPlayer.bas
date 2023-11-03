@@ -11,6 +11,8 @@
 '$INCLUDE:'include/StringOps.bi'
 '$INCLUDE:'include/AnalyzerFFT.bi'
 '$INCLUDE:'include/MODPlayer.bi'
+'$INCLUDE:'include/Base64.bi'
+'$INCLUDE:'include/ANSIPrint.bi'
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
@@ -36,9 +38,9 @@ $COLOR:0
 ' CONSTANTS
 '-----------------------------------------------------------------------------------------------------------------------
 CONST APP_NAME = "QB64 MOD Player" ' application name
-' TODO: use 1024 x 640 px (8x8 px chars)
-CONST TEXT_LINE_MAX = 75 ' this the number of lines we need
-CONST TEXT_WIDTH_MIN = 120 ' minimum width we need
+' We are using windows with 1152 x 720 px (144 x 90 chars @ 8 x 8 px font) client area
+CONST TEXT_WIDTH_MIN = 144 ' minimum width we need
+CONST TEXT_LINE_MAX = 90 ' this the number of lines we need
 CONST TEXT_WIDTH_HEADER = 84 ' width of the main header on the vis screen
 CONST ANALYZER_SCALE = 9 ' this is used to scale the fft values
 CONST FRAME_RATE = 60 ' update frame rate
@@ -376,88 +378,39 @@ FUNCTION OnWelcomeScreen%%
     SHARED Stars() AS StarType
     SHARED Snakes() AS SnakeType
 
+    ' Save the current destination
+    DIM oldDest AS LONG: oldDest = _DEST
+
+    ' Now create a new image
+    DIM img AS LONG: img = _NEWIMAGE(TEXT_WIDTH_MIN * 8, (1 + TEXT_LINE_MAX) * 8, 32) ' We'll allocate some extra height to avoid any scrolling
+    _FONT 8, img ' Change the font
+    _DEST img ' Change destination
+    RESTORE data_qb64modplayer_ans_15162
+    DIM buffer AS STRING: buffer = LoadResource ' Load the ANSI art data
+    PrintANSI buffer ' Render the ANSI art
+
+    _DEST oldDest ' Restore destination
+
+    ' Capture rendered image to another image
+    DIM imgANSI AS LONG: imgANSI = _NEWIMAGE(TEXT_WIDTH_MIN * 8, TEXT_LINE_MAX * 8, 32)
+    _PUTIMAGE (0, 0), img, imgANSI ' Any excess height will simply get clipped
+    _CLEARCOLOR BGRA_BLACK, imgANSI ' Set all black pixels to be transparent
+
+    _FREEIMAGE img ' Free the old image
+
+    ' Creat a hardware image
+    img = _COPYIMAGE(imgANSI, 33)
+
+    _FREEIMAGE imgANSI ' Free the rendered ANSI image
+
     DIM bgType AS LONG: bgType = GetRandomBetween(0, 1)
 
     DIM e AS _BYTE: e = EVENT_NONE
 
     DO
-        CLS , Black ' clear the framebuffer to black color
+        CLS , Black ' Clear the framebuffer to black color
 
-        COLOR Yellow
-        PRINT "                                                 *        )  (       (                                                  "
-        PRINT "                       (     (   (         )   (  `    ( /(  )\ )    )\ )  (                                            "
-        PRINT "                     ( )\  ( )\  )\ )   ( /(   )\))(   )\())(()/(   (()/(  )\    )  (       (   (                       "
-        PRINT "                     )((_) )((_)(()/(   )\()) ((_)()\ ((_)\  /(_))   /(_))((_)( /(  )\ )   ))\  )(                      "
-        PRINT "                    ((_)_ ((_)_  /(_)) ((_)\  (_()((_)  ((_)(_))_   (_))   _  )(_))(()/(  /((_)(()\                     "
-        PRINT "                     / _ \ | _ )(_) / | | (_) |  \/  | / _ \ |   \  | _ \ | |((_)_  )(_))(_))   ((_)                    "
-        PRINT "                    | (_) || _ \ / _ \|_  _|  | |\/| || (_) || |) | |  _/ | |/ _` || || |/ -_) | '_|                    "
-        PRINT "_.___________________\__\_\|___/ \___/  |_|   |_|  |_| \___/ |___/  |_|   |_|\__,_| \_, |\___| |_|____________________._"
-        PRINT "                                                                                    |__/                                "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                         ";: COLOR LightCyan: PRINT "F1";: COLOR Gray: PRINT " ............ ";: COLOR LightMagenta: PRINT "MULTI-SELECT FILES";: COLOR Yellow: PRINT "                                         | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                         ";: COLOR LightCyan: PRINT "F2";: COLOR Gray: PRINT " .......... ";: COLOR LightMagenta: PRINT "PLAY FROM MODARCHIVE";: COLOR Yellow: PRINT "                                         | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                         ";: COLOR LightCyan: PRINT "F6";: COLOR Gray: PRINT " ................ ";: COLOR LightMagenta: PRINT "QUICKSAVE FILE";: COLOR Yellow: PRINT "                                         | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                         ";: COLOR LightCyan: PRINT "ESC";: COLOR Gray: PRINT " .................... ";: COLOR LightMagenta: PRINT "NEXT/QUIT";: COLOR Yellow: PRINT "                                         | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                         ";: COLOR LightCyan: PRINT "SPC";: COLOR Gray: PRINT " ........................ ";: COLOR LightMagenta: PRINT "PAUSE";: COLOR Yellow: PRINT "                                         | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                         ";: COLOR LightCyan: PRINT "=|+";: COLOR Gray: PRINT " .............. ";: COLOR LightMagenta: PRINT "INCREASE VOLUME";: COLOR Yellow: PRINT "                                         | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                         ";: COLOR LightCyan: PRINT "-|_";: COLOR Gray: PRINT " .............. ";: COLOR LightMagenta: PRINT "DECREASE VOLUME";: COLOR Yellow: PRINT "                                         | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                         ";: COLOR LightCyan: PRINT "L|l";: COLOR Gray: PRINT " ......................... ";: COLOR LightMagenta: PRINT "LOOP";: COLOR Yellow: PRINT "                                         | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                         ";: COLOR LightCyan: PRINT "<-";: COLOR Gray: PRINT " ........................ ";: COLOR LightMagenta: PRINT "REWIND";: COLOR Yellow: PRINT "                                         | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                         ";: COLOR LightCyan: PRINT "->";: COLOR Gray: PRINT " ....................... ";: COLOR LightMagenta: PRINT "FORWARD";: COLOR Yellow: PRINT "                                         | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                     ";: COLOR LightBlue: PRINT "DRAG AND DROP MULTIPLE MOD FILES ON THIS WINDOW TO PLAY THEM SEQUENTIALLY.";: COLOR Yellow: PRINT "                     | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                     ";: COLOR LightBlue: PRINT "YOU CAN ALSO START THE PROGRAM WITH MULTIPLE FILES FROM THE COMMAND LINE.";: COLOR Yellow: PRINT "                      | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                    ";: COLOR LightBlue: PRINT "THIS WAS WRITTEN PURELY IN QB64 AND THE SOURCE CODE IS AVAILABLE ON GITHUB.";: COLOR Yellow: PRINT "                     | "
-        PRINT " |                                                                                                                    | "
-        PRINT " |                                     ";: COLOR LightBlue: PRINT "https://github.com/a740g/QB64-MOD-Player";: COLOR Yellow: PRINT "                                       | "
-        PRINT "_|_                                                                                                                  _|_"
-        PRINT " `/__________________________________________________________________________________________________________________\' ";
-
+        ' Draw the background
         SELECT CASE bgType
             CASE 1
                 UpdateAndDrawSnakes Snakes()
@@ -465,6 +418,8 @@ FUNCTION OnWelcomeScreen%%
             CASE ELSE
                 UpdateAndDrawStars Stars(), 1!
         END SELECT
+
+        _PUTIMAGE (0, 0), img ' Blit the hardware image
 
         DIM k AS LONG: k = _KEYHIT
 
@@ -478,12 +433,29 @@ FUNCTION OnWelcomeScreen%%
             e = EVENT_HTTP
         END IF
 
-        _DISPLAY ' flip the framebuffer
+        _DISPLAY ' Flip the framebuffer
 
         _LIMIT FRAME_RATE
     LOOP WHILE e = EVENT_NONE
 
+    _FREEIMAGE img ' Free the hardware image
+
     OnWelcomeScreen = e
+
+    ' Welcome screen (144 x 90 chars)
+    data_qb64modplayer_ans_15162:
+    DATA 15162,1188,-1
+    DATA eNqSjjbIlY42tDY2zlWgBAAoH6vbWKMYCD9fSA/fW+zQacjSbCFucbem6Iwcxp/MGriZTEJMGRv86u/v4WPiVIPn7oTzCsjy0PkwSZA10QCDarhM
+    DATA 54rMiPRwctZ7a8ftZYTScdCHCk+ynAtWKJPJ3r12nRZ+iNrAmjjwwxUKU+DB3ggYAQKPRu0a5XXM9kIUjQzGoml21VAL+vkCCnqa3myjwP/4OEQ+
+    DATA RMbENC1QQ9O1mn6+6LQwZIELnTx1fW+11+q35Jfz909JpWpJi3Kk1Tg6zLTf7Uq68/KOXav38PzDc3kUqtt2KdAU1ABdDLKQeB1Qh+0CsG8WOm7E
+    DATA QAD9j4pGWAynjM6uk1g1bGxvQFAOSaFj/Kh+Ys8bH4fKBzOC0MLT5K3Z8zH/eyAbsiEbsiEbsiEbsiEbsiHbdWbzPY9Cdvh9pZjdpflnfRvPeoTh
+    DATA zl/98CtE7d4/GZZzyVeQPhPul8dDEXPLUoZyGlgoM06NP80df7vzj9bkvTUXnIk4aUFZKwFChUQHVVan198af/ivl4joy5Ozvly0phaz4L0hdeqK
+    DATA Ge8LPq9oDTXBqTaz1ZG0aTNH/li0Bqmn1photjUXqyoSGyxrPDVa8/rwobdmhitMBpoSQ6GueCzQGk+N1qQOP863JqRoDVLPsIYfDrw1i6sorlSE
+    DATA 1iD11JpXqVWaNZo2mAzRGk+NNdQbb80iacpKN4hGa27VCLYPnKVANmRDNmRDNmQ7V73CFQrP9a8xERMxEdOfWxyGmlSAyBBCrSJIVkhEnIJQ4XSF
+    DATA BCgJtsoMuE64aoBVkEyJ2yoVYGgtptIywnkrfe6umNiWiiEgEgg3Cowl2rqcQaRVRRMBDWarJ+n2qS5rJZKDAiWE+084kzTtO4y3urj3OZ2KSAw0
+    DATA NLOWSmASaqUnxVREk+v4w1zqXBqNinXgshlSYAZInTBOSpw6pyvMVuOSlxa1nZvy3ubmZONFJtPtb/a2vqS/joeZz0+L2W4mybtQYSoafN5rr3tL
+    DATA sZVyFTBPN4ldofCbxO4ESkhr+5uDNmx8XW+3R9AZr4PTKal1pjqlYXEE48neer/b24R7X++D+Tzcag+gMh62Nx5BPpsvwJKYpzWsGIbEAc1mL1DD
+    DATA jJh1WT4etRvjQQfOhKPO5bKFH/tiycDAyDiBIYoBBJiZPZ18FcLcHU0NGJABAJPUQiY=
 END FUNCTION
 
 
@@ -823,22 +795,20 @@ SUB UpdateAndDrawStars (stars() AS StarType, speed AS SINGLE)
         ' Only print if there is no valid character in-place
         DIM AS LONG x, y: x = stars(i).p.x: y = stars(i).p.y ' this is required because SCREEN() and _PUTSTRING() uses different types
 
-        IF IsWhiteSpace(SCREEN(y, x)) THEN
-            COLOR stars(i).c, 0
+        COLOR stars(i).c, 0
 
-            SELECT CASE stars(i).p.z
-                CASE IS < 4119!
-                    _PRINTSTRING (x, y), CHR$(249)
-                CASE IS < 4149!
-                    _PRINTSTRING (x, y), CHR$(7)
-                CASE IS < 4166!
-                    _PRINTSTRING (x, y), CHR$(43)
-                CASE IS < 4190!
-                    _PRINTSTRING (x, y), CHR$(120)
-                CASE ELSE
-                    _PRINTSTRING (x, y), CHR$(42)
-            END SELECT
-        END IF
+        SELECT CASE stars(i).p.z
+            CASE IS < 4119!
+                _PRINTSTRING (x, y), CHR$(249)
+            CASE IS < 4149!
+                _PRINTSTRING (x, y), CHR$(7)
+            CASE IS < 4166!
+                _PRINTSTRING (x, y), CHR$(43)
+            CASE IS < 4190!
+                _PRINTSTRING (x, y), CHR$(120)
+            CASE ELSE
+                _PRINTSTRING (x, y), CHR$(42)
+        END SELECT
 
         stars(i).p.z = stars(i).p.z + speed
         stars(i).a = stars(i).a + 0.01!
@@ -925,18 +895,14 @@ SUB UpdateAndDrawSnakes (snakes() AS SnakeType)
             j = j - 1
             p.x = ASC(snakes(i).p, j)
             j = j - 1
-            IF IsWhiteSpace(SCREEN(p.y, p.x)) THEN
-                COLOR snakes(i).c, 0
-                _PRINTSTRING (p.x, p.y), CHR$(254)
-            END IF
+            COLOR snakes(i).c, 0
+            _PRINTSTRING (p.x, p.y), CHR$(254)
         WEND
 
         p.x = ASC(snakes(i).p, 1)
         p.y = ASC(snakes(i).p, 2)
-        IF IsWhiteSpace(SCREEN(p.y, p.x)) THEN
-            COLOR snakes(i).c, 0
-            _PRINTSTRING (p.x, p.y), CHR$(15)
-        END IF
+        COLOR snakes(i).c, 0
+        _PRINTSTRING (p.x, p.y), CHR$(15)
     NEXT i
 END SUB
 '-----------------------------------------------------------------------------------------------------------------------
@@ -947,5 +913,7 @@ END SUB
 '$INCLUDE:'include/FileOps.bas'
 '$INCLUDE:'include/StringOps.bas'
 '$INCLUDE:'include/MODPlayer.bas'
+'$INCLUDE:'include/Base64.bas'
+'$INCLUDE:'include/ANSIPrint.bas'
 '-----------------------------------------------------------------------------------------------------------------------
 '-----------------------------------------------------------------------------------------------------------------------
