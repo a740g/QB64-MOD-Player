@@ -73,6 +73,13 @@ TYPE SnakeType
     d AS Vector2LType ' direction
     c AS _UNSIGNED LONG ' color
 END TYPE
+
+TYPE FFTType
+    framesPerTick AS LONG
+    frames AS LONG
+    halfFrames AS LONG
+    bits AS LONG
+END TYPE
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
@@ -83,6 +90,7 @@ REDIM SHARED NoteTable(0 TO 0) AS STRING * 2 ' this contains the note stings
 DIM SHARED WindowWidth AS LONG ' the width of our windows in characters
 DIM SHARED PatternDisplayWidth AS LONG ' the width of the pattern display in characters
 DIM SHARED AS LONG SpectrumAnalyzerWidth, SpectrumAnalyzerHeight ' the width & height of the spectrum analyzer
+DIM SHARED FFT AS FFTType ' global FFT info
 REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0 TO 0), SpectrumAnalyzerR(0 TO 0) ' left & right channel FFT data
 DIM Stars(1 TO STAR_COUNT) AS StarType
 DIM Snakes(1 TO SNAKE_COUNT) AS SnakeType
@@ -134,8 +142,8 @@ SYSTEM
 '-----------------------------------------------------------------------------------------------------------------------
 ' FUNCTIONS & SUBROUTINES
 '-----------------------------------------------------------------------------------------------------------------------
-' This "prints" the current playing MODs visualization on the screen
-SUB PrintVisualization
+' This displays the current playing MODs visualization on the screen
+SUB DrawVisualization
     SHARED AS _UNSIGNED INTEGER SpectrumAnalyzerL(), SpectrumAnalyzerR()
 
     ' These are internal variables and arrays used by the MODPlayer library and are used for showing internal info and visualization
@@ -339,32 +347,48 @@ SUB PrintVisualization
         i = i + 1
     WEND
 
-    DIM AS LONG fftSamples, fftSamplesHalf, fftBits
+    ' Only re-allocate the array if __Song.samplesPerTick has changed
+    IF FFT.framesPerTick <> __Song.samplesPerTick THEN
+        ' We need power of 2 for our FFT function
+        FFT.frames = RoundLongDownToPowerOf2(__Song.samplesPerTick)
 
-    fftSamples = RoundLongDownToPowerOf2(__Song.samplesPerTick) ' we need power of 2 for our FFT function
-    fftSamplesHalf = fftSamples \ 2
-    fftBits = LeftShiftOneCount(fftSamples) ' Get the count of bits that the FFT routine will need
+        ' We need this too
+        FFT.halfFrames = FFT.frames \ 2
 
-    ' Setup the FFT arrays (half of fftSamples)
-    REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0 TO fftSamplesHalf - 1), SpectrumAnalyzerR(0 TO fftSamplesHalf - 1)
+        ' Get the count of bits that the FFT routine will need
+        FFT.bits = LeftShiftOneCount(FFT.frames)
+
+        ' Setup the FFT arrays (half of fftSamples)
+        REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0 TO FFT.halfFrames - 1), SpectrumAnalyzerR(0 TO FFT.halfFrames - 1)
+
+        ' Save the frames / tick value
+        FFT.framesPerTick = __Song.samplesPerTick
+    END IF
+
     ' Get the FFT data and audio power level
-    DIM power AS SINGLE: power = (AnalyzerFFTSingle(SpectrumAnalyzerL(0), __SoftSynth_SoundBuffer(0), 2, fftBits) + AnalyzerFFTSingle(SpectrumAnalyzerR(0), __SoftSynth_SoundBuffer(1), 2, fftBits)) / 2!
+    DIM power AS SINGLE: power = (AnalyzerFFTSingle(SpectrumAnalyzerL(0), __SoftSynth_SoundBuffer(0), 2, FFT.bits) + AnalyzerFFTSingle(SpectrumAnalyzerR(0), __SoftSynth_SoundBuffer(1), 2, FFT.bits)) / 2!
 
     COLOR Black, Black
 
     i = 0
-    WHILE i < fftSamplesHalf
-        j = (i * SpectrumAnalyzerHeight) \ fftSamplesHalf ' this is the y location where we need to draw the bar
+    WHILE i < FFT.halfFrames
+        j = (i * SpectrumAnalyzerHeight) \ FFT.halfFrames ' this is the y location where we need to draw the bar
 
         ' First calculate and draw a bar on the left
         x = _SHR(SpectrumAnalyzerL(i), ANALYZER_SCALE)
-        IF x > SpectrumAnalyzerWidth THEN x = SpectrumAnalyzerWidth
-        Graphics_DrawHorizontalLine SpectrumAnalyzerWidth - x, j, SpectrumAnalyzerWidth, Graphics_MakeTextColorAttribute(254, LightBlue + x MOD White, Black)
+        IF x > 0 THEN ' only do something if x has a value > 0
+            IF x > SpectrumAnalyzerWidth THEN x = SpectrumAnalyzerWidth
+            p = SpectrumAnalyzerWidth - 1 ' this is starting x position of the bar
+            Graphics_DrawHorizontalLine p, j, p - x + 1, Graphics_MakeTextColorAttribute(254, LightGreen + x MOD Brown, Black)
+        END IF
 
         ' Next calculate for the one on the right and draw
         x = _SHR(SpectrumAnalyzerR(i), ANALYZER_SCALE)
-        IF x > SpectrumAnalyzerWidth THEN x = SpectrumAnalyzerWidth
-        Graphics_DrawHorizontalLine SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER, j, SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER + x, Graphics_MakeTextColorAttribute(254, LightBlue + x MOD White, Black)
+        IF x > 0 THEN ' only do something if x has a value > 0
+            IF x > SpectrumAnalyzerWidth THEN x = SpectrumAnalyzerWidth
+            p = SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER ' this is starting x position of the bar
+            Graphics_DrawHorizontalLine p, j, p + x - 1, Graphics_MakeTextColorAttribute(254, LightGreen + x MOD Brown, Black)
+        END IF
 
         i = i + 1
     WEND
@@ -540,7 +564,7 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
     DO
         MODPlayer_Update SOFTSYNTH_SOUND_BUFFER_TIME_DEFAULT
 
-        PrintVisualization
+        DrawVisualization
 
         k = _KEYHIT
 
@@ -803,8 +827,8 @@ SUB UpdateAndDrawStars (stars() AS StarType, speed AS SINGLE)
         stars(i).p.z = stars(i).p.z + speed
         stars(i).a = stars(i).a + 0.01!
         DIM zd AS SINGLE: zd = stars(i).p.z / Z_DIVIDER
-        stars(i).p.x = ((stars(i).p.x - W_Half) * zd) + W_Half + COS(stars(i).a) * 0.5!
-        stars(i).p.y = ((stars(i).p.y - H_Half) * zd) + H_Half + SIN(stars(i).a) * 0.5!
+        stars(i).p.x = ((stars(i).p.x - W_Half) * zd) + W_Half + COS(stars(i).a * 0.5!) * 0.5!
+        stars(i).p.y = ((stars(i).p.y - H_Half) * zd) + H_Half + SIN(stars(i).a * 1.5!) * 0.5!
     NEXT i
 END SUB
 
