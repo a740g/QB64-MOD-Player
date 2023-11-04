@@ -359,12 +359,12 @@ SUB PrintVisualization
         ' First calculate and draw a bar on the left
         x = _SHR(SpectrumAnalyzerL(i), ANALYZER_SCALE)
         IF x > SpectrumAnalyzerWidth THEN x = SpectrumAnalyzerWidth
-        TextHLine 1 + SpectrumAnalyzerWidth - x, 1 + j, x
+        Graphics_DrawHorizontalLine SpectrumAnalyzerWidth - x, j, SpectrumAnalyzerWidth, Graphics_MakeTextColorAttribute(254, LightBlue + x MOD White, Black)
 
         ' Next calculate for the one on the right and draw
         x = _SHR(SpectrumAnalyzerR(i), ANALYZER_SCALE)
         IF x > SpectrumAnalyzerWidth THEN x = SpectrumAnalyzerWidth
-        TextHLine 1 + SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER, 1 + j, x
+        Graphics_DrawHorizontalLine SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER, j, SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER + x, Graphics_MakeTextColorAttribute(254, LightBlue + x MOD White, Black)
 
         i = i + 1
     WEND
@@ -691,15 +691,6 @@ FUNCTION OnModArchiveFiles%%
 END FUNCTION
 
 
-' Draw a horizontal line using text and colors it too! Sweet! XD
-SUB TextHLine (x AS LONG, y AS LONG, l AS LONG)
-    IF l > 0 THEN
-        COLOR LightBlue + l MOD White
-        _PRINTSTRING (x, y), STRING$(l, 254)
-    END IF
-END SUB
-
-
 ' Gets a random file URL from www.modarchive.org
 FUNCTION GetRandomModArchiveFileName$
     DIM buffer AS STRING: buffer = LoadFileFromURL("https://modarchive.org/index.php?request=view_random")
@@ -766,8 +757,8 @@ SUB InitializeStars (stars() AS StarType)
     DIM H AS LONG: H = _HEIGHT
 
     DIM i AS LONG: FOR i = L TO U
-        stars(i).p.x = GetRandomBetween(1, W)
-        stars(i).p.y = GetRandomBetween(1, H)
+        stars(i).p.x = GetRandomBetween(0, W - 1)
+        stars(i).p.y = GetRandomBetween(0, H - 1)
         stars(i).p.z = Z_DIVIDER
         stars(i).c = GetRandomBetween(9, 15)
     NEXT i
@@ -785,29 +776,28 @@ SUB UpdateAndDrawStars (stars() AS StarType, speed AS SINGLE)
     DIM H_Half AS LONG: H_Half = H \ 2
 
     DIM i AS LONG: FOR i = L TO U
-        IF stars(i).p.x < 1 OR stars(i).p.x > W OR stars(i).p.y < 1 OR stars(i).p.y > H THEN
-            stars(i).p.x = GetRandomBetween(1, W)
-            stars(i).p.y = GetRandomBetween(1, H)
+        IF stars(i).p.x < 0 OR stars(i).p.x >= W OR stars(i).p.y < 0 OR stars(i).p.y >= H THEN
+            stars(i).p.x = GetRandomBetween(0, W - 1)
+            stars(i).p.y = GetRandomBetween(0, H - 1)
             stars(i).p.z = Z_DIVIDER
             stars(i).c = GetRandomBetween(9, 15)
         END IF
 
-        ' Only print if there is no valid character in-place
-        DIM AS LONG x, y: x = stars(i).p.x: y = stars(i).p.y ' this is required because SCREEN() and _PUTSTRING() uses different types
-
-        COLOR stars(i).c, 0
-
         SELECT CASE stars(i).p.z
             CASE IS < 4119!
-                _PRINTSTRING (x, y), CHR$(249)
+                Graphics_SetPixel stars(i).p.x, stars(i).p.y, Graphics_MakeTextColorAttribute(249, stars(i).c, 0)
+
             CASE IS < 4149!
-                _PRINTSTRING (x, y), CHR$(7)
+                Graphics_SetPixel stars(i).p.x, stars(i).p.y, Graphics_MakeTextColorAttribute(7, stars(i).c, 0)
+
             CASE IS < 4166!
-                _PRINTSTRING (x, y), CHR$(43)
+                Graphics_SetPixel stars(i).p.x, stars(i).p.y, Graphics_MakeTextColorAttribute(43, stars(i).c, 0)
+
             CASE IS < 4190!
-                _PRINTSTRING (x, y), CHR$(120)
+                Graphics_SetPixel stars(i).p.x, stars(i).p.y, Graphics_MakeTextColorAttribute(120, stars(i).c, 0)
+
             CASE ELSE
-                _PRINTSTRING (x, y), CHR$(42)
+                Graphics_SetPixel stars(i).p.x, stars(i).p.y, Graphics_MakeTextColorAttribute(42, stars(i).c, 0)
         END SELECT
 
         stars(i).p.z = stars(i).p.z + speed
@@ -836,8 +826,8 @@ SUB InitializeSnakes (snakes() AS SnakeType)
         snakes(i).d.y = GetRandomBetween(0, 1) * 2 - 1 ' -1 or 1
 
         DIM size AS LONG: size = LEN(snakes(i).p)
-        DIM x AS LONG: x = GetRandomBetween(1, W)
-        DIM y AS LONG: y = GetRandomBetween(1, H)
+        DIM x AS LONG: x = GetRandomBetween(0, W - 1)
+        DIM y AS LONG: y = GetRandomBetween(0, H - 1)
 
         DIM j AS LONG: j = 1
         WHILE j <= size
@@ -870,8 +860,8 @@ SUB UpdateAndDrawSnakes (snakes() AS SnakeType)
             p.x = ASC(snakes(i).p, 1) + snakes(i).d.x
             p.y = ASC(snakes(i).p, 2) + snakes(i).d.y
 
-            IF p.x < 1 OR p.x > W THEN snakes(i).d.x = -snakes(i).d.x
-            IF p.y < 1 OR p.y > H THEN snakes(i).d.y = -snakes(i).d.y
+            IF p.x < 0 OR p.x >= W THEN snakes(i).d.x = -snakes(i).d.x
+            IF p.y < 0 OR p.y >= H THEN snakes(i).d.y = -snakes(i).d.y
 
             DIM j AS LONG: j = s - 2
             WHILE j > 0
@@ -895,14 +885,12 @@ SUB UpdateAndDrawSnakes (snakes() AS SnakeType)
             j = j - 1
             p.x = ASC(snakes(i).p, j)
             j = j - 1
-            COLOR snakes(i).c, 0
-            _PRINTSTRING (p.x, p.y), CHR$(254)
+            Graphics_SetPixel p.x, p.y, Graphics_MakeTextColorAttribute(254, snakes(i).c, 0)
         WEND
 
         p.x = ASC(snakes(i).p, 1)
         p.y = ASC(snakes(i).p, 2)
-        COLOR snakes(i).c, 0
-        _PRINTSTRING (p.x, p.y), CHR$(15)
+        Graphics_SetPixel p.x, p.y, Graphics_MakeTextColorAttribute(15, snakes(i).c, 0)
     NEXT i
 END SUB
 '-----------------------------------------------------------------------------------------------------------------------
