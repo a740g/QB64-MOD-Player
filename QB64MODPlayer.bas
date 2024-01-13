@@ -105,7 +105,7 @@ _ACCEPTFILEDROP ' enable drag and drop of files
 InitializeNoteTable ' initialize note string table
 AdjustWindowSize ' set the initial window size
 _ALLOWFULLSCREEN _SQUAREPIXELS , _SMOOTH ' allow the user to press Alt+Enter to go fullscreen
-SetRandomSeed TIMER ' seed RNG
+Math_SetRandomSeed TIMER ' seed RNG
 GlobalVolume = SOFTSYNTH_GLOBAL_VOLUME_MAX ' set global volume to maximum
 InitializeStars Stars()
 InitializeSnakes Snakes()
@@ -151,7 +151,7 @@ SUB DrawVisualization
     SHARED __Song AS __SongType
     SHARED __Order() AS _UNSIGNED INTEGER
     SHARED __Pattern() AS __NoteType
-    SHARED __Sample() AS __SampleType
+    SHARED __Instrument() AS __InstrumentType
     SHARED __SoftSynth_SoundBuffer() AS SINGLE
 
     ' Subscript out of range bugfix for player when song is 128 orders long and the song reaches the end
@@ -165,25 +165,25 @@ SUB DrawVisualization
 
     ' Print song type and name
     COLOR BrightWhite, Magenta
-    _PRINTSTRING (x, 1), FormatString(__Song.subtype, "  %-4.4s: ") + FormatString(__Song.songName, "%-74.74s  ")
+    _PRINTSTRING (x, 1), String_FormatString(__Song.subtype, "  %-4.4s: ") + String_FormatString(__Song.caption, "%-74.74s  ")
 
     ' Print the header
     COLOR Blink, BrightWhite
-    _PRINTSTRING (x, 2), FormatLong(__Song.orderPosition, "  ORD: %3d / ") + _
-        FormatLong(__Song.orders - 1, "%3d | ") + _
-        FormatLong(__Order(__Song.orderPosition), "PAT: %3d / ") + _
-        FormatLong(__Song.patterns - 1, "%3d | ") + _
-        FormatLong(__Song.patternRow, "ROW: %2d / 63 | ") + _
-        FormatLong(__Song.activeChannels, "CHN: %3d / ") + _
-        FormatLong(__Song.channels, "%3d | ") + _
-        FormatLong(SoftSynth_GetActiveVoices, "VOC: %3d / ") + _
-        FormatLong(SoftSynth_GetTotalVoices, "%3d  ")
+    _PRINTSTRING (x, 2), String_FormatLong(__Song.orderPosition, "  ORD: %3d / ") + _
+        String_FormatLong(__Song.orders - 1, "%3d | ") + _
+        String_FormatLong(__Order(__Song.orderPosition), "PAT: %3d / ") + _
+        String_FormatLong(__Song.patterns - 1, "%3d | ") + _
+        String_FormatLong(__Song.patternRow, "ROW: %2d / 63 | ") + _
+        String_FormatLong(__Song.activeChannels, "CHN: %3d / ") + _
+        String_FormatLong(__Song.channels, "%3d | ") + _
+        String_FormatLong(SoftSynth_GetActiveVoices, "VOC: %3d / ") + _
+        String_FormatLong(SoftSynth_GetTotalVoices, "%3d  ")
 
-    _PRINTSTRING (x, 3), FormatLong(__Song.bpm, "  BPM: %3d       | ") + _
-        FormatLong(__Song.speed, "SPD: %3d       | ") + _
-        FormatSingle(GlobalVolume * 100!, "VOL: %3.0f%%    | ") + _
-        FormatDouble(SoftSynth_GetBufferedSoundTime * 1000#, "BUF: %7.0fms | ") + _
-        FormatString(FormatBoolean(__Song.isLooping, 4), "REP: %-9.9s  ")
+    _PRINTSTRING (x, 3), String_FormatLong(__Song.bpm, "  BPM: %3d       | ") + _
+        String_FormatLong(__Song.speed, "SPD: %3d       | ") + _
+        String_FormatSingle(GlobalVolume * 100!, "VOL: %3.0f%%    | ") + _
+        String_FormatDouble(SoftSynth_GetBufferedSoundTime * 1000#, "BUF: %7.0fms | ") + _
+        String_FormatString(String_FormatBoolean(__Song.isLooping, 4), "REP: %-9.9s  ")
 
     ' Print the sample list header
     COLOR Blink, Cyan
@@ -191,26 +191,26 @@ SUB DrawVisualization
 
     ' Print the sample information
     DIM AS LONG i, j
-    WHILE i < __Song.samples
+    WHILE i < __Song.instruments
         COLOR Yellow, Black
 
         j = 0
         WHILE j < __Song.channels
-            IF i + 1 = __Pattern(__Order(__Song.orderPosition), __Song.patternRow, j).sample THEN
+            IF i + 1 = __Pattern(__Order(__Song.orderPosition), __Song.patternRow, j).instrument THEN
                 COLOR LightMagenta, Blue
             END IF
 
             j = j + 1
         WEND
 
-        _PRINTSTRING (x, 5 + i), FormatLong(i + 1, " %3d: ") + _
-            FormatString(__Sample(i).sampleName, "%-25.25s ") + _
-            FormatLong(__Sample(i).volume, "%8d ") + _
-            FormatLong(__Sample(i).c2Spd, "%5d ") + _
-            FormatLong(__Sample(i).length, "%6d ") + _
-            FormatString(FormatBoolean(__Sample(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, 6), "%-7.7s ") + _
-            FormatLong(__Sample(i).loopStart, "%10d ") + _
-            FormatLong(__Sample(i).loopEnd, "%9d  ")
+        _PRINTSTRING (x, 5 + i), String_FormatLong(i + 1, " %3d: ") + _
+            String_FormatString(__Instrument(i).caption, "%-25.25s ") + _
+            String_FormatLong(__Instrument(i).volume, "%8d ") + _
+            String_FormatLong(__Instrument(i).c2Spd, "%5d ") + _
+            String_FormatLong(__Instrument(i).length, "%6d ") + _
+            String_FormatString(String_FormatBoolean(__Instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, 6), "%-7.7s ") + _
+            String_FormatLong(__Instrument(i).loopStart, "%10d ") + _
+            String_FormatLong(__Instrument(i).loopEnd, "%9d  ")
 
         i = i + 1
     WEND
@@ -252,7 +252,7 @@ SUB DrawVisualization
 
             p = x
 
-            _PRINTSTRING (p, i), FormatLong(startPat, " %3d ") + FormatLong(startRow, "%2d:")
+            _PRINTSTRING (p, i), String_FormatLong(startPat, " %3d ") + String_FormatLong(startRow, "%2d:")
 
             p = p + 8
 
@@ -260,7 +260,7 @@ SUB DrawVisualization
             WHILE nChan < __Song.channels
                 COLOR LightCyan
 
-                _PRINTSTRING (p, i), FormatLong(nChan + 1, " (%2d)")
+                _PRINTSTRING (p, i), String_FormatLong(nChan + 1, " (%2d)")
 
                 p = p + 5
 
@@ -273,18 +273,18 @@ SUB DrawVisualization
                     _PRINTSTRING (p, i), " ^^^ "
                 ELSE
                     COLOR LightGreen
-                    _PRINTSTRING (p, i), FormatLong(1 + nNote \ 12, " " + NoteTable(nNote MOD 12) + "%1d")
+                    _PRINTSTRING (p, i), String_FormatLong(1 + nNote \ 12, " " + NoteTable(nNote MOD 12) + "%1d")
                 END IF
 
                 p = p + 5
 
-                nSample = __Pattern(startPat, startRow, nChan).sample
+                nSample = __Pattern(startPat, startRow, nChan).instrument
                 IF nSample = 0 THEN
                     COLOR Gray
                     _PRINTSTRING (p, i), "-- "
                 ELSE
                     COLOR Yellow
-                    _PRINTSTRING (p, i), FormatLong(nSample, "%.2i ")
+                    _PRINTSTRING (p, i), String_FormatLong(nSample, "%.2i ")
                 END IF
 
                 p = p + 3
@@ -297,7 +297,7 @@ SUB DrawVisualization
                     _PRINTSTRING (p, i), "-- "
                 ELSE
                     COLOR LightMagenta
-                    _PRINTSTRING (p, i), FormatLong(nEffect, "%.2X ")
+                    _PRINTSTRING (p, i), String_FormatLong(nEffect, "%.2X ")
                 END IF
 
                 p = p + 3
@@ -307,7 +307,7 @@ SUB DrawVisualization
                     _PRINTSTRING (p, i), "-- "
                 ELSE
                     COLOR LightRed
-                    _PRINTSTRING (p, i), FormatLong(nOperand, "%.2X ")
+                    _PRINTSTRING (p, i), String_FormatLong(nOperand, "%.2X ")
                 END IF
 
                 p = p + 3
@@ -340,17 +340,17 @@ SUB DrawVisualization
 
     i = 0
     WHILE i < __Song.channels
-        _PRINTSTRING (x + 8 + i * 19, j), FormatLong(i + 1, " (%2i)") + _
-            FormatSingle(SoftSynth_GetVoiceVolume(i) * 100.0!, " V:%3.0f") + _
-            FormatSingle(SoftSynth_GetVoiceBalance(i) * 100.0!, " B:%+4.0f ")
+        _PRINTSTRING (x + 8 + i * 19, j), String_FormatLong(i + 1, " (%2i)") + _
+            String_FormatSingle(SoftSynth_GetVoiceVolume(i) * 100.0!, " V:%3.0f") + _
+            String_FormatSingle(SoftSynth_GetVoiceBalance(i) * 100.0!, " B:%+4.0f ")
 
         i = i + 1
     WEND
 
     ' Only re-allocate the array if __Song.samplesPerTick has changed
-    IF FFT.framesPerTick <> __Song.samplesPerTick THEN
+    IF FFT.framesPerTick <> __Song.framesPerTick THEN
         ' We need power of 2 for our FFT function
-        FFT.frames = RoundLongDownToPowerOf2(__Song.samplesPerTick)
+        FFT.frames = Math_RoundDownLongToPowerOf2(__Song.framesPerTick)
 
         ' We need this too
         FFT.halfFrames = FFT.frames \ 2
@@ -362,7 +362,7 @@ SUB DrawVisualization
         REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0 TO FFT.halfFrames - 1), SpectrumAnalyzerR(0 TO FFT.halfFrames - 1)
 
         ' Save the frames / tick value
-        FFT.framesPerTick = __Song.samplesPerTick
+        FFT.framesPerTick = __Song.framesPerTick
     END IF
 
     ' Get the FFT data and audio power level
@@ -410,8 +410,8 @@ FUNCTION OnWelcomeScreen%%
     _FONT 8, img ' Change the font
     _DEST img ' Change destination
     RESTORE data_qb64modplayer_ans_15162
-    DIM buffer AS STRING: buffer = LoadResource ' Load the ANSI art data
-    PrintANSI buffer ' Render the ANSI art
+    DIM buffer AS STRING: buffer = Base64_LoadResourceData ' Load the ANSI art data
+    ANSI_Print buffer ' Render the ANSI art
 
     _DEST oldDest ' Restore destination
 
@@ -422,12 +422,12 @@ FUNCTION OnWelcomeScreen%%
 
     _FREEIMAGE img ' Free the old image
 
-    ' Creat a hardware image
+    ' Create a hardware image
     img = _COPYIMAGE(imgANSI, 33)
 
     _FREEIMAGE imgANSI ' Free the rendered ANSI image
 
-    DIM bgType AS LONG: bgType = GetRandomBetween(0, 1)
+    DIM bgType AS LONG: bgType = Math_GetRandomBetween(0, 1)
 
     DIM e AS _BYTE: e = EVENT_NONE
 
@@ -512,7 +512,7 @@ SUB AdjustWindowSize
         IF PatternDisplayWidth <= TEXT_WIDTH_HEADER THEN
             SpectrumAnalyzerHeight = TEXT_LINE_MAX
         ELSE
-            SpectrumAnalyzerHeight = 4 + __Song.samples
+            SpectrumAnalyzerHeight = 4 + __Song.instruments
         END IF
     ELSE
         PatternDisplayWidth = 0
@@ -670,11 +670,11 @@ FUNCTION OnSelectedFiles%%
 
     ofdList = _OPENFILEDIALOG$(APP_NAME, "", "*.mod|*.MOD|*.Mod|*.mtm|*.MTM|*.Mtm", "Music Tracker Files", TRUE)
 
-    IF ofdList = EMPTY_STRING THEN EXIT FUNCTION
+    IF LEN(ofdList) = NULL THEN EXIT FUNCTION
 
     REDIM fileNames(0 TO 0) AS STRING
 
-    DIM j AS LONG: j = TokenizeString(ofdList, "|", EMPTY_STRING, FALSE, fileNames())
+    DIM j AS LONG: j = String_Tokenize(ofdList, "|", STRING_EMPTY, FALSE, fileNames())
 
     DIM i AS LONG: FOR i = 0 TO j - 1
         e = OnPlayTune(fileNames(i))
@@ -741,7 +741,7 @@ SUB QuickSave (buffer AS STRING, url AS STRING)
         ' This is a file from the web
         IF NOT _DIREXISTS(savePath) OR NOT alwaysUseSamePath THEN ' only get the path if path does not exist or user wants to use a new path
             savePath = _SELECTFOLDERDIALOG$("Select a folder to save the file:", savePath)
-            IF savePath = EMPTY_STRING THEN EXIT SUB ' exit if user cancelled
+            IF LEN(savePath) = NULL THEN EXIT SUB ' exit if user cancelled
 
             savePath = FixPathDirectoryName(savePath)
         END IF
@@ -781,10 +781,10 @@ SUB InitializeStars (stars() AS StarType)
     DIM H AS LONG: H = _HEIGHT
 
     DIM i AS LONG: FOR i = L TO U
-        stars(i).p.x = GetRandomBetween(0, W - 1)
-        stars(i).p.y = GetRandomBetween(0, H - 1)
+        stars(i).p.x = Math_GetRandomBetween(0, W - 1)
+        stars(i).p.y = Math_GetRandomBetween(0, H - 1)
         stars(i).p.z = Z_DIVIDER
-        stars(i).c = GetRandomBetween(9, 15)
+        stars(i).c = Math_GetRandomBetween(9, 15)
     NEXT i
 END SUB
 
@@ -801,27 +801,27 @@ SUB UpdateAndDrawStars (stars() AS StarType, speed AS SINGLE)
 
     DIM i AS LONG: FOR i = L TO U
         IF stars(i).p.x < 0 OR stars(i).p.x >= W OR stars(i).p.y < 0 OR stars(i).p.y >= H THEN
-            stars(i).p.x = GetRandomBetween(0, W - 1)
-            stars(i).p.y = GetRandomBetween(0, H - 1)
+            stars(i).p.x = Math_GetRandomBetween(0, W - 1)
+            stars(i).p.y = Math_GetRandomBetween(0, H - 1)
             stars(i).p.z = Z_DIVIDER
-            stars(i).c = GetRandomBetween(9, 15)
+            stars(i).c = Math_GetRandomBetween(9, 15)
         END IF
 
         SELECT CASE stars(i).p.z
             CASE IS < 4119!
-                Graphics_SetPixel stars(i).p.x, stars(i).p.y, Graphics_MakeTextColorAttribute(249, stars(i).c, 0)
+                Graphics_DrawPixel stars(i).p.x, stars(i).p.y, Graphics_MakeTextColorAttribute(249, stars(i).c, 0)
 
             CASE IS < 4149!
-                Graphics_SetPixel stars(i).p.x, stars(i).p.y, Graphics_MakeTextColorAttribute(7, stars(i).c, 0)
+                Graphics_DrawPixel stars(i).p.x, stars(i).p.y, Graphics_MakeTextColorAttribute(7, stars(i).c, 0)
 
             CASE IS < 4166!
-                Graphics_SetPixel stars(i).p.x, stars(i).p.y, Graphics_MakeTextColorAttribute(43, stars(i).c, 0)
+                Graphics_DrawPixel stars(i).p.x, stars(i).p.y, Graphics_MakeTextColorAttribute(43, stars(i).c, 0)
 
             CASE IS < 4190!
-                Graphics_SetPixel stars(i).p.x, stars(i).p.y, Graphics_MakeTextColorAttribute(120, stars(i).c, 0)
+                Graphics_DrawPixel stars(i).p.x, stars(i).p.y, Graphics_MakeTextColorAttribute(120, stars(i).c, 0)
 
             CASE ELSE
-                Graphics_SetPixel stars(i).p.x, stars(i).p.y, Graphics_MakeTextColorAttribute(42, stars(i).c, 0)
+                Graphics_DrawPixel stars(i).p.x, stars(i).p.y, Graphics_MakeTextColorAttribute(42, stars(i).c, 0)
         END SELECT
 
         stars(i).p.z = stars(i).p.z + speed
@@ -843,15 +843,15 @@ SUB InitializeSnakes (snakes() AS SnakeType)
     DIM H AS LONG: H = _HEIGHT
 
     DIM i AS LONG: FOR i = L TO U
-        snakes(i).p = SPACE$(GetRandomBetween(SNAKE_SIZE_MIN, SNAKE_SIZE_MAX) * 2)
+        snakes(i).p = SPACE$(Math_GetRandomBetween(SNAKE_SIZE_MIN, SNAKE_SIZE_MAX) * 2)
         snakes(i).s = 0.1! + RND * 0.9!
-        snakes(i).c = GetRandomBetween(1, 8)
-        snakes(i).d.x = GetRandomBetween(0, 1) * 2 - 1 ' -1 or 1
-        snakes(i).d.y = GetRandomBetween(0, 1) * 2 - 1 ' -1 or 1
+        snakes(i).c = Math_GetRandomBetween(1, 8)
+        snakes(i).d.x = Math_GetRandomBetween(0, 1) * 2 - 1 ' -1 or 1
+        snakes(i).d.y = Math_GetRandomBetween(0, 1) * 2 - 1 ' -1 or 1
 
         DIM size AS LONG: size = LEN(snakes(i).p)
-        DIM x AS LONG: x = GetRandomBetween(0, W - 1)
-        DIM y AS LONG: y = GetRandomBetween(0, H - 1)
+        DIM x AS LONG: x = Math_GetRandomBetween(0, W - 1)
+        DIM y AS LONG: y = Math_GetRandomBetween(0, H - 1)
 
         DIM j AS LONG: j = 1
         WHILE j <= size
@@ -895,10 +895,10 @@ SUB UpdateAndDrawSnakes (snakes() AS SnakeType)
             ASC(snakes(i).p, 1) = ASC(snakes(i).p, 1) + snakes(i).d.x
             ASC(snakes(i).p, 2) = ASC(snakes(i).p, 2) + snakes(i).d.y
 
-            IF GetRandomBetween(1, 100) <= 5 THEN ' change direction with a 5% chance
+            IF Math_GetRandomBetween(1, 100) <= 5 THEN ' change direction with a 5% chance
                 DO
-                    snakes(i).d.x = GetRandomBetween(-1, 1)
-                    snakes(i).d.y = GetRandomBetween(-1, 1)
+                    snakes(i).d.x = Math_GetRandomBetween(-1, 1)
+                    snakes(i).d.y = Math_GetRandomBetween(-1, 1)
                 LOOP WHILE snakes(i).d.x = 0 AND snakes(i).d.y = 0
             END IF
         END IF
@@ -909,12 +909,12 @@ SUB UpdateAndDrawSnakes (snakes() AS SnakeType)
             j = j - 1
             p.x = ASC(snakes(i).p, j)
             j = j - 1
-            Graphics_SetPixel p.x, p.y, Graphics_MakeTextColorAttribute(254, snakes(i).c, 0)
+            Graphics_DrawPixel p.x, p.y, Graphics_MakeTextColorAttribute(254, snakes(i).c, 0)
         WEND
 
         p.x = ASC(snakes(i).p, 1)
         p.y = ASC(snakes(i).p, 2)
-        Graphics_SetPixel p.x, p.y, Graphics_MakeTextColorAttribute(15, snakes(i).c, 0)
+        Graphics_DrawPixel p.x, p.y, Graphics_MakeTextColorAttribute(15, snakes(i).c, 0)
     NEXT i
 END SUB
 '-----------------------------------------------------------------------------------------------------------------------

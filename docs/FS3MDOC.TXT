@@ -790,7 +790,7 @@ as the decimal value first, followed by the hexadecimal value.
 +0   00h³  1  ³ TYPE - can equal 1 for sample, 2 for adlib melody, and 3 for
 	³     ³        adlib drum.  We are only concerned about digital music
 	³     ³        here and want it to be 1, or 'sample'.
-+1   01h³ 13  ³ DOS FILENAME - this is a 13 byte DOS filename and can be
++1   01h³ 12  ³ DOS FILENAME - this is a 12 byte DOS filename and can be
 	³     ³                safely ignored.
 +13  0Dh³  3  ³ *MEMSEG - this section is explained below due to complexity.
 ÄÄÄÄÄÄÄÄÅÄÄÄÄÄÅÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ

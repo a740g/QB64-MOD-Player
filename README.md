@@ -119,22 +119,20 @@ I see that the miniaudio backend version of QB64-PE already has MOD, S3M, XM, IT
 
 ## BIBLIOGRAPHY
 
-- [MOD Player Tutorial](docs/FMODDOC.TXT) by FireLight
-- [S3M Player Tutorial](docs/FS3MDOC.TXT) by FireLight
-- [Noisetracker/Soundtracker/Protracker Module Format](docs/MOD-FORM.TXT) by Andrew Scott
-- [MODFIL10.TXT](docs/MODFIL10.TXT) by Thunder
-- [Protracker Module](https://wiki.multimedia.cx/index.php/Protracker_Module) from MultimediaWiki
-- [MOD Effect Commands](https://wiki.openmpt.org/Manual:_Effect_Reference#MOD_Effect_Commands) from OpenMPT Wiki
-- [MultiTracker Module (MTM) Format](docs/MultiTracker%20(.mtm).txt) by Renaissance
-- [Digital Audio Mixing Techniques](docs/FSBDOC.TXT) by jedi / oxygen
-- [Writing Mixing Routines](docs/MIXING10.TXT) by BYTERAVER/TNT
-- [Audio Mixer Tutorial](https://github.com/benhenshaw/mixer_tutorial) by benhenshaw
+- [MOD Player Tutorial](docs/FMODDOC.TXT) by *FireLight*
+- [S3M Player Tutorial](docs/FS3MDOC.TXT) by *FireLight*
+- [Noisetracker/Soundtracker/Protracker Module Format](docs/MOD-FORM.TXT) by *Andrew Scott*
+- [MODFIL10.TXT](docs/MODFIL10.TXT) by *Thunder*
+- [Protracker Module](https://wiki.multimedia.cx/index.php/Protracker_Module) from *MultimediaWiki*
+- [Scream Tracker 3 Module](https://wiki.multimedia.cx/index.php/Scream_Tracker_3_Module) from *MultimediaWiki*
+- [S3M Format](https://moddingwiki.shikadi.net/wiki/S3M_Format) by *ModdingWiki*
+- [Scream Tracker 3 module](http://fileformats.archiveteam.org/wiki/Scream_Tracker_3_module) from *Solve the File Format Problem*
+- [Manual: Effect Reference](https://wiki.openmpt.org/Manual:_Effect_Reference) from *OpenMPT Wiki*
+- [MultiTracker Module (MTM) Format](docs/MultiTracker%20(.mtm).txt) by *Renaissance*
+- [Digital Audio Mixing Techniques](docs/FSBDOC.TXT) by *jedi / oxygen*
+- [Writing Mixing Routines](docs/MIXING10.TXT) by *BYTERAVER/TNT*
+- [Audio Mixer Tutorial](https://github.com/benhenshaw/mixer_tutorial) by *benhenshaw*
 
 ## ASSETS
 
-- [Icon](https://iconarchive.com/artist/tsukasa-tux.html) by Tsukasa-Tux (Azrael Jackie Lockheart)
-
-## TODO
-
-- STM loader
-- S3M loader (with OPL3 emulation)
+- [Icon](https://iconarchive.com/artist/tsukasa-tux.html) by *Tsukasa-Tux (Azrael Jackie Lockheart)*
