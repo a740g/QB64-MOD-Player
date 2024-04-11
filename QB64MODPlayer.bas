@@ -569,6 +569,9 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
         k = _KEYHIT
 
         SELECT CASE k
+            CASE KEY_ESCAPE
+                EXIT DO
+
             CASE KEY_SPACE
                 __Song.isPaused = NOT __Song.isPaused
 
@@ -614,7 +617,7 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
         END IF
 
         _LIMIT FRAME_RATE
-    LOOP UNTIL NOT MODPlayer_IsPlaying OR k = KEY_ESCAPE
+    LOOP WHILE MODPlayer_IsPlaying
 
     MODPlayer_Stop
     AdjustWindowSize
