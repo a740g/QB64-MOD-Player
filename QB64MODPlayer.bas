@@ -85,7 +85,7 @@ END TYPE
 '-----------------------------------------------------------------------------------------------------------------------
 ' GLOBAL VARIABLES
 '-----------------------------------------------------------------------------------------------------------------------
-DIM SHARED GlobalVolume AS SINGLE ' this is needed because the replayer can reset volume across songs
+DIM SHARED MasterVolume AS SINGLE ' this is needed because the replayer can reset volume across songs
 REDIM SHARED NoteTable(0 TO 0) AS STRING * 2 ' this contains the note stings
 DIM SHARED WindowWidth AS LONG ' the width of our windows in characters
 DIM SHARED PatternDisplayWidth AS LONG ' the width of the pattern display in characters
@@ -106,7 +106,7 @@ InitializeNoteTable ' initialize note string table
 AdjustWindowSize ' set the initial window size
 _ALLOWFULLSCREEN _SQUAREPIXELS , _SMOOTH ' allow the user to press Alt+Enter to go fullscreen
 Math_SetRandomSeed TIMER ' seed RNG
-GlobalVolume = SOFTSYNTH_GLOBAL_VOLUME_MAX ' set global volume to maximum
+MasterVolume = SOFTSYNTH_MASTER_VOLUME_MAX ' set master volume to maximum
 InitializeStars Stars()
 InitializeSnakes Snakes()
 
@@ -181,7 +181,7 @@ SUB DrawVisualization
 
     _PRINTSTRING (x, 3), String_FormatLong(__Song.bpm, "  BPM: %3d       | ") + _
         String_FormatLong(__Song.speed, "SPD: %3d       | ") + _
-        String_FormatSingle(GlobalVolume * 100!, "VOL: %3.0f%%    | ") + _
+        String_FormatSingle(MasterVolume * 100!, "VOL: %3.0f%%    | ") + _
         String_FormatDouble(SoftSynth_GetBufferedSoundTime * 1000#, "BUF: %7.0fms | ") + _
         String_FormatString(String_FormatBoolean(__Song.isLooping, 4), "REP: %-9.9s  ")
 
@@ -557,7 +557,7 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
     MODPlayer_Play
     AdjustWindowSize
 
-    SoftSynth_SetGlobalVolume GlobalVolume
+    SoftSynth_SetMasterVolume MasterVolume
 
     DIM AS LONG k
 
@@ -576,12 +576,12 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
                 __Song.isPaused = NOT __Song.isPaused
 
             CASE KEY_PLUS, KEY_EQUALS
-                SoftSynth_SetGlobalVolume GlobalVolume + 0.01!
-                GlobalVolume = SoftSynth_GetGlobalVolume
+                SoftSynth_SetMasterVolume MasterVolume + 0.01!
+                MasterVolume = SoftSynth_GetMasterVolume
 
             CASE KEY_MINUS, KEY_UNDERSCORE
-                SoftSynth_SetGlobalVolume GlobalVolume - 0.01!
-                GlobalVolume = SoftSynth_GetGlobalVolume
+                SoftSynth_SetMasterVolume MasterVolume - 0.01!
+                MasterVolume = SoftSynth_GetMasterVolume
 
             CASE KEY_UPPER_L, KEY_LOWER_L
                 MODPlayer_Loop NOT MODPlayer_IsLooping
@@ -671,7 +671,7 @@ FUNCTION OnSelectedFiles%%
     DIM ofdList AS STRING
     DIM e AS _BYTE: e = EVENT_NONE
 
-    ofdList = _OPENFILEDIALOG$(APP_NAME, "", "*.mod|*.MOD|*.Mod|*.mtm|*.MTM|*.Mtm", "Music Tracker Files", TRUE)
+    ofdList = _OPENFILEDIALOG$(APP_NAME, "", "*.mod|*.MOD|*.Mod|*.mtm|*.MTM|*.Mtm|*.s3m|*.S3M|*.S3m", "Music Tracker Files", TRUE)
 
     IF LEN(ofdList) = NULL THEN EXIT FUNCTION
 
@@ -707,7 +707,7 @@ FUNCTION OnModArchiveFiles%%
             fileExtension = LCASE$(GetFileExtensionFromPathOrURL(modArchiveFileName))
 
             _TITLE "Downloading: " + GetSaveFileName(modArchiveFileName) + " - " + APP_NAME
-        LOOP UNTIL fileExtension = ".mod" OR fileExtension = ".mtm"
+        LOOP UNTIL fileExtension = ".mod" OR fileExtension = ".mtm" OR fileExtension = ".s3m"
 
         e = OnPlayTune(modArchiveFileName)
     LOOP WHILE e = EVENT_NONE OR e = EVENT_PLAY
