@@ -39,22 +39,23 @@ $COLOR:0
 '-----------------------------------------------------------------------------------------------------------------------
 CONST APP_NAME = "QB64 MOD Player" ' application name
 ' We are using windows with 1152 x 720 px (144 x 90 chars @ 8 x 8 px font) client area
-CONST TEXT_WIDTH_MIN = 144 ' minimum width we need
-CONST TEXT_LINE_MAX = 90 ' this the number of lines we need
-CONST TEXT_WIDTH_HEADER = 84 ' width of the main header on the vis screen
-CONST ANALYZER_SCALE = 9 ' this is used to scale the fft values
-CONST FRAME_RATE = 60 ' update frame rate
+CONST TEXT_WIDTH_MIN& = 144& ' minimum width we need
+CONST TEXT_LINE_MAX& = 90& ' this the number of lines we need
+CONST TEXT_WIDTH_HEADER& = 84& ' width of the main header on the vis screen
+CONST ANALYZER_SCALE& = 9& ' this is used to scale the fft values
+CONST FRAME_RATE& = 60& ' update frame rate
+CONST VOLUME_STEP! = 0.01! ' the amount by which the audio volume is increased or decreased
 ' Program events
-CONST EVENT_NONE = 0 ' idle
-CONST EVENT_QUIT = 1 ' user wants to quit
-CONST EVENT_CMDS = 2 ' process command line
-CONST EVENT_LOAD = 3 ' user want to load files
-CONST EVENT_DROP = 4 ' user dropped files
-CONST EVENT_PLAY = 5 ' play next song
-CONST EVENT_HTTP = 6 ' Downloads and plays random MODs from modarchive.org
+CONST EVENT_NONE%% = 0%% ' idle
+CONST EVENT_QUIT%% = 1%% ' user wants to quit
+CONST EVENT_CMDS%% = 2%% ' process command line
+CONST EVENT_LOAD%% = 3%% ' user want to load files
+CONST EVENT_DROP%% = 4%% ' user dropped files
+CONST EVENT_PLAY%% = 5%% ' play next song
+CONST EVENT_HTTP%% = 6%% ' Downloads and plays random MODs from modarchive.org
 ' Background constants
-CONST STAR_COUNT = 256 ' the maximum stars that we can show
-CONST SNAKE_COUNT = 48 ' the maximum snakes we can draw on the screen
+CONST STAR_COUNT& = 256& ' the maximum stars that we can show
+CONST SNAKE_COUNT& = 48& ' the maximum snakes we can draw on the screen
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
@@ -85,7 +86,6 @@ END TYPE
 '-----------------------------------------------------------------------------------------------------------------------
 ' GLOBAL VARIABLES
 '-----------------------------------------------------------------------------------------------------------------------
-DIM SHARED MasterVolume AS SINGLE ' this is needed because the replayer can reset volume across songs
 REDIM SHARED NoteTable(0 TO 0) AS STRING * 2 ' this contains the note stings
 DIM SHARED WindowWidth AS LONG ' the width of our windows in characters
 DIM SHARED PatternDisplayWidth AS LONG ' the width of the pattern display in characters
@@ -106,7 +106,6 @@ InitializeNoteTable ' initialize note string table
 AdjustWindowSize ' set the initial window size
 _ALLOWFULLSCREEN _SQUAREPIXELS , _SMOOTH ' allow the user to press Alt+Enter to go fullscreen
 Math_SetRandomSeed TIMER ' seed RNG
-MasterVolume = SOFTSYNTH_MASTER_VOLUME_MAX ' set master volume to maximum
 InitializeStars Stars()
 InitializeSnakes Snakes()
 
@@ -181,7 +180,7 @@ SUB DrawVisualization
 
     _PRINTSTRING (x, 3), String_FormatLong(__Song.bpm, "  BPM: %3d       | ") + _
         String_FormatLong(__Song.speed, "SPD: %3d       | ") + _
-        String_FormatSingle(MasterVolume * 100!, "VOL: %3.0f%%    | ") + _
+        String_FormatSingle(SoftSynth_GetMasterVolume * 100!, "VOL: %3.0f%%    | ") + _
         String_FormatDouble(SoftSynth_GetBufferedSoundTime * 1000#, "BUF: %7.0fms | ") + _
         String_FormatString(String_FormatBoolean(__Song.isLooping, 4), "REP: %-9.9s  ")
 
@@ -557,8 +556,6 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
     MODPlayer_Play
     AdjustWindowSize
 
-    SoftSynth_SetMasterVolume MasterVolume
-
     DIM AS LONG k
 
     DO
@@ -576,12 +573,10 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
                 __Song.isPaused = NOT __Song.isPaused
 
             CASE KEY_PLUS, KEY_EQUALS
-                SoftSynth_SetMasterVolume MasterVolume + 0.01!
-                MasterVolume = SoftSynth_GetMasterVolume
+                SoftSynth_SetMasterVolume SoftSynth_GetMasterVolume + VOLUME_STEP
 
             CASE KEY_MINUS, KEY_UNDERSCORE
-                SoftSynth_SetMasterVolume MasterVolume - 0.01!
-                MasterVolume = SoftSynth_GetMasterVolume
+                SoftSynth_SetMasterVolume SoftSynth_GetMasterVolume - VOLUME_STEP
 
             CASE KEY_UPPER_L, KEY_LOWER_L
                 MODPlayer_Loop NOT MODPlayer_IsLooping
