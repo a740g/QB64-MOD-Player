@@ -23,14 +23,14 @@ $EXEICON:'./QB64MODPlayer.ico'
 $VERSIONINFO:CompanyName='Samuel Gomes'
 $VERSIONINFO:FileDescription='QB64 MOD Player executable'
 $VERSIONINFO:InternalName='QB64MODPlayer'
-$VERSIONINFO:LegalCopyright='Copyright (c) 2023 Samuel Gomes'
+$VERSIONINFO:LegalCopyright='Copyright (c) 2024 Samuel Gomes'
 $VERSIONINFO:LegalTrademarks='All trademarks are property of their respective owners'
 $VERSIONINFO:OriginalFilename='QB64MODPlayer.exe'
 $VERSIONINFO:ProductName='QB64 MOD Player'
 $VERSIONINFO:Web='https://github.com/a740g'
 $VERSIONINFO:Comments='https://github.com/a740g'
-$VERSIONINFO:FILEVERSION#=2,1,1,0
-$VERSIONINFO:PRODUCTVERSION#=2,1,1,0
+$VERSIONINFO:FILEVERSION#=2,1,2,0
+$VERSIONINFO:PRODUCTVERSION#=2,1,2,0
 $COLOR:0
 '-----------------------------------------------------------------------------------------------------------------------
 
@@ -38,7 +38,7 @@ $COLOR:0
 ' CONSTANTS
 '-----------------------------------------------------------------------------------------------------------------------
 CONST APP_NAME = "QB64 MOD Player" ' application name
-' We are using windows with 1152 x 720 px (144 x 90 chars @ 8 x 8 px font) client area
+' We'll use a window with 1152 x 720 px (144 x 90 chars @ 8 x 8 px font) client area
 CONST TEXT_WIDTH_MIN& = 144& ' minimum width we need
 CONST TEXT_LINE_MAX& = 90& ' this the number of lines we need
 CONST TEXT_WIDTH_HEADER& = 84& ' width of the main header on the vis screen
