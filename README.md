@@ -6,6 +6,7 @@ It currently supports the following formats:
 
 - [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible)
 - [MultiTracker](https://en.wikipedia.org/wiki/Module_file#Popular_formats)
+- [Scream Tracker](https://en.wikipedia.org/wiki/Scream_Tracker)
 
 ---
 
@@ -34,55 +35,54 @@ It currently supports the following formats:
 
 ```VB
 ' Main Player API
-FUNCTION MODPlayer_LoadFromMemory%% (buffer AS STRING)
-FUNCTION MODPlayer_LoadFromDisk%% (fileName AS STRING)
 FUNCTION MODPlayer_GetName$
+FUNCTION MODPlayer_GetOrders~%
+FUNCTION MODPlayer_GetPosition&
 FUNCTION MODPlayer_GetType$
-SUB MODPlayer_Play
-FUNCTION MODPlayer_IsPlaying%%
-SUB MODPlayer_Pause (state AS _BYTE)
-FUNCTION MODPlayer_IsPaused%%
-SUB MODPlayer_Loop (state AS _BYTE)
-FUNCTION MODPlayer_IsLooping%%
 SUB MODPlayer_GoToNextPosition
 SUB MODPlayer_GoToPreviousPosition
-SUB MODPlayer_SetPosition (position AS INTEGER)
-FUNCTION MODPlayer_GetPosition%
-FUNCTION MODPlayer_GetOrders%
+FUNCTION MODPlayer_IsLooping%%
+FUNCTION MODPlayer_IsPaused%%
+FUNCTION MODPlayer_IsPlaying%%
+FUNCTION MODPlayer_LoadFromDisk%% (fileName AS STRING)
+FUNCTION MODPlayer_LoadFromMemory%% (buffer AS STRING)
+SUB MODPlayer_Loop (state AS _BYTE)
+SUB MODPlayer_Pause (state AS _BYTE)
+SUB MODPlayer_Play
+SUB MODPlayer_SetPosition (position AS _UNSIGNED INTEGER)
 SUB MODPlayer_Stop
-SUB MODPlayer_Update
-' Sample Mixer API (used internally by the Player)
-SUB SampleMixer_Initialize (nVoices AS _UNSIGNED _BYTE)
-SUB SampleMixer_Finalize
-FUNCTION SampleMixer_IsInitialized%%
-FUNCTION SampleMixer_NeedsUpdate%%
-SUB SampleMixer_Update (nSamples AS _UNSIGNED INTEGER)
-SUB SampleMixer_SetVoiceVolume (nVoice AS _UNSIGNED _BYTE, nVolume AS SINGLE)
-FUNCTION SampleMixer_GetVoiceVolume! (nVoice AS _UNSIGNED _BYTE)
-SUB SampleMixer_SetVoicePanning (nVoice AS _UNSIGNED _BYTE, nPanning AS SINGLE)
-FUNCTION SampleMixer_GetVoicePanning! (nVoice AS _UNSIGNED _BYTE)
-SUB SampleMixer_SetVoiceFrequency (nVoice AS _UNSIGNED _BYTE, nFrequency AS SINGLE)
-SUB SampleMixer_StopVoice (nVoice AS _UNSIGNED _BYTE)
-SUB SampleMixer_PlayVoice (nVoice AS _UNSIGNED _BYTE, nSample AS _UNSIGNED _BYTE, nPosition AS SINGLE, nPlayType AS _UNSIGNED _BYTE, nStart AS SINGLE, nEnd AS SINGLE)
-' Sample Mixer API (user callable)
-SUB SampleMixer_SetGlobalVolume (nVolume AS SINGLE)
-FUNCTION SampleMixer_GetGlobalVolume!
-SUB SampleMixer_SetHighQuality (nFlag AS _BYTE)
-FUNCTION SampleMixer_IsHighQuality%%
-FUNCTION SampleMixer_GetSampleRate&
-FUNCTION SampleMixer_GetBufferedSoundTime#
-FUNCTION SampleMixer_GetTotalSamples~%%
-FUNCTION SampleMixer_GetTotalVoices~%%
-FUNCTION SampleMixer_GetActiveVoices~%%
-' Sample Manager API (used internally by the Player)
-SUB SampleManager_Initialize (nSamples AS _UNSIGNED _BYTE)
-SUB SampleManager_Load (nSample AS _UNSIGNED _BYTE, sData AS STRING, nSampleFrameSize AS _UNSIGNED _BYTE, isLooping AS _BYTE, nLoopStart AS LONG, nLoopEnd AS LONG)
-FUNCTION SampleManager_PeekByte%% (nSample AS _UNSIGNED _BYTE, nPosition AS LONG)
-SUB SampleManager_PokeByte (nSample AS _UNSIGNED _BYTE, nPosition AS LONG, nValue AS _BYTE)
-FUNCTION SampleManager_PeekInteger% (nSample AS _UNSIGNED _BYTE, nPosition AS LONG)
-SUB SampleManager_PokeInteger (nSample AS _UNSIGNED _BYTE, nPosition AS LONG, nValue AS INTEGER)
-FUNCTION SampleManager_PeekSingle! (nSample AS _UNSIGNED _BYTE, nPosition AS LONG)
-SUB SampleManager_PokeSingle (nSample AS _UNSIGNED _BYTE, nPosition AS LONG, nValue AS SINGLE)
+SUB MODPlayer_Update (bufferTimeSecs AS SINGLE)
+' Sample Mixer API
+FUNCTION SoftSynth_BytesToFrames~& (bytes AS _UNSIGNED LONG, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
+SUB SoftSynth_Finalize
+FUNCTION SoftSynth_GetActiveVoices~&
+FUNCTION SoftSynth_GetBufferedSoundTime#
+FUNCTION SoftSynth_GetGlobalVolume!
+FUNCTION SoftSynth_GetMasterVolume!
+FUNCTION SoftSynth_GetSampleRate~&
+FUNCTION SoftSynth_GetTotalSounds~&
+FUNCTION SoftSynth_GetTotalVoices~&
+FUNCTION SoftSynth_GetVoiceBalance! (voice AS _UNSIGNED LONG)
+FUNCTION SoftSynth_GetVoiceFrequency~& (voice AS _UNSIGNED LONG)
+FUNCTION SoftSynth_GetVoiceVolume! (voice AS _UNSIGNED LONG)
+FUNCTION SoftSynth_Initialize%%
+FUNCTION SoftSynth_IsInitialized%%
+SUB SoftSynth_LoadSound (snd AS LONG, buffer AS STRING, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
+FUNCTION SoftSynth_PeekSoundFrameByte%% (snd AS LONG, position AS _UNSIGNED LONG)
+FUNCTION SoftSynth_PeekSoundFrameInteger% (snd AS LONG, position AS _UNSIGNED LONG)
+FUNCTION SoftSynth_PeekSoundFrameSingle! (snd AS LONG, position AS _UNSIGNED LONG)
+SUB SoftSynth_PlayVoice (voice AS _UNSIGNED LONG, snd AS LONG, position AS _UNSIGNED LONG, mode AS LONG, startFrame AS _UNSIGNED LONG, endFrame AS _UNSIGNED LONG)
+SUB SoftSynth_PokeSoundFrameByte (snd AS LONG, position AS _UNSIGNED LONG, frame AS _BYTE)
+SUB SoftSynth_PokeSoundFrameInteger (snd AS LONG, position AS _UNSIGNED LONG, frame AS INTEGER)
+SUB SoftSynth_PokeSoundFrameSingle (snd AS LONG, position AS _UNSIGNED LONG, frame AS SINGLE)
+SUB SoftSynth_SetGlobalVolume (volume AS SINGLE)
+SUB SoftSynth_SetMasterVolume (volume AS SINGLE)
+SUB SoftSynth_SetTotalVoices (voices AS _UNSIGNED LONG)
+SUB SoftSynth_SetVoiceBalance (voice AS _UNSIGNED LONG, balance AS SINGLE)
+SUB SoftSynth_SetVoiceFrequency (voice AS _UNSIGNED LONG, frequency AS _UNSIGNED LONG)
+SUB SoftSynth_SetVoiceVolume (voice AS _UNSIGNED LONG, volume AS SINGLE)
+SUB SoftSynth_StopVoice (voice AS _UNSIGNED LONG)
+SUB SoftSynth_Update (frames AS _UNSIGNED LONG)
 ```
 
 ## FAQ
@@ -127,8 +127,9 @@ I see that the miniaudio backend version of QB64-PE already has MOD, S3M, XM, IT
 - [Scream Tracker 3 Module](https://wiki.multimedia.cx/index.php/Scream_Tracker_3_Module) from *MultimediaWiki*
 - [S3M Format](https://moddingwiki.shikadi.net/wiki/S3M_Format) by *ModdingWiki*
 - [Scream Tracker 3 module](http://fileformats.archiveteam.org/wiki/Scream_Tracker_3_module) from *Solve the File Format Problem*
-- [Manual: Effect Reference](https://wiki.openmpt.org/Manual:_Effect_Reference) from *OpenMPT Wiki*
 - [MultiTracker Module (MTM) Format](docs/MultiTracker%20(.mtm).txt) by *Renaissance*
+- [Manual: Effect Reference](https://wiki.openmpt.org/Manual:_Effect_Reference) from *OpenMPT Wiki*
+- [Weasel audio library](https://weaselaudiolib.sourceforge.net/) by Warren Willmey
 - [Digital Audio Mixing Techniques](docs/FSBDOC.TXT) by *jedi / oxygen*
 - [Writing Mixing Routines](docs/MIXING10.TXT) by *BYTERAVER/TNT*
 - [Audio Mixer Tutorial](https://github.com/benhenshaw/mixer_tutorial) by *benhenshaw*
