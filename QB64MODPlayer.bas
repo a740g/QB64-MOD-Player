@@ -80,6 +80,7 @@ TYPE FFTType
     frames AS LONG
     halfFrames AS LONG
     bits AS LONG
+    size AS Vector2LType
 END TYPE
 '-----------------------------------------------------------------------------------------------------------------------
 
@@ -89,7 +90,6 @@ END TYPE
 REDIM SHARED NoteTable(0 TO 0) AS STRING * 2 ' this contains the note stings
 DIM SHARED WindowWidth AS LONG ' the width of our windows in characters
 DIM SHARED PatternDisplayWidth AS LONG ' the width of the pattern display in characters
-DIM SHARED AS LONG SpectrumAnalyzerWidth, SpectrumAnalyzerHeight ' the width & height of the spectrum analyzer
 DIM SHARED FFT AS FFTType ' global FFT info
 REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0 TO 0), SpectrumAnalyzerR(0 TO 0) ' left & right channel FFT data
 DIM Stars(1 TO STAR_COUNT) AS StarType
@@ -364,28 +364,30 @@ SUB DrawVisualization
         FFT.framesPerTick = __Song.framesPerTick
     END IF
 
-    ' Get the FFT data and audio power level
-    DIM power AS SINGLE: power = (AnalyzerFFTSingle(SpectrumAnalyzerL(0), __SoftSynth_SoundBuffer(0), 2, FFT.bits) + AnalyzerFFTSingle(SpectrumAnalyzerR(0), __SoftSynth_SoundBuffer(1), 2, FFT.bits)) / 2!
+    ' Get the FFT data and ignore the audio intensity level (for now)
+    DIM ignored AS SINGLE
+    ignored = AudioAnalyzerFFT_DoSingle(SpectrumAnalyzerL(0), __SoftSynth_SoundBuffer(0), 2, FFT.bits)
+    ignored = AudioAnalyzerFFT_DoSingle(SpectrumAnalyzerR(0), __SoftSynth_SoundBuffer(1), 2, FFT.bits)
 
     COLOR Black, Black
 
     i = 0
     WHILE i < FFT.halfFrames
-        j = (i * SpectrumAnalyzerHeight) \ FFT.halfFrames ' this is the y location where we need to draw the bar
+        j = (i * FFT.size.y) \ FFT.halfFrames ' this is the y location where we need to draw the bar
 
         ' First calculate and draw a bar on the left
         x = _SHR(SpectrumAnalyzerL(i), ANALYZER_SCALE)
         IF x > 0 THEN ' only do something if x has a value > 0
-            IF x > SpectrumAnalyzerWidth THEN x = SpectrumAnalyzerWidth
-            p = SpectrumAnalyzerWidth - 1 ' this is starting x position of the bar
+            IF x > FFT.size.x THEN x = FFT.size.x
+            p = FFT.size.x - 1 ' this is starting x position of the bar
             Graphics_DrawHorizontalLine p, j, p - x + 1, Graphics_MakeTextColorAttribute(254, LightGreen + x MOD Brown, Black)
         END IF
 
         ' Next calculate for the one on the right and draw
         x = _SHR(SpectrumAnalyzerR(i), ANALYZER_SCALE)
         IF x > 0 THEN ' only do something if x has a value > 0
-            IF x > SpectrumAnalyzerWidth THEN x = SpectrumAnalyzerWidth
-            p = SpectrumAnalyzerWidth + TEXT_WIDTH_HEADER ' this is starting x position of the bar
+            IF x > FFT.size.x THEN x = FFT.size.x
+            p = FFT.size.x + TEXT_WIDTH_HEADER ' this is starting x position of the bar
             Graphics_DrawHorizontalLine p, j, p + x - 1, Graphics_MakeTextColorAttribute(254, LightGreen + x MOD Brown, Black)
         END IF
 
@@ -502,22 +504,23 @@ END SUB
 ' Automatically selects, sets the window size and saves the text width
 SUB AdjustWindowSize
     SHARED __Song AS __SongType
+    SHARED FFT AS FFTType
 
     IF __Song.isPlaying THEN
         PatternDisplayWidth = 8 + __Song.channels * 19 ' find the actual width
         WindowWidth = PatternDisplayWidth
         IF WindowWidth < TEXT_WIDTH_MIN THEN WindowWidth = TEXT_WIDTH_MIN ' we don't want the width to be too small
-        SpectrumAnalyzerWidth = (WindowWidth - TEXT_WIDTH_HEADER) \ 2
+        FFT.size.x = (WindowWidth - TEXT_WIDTH_HEADER) \ 2
         IF PatternDisplayWidth <= TEXT_WIDTH_HEADER THEN
-            SpectrumAnalyzerHeight = TEXT_LINE_MAX
+            FFT.size.y = TEXT_LINE_MAX
         ELSE
-            SpectrumAnalyzerHeight = 4 + __Song.instruments
+            FFT.size.y = 4 + __Song.instruments
         END IF
     ELSE
         PatternDisplayWidth = 0
         WindowWidth = TEXT_WIDTH_MIN ' we don't want the width to be too small
-        SpectrumAnalyzerWidth = 0
-        SpectrumAnalyzerHeight = 0
+        FFT.size.x = 0
+        FFT.size.y = 0
     END IF
 
     WIDTH WindowWidth, TEXT_LINE_MAX ' we need 75 lines for the vizualization stuff
