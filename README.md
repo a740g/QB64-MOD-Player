@@ -1,6 +1,6 @@
 # QB64 MOD PLAYER
 
-This is a [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player and library written in [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe).
+This is a [MOD](https://en.wikipedia.org/wiki/MOD_(file_format)) player and library written in [QB64-PE](https://www.qb64phoenix.com/).
 
 It currently supports the following formats:
 
@@ -29,7 +29,7 @@ It currently supports the following formats:
 - Open Terminal and change to the directory using an appropriate OS command
 - Run `git submodule update --init --recursive` to initialize, fetch and checkout git submodules
 - Open *QB64MODPlayer.bas* in the QB64-PE IDE and press `F5` to compile and run
-- To use the library in your project add the [Toolbox64](https://github.com/a740g/Toolbox64) repositiory as a [Git submodule](https://git-scm.com/book/en/v2/Git-Tools-Submodules)
+- To use the library in your project add the [Toolbox64](https://github.com/a740g/Toolbox64) repository as a [Git submodule](https://git-scm.com/book/en/v2/Git-Tools-Submodules)
 
 ## API
 
@@ -91,7 +91,7 @@ Why a MOD player in QB64?
 
 - Just for learning and fun! Long answer: I have seen plenty of MOD players code and libraries in C & C++ but very little in other languages. I know about some JavaScript, Java and C# ones. But, I am not a fan of those languages. I learnt to code on DOS using QuickBASIC and then graduated to C & C++. So, QuickBASIC always had a special place in my heart. Then, I found QB64 on the internet and the rest is history. As far as I know this is the first of it's kind. Let me know if there are any other MOD players written in pure QB64.
 
-Can you implment feature x / y?
+Can you implement feature x / y?
 
 - With the limited time I have between my day job, home and family, there is only so much I can do. I do maintain a list of TODO (see below). However, those do not have any set deadlines. If you need something implemented, submit a GitHub issue about it or do it yourself and submit a PR.
 

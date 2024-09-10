@@ -7,9 +7,10 @@
 ' HEADER FILES
 '-----------------------------------------------------------------------------------------------------------------------
 '$INCLUDE:'include/BitwiseOps.bi'
-'$INCLUDE:'include/FileOps.bi'
+'$INCLUDE:'include/Pathname.bi'
+'$INCLUDE:'include/File.bi'
 '$INCLUDE:'include/StringOps.bi'
-'$INCLUDE:'include/AnalyzerFFT.bi'
+'$INCLUDE:'include/AudioAnalyzerFFT.bi'
 '$INCLUDE:'include/MODPlayer.bi'
 '$INCLUDE:'include/Base64.bi'
 '$INCLUDE:'include/ANSIPrint.bi'
@@ -539,7 +540,7 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
 
     OnPlayTune = EVENT_PLAY ' default event is to play next song
 
-    DIM buffer AS STRING: buffer = LoadFile(fileName) ' load the whole file to memory
+    DIM buffer AS STRING: buffer = File_Load(fileName) ' load the whole file to memory
 
     IF NOT MODPlayer_LoadFromMemory(buffer) THEN
         _MESSAGEBOX APP_NAME, "Failed to load: " + fileName, "error"
@@ -549,10 +550,10 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
 
     ' Set the app _TITLE to display the file name
     DIM windowTitle AS STRING
-    IF LEN(GetDriveOrSchemeFromPathOrURL(fileName)) > 2 THEN
+    IF LEN(Pathname_GetDriveOrScheme(fileName)) > 2 THEN
         windowTitle = GetSaveFileName(fileName) + " - " + APP_NAME
     ELSE
-        windowTitle = GetFileNameFromPathOrURL(fileName) + " - " + APP_NAME
+        windowTitle = Pathname_GetFileName(fileName) + " - " + APP_NAME
     END IF
     _TITLE windowTitle
 
@@ -598,7 +599,7 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
                 QuickSave buffer, fileName
 
             CASE 21248 ' Shift + Delete - you known what it does
-                IF LEN(GetDriveOrSchemeFromPathOrURL(fileName)) > 2 THEN
+                IF LEN(Pathname_GetDriveOrScheme(fileName)) > 2 THEN
                     _MESSAGEBOX APP_NAME, "You cannot delete " + fileName + "!", "error"
                 ELSE
                     IF _MESSAGEBOX(APP_NAME, "Are you sure you want to delete " + fileName + " permanently?", "yesno", "question", 0) = 1 THEN
@@ -702,7 +703,7 @@ FUNCTION OnModArchiveFiles%%
             END IF
 
             modArchiveFileName = GetRandomModArchiveFileName$
-            fileExtension = LCASE$(GetFileExtensionFromPathOrURL(modArchiveFileName))
+            fileExtension = LCASE$(Pathname_GetFileExtension(modArchiveFileName))
 
             _TITLE "Downloading: " + GetSaveFileName(modArchiveFileName) + " - " + APP_NAME
         LOOP UNTIL fileExtension = ".mod" OR fileExtension = ".mtm" OR fileExtension = ".s3m"
@@ -718,7 +719,7 @@ END FUNCTION
 
 ' Gets a random file URL from www.modarchive.org
 FUNCTION GetRandomModArchiveFileName$
-    DIM buffer AS STRING: buffer = LoadFileFromURL("https://modarchive.org/index.php?request=view_random")
+    DIM buffer AS STRING: buffer = File_LoadFromURL("https://modarchive.org/index.php?request=view_random")
     DIM bufPos AS LONG: bufPos = INSTR(buffer, "https://api.modarchive.org/downloads.php?moduleid=")
 
     IF bufPos > 0 THEN
@@ -729,8 +730,8 @@ END FUNCTION
 
 ' Returns a good file name for a modarchive file
 FUNCTION GetSaveFileName$ (url AS STRING)
-    DIM saveFileName AS STRING: saveFileName = GetFileNameFromPathOrURL(url)
-    GetSaveFileName = GetLegalFileName(MID$(saveFileName, INSTR(saveFileName, "=") + 1)) ' this will get a file name of type: 12312313#filename.mod
+    DIM saveFileName AS STRING: saveFileName = Pathname_GetFileName(url)
+    GetSaveFileName = Pathname_MakeLegalFileName(MID$(saveFileName, INSTR(saveFileName, "=") + 1)) ' this will get a file name of type: 12312313#filename.mod
 END FUNCTION
 
 
@@ -738,13 +739,13 @@ END FUNCTION
 SUB QuickSave (buffer AS STRING, url AS STRING)
     STATIC savePath AS STRING, alwaysUseSamePath AS _BYTE, stopNagging AS _BYTE
 
-    IF LEN(GetDriveOrSchemeFromPathOrURL(url)) > 2 THEN
+    IF LEN(Pathname_GetDriveOrScheme(url)) > 2 THEN
         ' This is a file from the web
         IF NOT _DIREXISTS(savePath) OR NOT alwaysUseSamePath THEN ' only get the path if path does not exist or user wants to use a new path
             savePath = _SELECTFOLDERDIALOG$("Select a folder to save the file:", savePath)
             IF LEN(savePath) = NULL THEN EXIT SUB ' exit if user cancelled
 
-            savePath = FixPathDirectoryName(savePath)
+            savePath = Pathname_FixDirectoryName(savePath)
         END IF
 
         DIM saveFileName AS STRING: saveFileName = savePath + GetSaveFileName(url)
@@ -753,7 +754,7 @@ SUB QuickSave (buffer AS STRING, url AS STRING)
             IF _MESSAGEBOX(APP_NAME, "Overwrite " + saveFileName + "?", "yesno", "warning", 0) = 0 THEN EXIT SUB
         END IF
 
-        IF SaveFile(buffer, saveFileName, TRUE) THEN _MESSAGEBOX APP_NAME, saveFileName + " saved.", "info"
+        IF File_Save(buffer, saveFileName, TRUE) THEN _MESSAGEBOX APP_NAME, saveFileName + " saved.", "info"
 
         ' Check if user want to use the same path in the future
         IF NOT stopNagging THEN
@@ -923,7 +924,8 @@ END SUB
 '-----------------------------------------------------------------------------------------------------------------------
 ' MODULE FILES
 '-----------------------------------------------------------------------------------------------------------------------
-'$INCLUDE:'include/FileOps.bas'
+'$INCLUDE:'include/Pathname.bas'
+'$INCLUDE:'include/File.bas'
 '$INCLUDE:'include/StringOps.bas'
 '$INCLUDE:'include/MODPlayer.bas'
 '$INCLUDE:'include/Base64.bas'
