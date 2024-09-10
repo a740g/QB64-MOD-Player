@@ -630,7 +630,7 @@ FUNCTION OnCommandLine%%
     DIM e AS _BYTE: e = EVENT_NONE
 
     IF (COMMAND$(1) = "/?" OR COMMAND$(1) = "-?") THEN
-        _MESSAGEBOX APP_NAME, APP_NAME + CHR$(13) + "Syntax: QB64MODP [modfile.mod]" + CHR$(13) + "    /?: Shows this message" + STRING$(2, 13) + "Copyright (c) 2023, Samuel Gomes" + STRING$(2, 13) + "https://github.com/a740g/", "info"
+        _MESSAGEBOX APP_NAME, APP_NAME + STRING_LF + "Syntax: " + Pathname_GetFileName(COMMAND$(0)) + " [modfile.mod]" + STRING_LF + "    /?: Shows this message" + STRING_LF + STRING_LF + "Copyright (c) 2024, Samuel Gomes" + STRING_LF + STRING_LF + "https://github.com/a740g/", "info"
         e = EVENT_QUIT
     ELSE
         DIM i AS LONG: FOR i = 1 TO _COMMANDCOUNT
@@ -723,7 +723,7 @@ FUNCTION GetRandomModArchiveFileName$
     DIM bufPos AS LONG: bufPos = INSTR(buffer, "https://api.modarchive.org/downloads.php?moduleid=")
 
     IF bufPos > 0 THEN
-        GetRandomModArchiveFileName = MID$(buffer, bufPos, INSTR(bufPos, buffer, CHR$(34)) - bufPos)
+        GetRandomModArchiveFileName = MID$(buffer, bufPos, INSTR(bufPos, buffer, STRING_QUOTE) - bufPos)
     END IF
 END FUNCTION
 
