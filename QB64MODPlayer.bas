@@ -1,6 +1,6 @@
 '-----------------------------------------------------------------------------------------------------------------------
 ' QB64 MOD Player
-' Copyright (c) 2023 Samuel Gomes
+' Copyright (c) 2024 Samuel Gomes
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
@@ -30,8 +30,8 @@ $VERSIONINFO:OriginalFilename='QB64MODPlayer.exe'
 $VERSIONINFO:ProductName='QB64 MOD Player'
 $VERSIONINFO:Web='https://github.com/a740g'
 $VERSIONINFO:Comments='https://github.com/a740g'
-$VERSIONINFO:FILEVERSION#=2,1,2,0
-$VERSIONINFO:PRODUCTVERSION#=2,1,2,0
+$VERSIONINFO:FILEVERSION#=2,1,3,0
+$VERSIONINFO:PRODUCTVERSION#=2,1,3,0
 $COLOR:0
 '-----------------------------------------------------------------------------------------------------------------------
 
