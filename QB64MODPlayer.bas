@@ -43,6 +43,7 @@ CONST APP_NAME = "QB64 MOD Player" ' application name
 CONST TEXT_WIDTH_MIN& = 144& ' minimum width we need
 CONST TEXT_LINE_MAX& = 90& ' this the number of lines we need
 CONST TEXT_WIDTH_HEADER& = 84& ' width of the main header on the vis screen
+CONST MAX_VISIBLE_INSTRUMENTS& = 64& ' maximum number of instruments visible at a time
 CONST ANALYZER_SCALE& = 9& ' this is used to scale the fft values
 CONST FRAME_RATE& = 60& ' update frame rate
 CONST VOLUME_STEP! = 0.01! ' the amount by which the audio volume is increased or decreased
@@ -159,6 +160,10 @@ SUB DrawVisualization
     ' Note this is only a problem with this demo and not the actual library since we are trying to access internal stuff directly
     IF __Song.orderPosition >= __Song.orders THEN EXIT SUB
 
+    DIM startPat AS LONG: startPat = __Order(__Song.orderPosition)
+
+    IF startPat >= __Song.patterns THEN EXIT SUB ' this can happen when S3M tunes contain marker / end-of-song patterns
+
     CLS , Black ' clear the framebuffer to black color
 
     DIM x AS LONG: x = 1 + WindowWidth \ 2 - TEXT_WIDTH_HEADER \ 2 ' find x so that we can center everything
@@ -171,7 +176,7 @@ SUB DrawVisualization
     COLOR Blink, BrightWhite
     _PRINTSTRING (x, 2), String_FormatLong(__Song.orderPosition, "  ORD: %3d / ") + _
         String_FormatLong(__Song.orders - 1, "%3d | ") + _
-        String_FormatLong(__Order(__Song.orderPosition), "PAT: %3d / ") + _
+        String_FormatLong(startPat, "PAT: %3d / ") + _
         String_FormatLong(__Song.patterns - 1, "%3d | ") + _
         String_FormatLong(__Song.patternRow, "ROW: %2d / 63 | ") + _
         String_FormatLong(__Song.activeChannels, "CHN: %3d / ") + _
@@ -196,7 +201,7 @@ SUB DrawVisualization
 
         j = 0
         WHILE j < __Song.channels
-            IF i + 1 = __Pattern(__Order(__Song.orderPosition), __Song.patternRow, j).instrument THEN
+            IF i + 1 = __Pattern(startPat, __Song.patternRow, j).instrument THEN
                 COLOR LightMagenta, Blue
             END IF
 
@@ -213,6 +218,8 @@ SUB DrawVisualization
             String_FormatLong(__Instrument(i).loopEnd, "%9d  ")
 
         i = i + 1
+
+        IF i >= MAX_VISIBLE_INSTRUMENTS THEN EXIT WHILE ' FIXME: allow user to scroll and see the entire instrument list
     WEND
 
     j = 5 + i ' we starting updating from this line next
@@ -227,12 +234,11 @@ SUB DrawVisualization
         i = i + 1
     WEND
 
-    DIM AS LONG startRow, startPat, nNote, nChan, nSample, nEffect, nOperand
+    DIM AS LONG startRow, nNote, nChan, nSample, nEffect, nOperand
 
     j = j + 1 ' move to the current line number
 
     ' Find the pattern and row we need to print
-    startPat = __Order(__Song.orderPosition)
     startRow = __Song.patternRow - (1 + TEXT_LINE_MAX - j) \ 2
     IF startRow < 0 THEN
         startRow = __Song.rows + startRow
@@ -515,7 +521,7 @@ SUB AdjustWindowSize
         IF PatternDisplayWidth <= TEXT_WIDTH_HEADER THEN
             FFT.size.y = TEXT_LINE_MAX
         ELSE
-            FFT.size.y = 4 + __Song.instruments
+            FFT.size.y = 4 + Math_GetMinLong(__Song.instruments, MAX_VISIBLE_INSTRUMENTS)
         END IF
     ELSE
         PatternDisplayWidth = 0
