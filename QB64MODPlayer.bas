@@ -30,8 +30,8 @@ $VERSIONINFO:OriginalFilename='QB64MODPlayer.exe'
 $VERSIONINFO:ProductName='QB64 MOD Player'
 $VERSIONINFO:Web='https://github.com/a740g'
 $VERSIONINFO:Comments='https://github.com/a740g'
-$VERSIONINFO:FILEVERSION#=2,1,3,0
-$VERSIONINFO:PRODUCTVERSION#=2,1,3,0
+$VERSIONINFO:FILEVERSION#=2,1,4,0
+$VERSIONINFO:PRODUCTVERSION#=2,1,4,0
 $COLOR:0
 '-----------------------------------------------------------------------------------------------------------------------
 
