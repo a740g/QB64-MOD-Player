@@ -132,7 +132,7 @@ I see that the miniaudio backend version of QB64-PE already has MOD, S3M, XM, IT
 - [Weasel audio library](https://weaselaudiolib.sourceforge.net/) by Warren Willmey
 - [Digital Audio Mixing Techniques](docs/FSBDOC.TXT) by *jedi / oxygen*
 - [Writing Mixing Routines](docs/MIXING10.TXT) by *BYTERAVER/TNT*
-- [Audio Mixer Tutorial](https://github.com/benhenshaw/mixer_tutorial) by *benhenshaw*
+- [Audio Mixer Tutorial](docs/mixer_tutorial) by *benhenshaw*
 
 ## ASSETS
 
