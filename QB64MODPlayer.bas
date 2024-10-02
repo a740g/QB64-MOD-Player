@@ -19,8 +19,6 @@
 '-----------------------------------------------------------------------------------------------------------------------
 ' METACOMMANDS
 '-----------------------------------------------------------------------------------------------------------------------
-$RESIZE:SMOOTH
-$EXEICON:'./QB64MODPlayer.ico'
 $VERSIONINFO:CompanyName='Samuel Gomes'
 $VERSIONINFO:FileDescription='QB64 MOD Player executable'
 $VERSIONINFO:InternalName='QB64MODPlayer'
@@ -30,8 +28,10 @@ $VERSIONINFO:OriginalFilename='QB64MODPlayer.exe'
 $VERSIONINFO:ProductName='QB64 MOD Player'
 $VERSIONINFO:Web='https://github.com/a740g'
 $VERSIONINFO:Comments='https://github.com/a740g'
-$VERSIONINFO:FILEVERSION#=2,1,4,0
-$VERSIONINFO:PRODUCTVERSION#=2,1,4,0
+$VERSIONINFO:FILEVERSION#=2,1,5,0
+$VERSIONINFO:PRODUCTVERSION#=2,1,5,0
+$EXEICON:'./QB64MODPlayer.ico'
+$RESIZE:SMOOTH
 $COLOR:0
 '-----------------------------------------------------------------------------------------------------------------------
 
