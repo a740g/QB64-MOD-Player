@@ -28,8 +28,8 @@ $VERSIONINFO:OriginalFilename='QB64MODPlayer.exe'
 $VERSIONINFO:ProductName='QB64 MOD Player'
 $VERSIONINFO:Web='https://github.com/a740g'
 $VERSIONINFO:Comments='https://github.com/a740g'
-$VERSIONINFO:FILEVERSION#=2,1,5,0
-$VERSIONINFO:PRODUCTVERSION#=2,1,5,0
+$VERSIONINFO:FILEVERSION#=2,1,7,0
+$VERSIONINFO:PRODUCTVERSION#=2,1,7,0
 $EXEICON:'./QB64MODPlayer.ico'
 $RESIZE:SMOOTH
 $COLOR:0
@@ -89,11 +89,11 @@ END TYPE
 '-----------------------------------------------------------------------------------------------------------------------
 ' GLOBAL VARIABLES
 '-----------------------------------------------------------------------------------------------------------------------
-REDIM SHARED NoteTable(0 TO 0) AS STRING * 2 ' this contains the note stings
+REDIM SHARED NoteTable(0) AS STRING * 2 ' this contains the note stings
 DIM SHARED WindowWidth AS LONG ' the width of our windows in characters
 DIM SHARED PatternDisplayWidth AS LONG ' the width of the pattern display in characters
 DIM SHARED FFT AS FFTType ' global FFT info
-REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0 TO 0), SpectrumAnalyzerR(0 TO 0) ' left & right channel FFT data
+REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0), SpectrumAnalyzerR(0) ' left & right channel FFT data
 DIM Stars(1 TO STAR_COUNT) AS StarType
 DIM Snakes(1 TO SNAKE_COUNT) AS SnakeType
 '-----------------------------------------------------------------------------------------------------------------------
@@ -101,7 +101,7 @@ DIM Snakes(1 TO SNAKE_COUNT) AS SnakeType
 '-----------------------------------------------------------------------------------------------------------------------
 ' PROGRAM ENTRY POINT - Frankenstein retro TUI with drag & drop support
 '-----------------------------------------------------------------------------------------------------------------------
-_TITLE APP_NAME + " " + _OS$ ' set the program name in the titlebar
+_TITLE APP_NAME + _CHR_SPACE + _OS$ ' set the program name in the titlebar
 CHDIR _STARTDIR$ ' change to the directory specifed by the environment
 _ACCEPTFILEDROP ' enable drag and drop of files
 InitializeNoteTable ' initialize note string table
@@ -251,7 +251,7 @@ SUB DrawVisualization
     WHILE i < TEXT_LINE_MAX
         COLOR BrightWhite, Black
 
-        IF startPat >= 0 AND startPat < __Song.patterns THEN
+        IF startPat >= 0 _ANDALSO startPat < __Song.patterns THEN
             IF i = cLine THEN
                 COLOR BrightWhite, Blue
             END IF
@@ -279,7 +279,7 @@ SUB DrawVisualization
                     _PRINTSTRING (p, i), " ^^^ "
                 ELSE
                     COLOR LightGreen
-                    _PRINTSTRING (p, i), String_FormatLong(1 + nNote \ 12, " " + NoteTable(nNote MOD 12) + "%1d")
+                    _PRINTSTRING (p, i), String_FormatLong(1 + nNote \ 12, _CHR_SPACE + NoteTable(nNote MOD 12) + "%1d")
                 END IF
 
                 p = p + 5
@@ -298,7 +298,7 @@ SUB DrawVisualization
                 nEffect = __Pattern(startPat, startRow, nChan).effect
                 nOperand = __Pattern(startPat, startRow, nChan).operand
 
-                IF nEffect = 0 AND nOperand = 0 THEN
+                IF nEffect = 0 _ANDALSO nOperand = 0 THEN
                     COLOR Gray
                     _PRINTSTRING (p, i), "-- "
                 ELSE
@@ -455,13 +455,13 @@ FUNCTION OnWelcomeScreen%%
 
         DIM k AS LONG: k = _KEYHIT
 
-        IF k = KEY_ESCAPE THEN
+        IF k = _KEY_ESC THEN
             e = EVENT_QUIT
         ELSEIF _TOTALDROPPEDFILES > 0 THEN
             e = EVENT_DROP
-        ELSEIF k = KEY_F1 THEN
+        ELSEIF k = _KEY_F1 THEN
             e = EVENT_LOAD
-        ELSEIF k = KEY_F2 THEN
+        ELSEIF k = _KEY_F2 THEN
             e = EVENT_HTTP
         END IF
 
@@ -535,7 +535,7 @@ SUB AdjustWindowSize
     _FONT 8 ' force 8x8 pixel font
     _BLINK OFF ' we want high intensity colors
     CLS ' clear the screen
-    LOCATE , , FALSE ' turn cursor off
+    LOCATE , , _FALSE ' turn cursor off
 END SUB
 
 
@@ -576,7 +576,7 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
         k = _KEYHIT
 
         SELECT CASE k
-            CASE KEY_ESCAPE
+            CASE _KEY_ESC
                 EXIT DO
 
             CASE KEY_SPACE
@@ -591,17 +591,17 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
             CASE KEY_UPPER_L, KEY_LOWER_L
                 MODPlayer_Loop NOT MODPlayer_IsLooping
 
-            CASE KEY_LEFT_ARROW
+            CASE _KEY_LEFT
                 MODPlayer_GoToPreviousPosition
 
-            CASE KEY_RIGHT_ARROW
+            CASE _KEY_RIGHT
                 MODPlayer_GoToNextPosition
 
-            CASE KEY_F1
+            CASE _KEY_F1
                 OnPlayTune = EVENT_LOAD
                 EXIT DO
 
-            CASE KEY_F6 ' quick save for files loaded from ModArchive
+            CASE _KEY_F6 ' quick save for files loaded from ModArchive
                 QuickSave buffer, fileName
 
             CASE 21248 ' Shift + Delete - you known what it does
@@ -627,7 +627,7 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
     MODPlayer_Stop
     AdjustWindowSize
 
-    _TITLE APP_NAME + " " + _OS$ ' Set app title to the way it was
+    _TITLE APP_NAME + _CHR_SPACE + _OS$ ' Set app title to the way it was
 END FUNCTION
 
 
@@ -635,8 +635,8 @@ END FUNCTION
 FUNCTION OnCommandLine%%
     DIM e AS _BYTE: e = EVENT_NONE
 
-    IF (COMMAND$(1) = "/?" OR COMMAND$(1) = "-?") THEN
-        _MESSAGEBOX APP_NAME, APP_NAME + STRING_LF + "Syntax: " + Pathname_GetFileName(COMMAND$(0)) + " [modfile.mod]" + STRING_LF + "    /?: Shows this message" + STRING_LF + STRING_LF + "Copyright (c) 2024, Samuel Gomes" + STRING_LF + STRING_LF + "https://github.com/a740g/", "info"
+    IF (COMMAND$(1) = "/?" _ORELSE COMMAND$(1) = "-?") THEN
+        _MESSAGEBOX APP_NAME, APP_NAME + _STR_LF + "Syntax: " + Pathname_GetFileName(COMMAND$(0)) + " [modfile.mod]" + _STR_LF + "    /?: Shows this message" + _STR_LF + _STR_LF + "Copyright (c) 2024, Samuel Gomes" + _STR_LF + _STR_LF + "https://github.com/a740g/", "info"
         e = EVENT_QUIT
     ELSE
         DIM i AS LONG: FOR i = 1 TO _COMMANDCOUNT
@@ -676,13 +676,13 @@ FUNCTION OnSelectedFiles%%
     DIM ofdList AS STRING
     DIM e AS _BYTE: e = EVENT_NONE
 
-    ofdList = _OPENFILEDIALOG$(APP_NAME, "", "*.mod|*.MOD|*.Mod|*.mtm|*.MTM|*.Mtm|*.s3m|*.S3M|*.S3m", "Music Tracker Files", TRUE)
+    ofdList = _OPENFILEDIALOG$(APP_NAME, , "*.mod|*.MOD|*.Mod|*.mtm|*.MTM|*.Mtm|*.s3m|*.S3M|*.S3m", "Music Tracker Files", _TRUE)
 
     IF LEN(ofdList) = NULL THEN EXIT FUNCTION
 
     REDIM fileNames(0 TO 0) AS STRING
 
-    DIM j AS LONG: j = String_Tokenize(ofdList, "|", STRING_EMPTY, FALSE, fileNames())
+    DIM j AS LONG: j = String_Tokenize(ofdList, "|", _STR_LF, _FALSE, fileNames())
 
     DIM i AS LONG: FOR i = 0 TO j - 1
         e = OnPlayTune(fileNames(i))
@@ -703,7 +703,7 @@ FUNCTION OnModArchiveFiles%%
             IF _TOTALDROPPEDFILES > 0 THEN
                 e = EVENT_DROP
                 EXIT DO
-            ELSEIF _KEYHIT = KEY_F1 THEN
+            ELSEIF _KEYHIT = _KEY_F1 THEN
                 e = EVENT_LOAD
                 EXIT DO
             END IF
@@ -712,12 +712,12 @@ FUNCTION OnModArchiveFiles%%
             fileExtension = LCASE$(Pathname_GetFileExtension(modArchiveFileName))
 
             _TITLE "Downloading: " + GetSaveFileName(modArchiveFileName) + " - " + APP_NAME
-        LOOP UNTIL fileExtension = ".mod" OR fileExtension = ".mtm" OR fileExtension = ".s3m"
+        LOOP UNTIL fileExtension = ".mod" _ORELSE fileExtension = ".mtm" _ORELSE fileExtension = ".s3m"
 
         e = OnPlayTune(modArchiveFileName)
-    LOOP WHILE e = EVENT_NONE OR e = EVENT_PLAY
+    LOOP WHILE e = EVENT_NONE _ORELSE e = EVENT_PLAY
 
-    _TITLE APP_NAME + " " + _OS$ ' Set app title to the way it was
+    _TITLE APP_NAME + _CHR_SPACE + _OS$ ' Set app title to the way it was
 
     OnModArchiveFiles = e
 END FUNCTION
@@ -729,7 +729,7 @@ FUNCTION GetRandomModArchiveFileName$
     DIM bufPos AS LONG: bufPos = INSTR(buffer, "https://api.modarchive.org/downloads.php?moduleid=")
 
     IF bufPos > 0 THEN
-        GetRandomModArchiveFileName = MID$(buffer, bufPos, INSTR(bufPos, buffer, STRING_QUOTE) - bufPos)
+        GetRandomModArchiveFileName = MID$(buffer, bufPos, INSTR(bufPos, buffer, _CHR_QUOTE) - bufPos)
     END IF
 END FUNCTION
 
@@ -747,7 +747,7 @@ SUB QuickSave (buffer AS STRING, url AS STRING)
 
     IF LEN(Pathname_GetDriveOrScheme(url)) > 2 THEN
         ' This is a file from the web
-        IF NOT _DIREXISTS(savePath) OR NOT alwaysUseSamePath THEN ' only get the path if path does not exist or user wants to use a new path
+        IF NOT _DIREXISTS(savePath) _ORELSE NOT alwaysUseSamePath THEN ' only get the path if path does not exist or user wants to use a new path
             savePath = _SELECTFOLDERDIALOG$("Select a folder to save the file:", savePath)
             IF LEN(savePath) = NULL THEN EXIT SUB ' exit if user cancelled
 
@@ -760,17 +760,17 @@ SUB QuickSave (buffer AS STRING, url AS STRING)
             IF _MESSAGEBOX(APP_NAME, "Overwrite " + saveFileName + "?", "yesno", "warning", 0) = 0 THEN EXIT SUB
         END IF
 
-        IF File_Save(buffer, saveFileName, TRUE) THEN _MESSAGEBOX APP_NAME, saveFileName + " saved.", "info"
+        IF File_Save(buffer, saveFileName, _TRUE) THEN _MESSAGEBOX APP_NAME, saveFileName + " saved.", "info"
 
         ' Check if user want to use the same path in the future
         IF NOT stopNagging THEN
             SELECT CASE _MESSAGEBOX(APP_NAME, "Do you want to use " + savePath + " for future saves?", "yesnocancel", "question", 1)
                 CASE 0
-                    stopNagging = TRUE
+                    stopNagging = _TRUE
                 CASE 1
-                    alwaysUseSamePath = TRUE
+                    alwaysUseSamePath = _TRUE
                 CASE 2
-                    alwaysUseSamePath = FALSE
+                    alwaysUseSamePath = _FALSE
             END SELECT
         END IF
     ELSE
@@ -808,7 +808,7 @@ SUB UpdateAndDrawStars (stars() AS StarType, speed AS SINGLE)
     DIM H_Half AS LONG: H_Half = H \ 2
 
     DIM i AS LONG: FOR i = L TO U
-        IF stars(i).p.x < 0 OR stars(i).p.x >= W OR stars(i).p.y < 0 OR stars(i).p.y >= H THEN
+        IF stars(i).p.x < 0 _ORELSE stars(i).p.x >= W _ORELSE stars(i).p.y < 0 _ORELSE stars(i).p.y >= H THEN
             stars(i).p.x = Math_GetRandomBetween(0, W - 1)
             stars(i).p.y = Math_GetRandomBetween(0, H - 1)
             stars(i).p.z = Z_DIVIDER
@@ -892,8 +892,8 @@ SUB UpdateAndDrawSnakes (snakes() AS SnakeType)
             p.x = ASC(snakes(i).p, 1) + snakes(i).d.x
             p.y = ASC(snakes(i).p, 2) + snakes(i).d.y
 
-            IF p.x < 0 OR p.x >= W THEN snakes(i).d.x = -snakes(i).d.x
-            IF p.y < 0 OR p.y >= H THEN snakes(i).d.y = -snakes(i).d.y
+            IF p.x < 0 _ORELSE p.x >= W THEN snakes(i).d.x = -snakes(i).d.x
+            IF p.y < 0 _ORELSE p.y >= H THEN snakes(i).d.y = -snakes(i).d.y
 
             DIM j AS LONG: j = s - 2
             WHILE j > 0
@@ -907,7 +907,7 @@ SUB UpdateAndDrawSnakes (snakes() AS SnakeType)
                 DO
                     snakes(i).d.x = Math_GetRandomBetween(-1, 1)
                     snakes(i).d.y = Math_GetRandomBetween(-1, 1)
-                LOOP WHILE snakes(i).d.x = 0 AND snakes(i).d.y = 0
+                LOOP WHILE snakes(i).d.x = 0 _ANDALSO snakes(i).d.y = 0
             END IF
         END IF
 
