@@ -12,7 +12,6 @@
 '$INCLUDE:'include/StringOps.bi'
 '$INCLUDE:'include/AudioAnalyzerFFT.bi'
 '$INCLUDE:'include/MODPlayer.bi'
-'$INCLUDE:'include/Base64.bi'
 '$INCLUDE:'include/ANSIPrint.bi'
 '-----------------------------------------------------------------------------------------------------------------------
 
