@@ -6,13 +6,17 @@
 '-----------------------------------------------------------------------------------------------------------------------
 ' HEADER FILES
 '-----------------------------------------------------------------------------------------------------------------------
-'$INCLUDE:'include/BitwiseOps.bi'
-'$INCLUDE:'include/Pathname.bi'
-'$INCLUDE:'include/File.bi'
-'$INCLUDE:'include/StringOps.bi'
-'$INCLUDE:'include/AudioAnalyzerFFT.bi'
-'$INCLUDE:'include/MODPlayer.bi'
-'$INCLUDE:'include/ANSIPrint.bi'
+$LET TOOLBOX64_STRICT = TRUE
+
+'$INCLUDE:'include/Core/BitwiseOps.bi'
+'$INCLUDE:'include/Math/Vector2i.bi'
+'$INCLUDE:'include/IO/InputManager.bi'
+'$INCLUDE:'include/FS/Pathname.bi'
+'$INCLUDE:'include/IO/File.bi'
+'$INCLUDE:'include/String/StringOps.bi'
+'$INCLUDE:'include/Audio/AudioAnalyzer.bi'
+'$INCLUDE:'include/Graphics/ANSIPrint.bi'
+'$INCLUDE:'include/Audio/MODPlayer.bi'
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
@@ -63,7 +67,7 @@ CONST SNAKE_COUNT& = 48& ' the maximum snakes we can draw on the screen
 ' USER DEFINED TYPES
 '-----------------------------------------------------------------------------------------------------------------------
 TYPE StarType
-    p AS Vector3FType ' position
+    p AS Vector3f ' position
     a AS SINGLE ' angle
     c AS _UNSIGNED LONG ' color
 END TYPE
@@ -72,7 +76,7 @@ TYPE SnakeType
     p AS STRING ' position buffer (x = 1 byte, y = 1 byte)
     s AS SINGLE ' speed
     t AS SINGLE ' movement counter
-    d AS Vector2LType ' direction
+    d AS Vector2i ' direction
     c AS _UNSIGNED LONG ' color
 END TYPE
 
@@ -81,7 +85,7 @@ TYPE FFTType
     frames AS LONG
     halfFrames AS LONG
     bits AS LONG
-    size AS Vector2LType
+    size AS Vector2i
 END TYPE
 '-----------------------------------------------------------------------------------------------------------------------
 
@@ -581,7 +585,7 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
             CASE KEY_SPACE
                 __Song.isPaused = NOT __Song.isPaused
 
-            CASE KEY_PLUS, KEY_EQUALS
+            CASE KEY_PLUS, KEY_EQUAL
                 SoftSynth_SetMasterVolume SoftSynth_GetMasterVolume + VOLUME_STEP
 
             CASE KEY_MINUS, KEY_UNDERSCORE
@@ -736,7 +740,7 @@ END FUNCTION
 ' Returns a good file name for a modarchive file
 FUNCTION GetSaveFileName$ (url AS STRING)
     DIM saveFileName AS STRING: saveFileName = Pathname_GetFileName(url)
-    GetSaveFileName = Pathname_MakeLegalFileName(MID$(saveFileName, INSTR(saveFileName, "=") + 1)) ' this will get a file name of type: 12312313#filename.mod
+    GetSaveFileName = Pathname_Sanitize(MID$(saveFileName, INSTR(saveFileName, "=") + 1)) ' this will get a file name of type: 12312313#filename.mod
 END FUNCTION
 
 
@@ -750,7 +754,7 @@ SUB QuickSave (buffer AS STRING, url AS STRING)
             savePath = _SELECTFOLDERDIALOG$("Select a folder to save the file:", savePath)
             IF LEN(savePath) = NULL THEN EXIT SUB ' exit if user cancelled
 
-            savePath = Pathname_FixDirectoryName(savePath)
+            savePath = Pathname_AddDirectorySeparator(savePath)
         END IF
 
         DIM saveFileName AS STRING: saveFileName = savePath + GetSaveFileName(url)
@@ -853,8 +857,7 @@ SUB InitializeSnakes (snakes() AS SnakeType)
         snakes(i).p = SPACE$(Math_GetRandomBetween(SNAKE_SIZE_MIN, SNAKE_SIZE_MAX) * 2)
         snakes(i).s = 0.1! + RND * 0.9!
         snakes(i).c = Math_GetRandomBetween(1, 8)
-        snakes(i).d.x = Math_GetRandomBetween(0, 1) * 2 - 1 ' -1 or 1
-        snakes(i).d.y = Math_GetRandomBetween(0, 1) * 2 - 1 ' -1 or 1
+        Vector2i_Initialize Math_GetRandomBetween(0, 1) * 2 - 1, Math_GetRandomBetween(0, 1) * 2 - 1, snakes(i).d ' -1 or 1
 
         DIM size AS LONG: size = LEN(snakes(i).p)
         DIM x AS LONG: x = Math_GetRandomBetween(0, W - 1)
@@ -880,7 +883,7 @@ SUB UpdateAndDrawSnakes (snakes() AS SnakeType)
     DIM i AS LONG: FOR i = L TO U
         snakes(i).t = snakes(i).t + snakes(i).s
 
-        DIM p AS Vector2LType
+        DIM p AS Vector2i
         DIM s AS LONG: s = LEN(snakes(i).p)
 
         ' Only run movement code when it is time to move
@@ -888,11 +891,10 @@ SUB UpdateAndDrawSnakes (snakes() AS SnakeType)
             snakes(i).t = 0!
 
             ' Get the position of the head and add velocity
-            p.x = ASC(snakes(i).p, 1) + snakes(i).d.x
-            p.y = ASC(snakes(i).p, 2) + snakes(i).d.y
+            Vector2i_AddXY snakes(i).d, ASC(snakes(i).p, 1), ASC(snakes(i).p, 2), p
 
-            IF p.x < 0 _ORELSE p.x >= W THEN snakes(i).d.x = -snakes(i).d.x
-            IF p.y < 0 _ORELSE p.y >= H THEN snakes(i).d.y = -snakes(i).d.y
+            IF p.x < 0 _ORELSE p.x >= W THEN Vector2i_FlipHorizontal snakes(i).d, snakes(i).d
+            IF p.y < 0 _ORELSE p.y >= H THEN Vector2i_FlipVertical snakes(i).d, snakes(i).d
 
             DIM j AS LONG: j = s - 2
             WHILE j > 0
@@ -904,9 +906,8 @@ SUB UpdateAndDrawSnakes (snakes() AS SnakeType)
 
             IF Math_GetRandomBetween(1, 100) <= 5 THEN ' change direction with a 5% chance
                 DO
-                    snakes(i).d.x = Math_GetRandomBetween(-1, 1)
-                    snakes(i).d.y = Math_GetRandomBetween(-1, 1)
-                LOOP WHILE snakes(i).d.x = 0 _ANDALSO snakes(i).d.y = 0
+                    Vector2i_Initialize Math_GetRandomBetween(-1, 1), Math_GetRandomBetween(-1, 1), snakes(i).d
+                LOOP WHILE Vector2i_IsNull(snakes(i).d)
             END IF
         END IF
 
@@ -929,11 +930,12 @@ END SUB
 '-----------------------------------------------------------------------------------------------------------------------
 ' MODULE FILES
 '-----------------------------------------------------------------------------------------------------------------------
-'$INCLUDE:'include/Pathname.bas'
-'$INCLUDE:'include/File.bas'
-'$INCLUDE:'include/StringOps.bas'
-'$INCLUDE:'include/MODPlayer.bas'
-'$INCLUDE:'include/Base64.bas'
-'$INCLUDE:'include/ANSIPrint.bas'
+'$INCLUDE:'include/Audio/MODPlayer.bas'
+'$INCLUDE:'include/Graphics/ANSIPrint.bas'
+'$INCLUDE:'include/String/StringOps.bas'
+'$INCLUDE:'include/Resource/Base64.bas'
+'$INCLUDE:'include/IO/File.bas'
+'$INCLUDE:'include/FS/Pathname.bas'
+'$INCLUDE:'include/IO/InputManager.bas'
 '-----------------------------------------------------------------------------------------------------------------------
 '-----------------------------------------------------------------------------------------------------------------------
