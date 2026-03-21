@@ -1,6 +1,6 @@
 '-----------------------------------------------------------------------------------------------------------------------
 ' QB64 MOD Player
-' Copyright (c) 2024 Samuel Gomes
+' Copyright (c) 2026 Samuel Gomes
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
@@ -13,9 +13,10 @@ $LET TOOLBOX64_STRICT = TRUE
 '$INCLUDE:'include/IO/InputManager.bi'
 '$INCLUDE:'include/FS/Pathname.bi'
 '$INCLUDE:'include/IO/File.bi'
-'$INCLUDE:'include/String/StringOps.bi'
+'$INCLUDE:'include/Core/String.bi'
 '$INCLUDE:'include/Audio/AudioAnalyzer.bi'
 '$INCLUDE:'include/Graphics/ANSIPrint.bi'
+'$INCLUDE:'include/Resource/Resource.bi'
 '$INCLUDE:'include/Audio/MODPlayer.bi'
 '-----------------------------------------------------------------------------------------------------------------------
 
@@ -421,7 +422,7 @@ FUNCTION OnWelcomeScreen%%
     _FONT 8, img ' Change the font
     _DEST img ' Change destination
     RESTORE data_qb64modplayer_ans_15162
-    DIM buffer AS STRING: buffer = Base64_LoadResourceData ' Load the ANSI art data
+    DIM buffer AS STRING: buffer = Resource_LoadBase64Data ' Load the ANSI art data
     ANSI_Print buffer ' Render the ANSI art
 
     _DEST oldDest ' Restore destination
@@ -930,12 +931,6 @@ END SUB
 '-----------------------------------------------------------------------------------------------------------------------
 ' MODULE FILES
 '-----------------------------------------------------------------------------------------------------------------------
-'$INCLUDE:'include/Audio/MODPlayer.bas'
 '$INCLUDE:'include/Graphics/ANSIPrint.bas'
-'$INCLUDE:'include/String/StringOps.bas'
-'$INCLUDE:'include/Resource/Base64.bas'
-'$INCLUDE:'include/IO/File.bas'
-'$INCLUDE:'include/FS/Pathname.bas'
-'$INCLUDE:'include/IO/InputManager.bas'
 '-----------------------------------------------------------------------------------------------------------------------
 '-----------------------------------------------------------------------------------------------------------------------
