@@ -661,7 +661,7 @@ FUNCTION OnDroppedFiles%%
     DIM e AS _BYTE: e = EVENT_NONE
 
     DIM i AS LONG: FOR i = 1 TO _TOTALDROPPEDFILES
-        fileNames(i) = _DROPPEDFILE(i)
+        fileNames(i) = _DROPPEDFILE$(i)
     NEXT
     _FINISHDROP ' This is critical
 
