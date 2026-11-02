@@ -8,16 +8,16 @@
 '-----------------------------------------------------------------------------------------------------------------------
 $LET TOOLBOX64_STRICT = TRUE
 
-'$INCLUDE:'include/Core/BitwiseOps.bi'
-'$INCLUDE:'include/Math/Vector2i.bi'
-'$INCLUDE:'include/IO/InputManager.bi'
-'$INCLUDE:'include/FS/Pathname.bi'
-'$INCLUDE:'include/IO/File.bi'
-'$INCLUDE:'include/Core/String.bi'
-'$INCLUDE:'include/Audio/AudioAnalyzer.bi'
-'$INCLUDE:'include/Graphics/ANSIPrint.bi'
-'$INCLUDE:'include/Resource/Resource.bi'
-'$INCLUDE:'include/Audio/MODPlayer.bi'
+'$INCLUDE:'source/Core/BitwiseOps.bi'
+'$INCLUDE:'source/Math/Vector2i.bi'
+'$INCLUDE:'source/IO/InputManager.bi'
+'$INCLUDE:'source/FS/Pathname.bi'
+'$INCLUDE:'source/IO/File.bi'
+'$INCLUDE:'source/Core/String.bi'
+'$INCLUDE:'source/Audio/AudioAnalyzer.bi'
+'$INCLUDE:'source/Graphics/ANSIPrint.bi'
+'$INCLUDE:'source/Resource/Resource.bi'
+'$INCLUDE:'source/Audio/MODPlayer.bi'
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------

@@ -27,7 +27,6 @@ It currently supports the following formats:
 
 - Clone the repository to a directory of your choice
 - Open Terminal and change to the directory using an appropriate OS command
-- Run `git submodule update --init --recursive` to initialize, fetch and checkout git submodules
 - Open *QB64MODPlayer.bas* in the QB64-PE IDE and press `F5` to compile and run
 - To use the library in your project add the [Toolbox64](https://github.com/a740g/Toolbox64) repository as a [Git submodule](https://git-scm.com/book/en/v2/Git-Tools-Submodules)
 
@@ -114,8 +113,6 @@ I see that the miniaudio backend version of QB64-PE already has MOD, S3M, XM, IT
 ## NOTES
 
 - This requires the latest version of [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe/releases)
-- When you clone a repository that contains submodules, the submodules are not automatically cloned by default
-- You will need to use the `git submodule update --init --recursive` to initialize, fetch and checkout git submodules
 
 ## BIBLIOGRAPHY
 
