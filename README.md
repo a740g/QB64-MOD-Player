@@ -28,7 +28,7 @@ It currently supports the following formats:
 - Clone the repository to a directory of your choice
 - Open Terminal and change to the directory using an appropriate OS command
 - Open *QB64MODPlayer.bas* in the QB64-PE IDE and press `F5` to compile and run
-- To use the library in your project add the [Toolbox64](https://github.com/a740g/Toolbox64) repository as a [Git submodule](https://git-scm.com/book/en/v2/Git-Tools-Submodules)
+- To use the library in your project, copy the `source` directory to your project and include *source/Audio/MODPlayer.bi*
 
 ## API
 

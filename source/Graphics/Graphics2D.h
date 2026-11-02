@@ -5,7 +5,7 @@
 
 #pragma once
 
-// #define TOOLBOX64_DEBUG 1
+// #define MODPLAYER_DEBUG 1
 #include "../Debug/Debug.h"
 #include <algorithm>
 #include <cmath>
@@ -237,7 +237,7 @@ void Graphics_DrawHorizontalLine(int32_t lx, int32_t ty, int32_t rx, uint32_t cl
         rx = write_page->width - 1;
     }
 
-    TOOLBOX64_DEBUG_PRINT("Drawing horizontal line segment: (%i, %i) - (%i, %i)", lx, ty, rx, ty);
+    MODPLAYER_DEBUG_PRINT("Drawing horizontal line segment: (%i, %i) - (%i, %i)", lx, ty, rx, ty);
 
     if (write_page->text) {
         // Get pointer to the starting "pixel"
@@ -275,7 +275,7 @@ void Graphics_DrawVerticalLine(int32_t lx, int32_t ty, int32_t by, uint32_t clrA
         by = write_page->height - 1;
     }
 
-    TOOLBOX64_DEBUG_PRINT("Drawing vertical line segment: (%i, %i) - (%i, %i)", lx, ty, lx, by);
+    MODPLAYER_DEBUG_PRINT("Drawing vertical line segment: (%i, %i) - (%i, %i)", lx, ty, lx, by);
 
     if (write_page->text) {
         // Get pointer to the starting "pixel"
@@ -307,7 +307,7 @@ void Graphics_DrawRectangle(int32_t lx, int32_t ty, int32_t rx, int32_t by, uint
         std::swap(lx, rx);
     }
 
-    TOOLBOX64_DEBUG_PRINT("Drawing rectangle: (%i, %i) - (%i, %i)", lx, ty, rx, by);
+    MODPLAYER_DEBUG_PRINT("Drawing rectangle: (%i, %i) - (%i, %i)", lx, ty, rx, by);
 
     // Draw the top and bottom sides
     Graphics_DrawHorizontalLine(lx, ty, rx, clrAtr);
@@ -358,7 +358,7 @@ void Graphics_DrawFilledRectangle(int32_t lx, int32_t ty, int32_t rx, int32_t by
         by = write_page->height - 1;
     }
 
-    TOOLBOX64_DEBUG_PRINT("Drawing filled rectangle: (%i, %i) - (%i, %i)", lx, ty, rx, ty);
+    MODPLAYER_DEBUG_PRINT("Drawing filled rectangle: (%i, %i) - (%i, %i)", lx, ty, rx, ty);
 
     if (write_page->text) {
         // Get pointer to the starting "pixel"

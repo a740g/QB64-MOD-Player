@@ -9,7 +9,7 @@ $END IF
 
 $INCLUDEONCE
 
-$IF TOOLBOX64_STRICT = DEFINED AND TOOLBOX64_STRICT = TRUE THEN
+$IF MODPLAYER_STRICT = DEFINED AND MODPLAYER_STRICT = TRUE THEN
     ' All identifiers must default to long (32-bits). This results in fastest code execution on x86 & x64.
     _DEFINE A-Z AS LONG
 

@@ -5,7 +5,7 @@
 
 $INCLUDEONCE
 
-'$LET TOOLBOX64_STRICT = TRUE
+'$LET MODPLAYER_STRICT = TRUE
 '$INCLUDE:'../Core/Common.bi'
 '$INCLUDE:'../Core/Types.bi'
 '$INCLUDE:'../Core/String.bi'

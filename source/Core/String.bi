@@ -5,7 +5,7 @@
 
 $INCLUDEONCE
 
-'$LET TOOLBOX64_STRICT = TRUE
+'$LET MODPLAYER_STRICT = TRUE
 '$INCLUDE:'../Core/Common.bi'
 '$INCLUDE:'../Core/Types.bi'
 '$INCLUDE:'../Core/PointerOps.bi'
@@ -98,7 +98,7 @@ CONST ASC_LOWER_Z~%% = 122~%%, CHR_LOWER_Z = CHR$(ASC_LOWER_Z)
 
 'DIM AS STRING myStr1, myStr2
 
-'myStr1 = "Toolbox64"
+'myStr1 = "MODPlayer"
 'myStr2 = "Shadow Warrior"
 
 'PRINT String_Reverse(myStr1)
