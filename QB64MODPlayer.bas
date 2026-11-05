@@ -31,9 +31,6 @@ $COLOR:0
 '$INCLUDE:'source/Resource/Resource.bi'
 '$INCLUDE:'source/Audio/MODPlayer.bi'
 
-'-----------------------------------------------------------------------------------------------------------------------
-' CONSTANTS
-'-----------------------------------------------------------------------------------------------------------------------
 CONST APP_NAME = "QB64 MOD Player" ' application name
 ' We'll use a window with 1152 x 720 px (144 x 90 chars @ 8 x 8 px font) client area
 CONST TEXT_WIDTH_MIN& = 144& ' minimum width we need
@@ -62,11 +59,7 @@ CONST KEY_MINUS& = _ASC_MINUS
 CONST KEY_UNDERSCORE& = _ASC_UNDERSCORE
 CONST KEY_UPPER_L& = ASC_UPPER_L
 CONST KEY_LOWER_L& = ASC_LOWER_L
-'-----------------------------------------------------------------------------------------------------------------------
 
-'-----------------------------------------------------------------------------------------------------------------------
-' USER DEFINED TYPES
-'-----------------------------------------------------------------------------------------------------------------------
 TYPE StarType
     p AS Vector3f ' position
     a AS SINGLE ' angle
@@ -88,11 +81,7 @@ TYPE FFTType
     bits AS LONG
     size AS Vector2i
 END TYPE
-'-----------------------------------------------------------------------------------------------------------------------
 
-'-----------------------------------------------------------------------------------------------------------------------
-' GLOBAL VARIABLES
-'-----------------------------------------------------------------------------------------------------------------------
 REDIM SHARED NoteTable(0) AS STRING * 2 ' this contains the note stings
 DIM SHARED WindowWidth AS LONG ' the width of our windows in characters
 DIM SHARED PatternDisplayWidth AS LONG ' the width of the pattern display in characters
@@ -100,18 +89,18 @@ DIM SHARED FFT AS FFTType ' global FFT info
 REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0), SpectrumAnalyzerR(0) ' left & right channel FFT data
 DIM Stars(1 TO STAR_COUNT) AS StarType
 DIM Snakes(1 TO SNAKE_COUNT) AS SnakeType
-'-----------------------------------------------------------------------------------------------------------------------
 
-'-----------------------------------------------------------------------------------------------------------------------
-' FUNCTIONS & SUBROUTINES
-'-----------------------------------------------------------------------------------------------------------------------
-FUNCTION LeftShiftOneCount~& (n AS _UNSIGNED LONG)
+''' @brief Returns the zero-based index of the highest set bit. Given a non-zero unsigned integer, returns the position of the
+''' most significant set bit (MSB), counting from the least significant bit as position 0.
+''' @param n The value to examine.
+''' @return The index of the highest set bit. Returns 0 if n is 0.
+FUNCTION HighestSetBitIndex~& (n AS _UNSIGNED LONG)
     DECLARE LIBRARY
         FUNCTION __builtin_clz (BYVAL n AS _UNSIGNED LONG)
     END DECLARE
 
     IF n THEN
-        LeftShiftOneCount = (8 * _SIZE_OF_LONG) - 1 - __builtin_clz(n)
+        HighestSetBitIndex = (8 * _SIZE_OF_LONG - 1) - __builtin_clz(n)
     END IF
 END FUNCTION
 
@@ -334,7 +323,7 @@ SUB DrawVisualization
         FFT.halfFrames = FFT.frames \ 2
 
         ' Get the count of bits that the FFT routine will need
-        FFT.bits = LeftShiftOneCount(FFT.frames)
+        FFT.bits = HighestSetBitIndex(FFT.frames)
 
         ' Setup the FFT arrays (half of fftSamples)
         REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0 TO FFT.halfFrames - 1), SpectrumAnalyzerR(0 TO FFT.halfFrames - 1)
