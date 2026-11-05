@@ -3,25 +3,6 @@
 ' Copyright (c) 2026 Samuel Gomes
 '-----------------------------------------------------------------------------------------------------------------------
 
-'-----------------------------------------------------------------------------------------------------------------------
-' HEADER FILES
-'-----------------------------------------------------------------------------------------------------------------------
-$LET MODPLAYER_STRICT = TRUE
-
-'$INCLUDE:'source/Core/BitwiseOps.bi'
-'$INCLUDE:'source/Math/Vector2i.bi'
-'$INCLUDE:'source/FS/Pathname.bi'
-'$INCLUDE:'source/IO/File.bi'
-'$INCLUDE:'source/Core/String.bi'
-'$INCLUDE:'source/Audio/AudioAnalyzer.bi'
-'$INCLUDE:'source/Graphics/ANSIPrint.bi'
-'$INCLUDE:'source/Resource/Resource.bi'
-'$INCLUDE:'source/Audio/MODPlayer.bi'
-'-----------------------------------------------------------------------------------------------------------------------
-
-'-----------------------------------------------------------------------------------------------------------------------
-' METACOMMANDS
-'-----------------------------------------------------------------------------------------------------------------------
 $VERSIONINFO:CompanyName='Samuel Gomes'
 $VERSIONINFO:FileDescription='QB64 MOD Player executable'
 $VERSIONINFO:InternalName='QB64MODPlayer'
@@ -34,9 +15,21 @@ $VERSIONINFO:Comments='https://github.com/a740g'
 $VERSIONINFO:FILEVERSION#=2,1,7,0
 $VERSIONINFO:PRODUCTVERSION#=2,1,7,0
 $EXEICON:'./QB64MODPlayer.ico'
+
+_DEFINE A-Z AS LONG
+OPTION _EXPLICIT
+OPTION BASE 1
+'$STATIC
+
 $RESIZE:SMOOTH
+
 $COLOR:0
-'-----------------------------------------------------------------------------------------------------------------------
+
+'$INCLUDE:'source/IO/File.bi'
+'$INCLUDE:'source/Audio/AudioAnalyzer.bi'
+'$INCLUDE:'source/Graphics/ANSIPrint.bi'
+'$INCLUDE:'source/Resource/Resource.bi'
+'$INCLUDE:'source/Audio/MODPlayer.bi'
 
 '-----------------------------------------------------------------------------------------------------------------------
 ' CONSTANTS
@@ -110,50 +103,18 @@ DIM Snakes(1 TO SNAKE_COUNT) AS SnakeType
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
-' PROGRAM ENTRY POINT - Frankenstein retro TUI with drag & drop support
-'-----------------------------------------------------------------------------------------------------------------------
-_TITLE APP_NAME + _CHR_SPACE + _OS$ ' set the program name in the titlebar
-CHDIR _STARTDIR$ ' change to the directory specifed by the environment
-_ACCEPTFILEDROP ' enable drag and drop of files
-InitializeNoteTable ' initialize note string table
-AdjustWindowSize ' set the initial window size
-_ALLOWFULLSCREEN _SQUAREPIXELS , _SMOOTH ' allow the user to press Alt+Enter to go fullscreen
-Math_SetRandomSeed TIMER ' seed RNG
-InitializeStars Stars()
-InitializeSnakes Snakes()
-
-DIM event AS _BYTE: event = EVENT_CMDS ' default to command line event first
-
-' Main loop
-DO
-    SELECT CASE event
-        CASE EVENT_QUIT
-            EXIT DO
-
-        CASE EVENT_DROP
-            event = OnDroppedFiles
-
-        CASE EVENT_LOAD
-            event = OnSelectedFiles
-
-        CASE EVENT_CMDS
-            event = OnCommandLine
-
-        CASE EVENT_HTTP
-            event = OnModArchiveFiles
-
-        CASE ELSE
-            event = OnWelcomeScreen
-    END SELECT
-LOOP
-
-_AUTODISPLAY
-SYSTEM
-'-----------------------------------------------------------------------------------------------------------------------
-
-'-----------------------------------------------------------------------------------------------------------------------
 ' FUNCTIONS & SUBROUTINES
 '-----------------------------------------------------------------------------------------------------------------------
+FUNCTION LeftShiftOneCount~& (n AS _UNSIGNED LONG)
+    DECLARE LIBRARY
+        FUNCTION __builtin_clz (BYVAL n AS _UNSIGNED LONG)
+    END DECLARE
+
+    IF n THEN
+        LeftShiftOneCount = (8 * _SIZE_OF_LONG) - 1 - __builtin_clz(n)
+    END IF
+END FUNCTION
+
 ' This displays the current playing MODs visualization on the screen
 SUB DrawVisualization
     SHARED AS _UNSIGNED INTEGER SpectrumAnalyzerL(), SpectrumAnalyzerR()
@@ -933,4 +894,45 @@ SUB UpdateAndDrawSnakes (snakes() AS SnakeType)
         Graphics_DrawPixel p.x, p.y, Graphics_MakeTextColorAttribute(15, snakes(i).c, 0)
     NEXT i
 END SUB
+
 '-----------------------------------------------------------------------------------------------------------------------
+' PROGRAM ENTRY POINT - Frankenstein retro TUI with drag & drop support
+'-----------------------------------------------------------------------------------------------------------------------
+_TITLE APP_NAME + _CHR_SPACE + _OS$ ' set the program name in the titlebar
+CHDIR _STARTDIR$ ' change to the directory specifed by the environment
+_ACCEPTFILEDROP ' enable drag and drop of files
+InitializeNoteTable ' initialize note string table
+AdjustWindowSize ' set the initial window size
+_ALLOWFULLSCREEN _SQUAREPIXELS , _SMOOTH ' allow the user to press Alt+Enter to go fullscreen
+Math_SetRandomSeed TIMER ' seed RNG
+InitializeStars Stars()
+InitializeSnakes Snakes()
+
+DIM event AS _BYTE: event = EVENT_CMDS ' default to command line event first
+
+' Main loop
+DO
+    SELECT CASE event
+        CASE EVENT_QUIT
+            EXIT DO
+
+        CASE EVENT_DROP
+            event = OnDroppedFiles
+
+        CASE EVENT_LOAD
+            event = OnSelectedFiles
+
+        CASE EVENT_CMDS
+            event = OnCommandLine
+
+        CASE EVENT_HTTP
+            event = OnModArchiveFiles
+
+        CASE ELSE
+            event = OnWelcomeScreen
+    END SELECT
+LOOP
+
+_AUTODISPLAY
+
+SYSTEM
