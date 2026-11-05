@@ -368,21 +368,13 @@ END SUB
 
 
 ' Renders the welcome screen ASCII/ANSI menu art into a 32-bit image
-SUB RenderTitleScreen (img AS LONG, s AS STRING)
+SUB RenderTitleScreen (img AS LONG, s AS STRING, fnt AS LONG)
     DIM oldDest AS LONG: oldDest = _DEST
     _DEST img
-    _FONT 8, img
+    _FONT fnt, img
 
-    DIM c14 AS _UNSIGNED LONG: c14 = _RGB32(255, 255, 85) ' Bright Yellow
-    DIM c9 AS _UNSIGNED LONG: c9 = _RGB32(85, 85, 255) ' Bright Blue
-    DIM c8 AS _UNSIGNED LONG: c8 = _RGB32(85, 85, 85) ' Dark Gray
-    DIM c6 AS _UNSIGNED LONG: c6 = _RGB32(170, 85, 0) ' Brown
-    DIM c5 AS _UNSIGNED LONG: c5 = _RGB32(170, 0, 170) ' Magenta
-    DIM c3 AS _UNSIGNED LONG: c3 = _RGB32(0, 170, 170) ' Cyan
-    DIM c7 AS _UNSIGNED LONG: c7 = _RGB32(170, 170, 170) ' White / Gray
-
-    DIM curColor AS _UNSIGNED LONG: curColor = c7
-    COLOR curColor, _RGBA32(0, 0, 0, 255)
+    DIM curColor AS _UNSIGNED LONG: curColor = _RGB32(170, 170, 170) ' White / Gray
+    COLOR curColor, _RGB32(Black)
 
     DIM AS LONG col, row
     col = 0: row = 0
@@ -390,38 +382,38 @@ SUB RenderTitleScreen (img AS LONG, s AS STRING)
     DIM i AS LONG: i = 1
     DIM l AS LONG: l = LEN(s)
 
-    DO WHILE i <= l
+    WHILE i <= l
         DIM ch AS _UNSIGNED _BYTE: ch = ASC(s, i)
 
         IF ch = 26 THEN ' EOF (Ctrl+Z)
-            EXIT DO
-        ELSEIF ch = 27 THEN ' ESC sequence
-            IF MID$(s, i, 4) = CHR$(27) + "[0m" THEN
-                curColor = c7
+            EXIT WHILE
+        ELSEIF ch = _ASC_ESC THEN ' ESC sequence
+            IF MID$(s, i, 4) = _CHR_ESC + "[0m" THEN
+                curColor = _RGB32(170, 170, 170) ' White / Gray
                 COLOR curColor
                 i = i + 4
-            ELSEIF MID$(s, i, 7) = CHR$(27) + "[1;33m" THEN
-                curColor = c14
+            ELSEIF MID$(s, i, 7) = _CHR_ESC + "[1;33m" THEN
+                curColor = _RGB32(255, 255, 85) ' Bright Yellow
                 COLOR curColor
                 i = i + 7
-            ELSEIF MID$(s, i, 7) = CHR$(27) + "[1;34m" THEN
-                curColor = c9
+            ELSEIF MID$(s, i, 7) = _CHR_ESC + "[1;34m" THEN
+                curColor = _RGB32(85, 85, 255) ' Bright Blue
                 COLOR curColor
                 i = i + 7
-            ELSEIF MID$(s, i, 5) = CHR$(27) + "[30m" THEN
-                curColor = c8
+            ELSEIF MID$(s, i, 5) = _CHR_ESC + "[30m" THEN
+                curColor = _RGB32(85, 85, 85) ' Dark Gray
                 COLOR curColor
                 i = i + 5
-            ELSEIF MID$(s, i, 5) = CHR$(27) + "[33m" THEN
-                curColor = c6
+            ELSEIF MID$(s, i, 5) = _CHR_ESC + "[33m" THEN
+                curColor = _RGB32(170, 85, 0) ' Brown
                 COLOR curColor
                 i = i + 5
-            ELSEIF MID$(s, i, 5) = CHR$(27) + "[35m" THEN
-                curColor = c5
+            ELSEIF MID$(s, i, 5) = _CHR_ESC + "[35m" THEN
+                curColor = _RGB32(170, 0, 170) ' Magenta
                 COLOR curColor
                 i = i + 5
-            ELSEIF MID$(s, i, 5) = CHR$(27) + "[36m" THEN
-                curColor = c3
+            ELSEIF MID$(s, i, 5) = _CHR_ESC + "[36m" THEN
+                curColor = _RGB32(0, 170, 170) ' Cyan
                 COLOR curColor
                 i = i + 5
             ELSE
@@ -436,16 +428,16 @@ SUB RenderTitleScreen (img AS LONG, s AS STRING)
             i = i + 1
         ELSE
             IF ch <> 32 THEN ' Skip spaces to keep background transparent
-                _PRINTSTRING (col * 8, row * 8), CHR$(ch), img
+                _PRINTSTRING (col * 8, row * 8), CHR$(ch)
             END IF
             col = col + 1
-            IF col >= TEXT_WIDTH_MIN THEN
+            IF col >= _WIDTH THEN
                 col = 0
                 row = row + 1
             END IF
             i = i + 1
         END IF
-    LOOP
+    WEND
 
     _DEST oldDest
 END SUB
@@ -461,7 +453,7 @@ FUNCTION OnWelcomeScreen%%
 
     ' Render title screen into an image
     DIM imgTitle AS LONG: imgTitle = _NEWIMAGE(TEXT_WIDTH_MIN * 8, TEXT_LINE_MAX * 8, 32)
-    RenderTitleScreen imgTitle, buffer
+    RenderTitleScreen imgTitle, buffer, 8
     _CLEARCOLOR BGRA_BLACK, imgTitle ' Set all black pixels to be transparent
 
     ' Create a hardware image
