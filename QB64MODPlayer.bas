@@ -368,11 +368,6 @@ END SUB
 
 
 SUB RenderTitleScreen (img AS LONG, s AS STRING, fnt AS LONG)
-    DIM oldDest AS LONG: oldDest = _DEST
-
-    _DEST img
-    _FONT fnt, img
-
     ' ANSI to QB SCREEN 0 color mapping table:
     ' ANSI 0 (Black), 1 (Red), 2 (Green), 3 (Yellow), 4 (Blue), 5 (Magenta), 6 (Cyan), 7 (White)
     STATIC ansi2qb(0 TO 7) AS _UNSIGNED _BYTE
@@ -387,9 +382,14 @@ SUB RenderTitleScreen (img AS LONG, s AS STRING, fnt AS LONG)
         ansi2qb(7) = White
     END IF
 
+    DIM oldDest AS LONG: oldDest = _DEST
+
+    _DEST img
+    _FONT fnt, img
+
     DIM fg AS LONG: fg = White
     DIM bg AS LONG: bg = Black
-    DIM bright AS _BYTE: bright = 0
+    DIM bright AS _BYTE
 
     COLOR fg, bg
 
@@ -549,7 +549,7 @@ FUNCTION OnWelcomeScreen%%
                 UpdateAndDrawStars Stars(), 1!
         END SELECT
 
-        _PUTIMAGE (0, 0), titlePage
+        _PUTIMAGE , titlePage
 
         DIM k AS LONG: k = _KEYHIT
 
