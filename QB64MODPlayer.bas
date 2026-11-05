@@ -373,15 +373,30 @@ SUB RenderTitleScreen (img AS LONG, s AS STRING, fnt AS LONG)
     _DEST img
     _FONT fnt, img
 
+    ' ANSI to QB SCREEN 0 color mapping table:
+    ' ANSI 0 (Black), 1 (Red), 2 (Green), 3 (Yellow), 4 (Blue), 5 (Magenta), 6 (Cyan), 7 (White)
+    STATIC ansi2qb(0 TO 7) AS _UNSIGNED _BYTE
+    IF ansi2qb(1) = 0 THEN
+        ansi2qb(0) = Black
+        ansi2qb(1) = Red
+        ansi2qb(2) = Green
+        ansi2qb(3) = Brown
+        ansi2qb(4) = Blue
+        ansi2qb(5) = Magenta
+        ansi2qb(6) = Cyan
+        ansi2qb(7) = White
+    END IF
+
     DIM fg AS LONG: fg = White
     DIM bg AS LONG: bg = Black
-    DIM bright AS _BYTE
+    DIM bright AS _BYTE: bright = 0
 
     COLOR fg, bg
 
     DIM AS LONG col, row
     DIM l AS LONG: l = LEN(s)
     DIM i AS LONG: i = 1
+    DIM imgW AS LONG: imgW = _WIDTH(img)
 
     WHILE i <= l
         DIM ch AS _UNSIGNED _BYTE: ch = ASC(s, i)
@@ -431,28 +446,37 @@ SUB RenderTitleScreen (img AS LONG, s AS STRING, fnt AS LONG)
 
                             SELECT CASE code
                                 CASE 0
-                                    fg = 7
-                                    bg = 0
+                                    fg = White
+                                    bg = Black
                                     bright = 0
 
                                 CASE 1
                                     bright = -1
+                                    IF fg < 8 THEN fg = fg + 8
 
-                                CASE 22
+                                CASE 2, 22
                                     bright = 0
+                                    IF fg > 7 THEN fg = fg - 8
 
                                 CASE 30 TO 37
-                                    fg = code - 30
+                                    fg = ansi2qb(code - 30)
+                                    IF bright THEN fg = fg + 8
+
+                                CASE 39
+                                    fg = White
                                     IF bright THEN fg = fg + 8
 
                                 CASE 40 TO 47
-                                    bg = code - 40
+                                    bg = ansi2qb(code - 40)
+
+                                CASE 49
+                                    bg = Black
 
                                 CASE 90 TO 97
-                                    fg = (code - 90) + 8
+                                    fg = ansi2qb(code - 90) + 8
 
                                 CASE 100 TO 107
-                                    bg = (code - 100) + 8
+                                    bg = ansi2qb(code - 100) + 8
                             END SELECT
 
                             IF sep = 0 THEN EXIT DO
@@ -483,7 +507,7 @@ SUB RenderTitleScreen (img AS LONG, s AS STRING, fnt AS LONG)
 
                 col = col + 1
 
-                IF col >= _WIDTH THEN
+                IF col >= imgW THEN
                     col = 0
                     row = row + 1
                 END IF
