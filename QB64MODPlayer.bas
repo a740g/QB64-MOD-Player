@@ -367,76 +367,129 @@ SUB DrawVisualization
 END SUB
 
 
-' Renders the welcome screen ASCII/ANSI menu art into a 32-bit image
 SUB RenderTitleScreen (img AS LONG, s AS STRING, fnt AS LONG)
     DIM oldDest AS LONG: oldDest = _DEST
+
     _DEST img
     _FONT fnt, img
 
-    DIM curColor AS _UNSIGNED LONG: curColor = _RGB32(170, 170, 170) ' White / Gray
-    COLOR curColor, _RGB32(Black)
+    DIM fg AS LONG: fg = White
+    DIM bg AS LONG: bg = Black
+    DIM bright AS _BYTE
+
+    COLOR fg, bg
 
     DIM AS LONG col, row
-    col = 0: row = 0
-
-    DIM i AS LONG: i = 1
     DIM l AS LONG: l = LEN(s)
+    DIM i AS LONG: i = 1
 
     WHILE i <= l
         DIM ch AS _UNSIGNED _BYTE: ch = ASC(s, i)
 
-        IF ch = 26 THEN ' EOF (Ctrl+Z)
-            EXIT WHILE
-        ELSEIF ch = _ASC_ESC THEN ' ESC sequence
-            IF MID$(s, i, 4) = _CHR_ESC + "[0m" THEN
-                curColor = _RGB32(170, 170, 170) ' White / Gray
-                COLOR curColor
-                i = i + 4
-            ELSEIF MID$(s, i, 7) = _CHR_ESC + "[1;33m" THEN
-                curColor = _RGB32(255, 255, 85) ' Bright Yellow
-                COLOR curColor
-                i = i + 7
-            ELSEIF MID$(s, i, 7) = _CHR_ESC + "[1;34m" THEN
-                curColor = _RGB32(85, 85, 255) ' Bright Blue
-                COLOR curColor
-                i = i + 7
-            ELSEIF MID$(s, i, 5) = _CHR_ESC + "[30m" THEN
-                curColor = _RGB32(85, 85, 85) ' Dark Gray
-                COLOR curColor
-                i = i + 5
-            ELSEIF MID$(s, i, 5) = _CHR_ESC + "[33m" THEN
-                curColor = _RGB32(170, 85, 0) ' Brown
-                COLOR curColor
-                i = i + 5
-            ELSEIF MID$(s, i, 5) = _CHR_ESC + "[35m" THEN
-                curColor = _RGB32(170, 0, 170) ' Magenta
-                COLOR curColor
-                i = i + 5
-            ELSEIF MID$(s, i, 5) = _CHR_ESC + "[36m" THEN
-                curColor = _RGB32(0, 170, 170) ' Cyan
-                COLOR curColor
-                i = i + 5
-            ELSE
+        SELECT CASE ch
+            CASE _ASC_SUB ' Ctrl+Z / EOF
+                EXIT WHILE
+
+            CASE _ASC_ESC
+                ' CSI SGR sequence?
+                IF MID$(s, i + 1, 1) = "[" THEN
+
+                    DIM j AS LONG
+                    j = i + 2
+
+                    DO WHILE j <= l
+                        IF MID$(s, j, 1) = "m" THEN EXIT DO
+                        j = j + 1
+                    LOOP
+
+                    IF j <= l THEN
+                        DIM seq AS STRING
+                        seq = MID$(s, i + 2, j - i - 2)
+
+                        DIM token AS STRING
+                        DIM p AS LONG
+
+                        p = 1
+
+                        DO
+                            DIM sep AS LONG
+                            sep = INSTR(p, seq, ";")
+
+                            IF sep THEN
+                                token = MID$(seq, p, sep - p)
+                                p = sep + 1
+                            ELSE
+                                token = MID$(seq, p)
+                            END IF
+
+                            DIM code AS LONG
+                            IF LEN(token) THEN
+                                code = VAL(token)
+                            ELSE
+                                code = 0
+                            END IF
+
+                            SELECT CASE code
+                                CASE 0
+                                    fg = 7
+                                    bg = 0
+                                    bright = 0
+
+                                CASE 1
+                                    bright = -1
+
+                                CASE 22
+                                    bright = 0
+
+                                CASE 30 TO 37
+                                    fg = code - 30
+                                    IF bright THEN fg = fg + 8
+
+                                CASE 40 TO 47
+                                    bg = code - 40
+
+                                CASE 90 TO 97
+                                    fg = (code - 90) + 8
+
+                                CASE 100 TO 107
+                                    bg = (code - 100) + 8
+                            END SELECT
+
+                            IF sep = 0 THEN EXIT DO
+                        LOOP
+
+                        COLOR fg, bg
+
+                        i = j + 1
+                        _CONTINUE
+                    END IF
+                END IF
+
                 i = i + 1
-            END IF
-        ELSEIF ch = 13 THEN ' Carriage Return
-            col = 0
-            i = i + 1
-        ELSEIF ch = 10 THEN ' Line Feed
-            row = row + 1
-            col = 0
-            i = i + 1
-        ELSE
-            IF ch <> 32 THEN ' Skip spaces to keep background transparent
-                _PRINTSTRING (col * 8, row * 8), CHR$(ch)
-            END IF
-            col = col + 1
-            IF col >= _WIDTH THEN
+
+            CASE _ASC_CR
                 col = 0
+                i = i + 1
+
+            CASE _ASC_LF
                 row = row + 1
-            END IF
-            i = i + 1
-        END IF
+                col = 0
+                i = i + 1
+
+            CASE ELSE
+                IF ch <> _ASC_SPACE THEN ' Skip spaces to keep background transparent
+                    _PRINTSTRING (1 + col, 1 + row), CHR$(ch)
+                END IF
+
+                col = col + 1
+
+                IF col >= _WIDTH THEN
+                    col = 0
+                    row = row + 1
+                END IF
+
+                i = i + 1
+        END SELECT
     WEND
 
     _DEST oldDest
@@ -452,14 +505,9 @@ FUNCTION OnWelcomeScreen%%
     DIM buffer AS STRING: buffer = Resource_LoadBase64Data ' Load the ANSI art data
 
     ' Render title screen into an image
-    DIM imgTitle AS LONG: imgTitle = _NEWIMAGE(TEXT_WIDTH_MIN * 8, TEXT_LINE_MAX * 8, 32)
-    RenderTitleScreen imgTitle, buffer, 8
-    _CLEARCOLOR BGRA_BLACK, imgTitle ' Set all black pixels to be transparent
-
-    ' Create a hardware image
-    DIM img AS LONG: img = _COPYIMAGE(imgTitle, 33)
-
-    _FREEIMAGE imgTitle ' Free the software title image
+    DIM titlePage AS LONG: titlePage = _NEWIMAGE(TEXT_WIDTH_MIN, TEXT_LINE_MAX, 0)
+    RenderTitleScreen titlePage, buffer, 8
+    _CLEARCOLOR _ASC_SPACE + _SHL(White, 8), titlePage ' Set all blank cells to be transparent
 
     DIM bgType AS LONG: bgType = Math_GetRandomBetween(0, 1)
 
@@ -477,7 +525,7 @@ FUNCTION OnWelcomeScreen%%
                 UpdateAndDrawStars Stars(), 1!
         END SELECT
 
-        _PUTIMAGE (0, 0), img ' Blit the hardware image
+        _PUTIMAGE (0, 0), titlePage
 
         DIM k AS LONG: k = _KEYHIT
 
@@ -496,7 +544,7 @@ FUNCTION OnWelcomeScreen%%
         _LIMIT FRAME_RATE
     LOOP WHILE e = EVENT_NONE
 
-    _FREEIMAGE img ' Free the hardware image
+    _FREEIMAGE titlePage
 
     OnWelcomeScreen = e
 
