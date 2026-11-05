@@ -27,7 +27,8 @@ $COLOR:0
 
 '$INCLUDE:'source/IO/File.bi'
 '$INCLUDE:'source/Audio/AudioAnalyzer.bi'
-'$INCLUDE:'source/Graphics/ANSIPrint.bi'
+'$INCLUDE:'source/Graphics/Graphics2D.bi'
+'$INCLUDE:'source/Math/Vector2i.bi'
 '$INCLUDE:'source/Resource/Resource.bi'
 '$INCLUDE:'source/Audio/MODPlayer.bi'
 
@@ -366,35 +367,107 @@ SUB DrawVisualization
 END SUB
 
 
+' Renders the welcome screen ASCII/ANSI menu art into a 32-bit image
+SUB RenderTitleScreen (img AS LONG, s AS STRING)
+    DIM oldDest AS LONG: oldDest = _DEST
+    _DEST img
+    _FONT 8, img
+
+    DIM c14 AS _UNSIGNED LONG: c14 = _RGB32(255, 255, 85) ' Bright Yellow
+    DIM c9 AS _UNSIGNED LONG: c9 = _RGB32(85, 85, 255) ' Bright Blue
+    DIM c8 AS _UNSIGNED LONG: c8 = _RGB32(85, 85, 85) ' Dark Gray
+    DIM c6 AS _UNSIGNED LONG: c6 = _RGB32(170, 85, 0) ' Brown
+    DIM c5 AS _UNSIGNED LONG: c5 = _RGB32(170, 0, 170) ' Magenta
+    DIM c3 AS _UNSIGNED LONG: c3 = _RGB32(0, 170, 170) ' Cyan
+    DIM c7 AS _UNSIGNED LONG: c7 = _RGB32(170, 170, 170) ' White / Gray
+
+    DIM curColor AS _UNSIGNED LONG: curColor = c7
+    COLOR curColor, _RGBA32(0, 0, 0, 255)
+
+    DIM AS LONG col, row
+    col = 0: row = 0
+
+    DIM i AS LONG: i = 1
+    DIM l AS LONG: l = LEN(s)
+
+    DO WHILE i <= l
+        DIM ch AS _UNSIGNED _BYTE: ch = ASC(s, i)
+
+        IF ch = 26 THEN ' EOF (Ctrl+Z)
+            EXIT DO
+        ELSEIF ch = 27 THEN ' ESC sequence
+            IF MID$(s, i, 4) = CHR$(27) + "[0m" THEN
+                curColor = c7
+                COLOR curColor
+                i = i + 4
+            ELSEIF MID$(s, i, 7) = CHR$(27) + "[1;33m" THEN
+                curColor = c14
+                COLOR curColor
+                i = i + 7
+            ELSEIF MID$(s, i, 7) = CHR$(27) + "[1;34m" THEN
+                curColor = c9
+                COLOR curColor
+                i = i + 7
+            ELSEIF MID$(s, i, 5) = CHR$(27) + "[30m" THEN
+                curColor = c8
+                COLOR curColor
+                i = i + 5
+            ELSEIF MID$(s, i, 5) = CHR$(27) + "[33m" THEN
+                curColor = c6
+                COLOR curColor
+                i = i + 5
+            ELSEIF MID$(s, i, 5) = CHR$(27) + "[35m" THEN
+                curColor = c5
+                COLOR curColor
+                i = i + 5
+            ELSEIF MID$(s, i, 5) = CHR$(27) + "[36m" THEN
+                curColor = c3
+                COLOR curColor
+                i = i + 5
+            ELSE
+                i = i + 1
+            END IF
+        ELSEIF ch = 13 THEN ' Carriage Return
+            col = 0
+            i = i + 1
+        ELSEIF ch = 10 THEN ' Line Feed
+            row = row + 1
+            col = 0
+            i = i + 1
+        ELSE
+            IF ch <> 32 THEN ' Skip spaces to keep background transparent
+                _PRINTSTRING (col * 8, row * 8), CHR$(ch), img
+            END IF
+            col = col + 1
+            IF col >= TEXT_WIDTH_MIN THEN
+                col = 0
+                row = row + 1
+            END IF
+            i = i + 1
+        END IF
+    LOOP
+
+    _DEST oldDest
+END SUB
+
+
 ' Welcome screen loop
 FUNCTION OnWelcomeScreen%%
     SHARED Stars() AS StarType
     SHARED Snakes() AS SnakeType
 
-    ' Save the current destination
-    DIM oldDest AS LONG: oldDest = _DEST
-
-    ' Now create a new image
-    DIM img AS LONG: img = _NEWIMAGE(TEXT_WIDTH_MIN * 8, (1 + TEXT_LINE_MAX) * 8, 32) ' We'll allocate some extra height to avoid any scrolling
-    _FONT 8, img ' Change the font
-    _DEST img ' Change destination
     RESTORE data_qb64modplayer_ans_15162
     DIM buffer AS STRING: buffer = Resource_LoadBase64Data ' Load the ANSI art data
-    ANSI_Print buffer ' Render the ANSI art
 
-    _DEST oldDest ' Restore destination
-
-    ' Capture rendered image to another image
-    DIM imgANSI AS LONG: imgANSI = _NEWIMAGE(TEXT_WIDTH_MIN * 8, TEXT_LINE_MAX * 8, 32)
-    _PUTIMAGE (0, 0), img, imgANSI ' Any excess height will simply get clipped
-    _CLEARCOLOR BGRA_BLACK, imgANSI ' Set all black pixels to be transparent
-
-    _FREEIMAGE img ' Free the old image
+    ' Render title screen into an image
+    DIM imgTitle AS LONG: imgTitle = _NEWIMAGE(TEXT_WIDTH_MIN * 8, TEXT_LINE_MAX * 8, 32)
+    RenderTitleScreen imgTitle, buffer
+    _CLEARCOLOR BGRA_BLACK, imgTitle ' Set all black pixels to be transparent
 
     ' Create a hardware image
-    img = _COPYIMAGE(imgANSI, 33)
+    DIM img AS LONG: img = _COPYIMAGE(imgTitle, 33)
 
-    _FREEIMAGE imgANSI ' Free the rendered ANSI image
+    _FREEIMAGE imgTitle ' Free the software title image
 
     DIM bgType AS LONG: bgType = Math_GetRandomBetween(0, 1)
 
