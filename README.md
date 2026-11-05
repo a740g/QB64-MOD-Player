@@ -6,7 +6,7 @@ It currently supports the following formats:
 
 - [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatible)
 - [MultiTracker](https://en.wikipedia.org/wiki/Module_file#Popular_formats)
-- [Scream Tracker](https://en.wikipedia.org/wiki/Scream_Tracker)
+- [Scream Tracker 3](https://en.wikipedia.org/wiki/Scream_Tracker)
 
 ---
 
@@ -15,24 +15,42 @@ It currently supports the following formats:
 
 ## FEATURES
 
-- No dependency on third party libraries
+- No dependency on third-party libraries
 - Everything is statically linked (no shared library dependency)
 - Easy plug-&-play API optimized for demos & games
 - Cross-platform (works on Windows, Linux & macOS)
-- Support all MOD types (1 - 99 channels, 31 samples etc.)
+- Support all MOD types (1 - 99 channels, 31 samples, etc.)
 - Support all MOD effects
 - Demo player that shows how to use the library
 
 ## USAGE
 
-- Clone the repository to a directory of your choice
-- Open Terminal and change to the directory using an appropriate OS command
-- Open *QB64MODPlayer.bas* in the QB64-PE IDE and press `F5` to compile and run
-- To use the library in your project, copy the `source` directory to your project and include *source/Audio/MODPlayer.bi*
+### Running the Demo Player
+
+1. Clone the repository:
+   ```sh
+   git clone https://github.com/a740g/QB64-MOD-Player.git
+   cd QB64-MOD-Player
+   ```
+2. Build and run using either method:
+   - **QB64-PE IDE:** Open `QB64MODPlayer.bas` in the IDE and press `F5`.
+   - **Command Line:** Compile directly with the QB64-PE compiler:
+     ```sh
+     qb64pe -x -w -e QB64MODPlayer.bas
+     ```
+     Then run the generated executable.
+
+### Using the Library in Your Project
+
+1. Copy the `source` directory into your project.
+2. Include the library in your code:
+   ```basic
+   '$INCLUDE:'source/Audio/MODPlayer.bi'
+   ```
 
 ## API
 
-```VB
+```basic
 ' Main Player API
 FUNCTION MODPlayer_GetName$
 FUNCTION MODPlayer_GetOrders~%
@@ -51,6 +69,7 @@ SUB MODPlayer_Play
 SUB MODPlayer_SetPosition (position AS _UNSIGNED INTEGER)
 SUB MODPlayer_Stop
 SUB MODPlayer_Update (bufferTimeSecs AS SINGLE)
+
 ' Sample Mixer API
 FUNCTION SoftSynth_BytesToFrames~& (bytes AS _UNSIGNED LONG, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
 SUB SoftSynth_Finalize
@@ -86,33 +105,27 @@ SUB SoftSynth_Update (frames AS _UNSIGNED LONG)
 
 ## FAQ
 
-Why a MOD player in QB64?
+**Why a MOD player in QB64?**
+- Just for learning and fun! Long answer: I have seen plenty of MOD players code and libraries in C & C++ but very little in other languages. I know about some JavaScript, Java and C# ones. But, I am not a fan of those languages. I learnt to code on DOS using QuickBASIC and then graduated to C & C++. So, QuickBASIC always had a special place in my heart. Then, I found QB64 on the internet and the rest is history. As far as I know this is the first of its kind. Let me know if there are any other MOD players written in pure QB64.
 
-- Just for learning and fun! Long answer: I have seen plenty of MOD players code and libraries in C & C++ but very little in other languages. I know about some JavaScript, Java and C# ones. But, I am not a fan of those languages. I learnt to code on DOS using QuickBASIC and then graduated to C & C++. So, QuickBASIC always had a special place in my heart. Then, I found QB64 on the internet and the rest is history. As far as I know this is the first of it's kind. Let me know if there are any other MOD players written in pure QB64.
+**Can you implement feature x / y?**
+- With the limited time I have between my day job, home and family, there is only so much I can do. There are no set deadlines. If you need something implemented, submit a GitHub issue about it or do it yourself and submit a PR.
 
-Can you implement feature x / y?
-
-- With the limited time I have between my day job, home and family, there is only so much I can do. I do maintain a list of TODO (see below). However, those do not have any set deadlines. If you need something implemented, submit a GitHub issue about it or do it yourself and submit a PR.
-
-I found a bug. How can I help?
-
+**I found a bug. How can I help?**
 - Let me know using GitHub issues or fix it yourself and submit a PR!
 
-Can this be used in a game / demo?
+**Can this be used in a game / demo?**
+- Absolutely. The player UI code included is a great example.
 
-- Absolutely. The player UI code included in a great example.
-
-You keep saying QB64-PE with miniaudio backend. Where is it?
-
+**You keep saying QB64-PE with miniaudio backend. Where is it?**
 - Glad you asked! IT, XM, S3M & MOD support is built into [QB64-PE v3.1.0+](https://github.com/QB64-Phoenix-Edition/QB64pe/releases/).
 
-I see that the miniaudio backend version of QB64-PE already has MOD, S3M, XM, IT, RADv2 & MIDI support. Why should I care about this?
-
+**I see that the miniaudio backend version of QB64-PE already has MOD, S3M, XM, IT, RADv2 & MIDI support. Why should I care about this?**
 - Honestly, you should not! The MOD re-player in QB64-PE with miniaudio backend uses [Libxmp-lite](https://github.com/libxmp/libxmp/tree/master/lite) and as such is good enough for most use cases. This is just something that I made just to see what can be done using just QB64-PE. If you want to see what MOD files are made of and what makes them tick, then by all means, have at it. There are some interesting things in the code for people who care about this kind of stuff. Also, my MOD re-player is more accurate than the one in Libxmp-lite... I hope. 😉
 
 ## NOTES
 
-- This requires the latest version of [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe/releases)
+- This requires the latest version of [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe/releases).
 
 ## BIBLIOGRAPHY
 
