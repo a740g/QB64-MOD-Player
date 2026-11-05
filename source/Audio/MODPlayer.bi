@@ -1237,7 +1237,7 @@ FUNCTION __MODPlayer_LoadMOD%% (buffer AS STRING)
             ELSE
                 ' Extra checks for 15 sample MOD
                 FOR i = 1 TO LEN(__Song.caption)
-                    IF ASC(__Song.caption, i) < KEY_SPACE AND ASC(__Song.caption, i) <> NULL THEN EXIT FUNCTION ' this is probably not a 15 sample MOD file
+                    IF ASC(__Song.caption, i) < _ASC_SPACE AND ASC(__Song.caption, i) <> NULL THEN EXIT FUNCTION ' this is probably not a 15 sample MOD file
                 NEXT
                 __Song.channels = 4
                 __Song.instruments = 15

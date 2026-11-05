@@ -15,7 +15,7 @@ $INCLUDEONCE
 '$INCLUDE:'../Core/Common.bi'
 '$INCLUDE:'../Core/Types.bi'
 '$INCLUDE:'Graphics2D.bi'
-'$INCLUDE:'../Resource/SAUCE.bi'
+
 '$INCLUDE:'../Math/Vector2i.bi'
 
 ' ANSI constants
@@ -810,53 +810,3 @@ SUB ANSI_ClearTextCanvasArea (l AS LONG, t AS LONG, r AS LONG, b AS LONG)
         LOCATE y, x
     END IF
 END SUB
-
-
-FUNCTION ANSI_GetFontHeight~%% (sauce AS SAUCEType)
-    CONST __ANSI_F8_1 = "IBM VGA50"
-    CONST __ANSI_F8_2 = "IBM EGA43"
-    CONST __ANSI_F14_1 = "IBM EGA"
-    CONST __ANSI_F8_3 = "AMIGA"
-    CONST __ANSI_F8_5 = "ATARI"
-    CONST __ANSI_F8_4 = "C64"
-
-    DIM sauceTypeInfoString AS STRING: sauceTypeInfoString = SAUCE_GetTypeInfoString(sauce)
-
-    IF UCASE$(LEFT$(sauceTypeInfoString, LEN(__ANSI_F8_1))) = __ANSI_F8_1 THEN
-        ANSI_GetFontHeight = 8
-    ELSEIF UCASE$(LEFT$(sauceTypeInfoString, LEN(__ANSI_F8_2))) = __ANSI_F8_2 THEN
-        ANSI_GetFontHeight = 8
-    ELSEIF UCASE$(LEFT$(sauceTypeInfoString, LEN(__ANSI_F14_1))) = __ANSI_F14_1 THEN
-        ANSI_GetFontHeight = 14
-    ELSEIF UCASE$(LEFT$(sauceTypeInfoString, LEN(__ANSI_F8_3))) = __ANSI_F8_3 THEN
-        ANSI_GetFontHeight = 8
-    ELSEIF UCASE$(LEFT$(sauceTypeInfoString, LEN(__ANSI_F8_5))) = __ANSI_F8_5 THEN
-        ANSI_GetFontHeight = 8
-    ELSEIF UCASE$(LEFT$(sauceTypeInfoString, LEN(__ANSI_F8_4))) = __ANSI_F8_4 THEN
-        ANSI_GetFontHeight = 8
-    ELSE
-        ANSI_GetFontHeight = 16
-    END IF
-END FUNCTION
-
-
-FUNCTION ANSI_GetWidth& (sauce AS SAUCEType)
-    DIM w AS LONG: w = SAUCE_GetTypeInfoLong1(sauce)
-
-    IF w THEN
-        ANSI_GetWidth = w
-    ELSE
-        ANSI_GetWidth = 80
-    END IF
-END FUNCTION
-
-
-FUNCTION ANSI_GetHeight& (sauce AS SAUCEType)
-    DIM h AS LONG: h = SAUCE_GetTypeInfoLong2(sauce)
-
-    IF h THEN
-        ANSI_GetHeight = h
-    ELSE
-        ANSI_GetHeight = 25
-    END IF
-END FUNCTION

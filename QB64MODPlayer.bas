@@ -10,7 +10,6 @@ $LET MODPLAYER_STRICT = TRUE
 
 '$INCLUDE:'source/Core/BitwiseOps.bi'
 '$INCLUDE:'source/Math/Vector2i.bi'
-'$INCLUDE:'source/IO/InputManager.bi'
 '$INCLUDE:'source/FS/Pathname.bi'
 '$INCLUDE:'source/IO/File.bi'
 '$INCLUDE:'source/Core/String.bi'
@@ -62,6 +61,14 @@ CONST EVENT_HTTP%% = 6%% ' Downloads and plays random MODs from modarchive.org
 ' Background constants
 CONST STAR_COUNT& = 256& ' the maximum stars that we can show
 CONST SNAKE_COUNT& = 48& ' the maximum snakes we can draw on the screen
+' Keyboard constants
+CONST KEY_SPACE& = _ASC_SPACE
+CONST KEY_PLUS& = _ASC_PLUS
+CONST KEY_EQUAL& = _ASC_EQUAL
+CONST KEY_MINUS& = _ASC_MINUS
+CONST KEY_UNDERSCORE& = _ASC_UNDERSCORE
+CONST KEY_UPPER_L& = ASC_UPPER_L
+CONST KEY_LOWER_L& = ASC_LOWER_L
 '-----------------------------------------------------------------------------------------------------------------------
 
 '-----------------------------------------------------------------------------------------------------------------------
