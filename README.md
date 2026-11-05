@@ -28,29 +28,34 @@ It currently supports the following formats:
 ### Running the Demo Player
 
 1. Clone the repository:
+
    ```sh
    git clone https://github.com/a740g/QB64-MOD-Player.git
    cd QB64-MOD-Player
    ```
+
 2. Build and run using either method:
    - **QB64-PE IDE:** Open `QB64MODPlayer.bas` in the IDE and press `F5`.
    - **Command Line:** Compile directly with the QB64-PE compiler:
+
      ```sh
      qb64pe -x -w -e QB64MODPlayer.bas
      ```
+
      Then run the generated executable.
 
 ### Using the Library in Your Project
 
 1. Copy the `source` directory into your project.
 2. Include the library in your code:
-   ```basic
+
+   ```vb
    '$INCLUDE:'source/Audio/MODPlayer.bi'
    ```
 
 ## API
 
-```basic
+```vb
 ' Main Player API
 FUNCTION MODPlayer_GetName$
 FUNCTION MODPlayer_GetOrders~%
@@ -106,21 +111,27 @@ SUB SoftSynth_Update (frames AS _UNSIGNED LONG)
 ## FAQ
 
 **Why a MOD player in QB64?**
+
 - Just for learning and fun! Long answer: I have seen plenty of MOD players code and libraries in C & C++ but very little in other languages. I know about some JavaScript, Java and C# ones. But, I am not a fan of those languages. I learnt to code on DOS using QuickBASIC and then graduated to C & C++. So, QuickBASIC always had a special place in my heart. Then, I found QB64 on the internet and the rest is history. As far as I know this is the first of its kind. Let me know if there are any other MOD players written in pure QB64.
 
 **Can you implement feature x / y?**
+
 - With the limited time I have between my day job, home and family, there is only so much I can do. There are no set deadlines. If you need something implemented, submit a GitHub issue about it or do it yourself and submit a PR.
 
 **I found a bug. How can I help?**
+
 - Let me know using GitHub issues or fix it yourself and submit a PR!
 
 **Can this be used in a game / demo?**
+
 - Absolutely. The player UI code included is a great example.
 
 **You keep saying QB64-PE with miniaudio backend. Where is it?**
+
 - Glad you asked! IT, XM, S3M & MOD support is built into [QB64-PE v3.1.0+](https://github.com/QB64-Phoenix-Edition/QB64pe/releases/).
 
 **I see that the miniaudio backend version of QB64-PE already has MOD, S3M, XM, IT, RADv2 & MIDI support. Why should I care about this?**
+
 - Honestly, you should not! The MOD re-player in QB64-PE with miniaudio backend uses [Libxmp-lite](https://github.com/libxmp/libxmp/tree/master/lite) and as such is good enough for most use cases. This is just something that I made just to see what can be done using just QB64-PE. If you want to see what MOD files are made of and what makes them tick, then by all means, have at it. There are some interesting things in the code for people who care about this kind of stuff. Also, my MOD re-player is more accurate than the one in Libxmp-lite... I hope. 😉
 
 ## NOTES
