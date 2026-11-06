@@ -335,8 +335,8 @@ SUB DrawVisualization
 
     ' Get the FFT data and ignore the audio intensity level (for now)
     DIM ignored AS SINGLE
-    ignored = AudioAnalyzerFFT_DoSingle(SpectrumAnalyzerL(), __SoftSynth_SoundBuffer(), 2, FFT.bits)
-    ignored = AudioAnalyzerFFT_DoSingle(SpectrumAnalyzerR(), __SoftSynth_SoundBuffer(), 2, FFT.bits)
+    ignored = AudioAnalyzerFFT_DoSingle(SpectrumAnalyzerL(), __SoftSynth_SoundBuffer(), 0, 2, FFT.bits)
+    ignored = AudioAnalyzerFFT_DoSingle(SpectrumAnalyzerR(), __SoftSynth_SoundBuffer(), 1, 2, FFT.bits)
 
     COLOR Black, Black
 
