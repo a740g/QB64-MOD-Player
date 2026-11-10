@@ -1,22 +1,16 @@
 '-----------------------------------------------------------------------------------------------------------------------
 ' Simple floating-point stereo PCM software synthesizer
-' Copyright (c) 2024-2026 Samuel Gomes
-'
-' Pure QB64-PE implementation.
-' Uses _DYNAMIC array fields in TYPEs for clean, self-contained data structures.
-' Each sound and voice owns its own data.
+' Copyright (c) 2026 Samuel Gomes
 '-----------------------------------------------------------------------------------------------------------------------
 
 $INCLUDEONCE
-$UNSTABLE:TYPEFIELDS
 
 '$INCLUDE:'../Core/Common.bi'
 '$INCLUDE:'../Core/Types.bi'
 '$INCLUDE:'../Math/Math.bi'
 
-' =====================================================================================================================
-' CONSTANTS
-' =====================================================================================================================
+$UNSTABLE:TYPEFIELDS
+
 CONST SOFTSYNTH_VOICE_NO_SOUND = -1 ' used to unbind a sound from a voice
 CONST SOFTSYNTH_VOICE_PLAY_FORWARD = 0 ' single-shot forward playback
 CONST SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP = 1 ' forward-looping playback
@@ -31,17 +25,11 @@ CONST SOFTSYNTH_SOUND_BUFFER_CHANNELS = 2 ' stereo
 CONST SOFTSYNTH_SOUND_BUFFER_SAMPLE_SIZE = _SIZE_OF_SINGLE ' 4 bytes (SINGLE)
 CONST SOFTSYNTH_SOUND_BUFFER_FRAME_SIZE = SOFTSYNTH_SOUND_BUFFER_SAMPLE_SIZE * SOFTSYNTH_SOUND_BUFFER_CHANNELS
 CONST SOFTSYNTH_SOUND_BUFFER_TIME_DEFAULT! = 0.05! ' minimum buffered time before refill
-
-' Internal constants
-CONST __SOFTSYNTH_QUARTER_PI! = 0.7853981633974483! ' PI / 4
+CONST __SOFTSYNTH_QUARTER_PI! = _PI(0.25)
 CONST __SOFTSYNTH_MULTIPLIER_32_TO_16! = 32768!
 CONST __SOFTSYNTH_MULTIPLIER_32_TO_8! = 128!
 CONST __SOFTSYNTH_MULTIPLIER_16_TO_32! = 1! / 32768!
 CONST __SOFTSYNTH_MULTIPLIER_8_TO_32! = 1! / 128!
-
-' =====================================================================================================================
-' TYPE DEFINITIONS
-' =====================================================================================================================
 
 ' A single mono sound stored as floating-point frames
 TYPE __SoftSynthSoundType
@@ -88,18 +76,11 @@ TYPE __SoftSynthPipeType
     soundHandle AS LONG ' QB64 sound pipe handle
 END TYPE
 
-' =====================================================================================================================
-' MODULE-LEVEL STATE
-' =====================================================================================================================
 DIM __SoftSynth AS __SoftSynthStateType
 DIM __SoftSynthPipe AS __SoftSynthPipeType
 REDIM __SoftSynth_SoundBuffer(0 TO 0) AS SINGLE ' mixer buffer (stereo interleaved)
 
-' =====================================================================================================================
-' HELPER FUNCTIONS (PRIVATE)
-' =====================================================================================================================
-
-' Reset a voice to defaults (does NOT reset pan position — intentional, matching original)
+' Reset a voice to defaults (does NOT reset pan position)
 SUB __SoftSynth_ResetVoice (voice AS __SoftSynthVoiceType)
     voice.sound = SOFTSYNTH_VOICE_NO_SOUND
     voice.volume = SOFTSYNTH_VOICE_VOLUME_MAX
@@ -136,10 +117,6 @@ FUNCTION SoftSynth_BytesToFrames~& (bytes AS _UNSIGNED LONG, bytesPerSample AS _
         SoftSynth_BytesToFrames = bytes \ (CLNG(bytesPerSample) * CLNG(channels))
     END IF
 END FUNCTION
-
-' =====================================================================================================================
-' PUBLIC API - INITIALIZATION
-' =====================================================================================================================
 
 ' Check if the synth engine is initialized
 FUNCTION SoftSynth_IsInitialized%%
@@ -217,10 +194,6 @@ SUB SoftSynth_Finalize
     END IF
 END SUB
 
-' =====================================================================================================================
-' PUBLIC API - SOUND MANAGEMENT
-' =====================================================================================================================
-
 ' Get the output sample rate
 FUNCTION SoftSynth_GetSampleRate~&
     SHARED __SoftSynth AS __SoftSynthStateType
@@ -255,9 +228,9 @@ SUB SoftSynth_LoadSound (snd AS LONG, buffer AS STRING, bytesPerSample AS _UNSIG
         DIM newCount AS LONG
         newCount = snd + 1
         IF __SoftSynth.totalSounds = 0 THEN
-            REDIM __SoftSynth.sounds(0 TO newCount - 1) AS __SoftSynthSoundType
+            REDIM __SoftSynth.sounds(0 TO newCount - 1) AS __SOFTSYNTHSOUNDTYPE
         ELSE
-            REDIM _PRESERVE __SoftSynth.sounds(0 TO newCount - 1) AS __SoftSynthSoundType
+            REDIM _PRESERVE __SoftSynth.sounds(0 TO newCount - 1) AS __SOFTSYNTHSOUNDTYPE
         END IF
         __SoftSynth.totalSounds = newCount
     END IF
@@ -355,10 +328,6 @@ SUB SoftSynth_PokeSoundFrameByte (snd AS LONG, position AS _UNSIGNED LONG, frame
     SoftSynth_PokeSoundFrameSingle snd, position, frame * __SOFTSYNTH_MULTIPLIER_8_TO_32
 END SUB
 
-' =====================================================================================================================
-' PUBLIC API - VOICE MANAGEMENT
-' =====================================================================================================================
-
 ' Get total number of voice slots
 FUNCTION SoftSynth_GetTotalVoices~&
     SHARED __SoftSynth AS __SoftSynthStateType
@@ -373,7 +342,7 @@ SUB SoftSynth_SetTotalVoices (voices AS _UNSIGNED LONG)
     IF NOT __SoftSynth.initialized THEN EXIT SUB
     IF voices < 1 THEN EXIT SUB
 
-    REDIM __SoftSynth.voices(0 TO voices - 1) AS __SoftSynthVoiceType
+    REDIM __SoftSynth.voices(0 TO voices - 1) AS __SOFTSYNTHVOICETYPE
     __SoftSynth.totalVoices = voices
 
     ' Initialize all voices with defaults
@@ -498,10 +467,6 @@ SUB SoftSynth_PlayVoice (voice AS _UNSIGNED LONG, snd AS LONG, position AS _UNSI
     __SoftSynth.voices(voice) = v
 END SUB
 
-' =====================================================================================================================
-' PUBLIC API - GLOBAL VOLUME
-' =====================================================================================================================
-
 ' Set global volume (applied to all mixed output)
 SUB SoftSynth_SetGlobalVolume (volume AS SINGLE)
     SHARED __SoftSynth AS __SoftSynthStateType
@@ -531,10 +496,6 @@ FUNCTION SoftSynth_GetMasterVolume!
     SoftSynth_GetMasterVolume = __SoftSynthPipe.soundMasterVolume
 END FUNCTION
 
-' =====================================================================================================================
-' PUBLIC API - BUFFER MANAGEMENT
-' =====================================================================================================================
-
 ' Get the amount of buffered audio time remaining (seconds)
 FUNCTION SoftSynth_GetBufferedSoundTime#
     SHARED __SoftSynthPipe AS __SoftSynthPipeType
@@ -553,13 +514,11 @@ SUB SoftSynth_ConvertU8ToS8 (buffer AS STRING)
     NEXT
 END SUB
 
-' =====================================================================================================================
-' CORE MIXER — __SoftSynth_Update
+
+' CORE MIXER
 ' Mixes all active voices into the provided stereo interleaved SINGLE buffer.
-' Accumulates into buffer without clearing it, matching original C++ behaviour.
-' =====================================================================================================================
+' Accumulates into buffer without clearing it.
 SUB __SoftSynth_Update (buffer() AS SINGLE, frames AS _UNSIGNED LONG)
-    $CHECKING:OFF
     SHARED __SoftSynth AS __SoftSynthStateType
 
     IF NOT __SoftSynth.initialized THEN EXIT SUB
@@ -650,14 +609,10 @@ SUB __SoftSynth_Update (buffer() AS SINGLE, frames AS _UNSIGNED LONG)
             buffer(si) = buffer(si) * gVol
         NEXT
     END IF
-    $CHECKING:ON
 END SUB
 
-' =====================================================================================================================
-' PUBLIC API - MAIN UPDATE (called regularly to stream audio to sound pipe)
-' =====================================================================================================================
+' MAIN UPDATE (called regularly to stream audio to sound pipe)
 SUB SoftSynth_Update (frames AS _UNSIGNED LONG)
-    $CHECKING:OFF
     SHARED __SoftSynth AS __SoftSynthStateType
     SHARED __SoftSynthPipe AS __SoftSynthPipeType
     SHARED __SoftSynth_SoundBuffer() AS SINGLE
@@ -683,5 +638,4 @@ SUB SoftSynth_Update (frames AS _UNSIGNED LONG)
 
     ' Feed the rendered samples to the QB64 sound pipe
     _SNDRAWBATCH __SoftSynth_SoundBuffer(), SOFTSYNTH_SOUND_BUFFER_CHANNELS, __SoftSynthPipe.soundHandle
-    $CHECKING:ON
 END SUB
