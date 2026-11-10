@@ -1,0 +1,768 @@
+'-----------------------------------------------------------------------------------------------------------------------
+' Pure QB64-PE Software Synthesizer (SoftSynth)
+' Converted from C++ DECLARE LIBRARY implementation to native QB64-PE
+' Original Copyright (c) 2024-2026 Samuel Gomes
+' Pure QB64-PE conversion maintains full API compatibility
+'
+' Uses _DYNAMIC/_STATIC array fields in TYPEs for clean, self-contained data structures.
+' Each sound and voice owns its own data — no global parallel arrays needed.
+'-----------------------------------------------------------------------------------------------------------------------
+$INCLUDEONCE
+$UNSTABLE:TYPEFIELDS
+OPTION _EXPLICIT
+
+' =====================================================================================================================
+' CONSTANTS
+' =====================================================================================================================
+CONST SOFTSYNTH_VOICE_NO_SOUND = -1 ' used to unbind a sound from a voice
+CONST SOFTSYNTH_VOICE_PLAY_FORWARD = 0 ' single-shot forward playback
+CONST SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP = 1 ' forward-looping playback
+CONST SOFTSYNTH_VOICE_VOLUME_MAX! = 1! ' maximum volume of any sample
+CONST SOFTSYNTH_VOICE_VOLUME_MIN! = 0! ' minimum volume
+CONST SOFTSYNTH_VOICE_PAN_LEFT! = -1! ' leftmost panning position
+CONST SOFTSYNTH_VOICE_PAN_RIGHT! = 1! ' rightmost panning position
+CONST SOFTSYNTH_VOICE_PAN_CENTER! = 0! ' center pan position
+CONST SOFTSYNTH_GLOBAL_VOLUME_MAX! = 1! ' max global volume
+CONST SOFTSYNTH_MASTER_VOLUME_MAX! = 1! ' max master volume
+CONST SOFTSYNTH_SOUND_BUFFER_CHANNELS = 2 ' stereo
+CONST SOFTSYNTH_SOUND_BUFFER_SAMPLE_SIZE = 4 ' 4 bytes (SINGLE)
+CONST SOFTSYNTH_SOUND_BUFFER_FRAME_SIZE = SOFTSYNTH_SOUND_BUFFER_SAMPLE_SIZE * SOFTSYNTH_SOUND_BUFFER_CHANNELS
+CONST SOFTSYNTH_SOUND_BUFFER_TIME_DEFAULT! = 0.05! ' minimum buffered time before refill
+
+' Internal constants
+CONST __SOFTSYNTH_QUARTER_PI! = 0.7853981633974483! ' PI / 4
+CONST __SOFTSYNTH_MULTIPLIER_32_TO_16! = 32768!
+CONST __SOFTSYNTH_MULTIPLIER_32_TO_8! = 128!
+CONST __SOFTSYNTH_MULTIPLIER_16_TO_32! = 1! / 32768!
+CONST __SOFTSYNTH_MULTIPLIER_8_TO_32! = 1! / 128!
+
+' =====================================================================================================================
+' TYPE DEFINITIONS
+' =====================================================================================================================
+
+' A single mono sound stored as floating-point frames
+' Each instance owns its own sample data via _DYNAMIC array
+TYPE __SoftSynthSoundType
+    frames(0 TO 0) _DYNAMIC AS SINGLE ' mono fp32 sample frames, independently sized per sound
+    length AS _UNSIGNED LONG ' number of valid frames
+END TYPE
+
+' A single playback voice with all its state
+TYPE __SoftSynthVoiceType
+    sound AS LONG ' index into sounds array, or SOFTSYNTH_VOICE_NO_SOUND
+    frequency AS _UNSIGNED LONG ' playback frequency in Hz
+    pitch AS SINGLE ' frequency / sampleRate — step rate through frames
+    volume AS SINGLE ' voice volume (0.0 - 1.0)
+    panPosition AS SINGLE ' stereo pan (-1.0 left, 0.0 center, 1.0 right)
+    leftGain AS SINGLE ' left channel gain (computed from panPosition)
+    rightGain AS SINGLE ' right channel gain (computed from panPosition)
+    position AS SINGLE ' current fractional frame position in the sound buffer
+    iPosition AS _UNSIGNED LONG ' integer part of position
+    startPosition AS _UNSIGNED LONG ' loop start or playback start (in frames)
+    endPosition AS _UNSIGNED LONG ' loop end or playback end (in frames)
+    frame AS SINGLE ' current interpolated output frame
+    oldFrame AS SINGLE ' previous frame (for anti-click)
+    playMode AS LONG ' SOFTSYNTH_VOICE_PLAY_FORWARD or SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP
+END TYPE
+
+' Main synthesizer state — holds all sounds and voices
+' _DYNAMIC arrays allow runtime resizing of sound/voice counts
+TYPE __SoftSynthStateType
+    sounds(0 TO 0) _DYNAMIC AS __SoftSynthSoundType ' managed sound slots
+    voices(0 TO 0) _DYNAMIC AS __SoftSynthVoiceType ' managed voice slots
+    sampleRate AS _UNSIGNED LONG ' mixer output sample rate
+    activeVoices AS _UNSIGNED LONG ' count of currently active voices
+    globalVolume AS SINGLE ' global volume multiplier (0.0 - 1.0)
+    totalSounds AS LONG ' number of allocated sound slots
+    totalVoices AS LONG ' number of allocated voice slots
+    initialized AS _BYTE ' TRUE if initialized
+END TYPE
+
+' QB64 sound pipe management (separate from the synth engine)
+TYPE __SoftSynthPipeType
+    soundBufferFrames AS _UNSIGNED LONG ' size of the render buffer in frames
+    soundBufferSamples AS _UNSIGNED LONG ' size of the render buffer in samples
+    soundBufferBytes AS _UNSIGNED LONG ' size of the render buffer in bytes
+    soundMasterVolume AS SINGLE ' QB64 sound pipe volume
+    soundHandle AS LONG ' QB64 sound pipe handle
+END TYPE
+
+' =====================================================================================================================
+' MODULE-LEVEL STATE
+' =====================================================================================================================
+DIM __SoftSynth AS __SoftSynthStateType
+DIM __SoftSynthPipe AS __SoftSynthPipeType
+REDIM __SoftSynth_SoundBuffer(0 TO 0) AS SINGLE ' mixer buffer (stereo interleaved)
+
+' =====================================================================================================================
+' HELPER FUNCTIONS (PRIVATE)
+' =====================================================================================================================
+
+' Clamp a SINGLE value to a range
+FUNCTION __SoftSynth_ClampSingle! (value AS SINGLE, minVal AS SINGLE, maxVal AS SINGLE)
+    IF value < minVal THEN
+        __SoftSynth_ClampSingle = minVal
+    ELSEIF value > maxVal THEN
+        __SoftSynth_ClampSingle = maxVal
+    ELSE
+        __SoftSynth_ClampSingle = value
+    END IF
+END FUNCTION
+
+' Round down to the nearest power of 2
+FUNCTION __SoftSynth_RoundDownToPow2~& (value AS _UNSIGNED LONG)
+    DIM v AS _UNSIGNED LONG
+    v = value
+    v = v OR _SHR(v, 1)
+    v = v OR _SHR(v, 2)
+    v = v OR _SHR(v, 4)
+    v = v OR _SHR(v, 8)
+    v = v OR _SHR(v, 16)
+    __SoftSynth_RoundDownToPow2 = v - _SHR(v, 1)
+END FUNCTION
+
+' Reset a voice to defaults (does NOT reset pan position — intentional, matching original)
+SUB __SoftSynth_ResetVoice (voice AS __SoftSynthVoiceType)
+    voice.sound = SOFTSYNTH_VOICE_NO_SOUND
+    voice.volume = SOFTSYNTH_VOICE_VOLUME_MAX
+    voice.frequency = 0
+    voice.pitch = 0!
+    voice.position = 0!
+    voice.iPosition = 0
+    voice.startPosition = 0
+    voice.endPosition = 0
+    voice.frame = 0!
+    voice.oldFrame = 0!
+    voice.playMode = SOFTSYNTH_VOICE_PLAY_FORWARD
+END SUB
+
+' Compute pan gains using equal-power (-3 dB) pan law
+SUB __SoftSynth_SetPanPosition (voice AS __SoftSynthVoiceType, pan AS SINGLE)
+    DIM p AS SINGLE
+    DIM panMapped AS SINGLE
+
+    p = __SoftSynth_ClampSingle(pan, SOFTSYNTH_VOICE_PAN_LEFT, SOFTSYNTH_VOICE_PAN_RIGHT)
+    voice.panPosition = p
+
+    ' Map [-1, 1] to [0, PI/2] then use cos/sin for equal-power panning
+    panMapped = (p + 1!) * __SOFTSYNTH_QUARTER_PI
+    voice.leftGain = COS(panMapped)
+    voice.rightGain = SIN(panMapped)
+END SUB
+
+' Convert bytes to frames
+FUNCTION SoftSynth_BytesToFrames~& (bytes AS _UNSIGNED LONG, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
+    IF bytesPerSample = 0 OR channels = 0 THEN
+        SoftSynth_BytesToFrames = 0
+    ELSE
+        SoftSynth_BytesToFrames = bytes \ (CLNG(bytesPerSample) * CLNG(channels))
+    END IF
+END FUNCTION
+
+' =====================================================================================================================
+' PUBLIC API - INITIALIZATION
+' =====================================================================================================================
+
+' Check if the synth engine is initialized
+FUNCTION SoftSynth_IsInitialized%%
+    SHARED __SoftSynth AS __SoftSynthStateType
+
+    SoftSynth_IsInitialized = __SoftSynth.initialized
+END FUNCTION
+
+' Initialize the SoftSynth and allocate all required resources
+FUNCTION SoftSynth_Initialize%%
+    SHARED __SoftSynth AS __SoftSynthStateType
+    SHARED __SoftSynthPipe AS __SoftSynthPipeType
+    SHARED __SoftSynth_SoundBuffer() AS SINGLE
+
+    ' Return true if already initialized
+    IF __SoftSynth.initialized THEN
+        SoftSynth_Initialize = _TRUE
+        EXIT FUNCTION
+    END IF
+
+    ' Allocate a QB64 sound pipe
+    __SoftSynthPipe.soundHandle = _SNDOPENRAW
+    IF __SoftSynthPipe.soundHandle < 1 THEN EXIT FUNCTION
+
+    ' Initialize synth state
+    __SoftSynth.sampleRate = _SNDRATE
+    IF __SoftSynth.sampleRate = 0 THEN
+        _SNDCLOSE __SoftSynthPipe.soundHandle
+        EXIT FUNCTION
+    END IF
+
+    __SoftSynth.activeVoices = 0
+    __SoftSynth.globalVolume = 1!
+    __SoftSynth.totalSounds = 0
+    __SoftSynth.totalVoices = 0
+
+    __SoftSynthPipe.soundMasterVolume = SOFTSYNTH_MASTER_VOLUME_MAX
+
+    ' Allocate a ~40 ms mixer buffer, rounded down to power of 2
+    __SoftSynthPipe.soundBufferFrames = __SoftSynth_RoundDownToPow2(__SoftSynth.sampleRate * 0.04!)
+    __SoftSynthPipe.soundBufferSamples = __SoftSynthPipe.soundBufferFrames * SOFTSYNTH_SOUND_BUFFER_CHANNELS
+    __SoftSynthPipe.soundBufferBytes = __SoftSynthPipe.soundBufferSamples * SOFTSYNTH_SOUND_BUFFER_SAMPLE_SIZE
+    REDIM __SoftSynth_SoundBuffer(0 TO __SoftSynthPipe.soundBufferSamples - 1) AS SINGLE
+
+    __SoftSynth.initialized = _TRUE
+    SoftSynth_Initialize = _TRUE
+END FUNCTION
+
+' Finalize the SoftSynth — free all resources
+SUB SoftSynth_Finalize
+    SHARED __SoftSynth AS __SoftSynthStateType
+    SHARED __SoftSynthPipe AS __SoftSynthPipeType
+
+    IF __SoftSynth.initialized THEN
+        _SNDRAWDONE __SoftSynthPipe.soundHandle
+        _SNDCLOSE __SoftSynthPipe.soundHandle
+
+        ' Release all sound data
+        IF __SoftSynth.totalSounds > 0 THEN
+            DIM i AS LONG
+            FOR i = 0 TO __SoftSynth.totalSounds - 1
+                ERASE __SoftSynth.sounds(i).frames
+            NEXT
+            ERASE __SoftSynth.sounds
+        END IF
+
+        ' Release all voices
+        IF __SoftSynth.totalVoices > 0 THEN
+            ERASE __SoftSynth.voices
+        END IF
+
+        __SoftSynth.totalSounds = 0
+        __SoftSynth.totalVoices = 0
+        __SoftSynth.initialized = _FALSE
+    END IF
+END SUB
+
+' =====================================================================================================================
+' PUBLIC API - SOUND MANAGEMENT
+' =====================================================================================================================
+
+' Get the output sample rate
+FUNCTION SoftSynth_GetSampleRate~&
+    SHARED __SoftSynth AS __SoftSynthStateType
+
+    SoftSynth_GetSampleRate = __SoftSynth.sampleRate
+END FUNCTION
+
+' Get total number of sound slots
+FUNCTION SoftSynth_GetTotalSounds~&
+    SHARED __SoftSynth AS __SoftSynthStateType
+
+    SoftSynth_GetTotalSounds = __SoftSynth.totalSounds
+END FUNCTION
+
+' Load raw sound data into a sound slot
+' Converts 8-bit signed, 16-bit signed, or 32-bit float to internal fp32 mono format
+' Multi-channel sounds are flattened to mono by averaging channels
+SUB SoftSynth_LoadSound (snd AS LONG, buffer AS STRING, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
+    SHARED __SoftSynth AS __SoftSynthStateType
+
+    IF NOT __SoftSynth.initialized THEN EXIT SUB
+    IF snd < 0 THEN EXIT SUB
+    IF channels < 1 THEN EXIT SUB
+    IF bytesPerSample <> 1 AND bytesPerSample <> 2 AND bytesPerSample <> 4 THEN EXIT SUB
+
+    DIM bytes AS _UNSIGNED LONG
+    bytes = LEN(buffer)
+    IF bytes = 0 THEN EXIT SUB
+
+    ' Ensure sound slot exists — grow the sounds array if needed
+    IF snd >= __SoftSynth.totalSounds THEN
+        DIM newCount AS LONG
+        newCount = snd + 1
+        IF __SoftSynth.totalSounds = 0 THEN
+            REDIM __SoftSynth.sounds(0 TO newCount - 1) AS __SOFTSYNTHSOUNDTYPE
+        ELSE
+            REDIM _PRESERVE __SoftSynth.sounds(0 TO newCount - 1) AS __SOFTSYNTHSOUNDTYPE
+        END IF
+        __SoftSynth.totalSounds = newCount
+    END IF
+
+    ' Calculate total frames (mono output)
+    DIM totalFrames AS _UNSIGNED LONG
+    totalFrames = SoftSynth_BytesToFrames(bytes, bytesPerSample, channels)
+    IF totalFrames = 0 THEN EXIT SUB
+
+    ' Allocate the frame buffer for this sound
+    REDIM __SoftSynth.sounds(snd).frames(0 TO totalFrames - 1) AS SINGLE
+    __SoftSynth.sounds(snd).length = totalFrames
+
+    ' Convert and load — flatten multi-channel to mono
+    DIM f AS _UNSIGNED LONG ' frame index
+    DIM c AS _UNSIGNED _BYTE ' channel index
+    DIM bytePos AS _UNSIGNED LONG ' position in source buffer
+    DIM monoSum AS SINGLE
+    DIM rawByte AS _BYTE
+    DIM rawInt AS INTEGER
+    DIM rawSingle AS SINGLE
+
+    bytePos = 1 ' STRING is 1-based
+
+    FOR f = 0 TO totalFrames - 1
+        monoSum = 0!
+
+        FOR c = 1 TO channels
+            SELECT CASE bytesPerSample
+                CASE 1 ' 8-bit signed
+                    rawByte = ASC(MID$(buffer, bytePos, 1)) - 128
+                    IF rawByte >= 0 THEN
+                        monoSum = monoSum + rawByte * __SOFTSYNTH_MULTIPLIER_8_TO_32
+                    ELSE
+                        monoSum = monoSum + rawByte * __SOFTSYNTH_MULTIPLIER_8_TO_32
+                    END IF
+                    bytePos = bytePos + 1
+
+                CASE 2 ' 16-bit signed (little-endian)
+                    rawInt = CVI(MID$(buffer, bytePos, 2))
+                    monoSum = monoSum + rawInt * __SOFTSYNTH_MULTIPLIER_16_TO_32
+                    bytePos = bytePos + 2
+
+                CASE 4 ' 32-bit float
+                    rawSingle = CVS(MID$(buffer, bytePos, 4))
+                    monoSum = monoSum + rawSingle
+                    bytePos = bytePos + 4
+            END SELECT
+        NEXT
+
+        ' Average channels for mono
+        IF channels > 1 THEN monoSum = monoSum / channels
+
+        __SoftSynth.sounds(snd).frames(f) = monoSum
+    NEXT
+END SUB
+
+' Peek a sound frame as SINGLE (fp32)
+FUNCTION SoftSynth_PeekSoundFrameSingle! (snd AS LONG, position AS _UNSIGNED LONG)
+    SHARED __SoftSynth AS __SoftSynthStateType
+
+    IF NOT __SoftSynth.initialized THEN
+        SoftSynth_PeekSoundFrameSingle = 0!
+        EXIT FUNCTION
+    END IF
+    IF snd < 0 OR snd >= __SoftSynth.totalSounds THEN
+        SoftSynth_PeekSoundFrameSingle = 0!
+        EXIT FUNCTION
+    END IF
+    IF position >= __SoftSynth.sounds(snd).length THEN
+        SoftSynth_PeekSoundFrameSingle = 0!
+        EXIT FUNCTION
+    END IF
+
+    SoftSynth_PeekSoundFrameSingle = __SoftSynth.sounds(snd).frames(position)
+END FUNCTION
+
+' Poke a sound frame as SINGLE (fp32)
+SUB SoftSynth_PokeSoundFrameSingle (snd AS LONG, position AS _UNSIGNED LONG, frame AS SINGLE)
+    SHARED __SoftSynth AS __SoftSynthStateType
+
+    IF NOT __SoftSynth.initialized THEN EXIT SUB
+    IF snd < 0 OR snd >= __SoftSynth.totalSounds THEN EXIT SUB
+    IF position >= __SoftSynth.sounds(snd).length THEN EXIT SUB
+
+    __SoftSynth.sounds(snd).frames(position) = frame
+END SUB
+
+' Peek a sound frame as INTEGER (16-bit)
+FUNCTION SoftSynth_PeekSoundFrameInteger% (snd AS LONG, position AS _UNSIGNED LONG)
+    SoftSynth_PeekSoundFrameInteger = INT(SoftSynth_PeekSoundFrameSingle(snd, position) * __SOFTSYNTH_MULTIPLIER_32_TO_16)
+END FUNCTION
+
+' Poke a sound frame as INTEGER (16-bit)
+SUB SoftSynth_PokeSoundFrameInteger (snd AS LONG, position AS _UNSIGNED LONG, frame AS INTEGER)
+    SoftSynth_PokeSoundFrameSingle snd, position, frame * __SOFTSYNTH_MULTIPLIER_16_TO_32
+END SUB
+
+' Peek a sound frame as BYTE (8-bit)
+FUNCTION SoftSynth_PeekSoundFrameByte%% (snd AS LONG, position AS _UNSIGNED LONG)
+    SoftSynth_PeekSoundFrameByte = INT(SoftSynth_PeekSoundFrameSingle(snd, position) * __SOFTSYNTH_MULTIPLIER_32_TO_8)
+END FUNCTION
+
+' Poke a sound frame as BYTE (8-bit)
+SUB SoftSynth_PokeSoundFrameByte (snd AS LONG, position AS _UNSIGNED LONG, frame AS _BYTE)
+    SoftSynth_PokeSoundFrameSingle snd, position, frame * __SOFTSYNTH_MULTIPLIER_8_TO_32
+END SUB
+
+' =====================================================================================================================
+' PUBLIC API - VOICE MANAGEMENT
+' =====================================================================================================================
+
+' Get total number of voice slots
+FUNCTION SoftSynth_GetTotalVoices~&
+    SHARED __SoftSynth AS __SoftSynthStateType
+
+    SoftSynth_GetTotalVoices = __SoftSynth.totalVoices
+END FUNCTION
+
+' Set total number of voice slots (clears existing voices)
+SUB SoftSynth_SetTotalVoices (voices AS _UNSIGNED LONG)
+    SHARED __SoftSynth AS __SoftSynthStateType
+
+    IF NOT __SoftSynth.initialized THEN EXIT SUB
+    IF voices < 1 THEN EXIT SUB
+
+    REDIM __SoftSynth.voices(0 TO voices - 1) AS __SOFTSYNTHVOICETYPE
+    __SoftSynth.totalVoices = voices
+
+    ' Initialize all voices with defaults
+    DIM v AS _UNSIGNED LONG
+    FOR v = 0 TO voices - 1
+        __SoftSynth_ResetVoice __SoftSynth.voices(v)
+        __SoftSynth_SetPanPosition __SoftSynth.voices(v), SOFTSYNTH_VOICE_PAN_CENTER
+    NEXT
+END SUB
+
+' Get active voice count (updated each SoftSynth_Update call)
+FUNCTION SoftSynth_GetActiveVoices~&
+    SHARED __SoftSynth AS __SoftSynthStateType
+
+    SoftSynth_GetActiveVoices = __SoftSynth.activeVoices
+END FUNCTION
+
+' Set voice volume
+SUB SoftSynth_SetVoiceVolume (voice AS _UNSIGNED LONG, volume AS SINGLE)
+    SHARED __SoftSynth AS __SoftSynthStateType
+
+    IF NOT __SoftSynth.initialized THEN EXIT SUB
+    IF voice >= __SoftSynth.totalVoices THEN EXIT SUB
+
+    __SoftSynth.voices(voice).volume = __SoftSynth_ClampSingle(volume, SOFTSYNTH_VOICE_VOLUME_MIN, SOFTSYNTH_VOICE_VOLUME_MAX)
+END SUB
+
+' Get voice volume
+FUNCTION SoftSynth_GetVoiceVolume! (voice AS _UNSIGNED LONG)
+    SHARED __SoftSynth AS __SoftSynthStateType
+
+    IF NOT __SoftSynth.initialized THEN EXIT FUNCTION
+    IF voice >= __SoftSynth.totalVoices THEN EXIT FUNCTION
+
+    SoftSynth_GetVoiceVolume = __SoftSynth.voices(voice).volume
+END FUNCTION
+
+' Set voice stereo balance (pan position)
+SUB SoftSynth_SetVoiceBalance (voice AS _UNSIGNED LONG, balance AS SINGLE)
+    SHARED __SoftSynth AS __SoftSynthStateType
+
+    IF NOT __SoftSynth.initialized THEN EXIT SUB
+    IF voice >= __SoftSynth.totalVoices THEN EXIT SUB
+
+    __SoftSynth_SetPanPosition __SoftSynth.voices(voice), balance
+END SUB
+
+' Get voice stereo balance
+FUNCTION SoftSynth_GetVoiceBalance! (voice AS _UNSIGNED LONG)
+    SHARED __SoftSynth AS __SoftSynthStateType
+
+    IF NOT __SoftSynth.initialized THEN EXIT FUNCTION
+    IF voice >= __SoftSynth.totalVoices THEN EXIT FUNCTION
+
+    SoftSynth_GetVoiceBalance = __SoftSynth.voices(voice).panPosition
+END FUNCTION
+
+' Set voice playback frequency
+SUB SoftSynth_SetVoiceFrequency (voice AS _UNSIGNED LONG, frequency AS _UNSIGNED LONG)
+    SHARED __SoftSynth AS __SoftSynthStateType
+
+    IF NOT __SoftSynth.initialized THEN EXIT SUB
+    IF voice >= __SoftSynth.totalVoices THEN EXIT SUB
+    IF frequency = 0 THEN EXIT SUB
+
+    __SoftSynth.voices(voice).frequency = frequency
+    __SoftSynth.voices(voice).pitch = CSNG(frequency) / CSNG(__SoftSynth.sampleRate)
+END SUB
+
+' Get voice playback frequency
+FUNCTION SoftSynth_GetVoiceFrequency~& (voice AS _UNSIGNED LONG)
+    SHARED __SoftSynth AS __SoftSynthStateType
+
+    IF NOT __SoftSynth.initialized THEN EXIT FUNCTION
+    IF voice >= __SoftSynth.totalVoices THEN EXIT FUNCTION
+
+    SoftSynth_GetVoiceFrequency = __SoftSynth.voices(voice).frequency
+END FUNCTION
+
+' Stop a voice (unbind its sound)
+SUB SoftSynth_StopVoice (voice AS _UNSIGNED LONG)
+    SHARED __SoftSynth AS __SoftSynthStateType
+
+    IF NOT __SoftSynth.initialized THEN EXIT SUB
+    IF voice >= __SoftSynth.totalVoices THEN EXIT SUB
+
+    __SoftSynth_ResetVoice __SoftSynth.voices(voice)
+END SUB
+
+' Play a sound on a voice
+SUB SoftSynth_PlayVoice (voice AS _UNSIGNED LONG, snd AS LONG, position AS _UNSIGNED LONG, mode AS LONG, startPosition AS _UNSIGNED LONG, endPosition AS _UNSIGNED LONG)
+    SHARED __SoftSynth AS __SoftSynthStateType
+
+    IF NOT __SoftSynth.initialized THEN EXIT SUB
+    IF voice >= __SoftSynth.totalVoices THEN EXIT SUB
+    IF snd < 0 OR snd >= __SoftSynth.totalSounds THEN EXIT SUB
+
+    DIM v AS __SoftSynthVoiceType
+    v = __SoftSynth.voices(voice) ' work on local copy to preserve pan
+
+    IF mode < SOFTSYNTH_VOICE_PLAY_FORWARD OR mode > SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP THEN
+        v.playMode = SOFTSYNTH_VOICE_PLAY_FORWARD
+    ELSE
+        v.playMode = mode
+    END IF
+
+    v.position = CSNG(position)
+    v.iPosition = position
+    v.startPosition = startPosition
+    v.endPosition = endPosition
+    v.sound = snd
+
+    ' Pre-fetch initial frames to avoid clicks/pops at start
+    IF position < __SoftSynth.sounds(snd).length THEN
+        v.frame = __SoftSynth.sounds(snd).frames(position)
+        v.oldFrame = v.frame
+    ELSE
+        v.frame = 0!
+        v.oldFrame = 0!
+    END IF
+
+    __SoftSynth.voices(voice) = v
+END SUB
+
+' =====================================================================================================================
+' PUBLIC API - GLOBAL VOLUME
+' =====================================================================================================================
+
+' Set global volume (applied to all mixed output)
+SUB SoftSynth_SetGlobalVolume (volume AS SINGLE)
+    SHARED __SoftSynth AS __SoftSynthStateType
+
+    __SoftSynth.globalVolume = __SoftSynth_ClampSingle(volume, 0!, SOFTSYNTH_GLOBAL_VOLUME_MAX)
+END SUB
+
+' Get global volume
+FUNCTION SoftSynth_GetGlobalVolume!
+    SHARED __SoftSynth AS __SoftSynthStateType
+
+    SoftSynth_GetGlobalVolume = __SoftSynth.globalVolume
+END FUNCTION
+
+' Set master volume (QB64 sound pipe volume)
+SUB SoftSynth_SetMasterVolume (volume AS SINGLE)
+    SHARED __SoftSynthPipe AS __SoftSynthPipeType
+
+    __SoftSynthPipe.soundMasterVolume = __SoftSynth_ClampSingle(volume, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
+    _SNDVOL __SoftSynthPipe.soundHandle, __SoftSynthPipe.soundMasterVolume
+END SUB
+
+' Get master volume
+FUNCTION SoftSynth_GetMasterVolume!
+    SHARED __SoftSynthPipe AS __SoftSynthPipeType
+
+    SoftSynth_GetMasterVolume = __SoftSynthPipe.soundMasterVolume
+END FUNCTION
+
+' =====================================================================================================================
+' PUBLIC API - BUFFER MANAGEMENT
+' =====================================================================================================================
+
+' Get the amount of buffered audio time remaining (seconds)
+FUNCTION SoftSynth_GetBufferedSoundTime#
+    SHARED __SoftSynthPipe AS __SoftSynthPipeType
+
+    SoftSynth_GetBufferedSoundTime = _SNDRAWLEN(__SoftSynthPipe.soundHandle)
+END FUNCTION
+
+' Convert unsigned 8-bit samples to signed 8-bit (in-place)
+SUB SoftSynth_ConvertU8ToS8 (buffer AS STRING)
+    DIM i AS LONG
+    DIM b AS _UNSIGNED _BYTE
+
+    FOR i = 1 TO LEN(buffer)
+        b = ASC(buffer, i)
+        ASC(buffer, i) = b XOR &H80
+    NEXT
+END SUB
+
+' =====================================================================================================================
+' CORE MIXER — __SoftSynth_Update (pure QB64-PE replacement for the C++ mixer)
+' =====================================================================================================================
+
+' Mix all active voices into a stereo interleaved SINGLE buffer
+' This is the heart of the synth — replaces the C++ __SoftSynth_Update entirely
+SUB __SoftSynth_Update (buffer() AS SINGLE, frames AS _UNSIGNED LONG)
+    SHARED __SoftSynth AS __SoftSynthStateType
+
+    IF NOT __SoftSynth.initialized THEN EXIT SUB
+    IF frames = 0 THEN EXIT SUB
+
+    DIM totalSamples AS _UNSIGNED LONG
+    totalSamples = frames * SOFTSYNTH_SOUND_BUFFER_CHANNELS
+
+    ' Clear the output buffer
+    DIM si AS _UNSIGNED LONG
+    FOR si = 0 TO totalSamples - 1
+        buffer(si) = 0!
+    NEXT
+
+    ' Reset active voice counter
+    __SoftSynth.activeVoices = 0
+
+    IF __SoftSynth.totalVoices = 0 THEN EXIT SUB
+
+    ' Iterate through each voice completely (cache-friendly access pattern)
+    DIM v AS _UNSIGNED LONG
+    FOR v = 0 TO __SoftSynth.totalVoices - 1
+
+        ' Skip voices that aren't playing anything
+        IF __SoftSynth.voices(v).sound = SOFTSYNTH_VOICE_NO_SOUND THEN _CONTINUE
+
+        DIM sndIdx AS LONG
+        sndIdx = __SoftSynth.voices(v).sound
+
+        ' Validate sound index
+        IF sndIdx < 0 OR sndIdx >= __SoftSynth.totalSounds THEN
+            __SoftSynth.voices(v).sound = SOFTSYNTH_VOICE_NO_SOUND
+            _CONTINUE
+        END IF
+
+        DIM sndLen AS _UNSIGNED LONG
+        sndLen = __SoftSynth.sounds(sndIdx).length
+        IF sndLen = 0 THEN
+            __SoftSynth.voices(v).sound = SOFTSYNTH_VOICE_NO_SOUND
+            _CONTINUE
+        END IF
+
+        __SoftSynth.activeVoices = __SoftSynth.activeVoices + 1
+
+        ' Cache voice properties locally for the inner loop
+        DIM voiceVol AS SINGLE
+        DIM voiceLGain AS SINGLE
+        DIM voiceRGain AS SINGLE
+        DIM voicePitch AS SINGLE
+        DIM voicePos AS SINGLE
+        DIM voiceStartPos AS _UNSIGNED LONG
+        DIM voiceEndPos AS _UNSIGNED LONG
+        DIM voiceMode AS LONG
+        DIM voiceStopped AS _BYTE
+
+        voiceVol = __SoftSynth.voices(v).volume
+        voiceLGain = __SoftSynth.voices(v).leftGain
+        voiceRGain = __SoftSynth.voices(v).rightGain
+        voicePitch = __SoftSynth.voices(v).pitch
+        voicePos = __SoftSynth.voices(v).position
+        voiceStartPos = __SoftSynth.voices(v).startPosition
+        voiceEndPos = __SoftSynth.voices(v).endPosition
+        voiceMode = __SoftSynth.voices(v).playMode
+        voiceStopped = _FALSE
+
+        DIM outIdx AS _UNSIGNED LONG
+        outIdx = 0
+
+        DIM s AS _UNSIGNED LONG
+        FOR s = 0 TO frames - 1
+            ' Get integer position
+            DIM iPos AS _UNSIGNED LONG
+            iPos = INT(voicePos)
+
+            ' Bounds check
+            IF iPos >= sndLen THEN
+                voiceStopped = _TRUE
+                EXIT FOR
+            END IF
+
+            ' Linear interpolation between current and next frame
+            DIM currFrame AS SINGLE
+            DIM nextFrame AS SINGLE
+            DIM frac AS SINGLE
+
+            currFrame = __SoftSynth.sounds(sndIdx).frames(iPos)
+
+            IF iPos + 1 < sndLen THEN
+                nextFrame = __SoftSynth.sounds(sndIdx).frames(iPos + 1)
+            ELSE
+                nextFrame = currFrame
+            END IF
+
+            frac = voicePos - CSNG(iPos)
+
+            DIM outFrame AS SINGLE
+            outFrame = (currFrame + frac * (nextFrame - currFrame)) * voiceVol
+
+            ' Mix with panning (accumulate, don't overwrite)
+            buffer(outIdx) = buffer(outIdx) + outFrame * voiceLGain ' left
+            outIdx = outIdx + 1
+            buffer(outIdx) = buffer(outIdx) + outFrame * voiceRGain ' right
+            outIdx = outIdx + 1
+
+            ' Advance playback position
+            voicePos = voicePos + voicePitch
+
+            ' Check if we've reached the end
+            IF INT(voicePos) >= voiceEndPos THEN
+                IF voiceMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP THEN
+                    ' Wrap around to loop start, preserving fractional overshoot
+                    voicePos = CSNG(voiceStartPos) + (voicePos - CSNG(voiceEndPos))
+                ELSE
+                    ' Single-shot: stop playback
+                    voiceStopped = _TRUE
+                    EXIT FOR
+                END IF
+            END IF
+        NEXT
+
+        ' Write back voice state
+        IF voiceStopped THEN
+            __SoftSynth.voices(v).sound = SOFTSYNTH_VOICE_NO_SOUND
+            __SoftSynth.voices(v).position = 0!
+        ELSE
+            __SoftSynth.voices(v).position = voicePos
+            __SoftSynth.voices(v).iPosition = INT(voicePos)
+        END IF
+    NEXT
+
+    ' Final pass: apply global volume
+    DIM gVol AS SINGLE
+    gVol = __SoftSynth.globalVolume
+
+    FOR si = 0 TO totalSamples - 1
+        buffer(si) = buffer(si) * gVol
+    NEXT
+END SUB
+
+' =====================================================================================================================
+' PUBLIC API - MAIN UPDATE (call this regularly from your main loop)
+' =====================================================================================================================
+
+' Render audio and feed it to the QB64 sound pipe
+SUB SoftSynth_Update (frames AS _UNSIGNED LONG)
+    $CHECKING:OFF
+    SHARED __SoftSynth AS __SoftSynthStateType
+    SHARED __SoftSynthPipe AS __SoftSynthPipeType
+    SHARED __SoftSynth_SoundBuffer() AS SINGLE
+
+    IF NOT __SoftSynth.initialized THEN EXIT SUB
+
+    ' Resize buffer if frame count changed
+    IF __SoftSynthPipe.soundBufferFrames <> frames THEN
+        __SoftSynthPipe.soundBufferFrames = frames
+        __SoftSynthPipe.soundBufferSamples = frames * SOFTSYNTH_SOUND_BUFFER_CHANNELS
+        __SoftSynthPipe.soundBufferBytes = __SoftSynthPipe.soundBufferSamples * SOFTSYNTH_SOUND_BUFFER_SAMPLE_SIZE
+        REDIM __SoftSynth_SoundBuffer(0 TO __SoftSynthPipe.soundBufferSamples - 1) AS SINGLE
+    ELSE
+        ' Zero the buffer before mixing
+        DIM i AS _UNSIGNED LONG
+        FOR i = 0 TO __SoftSynthPipe.soundBufferSamples - 1
+            __SoftSynth_SoundBuffer(i) = 0!
+        NEXT
+    END IF
+
+    ' Render samples into the buffer
+    __SoftSynth_Update __SoftSynth_SoundBuffer(), frames
+
+    ' Feed the rendered samples to the QB64 sound pipe
+    _SNDRAWBATCH __SoftSynth_SoundBuffer(), SOFTSYNTH_SOUND_BUFFER_CHANNELS, __SoftSynthPipe.soundHandle
+    $CHECKING:ON
+END SUB
