@@ -7,7 +7,7 @@ $INCLUDEONCE
 
 '$INCLUDE:'Core/Common.bi'
 '$INCLUDE:'Core/Types.bi'
-'$INCLUDE:'Math/Math.bi'
+'$INCLUDE:'Math.bi'
 
 $UNSTABLE:TYPEFIELDS
 

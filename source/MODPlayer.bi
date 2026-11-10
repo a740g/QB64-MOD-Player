@@ -8,6 +8,7 @@ $INCLUDEONCE
 '$INCLUDE:'Core/Common.bi'
 '$INCLUDE:'Core/Types.bi'
 '$INCLUDE:'SoftSynth.bi'
+'$INCLUDE:'Math.bi'
 '$INCLUDE:'Audio/AudioConv.bi'
 '$INCLUDE:'StringFile.bi'
 '$INCLUDE:'IO/File.bi'
@@ -2071,7 +2072,7 @@ SUB __MODPlayer_UpdateTick
 
                                 END SELECT
 
-                                __Channel(nChannel).volume = Math_ClampLong(__Channel(nChannel).volume, 0, __INSTRUMENT_VOLUME_MAX)
+                                __Channel(nChannel).volume = _CLAMP(__Channel(nChannel).volume, 0, __INSTRUMENT_VOLUME_MAX)
 
                                 SoftSynth_SetVoiceVolume nChannel, __Channel(nChannel).volume / __INSTRUMENT_VOLUME_MAX
                             END IF

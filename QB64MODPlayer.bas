@@ -28,7 +28,7 @@ $COLOR:0
 '$INCLUDE:'source/IO/File.bi'
 '$INCLUDE:'source/AudioAnalyzer.bi'
 '$INCLUDE:'source/Graphics/Graphics2D.bi'
-'$INCLUDE:'source/Math/Vector2i.bi'
+'$INCLUDE:'source/Vector2i.bi'
 '$INCLUDE:'source/Math.bi'
 '$INCLUDE:'source/Resource.bi'
 '$INCLUDE:'source/MODPlayer.bi'
@@ -311,7 +311,7 @@ SUB DrawVisualization
         FFT.halfFrames = FFT.frames \ 2
 
         ' Get the count of bits that the FFT routine will need
-        FFT.bits = HighestSetBitIndex(FFT.frames)
+        FFT.bits = Math_HighestSetBitIndex(FFT.frames)
 
         ' Setup the FFT arrays (half of fftSamples)
         REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0 TO FFT.halfFrames - 1), SpectrumAnalyzerR(0 TO FFT.halfFrames - 1)
@@ -606,7 +606,7 @@ SUB AdjustWindowSize
         IF PatternDisplayWidth <= TEXT_WIDTH_HEADER THEN
             FFT.size.y = TEXT_LINE_MAX
         ELSE
-            FFT.size.y = 4 + Math_GetMinLong(__Song.instruments, MAX_VISIBLE_INSTRUMENTS)
+            FFT.size.y = 4 + _MIN(__Song.instruments, MAX_VISIBLE_INSTRUMENTS)
         END IF
     ELSE
         PatternDisplayWidth = 0
@@ -1017,7 +1017,7 @@ _ACCEPTFILEDROP ' enable drag and drop of files
 InitializeNoteTable ' initialize note string table
 AdjustWindowSize ' set the initial window size
 _ALLOWFULLSCREEN _SQUAREPIXELS , _SMOOTH ' allow the user to press Alt+Enter to go fullscreen
-Math_SetRandomSeed TIMER ' seed RNG
+RANDOMIZE TIMER
 InitializeStars Stars()
 InitializeSnakes Snakes()
 
