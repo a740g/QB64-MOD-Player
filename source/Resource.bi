@@ -5,8 +5,6 @@
 
 $INCLUDEONCE
 
-'$INCLUDE:'../Core/Common.bi'
-
 ''' @brief Loads a binary file encoded with Bin2Data (CONST).
 ''' @param src The base64 STRING containing the encoded data.
 ''' @param ogSize The original size of the data.

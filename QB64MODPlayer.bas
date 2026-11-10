@@ -26,11 +26,11 @@ $RESIZE:SMOOTH
 $COLOR:0
 
 '$INCLUDE:'source/IO/File.bi'
-'$INCLUDE:'source/Audio/AudioAnalyzer.bi'
+'$INCLUDE:'source/AudioAnalyzer.bi'
 '$INCLUDE:'source/Graphics/Graphics2D.bi'
 '$INCLUDE:'source/Math/Vector2i.bi'
-'$INCLUDE:'source/Resource/Resource.bi'
-'$INCLUDE:'source/Audio/MODPlayer.bi'
+'$INCLUDE:'source/Resource.bi'
+'$INCLUDE:'source/MODPlayer.bi'
 
 CONST APP_NAME = "QB64 MOD Player" ' application name
 ' We'll use a window with 1152 x 720 px (144 x 90 chars @ 8 x 8 px font) client area

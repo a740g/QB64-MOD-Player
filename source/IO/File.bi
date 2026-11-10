@@ -9,7 +9,7 @@ $INCLUDEONCE
 '$INCLUDE:'../Core/Common.bi'
 '$INCLUDE:'../Core/Types.bi'
 '$INCLUDE:'../Core/String.bi'
-'$INCLUDE:'../FS/Pathname.bi'
+'$INCLUDE:'../Pathname.bi'
 '$INCLUDE:'../Core/TimeOps.bi'
 
 CONST __FILE_UPDATES_PER_SECOND_DEFAULT = 120 ' refresh happens 120 times a second

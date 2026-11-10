@@ -5,12 +5,12 @@
 
 $INCLUDEONCE
 
-'$INCLUDE:'../Core/Common.bi'
-'$INCLUDE:'../Core/Types.bi'
+'$INCLUDE:'Core/Common.bi'
+'$INCLUDE:'Core/Types.bi'
 '$INCLUDE:'SoftSynth.bi'
-'$INCLUDE:'AudioConv.bi'
-'$INCLUDE:'../DS/StringFile.bi'
-'$INCLUDE:'../IO/File.bi'
+'$INCLUDE:'Audio/AudioConv.bi'
+'$INCLUDE:'StringFile.bi'
+'$INCLUDE:'IO/File.bi'
 
 CONST __NOTE_NONE~%% = 132~%% ' Note will be set to this when there is nothing
 CONST __NOTE_KEY_OFF~%% = 133~%% ' We'll use this in a future version
