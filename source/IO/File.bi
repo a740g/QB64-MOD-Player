@@ -8,7 +8,7 @@ $INCLUDEONCE
 '$LET MODPLAYER_STRICT = TRUE
 '$INCLUDE:'../Core/Common.bi'
 '$INCLUDE:'../Core/Types.bi'
-'$INCLUDE:'../Core/String.bi'
+'$INCLUDE:'../String.bi'
 '$INCLUDE:'../Pathname.bi'
 '$INCLUDE:'../Core/TimeOps.bi'
 
