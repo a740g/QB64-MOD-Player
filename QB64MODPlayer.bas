@@ -26,6 +26,7 @@ $RESIZE:SMOOTH
 $COLOR:0
 
 '$INCLUDE:'source/IO/File.bi'
+'$INCLUDE:'source/String.bi'
 '$INCLUDE:'source/AudioAnalyzer.bi'
 '$INCLUDE:'source/Graphics/Graphics2D.bi'
 '$INCLUDE:'source/Vector2i.bi'
@@ -119,25 +120,13 @@ SUB DrawVisualization
 
     ' Print song type and name
     COLOR BrightWhite, Magenta
-    _PRINTSTRING (x, 1), String_FormatString(__Song.subtype, "  %-4.4s: ") + String_FormatString(__Song.caption, "%-74.74s  ")
+    LOCATE 1, x: PRINT USING "  \  \: \                                                                        \  "; __Song.subtype; __Song.caption;
 
     ' Print the header
     COLOR Blink, BrightWhite
-    _PRINTSTRING (x, 2), String_FormatLong(__Song.orderPosition, "  ORD: %3d / ") + _
-        String_FormatLong(__Song.orders - 1, "%3d | ") + _
-        String_FormatLong(startPat, "PAT: %3d / ") + _
-        String_FormatLong(__Song.patterns - 1, "%3d | ") + _
-        String_FormatLong(__Song.patternRow, "ROW: %2d / 63 | ") + _
-        String_FormatLong(__Song.activeChannels, "CHN: %3d / ") + _
-        String_FormatLong(__Song.channels, "%3d | ") + _
-        String_FormatLong(SoftSynth_GetActiveVoices, "VOC: %3d / ") + _
-        String_FormatLong(SoftSynth_GetTotalVoices, "%3d  ")
+    LOCATE 2, x: PRINT USING "  ORD: ### / ### | PAT: ### / ### | ROW: ## / 63 | CHN: ### / ### | VOC: ### / ###  "; __Song.orderPosition; __Song.orders - 1; startPat; __Song.patterns - 1; __Song.patternRow; __Song.activeChannels; __Song.channels; SoftSynth_GetActiveVoices; SoftSynth_GetTotalVoices;
 
-    _PRINTSTRING (x, 3), String_FormatLong(__Song.bpm, "  BPM: %3d       | ") + _
-        String_FormatLong(__Song.speed, "SPD: %3d       | ") + _
-        String_FormatSingle(SoftSynth_GetMasterVolume * 100!, "VOL: %3.0f%%    | ") + _
-        String_FormatDouble(SoftSynth_GetBufferedSoundTime * 1000#, "BUF: %7.0fms | ") + _
-        String_FormatString(String_FormatBoolean(__Song.isLooping, 4), "REP: %-9.9s  ")
+    LOCATE 3, x: PRINT USING "  BPM: ###       | SPD: ###       | VOL: ###%    | BUF: #######ms | REP: \       \  "; __Song.bpm; __Song.speed; SoftSynth_GetMasterVolume * 100!; SoftSynth_GetBufferedSoundTime * 1000#; _IIF(__Song.isLooping, "Enabled", "Disabled");
 
     ' Print the sample list header
     COLOR Blink, Cyan
@@ -157,14 +146,7 @@ SUB DrawVisualization
             j = j + 1
         WEND
 
-        _PRINTSTRING (x, 5 + i), String_FormatLong(i + 1, " %3d: ") + _
-            String_FormatString(__Instrument(i).caption, "%-25.25s ") + _
-            String_FormatLong(__Instrument(i).volume, "%8d ") + _
-            String_FormatLong(__Instrument(i).c2Spd, "%5d ") + _
-            String_FormatLong(__Instrument(i).length, "%6d ") + _
-            String_FormatString(String_FormatBoolean(__Instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, 6), "%-7.7s ") + _
-            String_FormatLong(__Instrument(i).loopStart, "%10d ") + _
-            String_FormatLong(__Instrument(i).loopEnd, "%9d  ")
+        LOCATE 5 + i, x: PRINT USING " ###: \                       \ ######## ##### ###### \     \ ########## #########  "; i + 1; __Instrument(i).caption; __Instrument(i).volume; __Instrument(i).c2Spd; __Instrument(i).length; _IIF(__Instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, "Yes", "No"); __Instrument(i).loopStart; __Instrument(i).loopEnd;
 
         i = i + 1
 
@@ -207,7 +189,7 @@ SUB DrawVisualization
 
             p = x
 
-            _PRINTSTRING (p, i), String_FormatLong(startPat, " %3d ") + String_FormatLong(startRow, "%2d:")
+            LOCATE i, p: PRINT USING " ### ##:"; startPat; startRow;
 
             p = p + 8
 
@@ -215,7 +197,7 @@ SUB DrawVisualization
             WHILE nChan < __Song.channels
                 COLOR LightCyan
 
-                _PRINTSTRING (p, i), String_FormatLong(nChan + 1, " (%2d)")
+                LOCATE i, p: PRINT USING " (##)"; nChan + 1;
 
                 p = p + 5
 
@@ -228,7 +210,7 @@ SUB DrawVisualization
                     _PRINTSTRING (p, i), " ^^^ "
                 ELSE
                     COLOR LightGreen
-                    _PRINTSTRING (p, i), String_FormatLong(1 + nNote \ 12, _CHR_SPACE + NoteTable(nNote MOD 12) + "%1d")
+                    LOCATE i, p: PRINT USING " &# "; NoteTable(nNote MOD 12); 1 + nNote \ 12;
                 END IF
 
                 p = p + 5
@@ -239,7 +221,7 @@ SUB DrawVisualization
                     _PRINTSTRING (p, i), "-- "
                 ELSE
                     COLOR Yellow
-                    _PRINTSTRING (p, i), String_FormatLong(nSample, "%.2i ")
+                    LOCATE i, p: PRINT USING "## "; nSample;
                 END IF
 
                 p = p + 3
@@ -252,7 +234,7 @@ SUB DrawVisualization
                     _PRINTSTRING (p, i), "-- "
                 ELSE
                     COLOR LightMagenta
-                    _PRINTSTRING (p, i), String_FormatLong(nEffect, "%.2X ")
+                    LOCATE i, p: PRINT RIGHT$("0" + HEX$(nEffect), 2); " ";
                 END IF
 
                 p = p + 3
@@ -262,7 +244,7 @@ SUB DrawVisualization
                     _PRINTSTRING (p, i), "-- "
                 ELSE
                     COLOR LightRed
-                    _PRINTSTRING (p, i), String_FormatLong(nOperand, "%.2X ")
+                    LOCATE i, p: PRINT RIGHT$("0" + HEX$(nOperand), 2); " ";
                 END IF
 
                 p = p + 3
@@ -295,9 +277,7 @@ SUB DrawVisualization
 
     i = 0
     WHILE i < __Song.channels
-        _PRINTSTRING (x + 8 + i * 19, j), String_FormatLong(i + 1, " (%2i)") + _
-            String_FormatSingle(SoftSynth_GetVoiceVolume(i) * 100.0!, " V:%3.0f") + _
-            String_FormatSingle(SoftSynth_GetVoiceBalance(i) * 100.0!, " B:%+4.0f ")
+        LOCATE j, x + 8 + i * 19: PRINT USING " (##) V:### B:+### "; i + 1; SoftSynth_GetVoiceVolume(i) * 100!; SoftSynth_GetVoiceBalance(i) * 100!;
 
         i = i + 1
     WEND
