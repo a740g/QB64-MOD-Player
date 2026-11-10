@@ -6,7 +6,7 @@
 $VERSIONINFO:CompanyName='Samuel Gomes'
 $VERSIONINFO:FileDescription='QB64 MOD Player executable'
 $VERSIONINFO:InternalName='QB64MODPlayer'
-$VERSIONINFO:LegalCopyright='Copyright (c) 2024 Samuel Gomes'
+$VERSIONINFO:LegalCopyright='Copyright (c) 2026 Samuel Gomes'
 $VERSIONINFO:LegalTrademarks='All trademarks are property of their respective owners'
 $VERSIONINFO:OriginalFilename='QB64MODPlayer.exe'
 $VERSIONINFO:ProductName='QB64 MOD Player'
@@ -29,6 +29,7 @@ $COLOR:0
 '$INCLUDE:'source/AudioAnalyzer.bi'
 '$INCLUDE:'source/Graphics/Graphics2D.bi'
 '$INCLUDE:'source/Math/Vector2i.bi'
+'$INCLUDE:'source/Math.bi'
 '$INCLUDE:'source/Resource.bi'
 '$INCLUDE:'source/MODPlayer.bi'
 
@@ -90,20 +91,6 @@ DIM SHARED FFT AS FFTType ' global FFT info
 REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0), SpectrumAnalyzerR(0) ' left & right channel FFT data
 DIM Stars(1 TO STAR_COUNT) AS StarType
 DIM Snakes(1 TO SNAKE_COUNT) AS SnakeType
-
-''' @brief Returns the zero-based index of the highest set bit. Given a non-zero unsigned integer, returns the position of the
-''' most significant set bit (MSB), counting from the least significant bit as position 0.
-''' @param n The value to examine.
-''' @return The index of the highest set bit. Returns 0 if n is 0.
-FUNCTION HighestSetBitIndex~& (n AS _UNSIGNED LONG)
-    DECLARE LIBRARY
-        FUNCTION __builtin_clz (BYVAL n AS _UNSIGNED LONG)
-    END DECLARE
-
-    IF n THEN
-        HighestSetBitIndex = (8 * _SIZE_OF_LONG - 1) - __builtin_clz(n)
-    END IF
-END FUNCTION
 
 ' This displays the current playing MODs visualization on the screen
 SUB DrawVisualization
