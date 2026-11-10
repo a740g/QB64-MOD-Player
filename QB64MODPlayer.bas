@@ -305,7 +305,7 @@ SUB DrawVisualization
     ' Only re-allocate the array if __Song.samplesPerTick has changed
     IF FFT.framesPerTick <> __Song.framesPerTick THEN
         ' We need power of 2 for our FFT function
-        FFT.frames = Math_RoundDownLongToPowerOf2(__Song.framesPerTick)
+        FFT.frames = Math_RoundDownToPowerOf2(__Song.framesPerTick)
 
         ' We need this too
         FFT.halfFrames = FFT.frames \ 2

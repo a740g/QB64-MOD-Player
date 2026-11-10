@@ -156,7 +156,7 @@ FUNCTION SoftSynth_Initialize%%
     __SoftSynthPipe.soundMasterVolume = SOFTSYNTH_MASTER_VOLUME_MAX
 
     ' Allocate a ~40 ms mixer buffer, rounded down to power of 2
-    __SoftSynthPipe.soundBufferFrames = Math_RoundDownLongToPowerOf2(__SoftSynth.sampleRate * 0.04!)
+    __SoftSynthPipe.soundBufferFrames = Math_RoundDownToPowerOf2(__SoftSynth.sampleRate * 0.04!)
     __SoftSynthPipe.soundBufferSamples = __SoftSynthPipe.soundBufferFrames * SOFTSYNTH_SOUND_BUFFER_CHANNELS
     __SoftSynthPipe.soundBufferBytes = __SoftSynthPipe.soundBufferSamples * SOFTSYNTH_SOUND_BUFFER_SAMPLE_SIZE
     REDIM __SoftSynth_SoundBuffer(0 TO __SoftSynthPipe.soundBufferSamples - 1) AS SINGLE

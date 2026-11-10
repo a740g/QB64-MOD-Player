@@ -22,9 +22,9 @@ END FUNCTION
 ''' @brief Rounds down an unsigned long integer to the nearest power of 2.
 ''' @param n The value to round down.
 ''' @return The nearest power of 2 less than or equal to n, or 0 if n is 0.
-FUNCTION Math_RoundDownLongToPowerOf2~& (n AS _UNSIGNED LONG)
+FUNCTION Math_RoundDownToPowerOf2~& (n AS _UNSIGNED LONG)
     IF n THEN
-        Math_RoundDownLongToPowerOf2 = _SHL(1~&, (8 * _SIZE_OF_LONG - 1) - Math_CountLeadingZeros(n))
+        Math_RoundDownToPowerOf2 = _SHL(1~&, (8 * _SIZE_OF_LONG - 1) - Math_CountLeadingZeros(n))
     END IF
 END FUNCTION
 
