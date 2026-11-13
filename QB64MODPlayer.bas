@@ -25,7 +25,7 @@ $RESIZE:SMOOTH
 
 $COLOR:0
 
-'$INCLUDE:'source/IO/File.bi'
+'$INCLUDE:'source/File.bi'
 '$INCLUDE:'source/String.bi'
 '$INCLUDE:'source/AudioAnalyzer.bi'
 '$INCLUDE:'source/Graphics/Graphics2D.bi'

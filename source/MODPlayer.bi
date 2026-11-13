@@ -11,7 +11,7 @@ $INCLUDEONCE
 '$INCLUDE:'Math.bi'
 '$INCLUDE:'Audio/AudioConv.bi'
 '$INCLUDE:'StringFile.bi'
-'$INCLUDE:'IO/File.bi'
+'$INCLUDE:'File.bi'
 
 CONST __NOTE_NONE~%% = 132~%% ' Note will be set to this when there is nothing
 CONST __NOTE_KEY_OFF~%% = 133~%% ' We'll use this in a future version
