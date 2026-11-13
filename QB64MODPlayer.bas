@@ -31,7 +31,6 @@ $COLOR:0
 '$INCLUDE:'source/Graphics/Graphics2D.bi'
 '$INCLUDE:'source/Vector2i.bi'
 '$INCLUDE:'source/Math.bi'
-'$INCLUDE:'source/Resource.bi'
 '$INCLUDE:'source/MODPlayer.bi'
 
 CONST APP_NAME = "QB64 MOD Player" ' application name
@@ -126,7 +125,7 @@ SUB DrawVisualization
     COLOR Blink, BrightWhite
     LOCATE 2, x: PRINT USING "  ORD: ### / ### | PAT: ### / ### | ROW: ## / 63 | CHN: ### / ### | VOC: ### / ###  "; __Song.orderPosition; __Song.orders - 1; startPat; __Song.patterns - 1; __Song.patternRow; __Song.activeChannels; __Song.channels; SoftSynth_GetActiveVoices; SoftSynth_GetTotalVoices;
 
-    LOCATE 3, x: PRINT USING "  BPM: ###       | SPD: ###       | VOL: ###%    | BUF: #######ms | REP: \       \  "; __Song.bpm; __Song.speed; SoftSynth_GetMasterVolume * 100!; SoftSynth_GetBufferedSoundTime * 1000#; _IIF(__Song.isLooping, "Enabled", "Disabled");
+    LOCATE 3, x: PRINT USING "  BPM: ###       | SPD: ###       | VOL: ###%    | BUF: #######ms | REP: \       \  "; __Song.BPM; __Song.speed; SoftSynth_GetMasterVolume * 100!; SoftSynth_GetBufferedSoundTime * 1000#; _IIF(__Song.isLooping, "Enabled", "Disabled");
 
     ' Print the sample list header
     COLOR Blink, Cyan
@@ -333,12 +332,12 @@ SUB DrawVisualization
     _DISPLAY ' flip the framebuffer
 END SUB
 
-
+' This a tiny and minimalistic ANSI art renderer
 SUB RenderTitleScreen (img AS LONG, s AS STRING, fnt AS LONG)
     ' ANSI to QB SCREEN 0 color mapping table:
     ' ANSI 0 (Black), 1 (Red), 2 (Green), 3 (Yellow), 4 (Blue), 5 (Magenta), 6 (Cyan), 7 (White)
     STATIC ansi2qb(0 TO 7) AS _UNSIGNED _BYTE
-    IF ansi2qb(1) = 0 THEN
+    IF ansi2qb(White) = 0 THEN
         ansi2qb(0) = Black
         ansi2qb(1) = Red
         ansi2qb(2) = Green
@@ -486,18 +485,29 @@ SUB RenderTitleScreen (img AS LONG, s AS STRING, fnt AS LONG)
     _DEST oldDest
 END SUB
 
-
 ' Welcome screen loop
 FUNCTION OnWelcomeScreen%%
+    ' Welcome ANSI (144 x 90 chars)
+    CONST SIZE_QB64MODPLAYER_ANS_15162& = 15162&
+    CONST DATA_QB64MODPLAYER_ANS_15162 = _
+        "eNqSjjbIlY42tDY2zlWgBAAoH6vbWKMYCD9fSA/fW+zQacjSbCFucbem6Iwcxp/MGriZTEJMGRv86u/v4WPiVIPn7oTzCsjy0PkwSZA10QCDarhM" + _
+        "54rMiPRwctZ7a8ftZYTScdCHCk+ynAtWKJPJ3r12nRZ+iNrAmjjwwxUKU+DB3ggYAQKPRu0a5XXM9kIUjQzGoml21VAL+vkCCnqa3myjwP/4OEQ+" + _
+        "RMbENC1QQ9O1mn6+6LQwZIELnTx1fW+11+q35Jfz909JpWpJi3Kk1Tg6zLTf7Uq68/KOXav38PzDc3kUqtt2KdAU1ABdDLKQeB1Qh+0CsG8WOm7E" + _
+        "QAD9j4pGWAynjM6uk1g1bGxvQFAOSaFj/Kh+Ys8bH4fKBzOC0MLT5K3Z8zH/eyAbsiEbsiEbsiEbsiEbsiHbdWbzPY9Cdvh9pZjdpflnfRvPeoTh" + _
+        "zl/98CtE7d4/GZZzyVeQPhPul8dDEXPLUoZyGlgoM06NP80df7vzj9bkvTUXnIk4aUFZKwFChUQHVVan198af/ivl4joy5Ozvly0phaz4L0hdeqK" + _
+        "Ge8LPq9oDTXBqTaz1ZG0aTNH/li0Bqmn1photjUXqyoSGyxrPDVa8/rwobdmhitMBpoSQ6GueCzQGk+N1qQOP863JqRoDVLPsIYfDrw1i6sorlSE" + _
+        "1iD11JpXqVWaNZo2mAzRGk+NNdQbb80iacpKN4hGa27VCLYPnKVANmRDNmRDNmQ7V73CFQrP9a8xERMxEdOfWxyGmlSAyBBCrSJIVkhEnIJQ4XSF" + _
+        "BCgJtsoMuE64aoBVkEyJ2yoVYGgtptIywnkrfe6umNiWiiEgEgg3Cowl2rqcQaRVRRMBDWarJ+n2qS5rJZKDAiWE+084kzTtO4y3urj3OZ2KSAw0" + _
+        "NLOWSmASaqUnxVREk+v4w1zqXBqNinXgshlSYAZInTBOSpw6pyvMVuOSlxa1nZvy3ubmZONFJtPtb/a2vqS/joeZz0+L2W4mybtQYSoafN5rr3tL" + _
+        "sZVyFTBPN4ldofCbxO4ESkhr+5uDNmx8XW+3R9AZr4PTKal1pjqlYXEE48neer/b24R7X++D+Tzcag+gMh62Nx5BPpsvwJKYpzWsGIbEAc1mL1DD" + _
+        "jJh1WT4etRvjQQfOhKPO5bKFH/tiycDAyDiBIYoBBJiZPZ18FcLcHU0NGJABAJPUQiY="
+
     SHARED Stars() AS StarType
     SHARED Snakes() AS SnakeType
 
-    RESTORE data_qb64modplayer_ans_15162
-    DIM buffer AS STRING: buffer = Resource_LoadBase64Data ' Load the ANSI art data
-
-    ' Render title screen into an image
+    ' Load the ANSI art data and render it to a text surface
     DIM titlePage AS LONG: titlePage = _NEWIMAGE(TEXT_WIDTH_MIN, TEXT_LINE_MAX, 0)
-    RenderTitleScreen titlePage, buffer, 8
+    RenderTitleScreen titlePage, _INFLATE$(_BASE64DECODE$(DATA_QB64MODPLAYER_ANS_15162), SIZE_QB64MODPLAYER_ANS_15162), 8 ' Use 8x8 font
     _CLEARCOLOR _ASC_SPACE + _SHL(White, 8), titlePage ' Set all blank cells to be transparent
 
     DIM bgType AS LONG: bgType = Math_GetRandomBetween(0, 1)
@@ -538,23 +548,7 @@ FUNCTION OnWelcomeScreen%%
     _FREEIMAGE titlePage
 
     OnWelcomeScreen = e
-
-    ' Welcome screen (144 x 90 chars)
-    data_qb64modplayer_ans_15162:
-    DATA 15162,1188,-1
-    DATA eNqSjjbIlY42tDY2zlWgBAAoH6vbWKMYCD9fSA/fW+zQacjSbCFucbem6Iwcxp/MGriZTEJMGRv86u/v4WPiVIPn7oTzCsjy0PkwSZA10QCDarhM
-    DATA 54rMiPRwctZ7a8ftZYTScdCHCk+ynAtWKJPJ3r12nRZ+iNrAmjjwwxUKU+DB3ggYAQKPRu0a5XXM9kIUjQzGoml21VAL+vkCCnqa3myjwP/4OEQ+
-    DATA RMbENC1QQ9O1mn6+6LQwZIELnTx1fW+11+q35Jfz909JpWpJi3Kk1Tg6zLTf7Uq68/KOXav38PzDc3kUqtt2KdAU1ABdDLKQeB1Qh+0CsG8WOm7E
-    DATA QAD9j4pGWAynjM6uk1g1bGxvQFAOSaFj/Kh+Ys8bH4fKBzOC0MLT5K3Z8zH/eyAbsiEbsiEbsiEbsiEbsiHbdWbzPY9Cdvh9pZjdpflnfRvPeoTh
-    DATA zl/98CtE7d4/GZZzyVeQPhPul8dDEXPLUoZyGlgoM06NP80df7vzj9bkvTUXnIk4aUFZKwFChUQHVVan198af/ivl4joy5Ozvly0phaz4L0hdeqK
-    DATA Ge8LPq9oDTXBqTaz1ZG0aTNH/li0Bqmn1photjUXqyoSGyxrPDVa8/rwobdmhitMBpoSQ6GueCzQGk+N1qQOP863JqRoDVLPsIYfDrw1i6sorlSE
-    DATA 1iD11JpXqVWaNZo2mAzRGk+NNdQbb80iacpKN4hGa27VCLYPnKVANmRDNmRDNmQ7V73CFQrP9a8xERMxEdOfWxyGmlSAyBBCrSJIVkhEnIJQ4XSF
-    DATA BCgJtsoMuE64aoBVkEyJ2yoVYGgtptIywnkrfe6umNiWiiEgEgg3Cowl2rqcQaRVRRMBDWarJ+n2qS5rJZKDAiWE+084kzTtO4y3urj3OZ2KSAw0
-    DATA NLOWSmASaqUnxVREk+v4w1zqXBqNinXgshlSYAZInTBOSpw6pyvMVuOSlxa1nZvy3ubmZONFJtPtb/a2vqS/joeZz0+L2W4mybtQYSoafN5rr3tL
-    DATA sZVyFTBPN4ldofCbxO4ESkhr+5uDNmx8XW+3R9AZr4PTKal1pjqlYXEE48neer/b24R7X++D+Tzcag+gMh62Nx5BPpsvwJKYpzWsGIbEAc1mL1DD
-    DATA jJh1WT4etRvjQQfOhKPO5bKFH/tiycDAyDiBIYoBBJiZPZ18FcLcHU0NGJABAJPUQiY=
 END FUNCTION
-
 
 ' Loads the note string table
 SUB InitializeNoteTable
@@ -571,7 +565,6 @@ SUB InitializeNoteTable
     DATA 12
     DATA "C-","C#","D-","D#","E-","F-","F#","G-","G#","A-","A#","B-"
 END SUB
-
 
 ' Automatically selects, sets the window size and saves the text width
 SUB AdjustWindowSize
@@ -602,7 +595,6 @@ SUB AdjustWindowSize
     CLS ' clear the screen
     LOCATE , , _FALSE ' turn cursor off
 END SUB
-
 
 ' Initializes, loads and plays a mod file
 ' Also checks for input, shows info etc
@@ -695,7 +687,6 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
     _TITLE APP_NAME + _CHR_SPACE + _OS$ ' Set app title to the way it was
 END FUNCTION
 
-
 ' Processes the command line one file at a time
 FUNCTION OnCommandLine%%
     DIM e AS _BYTE: e = EVENT_NONE
@@ -712,7 +703,6 @@ FUNCTION OnCommandLine%%
 
     OnCommandLine = e
 END FUNCTION
-
 
 ' Processes dropped files one file at a time
 FUNCTION OnDroppedFiles%%
@@ -735,7 +725,6 @@ FUNCTION OnDroppedFiles%%
     OnDroppedFiles = e
 END FUNCTION
 
-
 ' Processes a list of files selected by the user
 FUNCTION OnSelectedFiles%%
     DIM ofdList AS STRING
@@ -756,7 +745,6 @@ FUNCTION OnSelectedFiles%%
 
     OnSelectedFiles = e
 END FUNCTION
-
 
 ' Loads and plays random MODs from modarchive.org
 FUNCTION OnModArchiveFiles%%
@@ -787,7 +775,6 @@ FUNCTION OnModArchiveFiles%%
     OnModArchiveFiles = e
 END FUNCTION
 
-
 ' Gets a random file URL from www.modarchive.org
 FUNCTION GetRandomModArchiveFileName$
     DIM buffer AS STRING: buffer = File_LoadFromURL("https://modarchive.org/index.php?request=view_random")
@@ -798,13 +785,11 @@ FUNCTION GetRandomModArchiveFileName$
     END IF
 END FUNCTION
 
-
 ' Returns a good file name for a modarchive file
 FUNCTION GetSaveFileName$ (url AS STRING)
     DIM saveFileName AS STRING: saveFileName = Pathname_GetFileName(url)
     GetSaveFileName = Pathname_Sanitize(MID$(saveFileName, INSTR(saveFileName, "=") + 1)) ' this will get a file name of type: 12312313#filename.mod
 END FUNCTION
-
 
 ' Saves a file loaded from the internet
 SUB QuickSave (buffer AS STRING, url AS STRING)
@@ -844,7 +829,6 @@ SUB QuickSave (buffer AS STRING, url AS STRING)
     END IF
 END SUB
 
-
 SUB InitializeStars (stars() AS StarType)
     CONST Z_DIVIDER = 4096!
 
@@ -860,7 +844,6 @@ SUB InitializeStars (stars() AS StarType)
         stars(i).c = Math_GetRandomBetween(9, 15)
     NEXT i
 END SUB
-
 
 SUB UpdateAndDrawStars (stars() AS StarType, speed AS SINGLE)
     CONST Z_DIVIDER = 4096!
@@ -905,7 +888,6 @@ SUB UpdateAndDrawStars (stars() AS StarType, speed AS SINGLE)
     NEXT i
 END SUB
 
-
 SUB InitializeSnakes (snakes() AS SnakeType)
     CONST SNAKE_SIZE_MIN = 5
     CONST SNAKE_SIZE_MAX = 25
@@ -934,7 +916,6 @@ SUB InitializeSnakes (snakes() AS SnakeType)
         WEND
     NEXT i
 END SUB
-
 
 SUB UpdateAndDrawSnakes (snakes() AS SnakeType)
     DIM L AS LONG: L = LBOUND(snakes)
