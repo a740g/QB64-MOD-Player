@@ -333,7 +333,7 @@ SUB DrawVisualization
 END SUB
 
 ' This a tiny and minimalistic ANSI art renderer
-SUB RenderTitleScreen (img AS LONG, s AS STRING, fnt AS LONG)
+SUB RenderTitleScreen (img AS LONG, s AS STRING)
     ' ANSI to QB SCREEN 0 color mapping table:
     ' ANSI 0 (Black), 1 (Red), 2 (Green), 3 (Yellow), 4 (Blue), 5 (Magenta), 6 (Cyan), 7 (White)
     STATIC ansi2qb(0 TO 7) AS _UNSIGNED _BYTE
@@ -351,7 +351,6 @@ SUB RenderTitleScreen (img AS LONG, s AS STRING, fnt AS LONG)
     DIM oldDest AS LONG: oldDest = _DEST
 
     _DEST img
-    _FONT fnt, img
 
     DIM fg AS LONG: fg = White
     DIM bg AS LONG: bg = Black
@@ -507,7 +506,7 @@ FUNCTION OnWelcomeScreen%%
 
     ' Load the ANSI art data and render it to a text surface
     DIM titlePage AS LONG: titlePage = _NEWIMAGE(TEXT_WIDTH_MIN, TEXT_LINE_MAX, 0)
-    RenderTitleScreen titlePage, _INFLATE$(_BASE64DECODE$(DATA_QB64MODPLAYER_ANS_15162), SIZE_QB64MODPLAYER_ANS_15162), 8 ' Use 8x8 font
+    RenderTitleScreen titlePage, _INFLATE$(_BASE64DECODE$(DATA_QB64MODPLAYER_ANS_15162), SIZE_QB64MODPLAYER_ANS_15162)
     _CLEARCOLOR _ASC_SPACE + _SHL(White, 8), titlePage ' Set all blank cells to be transparent
 
     DIM bgType AS LONG: bgType = Math_GetRandomBetween(0, 1)
