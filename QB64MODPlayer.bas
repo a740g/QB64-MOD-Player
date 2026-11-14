@@ -28,7 +28,6 @@ $COLOR:0
 '$INCLUDE:'source/File.bi'
 '$INCLUDE:'source/String.bi'
 '$INCLUDE:'source/AudioAnalyzer.bi'
-'$INCLUDE:'source/Graphics/Graphics2D.bi'
 '$INCLUDE:'source/Vector2i.bi'
 '$INCLUDE:'source/Math.bi'
 '$INCLUDE:'source/MODPlayer.bi'
@@ -91,6 +90,13 @@ DIM SHARED FFT AS FFTType ' global FFT info
 REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0), SpectrumAnalyzerR(0) ' left & right channel FFT data
 DIM Stars(1 TO STAR_COUNT) AS StarType
 DIM Snakes(1 TO SNAKE_COUNT) AS SnakeType
+
+SUB DrawHorizontalLine (lx AS LONG, ty AS LONG, rx AS LONG, char AS _UNSIGNED _BYTE)
+    DIM l AS LONG: l = lx
+    DIM r AS LONG: r = rx
+    IF l > r THEN SWAP l, r
+    _PRINTSTRING (l, ty), STRING$(1 + r - l, char)
+END SUB
 
 ' This displays the current playing MODs visualization on the screen
 SUB DrawVisualization
@@ -308,22 +314,24 @@ SUB DrawVisualization
 
     i = 0
     WHILE i < FFT.halfFrames
-        j = (i * FFT.size.y) \ FFT.halfFrames ' this is the y location where we need to draw the bar
+        j = 1 + (i * FFT.size.y) \ FFT.halfFrames ' this is the y location where we need to draw the bar
 
         ' First calculate and draw a bar on the left
         x = _SHR(SpectrumAnalyzerL(i), ANALYZER_SCALE)
         IF x > 0 THEN ' only do something if x has a value > 0
             IF x > FFT.size.x THEN x = FFT.size.x
-            p = FFT.size.x - 1 ' this is starting x position of the bar
-            Graphics_DrawHorizontalLine p, j, p - x + 1, Graphics_MakeTextColorAttribute(254, LightGreen + x MOD Brown, Black)
+            p = FFT.size.x ' this is starting x position of the bar
+            COLOR LightGreen + x MOD Brown, Black
+            DrawHorizontalLine p, j, p - x + 1, 254
         END IF
 
         ' Next calculate for the one on the right and draw
         x = _SHR(SpectrumAnalyzerR(i), ANALYZER_SCALE)
         IF x > 0 THEN ' only do something if x has a value > 0
             IF x > FFT.size.x THEN x = FFT.size.x
-            p = FFT.size.x + TEXT_WIDTH_HEADER ' this is starting x position of the bar
-            Graphics_DrawHorizontalLine p, j, p + x - 1, Graphics_MakeTextColorAttribute(254, LightGreen + x MOD Brown, Black)
+            p = FFT.size.x + TEXT_WIDTH_HEADER + 1 ' this is starting x position of the bar
+            COLOR LightGreen + x MOD Brown, Black
+            DrawHorizontalLine p, j, p + x - 1, 254
         END IF
 
         i = i + 1
@@ -836,9 +844,10 @@ SUB InitializeStars (stars() AS StarType)
     DIM W AS LONG: W = _WIDTH
     DIM H AS LONG: H = _HEIGHT
 
-    DIM i AS LONG: FOR i = L TO U
-        stars(i).p.x = Math_GetRandomBetween(0, W - 1)
-        stars(i).p.y = Math_GetRandomBetween(0, H - 1)
+    DIM i AS LONG
+    FOR i = L TO U
+        stars(i).p.x = Math_GetRandomBetween(1, W)
+        stars(i).p.y = Math_GetRandomBetween(1, H)
         stars(i).p.z = Z_DIVIDER
         stars(i).c = Math_GetRandomBetween(9, 15)
     NEXT i
@@ -846,6 +855,11 @@ END SUB
 
 SUB UpdateAndDrawStars (stars() AS StarType, speed AS SINGLE)
     CONST Z_DIVIDER = 4096!
+    CONST STAR_249 = CHR$(249)
+    CONST STAR_7 = CHR$(7)
+    CONST STAR_43 = CHR$(43)
+    CONST STAR_120 = CHR$(120)
+    CONST STAR_42 = CHR$(42)
 
     DIM L AS LONG: L = LBOUND(stars)
     DIM U AS LONG: U = UBOUND(stars)
@@ -854,29 +868,33 @@ SUB UpdateAndDrawStars (stars() AS StarType, speed AS SINGLE)
     DIM W_Half AS LONG: W_Half = W \ 2
     DIM H_Half AS LONG: H_Half = H \ 2
 
-    DIM i AS LONG: FOR i = L TO U
-        IF stars(i).p.x < 0 _ORELSE stars(i).p.x >= W _ORELSE stars(i).p.y < 0 _ORELSE stars(i).p.y >= H THEN
-            stars(i).p.x = Math_GetRandomBetween(0, W - 1)
-            stars(i).p.y = Math_GetRandomBetween(0, H - 1)
+    DIM i AS LONG
+    FOR i = L TO U
+        IF stars(i).p.x < 1 _ORELSE _CAST(LONG, stars(i).p.x) > W _ORELSE stars(i).p.y < 1 _ORELSE _CAST(LONG, stars(i).p.y) > H THEN
+            stars(i).p.x = Math_GetRandomBetween(1, W)
+            stars(i).p.y = Math_GetRandomBetween(1, H)
             stars(i).p.z = Z_DIVIDER
             stars(i).c = Math_GetRandomBetween(9, 15)
         END IF
 
+        COLOR stars(i).c, Black
+
         SELECT CASE stars(i).p.z
             CASE IS < 4119!
-                Graphics_DrawPixel stars(i).p.x, stars(i).p.y, Graphics_MakeTextColorAttribute(249, stars(i).c, 0)
+                _PRINTSTRING (stars(i).p.x, stars(i).p.y), STAR_249
 
             CASE IS < 4149!
-                Graphics_DrawPixel stars(i).p.x, stars(i).p.y, Graphics_MakeTextColorAttribute(7, stars(i).c, 0)
+                _PRINTSTRING (stars(i).p.x, stars(i).p.y), STAR_7
 
             CASE IS < 4166!
-                Graphics_DrawPixel stars(i).p.x, stars(i).p.y, Graphics_MakeTextColorAttribute(43, stars(i).c, 0)
+                _PRINTSTRING (stars(i).p.x, stars(i).p.y), STAR_43
 
             CASE IS < 4190!
-                Graphics_DrawPixel stars(i).p.x, stars(i).p.y, Graphics_MakeTextColorAttribute(120, stars(i).c, 0)
+                _PRINTSTRING (stars(i).p.x, stars(i).p.y), STAR_120
 
             CASE ELSE
-                Graphics_DrawPixel stars(i).p.x, stars(i).p.y, Graphics_MakeTextColorAttribute(42, stars(i).c, 0)
+                _PRINTSTRING (stars(i).p.x, stars(i).p.y), STAR_42
+
         END SELECT
 
         stars(i).p.z = stars(i).p.z + speed
@@ -896,33 +914,36 @@ SUB InitializeSnakes (snakes() AS SnakeType)
     DIM W AS LONG: W = _WIDTH
     DIM H AS LONG: H = _HEIGHT
 
-    DIM i AS LONG: FOR i = L TO U
+    DIM i AS LONG
+    FOR i = L TO U
         snakes(i).p = SPACE$(Math_GetRandomBetween(SNAKE_SIZE_MIN, SNAKE_SIZE_MAX) * 2)
         snakes(i).s = 0.1! + RND * 0.9!
         snakes(i).c = Math_GetRandomBetween(1, 8)
         Vector2i_Initialize Math_GetRandomBetween(0, 1) * 2 - 1, Math_GetRandomBetween(0, 1) * 2 - 1, snakes(i).d ' -1 or 1
 
         DIM size AS LONG: size = LEN(snakes(i).p)
-        DIM x AS LONG: x = Math_GetRandomBetween(0, W - 1)
-        DIM y AS LONG: y = Math_GetRandomBetween(0, H - 1)
+        DIM x AS LONG: x = Math_GetRandomBetween(1, W)
+        DIM y AS LONG: y = Math_GetRandomBetween(1, H)
 
-        DIM j AS LONG: j = 1
-        WHILE j <= size
+        DIM j AS LONG
+        FOR j = 1 TO size STEP 2
             ASC(snakes(i).p, j) = x
-            j = j + 1
-            ASC(snakes(i).p, j) = y
-            j = j + 1
-        WEND
+            ASC(snakes(i).p, j + 1) = y
+        NEXT j
     NEXT i
 END SUB
 
 SUB UpdateAndDrawSnakes (snakes() AS SnakeType)
+    CONST SNAKE_HEAD = CHR$(15)
+    CONST SNAKE_BODY = CHR$(254)
+
     DIM L AS LONG: L = LBOUND(snakes)
     DIM U AS LONG: U = UBOUND(snakes)
     DIM W AS LONG: W = _WIDTH
     DIM H AS LONG: H = _HEIGHT
 
-    DIM i AS LONG: FOR i = L TO U
+    DIM i AS LONG
+    FOR i = L TO U
         snakes(i).t = snakes(i).t + snakes(i).s
 
         DIM p AS Vector2i
@@ -935,8 +956,8 @@ SUB UpdateAndDrawSnakes (snakes() AS SnakeType)
             ' Get the position of the head and add velocity
             Vector2i_AddXY snakes(i).d, ASC(snakes(i).p, 1), ASC(snakes(i).p, 2), p
 
-            IF p.x < 0 _ORELSE p.x >= W THEN Vector2i_FlipHorizontal snakes(i).d, snakes(i).d
-            IF p.y < 0 _ORELSE p.y >= H THEN Vector2i_FlipVertical snakes(i).d, snakes(i).d
+            IF p.x < 1 _ORELSE p.x > W THEN Vector2i_FlipHorizontal snakes(i).d, snakes(i).d
+            IF p.y < 1 _ORELSE p.y > H THEN Vector2i_FlipVertical snakes(i).d, snakes(i).d
 
             DIM j AS LONG: j = s - 2
             WHILE j > 0
@@ -959,12 +980,16 @@ SUB UpdateAndDrawSnakes (snakes() AS SnakeType)
             j = j - 1
             p.x = ASC(snakes(i).p, j)
             j = j - 1
-            Graphics_DrawPixel p.x, p.y, Graphics_MakeTextColorAttribute(254, snakes(i).c, 0)
+
+            COLOR snakes(i).c, Black
+            _PRINTSTRING (p.x, p.y), SNAKE_BODY
         WEND
 
         p.x = ASC(snakes(i).p, 1)
         p.y = ASC(snakes(i).p, 2)
-        Graphics_DrawPixel p.x, p.y, Graphics_MakeTextColorAttribute(15, snakes(i).c, 0)
+
+        COLOR snakes(i).c, Black
+        _PRINTSTRING (p.x, p.y), SNAKE_HEAD
     NEXT i
 END SUB
 
