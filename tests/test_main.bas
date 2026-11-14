@@ -354,185 +354,265 @@ SUB Test_AudioAnalyzer
 END SUB
 
 ''' @brief Tests for ProTracker MOD loading and playback.
+SUB Test_MODPlayer_Lifecycle
+    TEST_CASE_BEGIN "MODPlayer: Lifecycle management"
+    DIM player AS MODPlayerType
+    TEST_CHECK_FALSE MODPlayer_IsInitialized(player), "Not initialized initially"
+    TEST_REQUIRE MODPlayer_Initialize(player), "Initialize player"
+    TEST_CHECK MODPlayer_IsInitialized(player), "Player is initialized"
+    MODPlayer_Finalize player
+    TEST_CHECK_FALSE MODPlayer_IsInitialized(player), "Player finalized"
+    TEST_CASE_END
+END SUB
+
+''' @brief Tests for ProTracker MOD loading and playback.
 SUB Test_MODPlayer_MOD
     TEST_CASE_BEGIN "MODPlayer: ProTracker MOD (Enigma.mod)"
-    TEST_REQUIRE MODPlayer_LoadFromDisk("mods/Enigma.mod"), "Load Enigma.mod"
-    TEST_CHECK INSTR(MODPlayer_GetName, "Enigma") > 0, "Song caption contains 'Enigma'"
-    TEST_CHECK MODPlayer_GetType = "M.K.", "Song subtype is M.K."
-    TEST_CHECK MODPlayer_GetOrders > 0, "Order count is greater than 0"
-    TEST_CHECK MODPlayer_GetPosition = 0, "Initial position is 0"
+    DIM player AS MODPlayerType
+    TEST_REQUIRE MODPlayer_LoadFromDisk(player, "mods/Enigma.mod"), "Load Enigma.mod"
+    TEST_CHECK INSTR(MODPlayer_GetName(player), "Enigma") > 0, "Song caption contains 'Enigma'"
+    TEST_CHECK MODPlayer_GetType(player) = "M.K.", "Song subtype is M.K."
+    TEST_CHECK MODPlayer_GetOrders(player) > 0, "Order count is greater than 0"
+    TEST_CHECK MODPlayer_GetPosition(player) = 0, "Initial position is 0"
 
     ' Test loop toggle
-    MODPlayer_Loop _TRUE
-    TEST_CHECK MODPlayer_IsLooping, "Looping enabled"
-    MODPlayer_Loop _FALSE
-    TEST_CHECK_FALSE MODPlayer_IsLooping, "Looping disabled"
+    MODPlayer_Loop player, _TRUE
+    TEST_CHECK MODPlayer_IsLooping(player), "Looping enabled"
+    MODPlayer_Loop player, _FALSE
+    TEST_CHECK_FALSE MODPlayer_IsLooping(player), "Looping disabled"
 
     ' Test position navigation
-    MODPlayer_SetPosition 2
-    TEST_CHECK MODPlayer_GetPosition = 2, "Position set to 2"
-    MODPlayer_GoToNextPosition
-    TEST_CHECK MODPlayer_GetPosition = 3, "Position incremented to 3"
-    MODPlayer_GoToPreviousPosition
-    TEST_CHECK MODPlayer_GetPosition = 2, "Position decremented back to 2"
+    MODPlayer_SetPosition player, 2
+    TEST_CHECK MODPlayer_GetPosition(player) = 2, "Position set to 2"
+    MODPlayer_GoToNextPosition player
+    TEST_CHECK MODPlayer_GetPosition(player) = 3, "Position incremented to 3"
+    MODPlayer_GoToPreviousPosition player
+    TEST_CHECK MODPlayer_GetPosition(player) = 2, "Position decremented back to 2"
 
     ' Test playback
-    MODPlayer_Play
-    TEST_CHECK MODPlayer_IsPlaying, "Player is playing"
+    MODPlayer_Play player
+    TEST_CHECK MODPlayer_IsPlaying(player), "Player is playing"
+    TEST_CHECK player.song.BPM = 125, "Default BPM is 125"
+    TEST_CHECK player.song.framesPerTick = player.song.tempoTimerValue \ player.song.BPM, "framesPerTick matches tempo calculation"
+    TEST_CHECK player.song.framesPerTick * 50 = SoftSynth_GetSampleRate(player.synth), "framesPerTick corresponds to 50Hz CIA timer at 125 BPM"
 
     ' Test pause/resume
-    MODPlayer_Pause _TRUE
-    TEST_CHECK MODPlayer_IsPaused, "Player is paused"
-    MODPlayer_Pause _FALSE
-    TEST_CHECK_FALSE MODPlayer_IsPaused, "Player is unpaused"
+    MODPlayer_Pause player, _TRUE
+    TEST_CHECK MODPlayer_IsPaused(player), "Player is paused"
+    MODPlayer_Pause player, _FALSE
+    TEST_CHECK_FALSE MODPlayer_IsPaused(player), "Player is unpaused"
 
     ' Test audio update
-    MODPlayer_Update 0.05
-    TEST_CHECK MODPlayer_IsPlaying, "Still playing after update"
+    MODPlayer_Update player, 0.05
+    TEST_CHECK MODPlayer_IsPlaying(player), "Still playing after update"
 
-    MODPlayer_Stop
-    TEST_CHECK_FALSE MODPlayer_IsPlaying, "Player stopped"
+    MODPlayer_Stop player
+    TEST_CHECK_FALSE MODPlayer_IsPlaying(player), "Player stopped"
+    MODPlayer_Finalize player
     TEST_CASE_END
 END SUB
 
 ''' @brief Tests for Scream Tracker 3 S3M loading and playback.
 SUB Test_MODPlayer_S3M
     TEST_CASE_BEGIN "MODPlayer: Scream Tracker 3 (A Touch of Spring.s3m)"
-    TEST_REQUIRE MODPlayer_LoadFromDisk("mods/A Touch of Spring.s3m"), "Load A Touch of Spring.s3m"
-    TEST_CHECK INSTR(MODPlayer_GetName, "Touch of Spring") > 0, "Song caption matches"
-    TEST_CHECK MODPlayer_GetType = "SCRM", "Song subtype is SCRM"
-    TEST_CHECK MODPlayer_GetOrders > 0, "Order count is greater than 0"
+    DIM player AS MODPlayerType
+    TEST_REQUIRE MODPlayer_LoadFromDisk(player, "mods/A Touch of Spring.s3m"), "Load A Touch of Spring.s3m"
+    TEST_CHECK INSTR(MODPlayer_GetName(player), "Touch of Spring") > 0, "Song caption matches"
+    TEST_CHECK MODPlayer_GetType(player) = "SCRM", "Song subtype is SCRM"
+    TEST_CHECK MODPlayer_GetOrders(player) > 0, "Order count is greater than 0"
 
-    MODPlayer_Play
-    TEST_CHECK MODPlayer_IsPlaying, "Playing S3M"
-    MODPlayer_Update 0.05
-    MODPlayer_Stop
-    TEST_CHECK_FALSE MODPlayer_IsPlaying, "Stopped S3M"
+    MODPlayer_Play player
+    TEST_CHECK MODPlayer_IsPlaying(player), "Playing S3M"
+    MODPlayer_Update player, 0.05
+    MODPlayer_Stop player
+    TEST_CHECK_FALSE MODPlayer_IsPlaying(player), "Stopped S3M"
+    MODPlayer_Finalize player
     TEST_CASE_END
 END SUB
 
 ''' @brief Tests for Scream Tracker 3 packed ADPCM sample module loading.
 SUB Test_MODPlayer_S3M_Packed
     TEST_CASE_BEGIN "MODPlayer: S3M with ADPCM samples (walkaway_packed.S3M)"
-    TEST_REQUIRE MODPlayer_LoadFromDisk("mods/walkaway_packed.S3M"), "Load walkaway_packed.S3M"
-    TEST_CHECK INSTR(MODPlayer_GetName, "Walkaway") > 0, "Song caption matches"
-    TEST_CHECK MODPlayer_GetType = "SCRM", "Song subtype is SCRM"
-    TEST_CHECK MODPlayer_GetOrders > 0, "Order count is greater than 0"
+    DIM player AS MODPlayerType
+    TEST_REQUIRE MODPlayer_LoadFromDisk(player, "mods/walkaway_packed.S3M"), "Load walkaway_packed.S3M"
+    TEST_CHECK INSTR(MODPlayer_GetName(player), "Walkaway") > 0, "Song caption matches"
+    TEST_CHECK MODPlayer_GetType(player) = "SCRM", "Song subtype is SCRM"
+    TEST_CHECK MODPlayer_GetOrders(player) > 0, "Order count is greater than 0"
 
-    MODPlayer_Play
-    TEST_CHECK MODPlayer_IsPlaying, "Playing packed S3M"
-    MODPlayer_Update 0.05
-    MODPlayer_Stop
-    TEST_CHECK_FALSE MODPlayer_IsPlaying, "Stopped packed S3M"
+    MODPlayer_Play player
+    TEST_CHECK MODPlayer_IsPlaying(player), "Playing packed S3M"
+    MODPlayer_Update player, 0.05
+    MODPlayer_Stop player
+    TEST_CHECK_FALSE MODPlayer_IsPlaying(player), "Stopped packed S3M"
+    MODPlayer_Finalize player
     TEST_CASE_END
 END SUB
 
 ''' @brief Tests for MultiTracker MTM loading and playback.
 SUB Test_MODPlayer_MTM
     TEST_CASE_BEGIN "MODPlayer: MultiTracker (cougarstory-ii.mtm)"
-    TEST_REQUIRE MODPlayer_LoadFromDisk("mods/cougarstory-ii.mtm"), "Load cougarstory-ii.mtm"
-    TEST_CHECK INSTR(MODPlayer_GetName, "Cougar story") > 0, "Song caption matches"
-    TEST_CHECK MODPlayer_GetType = "MTM1", "Song subtype is MTM1"
-    TEST_CHECK MODPlayer_GetOrders > 0, "Order count is greater than 0"
+    DIM player AS MODPlayerType
+    TEST_REQUIRE MODPlayer_LoadFromDisk(player, "mods/cougarstory-ii.mtm"), "Load cougarstory-ii.mtm"
+    TEST_CHECK INSTR(MODPlayer_GetName(player), "Cougar story") > 0, "Song caption matches"
+    TEST_CHECK MODPlayer_GetType(player) = "MTM1", "Song subtype is MTM1"
+    TEST_CHECK MODPlayer_GetOrders(player) > 0, "Order count is greater than 0"
 
-    MODPlayer_Play
-    TEST_CHECK MODPlayer_IsPlaying, "Playing MTM"
-    MODPlayer_Update 0.05
-    MODPlayer_Stop
-    TEST_CHECK_FALSE MODPlayer_IsPlaying, "Stopped MTM"
+    MODPlayer_Play player
+    TEST_CHECK MODPlayer_IsPlaying(player), "Playing MTM"
+    MODPlayer_Update player, 0.05
+    MODPlayer_Stop player
+    TEST_CHECK_FALSE MODPlayer_IsPlaying(player), "Stopped MTM"
+    MODPlayer_Finalize player
     TEST_CASE_END
 END SUB
 
 ''' @brief Tests for in-memory module loading.
 SUB Test_MODPlayer_Memory
     TEST_CASE_BEGIN "MODPlayer: Load from memory string"
+    DIM player AS MODPlayerType
     DIM modBuffer AS STRING
     modBuffer = File_LoadFromDisk("mods/Enigma.mod")
     TEST_REQUIRE LEN(modBuffer) > 0, "Loaded file into memory string"
 
-    TEST_REQUIRE MODPlayer_LoadFromMemory(modBuffer), "Load module from memory buffer"
-    TEST_CHECK INSTR(MODPlayer_GetName, "Enigma") > 0, "Song caption matches"
-    TEST_CHECK MODPlayer_GetType = "M.K.", "Song subtype matches"
+    TEST_REQUIRE MODPlayer_LoadFromMemory(player, modBuffer), "Load module from memory buffer"
+    TEST_CHECK INSTR(MODPlayer_GetName(player), "Enigma") > 0, "Song caption matches"
+    TEST_CHECK MODPlayer_GetType(player) = "M.K.", "Song subtype matches"
 
-    MODPlayer_Play
-    TEST_CHECK MODPlayer_IsPlaying, "Playing from memory load"
-    MODPlayer_Stop
-    TEST_CHECK_FALSE MODPlayer_IsPlaying, "Stopped"
+    MODPlayer_Play player
+    TEST_CHECK MODPlayer_IsPlaying(player), "Playing from memory load"
+    MODPlayer_Stop player
+    TEST_CHECK_FALSE MODPlayer_IsPlaying(player), "Stopped"
+    MODPlayer_Finalize player
     TEST_CASE_END
 END SUB
 
 ''' @brief Tests for dedicated MODLoader.
 SUB Test_MODLoader
     TEST_CASE_BEGIN "MODLoader: Load ProTracker MOD directly"
-    TEST_REQUIRE MODLoader_LoadFromDisk("mods/Enigma.mod"), "MODLoader loads Enigma.mod"
-    TEST_CHECK INSTR(MODPlayer_GetName, "Enigma") > 0, "Song caption matches"
-    TEST_CHECK MODPlayer_GetType = "M.K.", "Song subtype is M.K."
-    TEST_CHECK MODPlayer_GetOrders > 0, "Order count is greater than 0"
+    DIM player AS MODPlayerType
+    TEST_REQUIRE MODLoader_LoadFromDisk(player, "mods/Enigma.mod"), "MODLoader loads Enigma.mod"
+    TEST_CHECK INSTR(MODPlayer_GetName(player), "Enigma") > 0, "Song caption matches"
+    TEST_CHECK MODPlayer_GetType(player) = "M.K.", "Song subtype is M.K."
+    TEST_CHECK MODPlayer_GetOrders(player) > 0, "Order count is greater than 0"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "MODLoader: Reject incompatible formats"
-    TEST_CHECK_FALSE MODLoader_LoadFromDisk("mods/A Touch of Spring.s3m"), "MODLoader rejects S3M"
-    TEST_CHECK_FALSE MODLoader_LoadFromDisk("mods/cougarstory-ii.mtm"), "MODLoader rejects MTM"
+    TEST_CHECK_FALSE MODLoader_LoadFromDisk(player, "mods/A Touch of Spring.s3m"), "MODLoader rejects S3M"
+    TEST_CHECK_FALSE MODLoader_LoadFromDisk(player, "mods/cougarstory-ii.mtm"), "MODLoader rejects MTM"
+    MODPlayer_Finalize player
     TEST_CASE_END
 END SUB
 
 ''' @brief Tests for dedicated S3MLoader.
 SUB Test_S3MLoader
     TEST_CASE_BEGIN "S3MLoader: Load Scream Tracker 3 directly"
-    TEST_REQUIRE S3MLoader_LoadFromDisk("mods/A Touch of Spring.s3m"), "S3MLoader loads S3M"
-    TEST_CHECK INSTR(MODPlayer_GetName, "Touch of Spring") > 0, "Song caption matches"
-    TEST_CHECK MODPlayer_GetType = "SCRM", "Song subtype is SCRM"
+    DIM player AS MODPlayerType
+    TEST_REQUIRE S3MLoader_LoadFromDisk(player, "mods/A Touch of Spring.s3m"), "S3MLoader loads S3M"
+    TEST_CHECK INSTR(MODPlayer_GetName(player), "Touch of Spring") > 0, "Song caption matches"
+    TEST_CHECK MODPlayer_GetType(player) = "SCRM", "Song subtype is SCRM"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "S3MLoader: Load packed S3M directly"
-    TEST_REQUIRE S3MLoader_LoadFromDisk("mods/walkaway_packed.S3M"), "S3MLoader loads packed S3M"
-    TEST_CHECK INSTR(MODPlayer_GetName, "Walkaway") > 0, "Song caption matches"
+    TEST_REQUIRE S3MLoader_LoadFromDisk(player, "mods/walkaway_packed.S3M"), "S3MLoader loads packed S3M"
+    TEST_CHECK INSTR(MODPlayer_GetName(player), "Walkaway") > 0, "Song caption matches"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "S3MLoader: Load from memory"
     DIM s3mBuf AS STRING: s3mBuf = File_LoadFromDisk("mods/A Touch of Spring.s3m")
-    TEST_REQUIRE S3MLoader_LoadFromMemory(s3mBuf), "S3MLoader loads from memory"
-    TEST_CHECK MODPlayer_GetType = "SCRM", "Subtype is SCRM"
+    TEST_REQUIRE S3MLoader_LoadFromMemory(player, s3mBuf), "S3MLoader loads from memory"
+    TEST_CHECK MODPlayer_GetType(player) = "SCRM", "Subtype is SCRM"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "S3MLoader: Reject incompatible formats"
-    TEST_CHECK_FALSE S3MLoader_LoadFromDisk("mods/Enigma.mod"), "S3MLoader rejects MOD"
-    TEST_CHECK_FALSE S3MLoader_LoadFromDisk("mods/cougarstory-ii.mtm"), "S3MLoader rejects MTM"
+    TEST_CHECK_FALSE S3MLoader_LoadFromDisk(player, "mods/Enigma.mod"), "S3MLoader rejects MOD"
+    TEST_CHECK_FALSE S3MLoader_LoadFromDisk(player, "mods/cougarstory-ii.mtm"), "S3MLoader rejects MTM"
+    MODPlayer_Finalize player
     TEST_CASE_END
 END SUB
 
 ''' @brief Tests for dedicated MTMLoader.
 SUB Test_MTMLoader
     TEST_CASE_BEGIN "MTMLoader: Load MultiTracker directly"
-    TEST_REQUIRE MTMLoader_LoadFromDisk("mods/cougarstory-ii.mtm"), "MTMLoader loads MTM"
-    TEST_CHECK INSTR(MODPlayer_GetName, "Cougar story") > 0, "Song caption matches"
-    TEST_CHECK MODPlayer_GetType = "MTM1", "Song subtype is MTM1"
+    DIM player AS MODPlayerType
+    TEST_REQUIRE MTMLoader_LoadFromDisk(player, "mods/cougarstory-ii.mtm"), "MTMLoader loads MTM"
+    TEST_CHECK INSTR(MODPlayer_GetName(player), "Cougar story") > 0, "Song caption matches"
+    TEST_CHECK MODPlayer_GetType(player) = "MTM1", "Song subtype is MTM1"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "MTMLoader: Load from memory"
     DIM mtmBuf AS STRING: mtmBuf = File_LoadFromDisk("mods/cougarstory-ii.mtm")
-    TEST_REQUIRE MTMLoader_LoadFromMemory(mtmBuf), "MTMLoader loads from memory"
-    TEST_CHECK MODPlayer_GetType = "MTM1", "Subtype is MTM1"
+    TEST_REQUIRE MTMLoader_LoadFromMemory(player, mtmBuf), "MTMLoader loads from memory"
+    TEST_CHECK MODPlayer_GetType(player) = "MTM1", "Subtype is MTM1"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "MTMLoader: Reject incompatible formats"
-    TEST_CHECK_FALSE MTMLoader_LoadFromDisk("mods/Enigma.mod"), "MTMLoader rejects MOD"
-    TEST_CHECK_FALSE MTMLoader_LoadFromDisk("mods/A Touch of Spring.s3m"), "MTMLoader rejects S3M"
+    TEST_CHECK_FALSE MTMLoader_LoadFromDisk(player, "mods/Enigma.mod"), "MTMLoader rejects MOD"
+    TEST_CHECK_FALSE MTMLoader_LoadFromDisk(player, "mods/A Touch of Spring.s3m"), "MTMLoader rejects S3M"
+    MODPlayer_Finalize player
+    TEST_CASE_END
+END SUB
+
+''' @brief Tests for multi-instance isolation and concurrent state handling.
+SUB Test_MODPlayer_MultiInstance
+    TEST_CASE_BEGIN "MODPlayer: Multi-instance independent playback"
+    DIM player1 AS MODPlayerType
+    DIM player2 AS MODPlayerType
+
+    TEST_REQUIRE MODPlayer_LoadFromDisk(player1, "mods/Enigma.mod"), "Load Enigma into player1"
+    TEST_REQUIRE MODPlayer_LoadFromDisk(player2, "mods/A Touch of Spring.s3m"), "Load S3M into player2"
+
+    ' Assert independent song metadata
+    TEST_CHECK player1.song.subtype = "M.K.", "Player1 format is M.K."
+    TEST_CHECK player2.song.subtype = "SCRM", "Player2 format is SCRM"
+    TEST_CHECK player1.song.channels = 4, "Player1 has 4 channels"
+    TEST_CHECK player2.song.channels = 16, "Player2 has 16 channels"
+    TEST_CHECK INSTR(MODPlayer_GetName(player1), "Enigma") > 0, "Player1 title is Enigma"
+    TEST_CHECK INSTR(MODPlayer_GetName(player2), "Touch of Spring") > 0, "Player2 title is Touch of Spring"
+
+    ' Assert independent playback states
+    MODPlayer_Play player1
+    TEST_CHECK MODPlayer_IsPlaying(player1), "Player1 is playing"
+    TEST_CHECK_FALSE MODPlayer_IsPlaying(player2), "Player2 is not playing"
+
+    ' Test independent looping flag
+    MODPlayer_Loop player2, _TRUE
+    TEST_CHECK MODPlayer_IsLooping(player2), "Player2 is looping"
+    TEST_CHECK_FALSE MODPlayer_IsLooping(player1), "Player1 is not looping"
+
+    ' Test independent order navigation
+    MODPlayer_SetPosition player1, 2
+    TEST_CHECK MODPlayer_GetPosition(player1) = 2, "Player1 position is 2"
+    TEST_CHECK MODPlayer_GetPosition(player2) = 0, "Player2 position remains 0"
+
+    ' Test audio update on player1 does not disrupt player2
+    MODPlayer_Update player1, 0.05
+    TEST_CHECK MODPlayer_IsPlaying(player1), "Player1 still playing after update"
+    TEST_CHECK_FALSE MODPlayer_IsPlaying(player2), "Player2 still stopped"
+
+    MODPlayer_Stop player1
+    TEST_CHECK_FALSE MODPlayer_IsPlaying(player1), "Player1 stopped"
+
+    MODPlayer_Finalize player1
+    MODPlayer_Finalize player2
+    TEST_CHECK_FALSE MODPlayer_IsInitialized(player1), "Player1 finalized"
+    TEST_CHECK_FALSE MODPlayer_IsInitialized(player2), "Player2 finalized"
     TEST_CASE_END
 END SUB
 
 ''' @brief Tests for error handling and invalid inputs.
 SUB Test_MODPlayer_Errors
     TEST_CASE_BEGIN "MODPlayer: Non-existent file"
-    TEST_REQUIRE_FALSE MODPlayer_LoadFromDisk("mods/non_existent_file_98765.mod"), "Should return FALSE for missing file"
+    DIM player AS MODPlayerType
+    TEST_REQUIRE_FALSE MODPlayer_LoadFromDisk(player, "mods/non_existent_file_98765.mod"), "Should return FALSE for missing file"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "MODPlayer: Empty memory buffer"
-    TEST_REQUIRE_FALSE MODPlayer_LoadFromMemory(""), "Should return FALSE for empty buffer"
+    TEST_REQUIRE_FALSE MODPlayer_LoadFromMemory(player, ""), "Should return FALSE for empty buffer"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "MODPlayer: Corrupt/Invalid memory buffer"
-    TEST_REQUIRE_FALSE MODPlayer_LoadFromMemory("THIS IS NOT A VALID MODULE HEADER AT ALL"), "Should return FALSE for corrupt buffer"
+    TEST_REQUIRE_FALSE MODPlayer_LoadFromMemory(player, "THIS IS NOT A VALID MODULE HEADER AT ALL"), "Should return FALSE for corrupt buffer"
+    MODPlayer_Finalize player
     TEST_CASE_END
 END SUB
 
@@ -543,6 +623,7 @@ Test_AudioConv
 Test_SoftSynth
 Test_StringFile
 Test_AudioAnalyzer
+Test_MODPlayer_Lifecycle
 Test_MODPlayer_MOD
 Test_MODPlayer_S3M
 Test_MODPlayer_S3M_Packed
@@ -551,6 +632,7 @@ Test_MODPlayer_Memory
 Test_MODLoader
 Test_S3MLoader
 Test_MTMLoader
+Test_MODPlayer_MultiInstance
 Test_MODPlayer_Errors
 
 TEST_END_ALL

@@ -74,9 +74,10 @@ $(TEST_EXECUTABLE): $(TEST_SOURCES) $(INCLUDES)
 clean:
 ifeq ($(OS),Windows_NT)
 	@if exist "$(EXECUTABLE)" del /q /f "$(EXECUTABLE)"
+	@if exist "source\$(EXECUTABLE)" del /q /f "source\$(EXECUTABLE)"
 	@if exist "$(TEST_EXECUTABLE)" del /q /f "$(TEST_EXECUTABLE)"
 else
-	rm -f $(EXECUTABLE) $(TEST_EXECUTABLE)
+	rm -f $(EXECUTABLE) source/$(EXECUTABLE) $(TEST_EXECUTABLE)
 endif
 
 # Help

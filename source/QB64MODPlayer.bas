@@ -92,6 +92,7 @@ DIM AnalyzerL AS AudioAnalyzerType, AnalyzerR AS AudioAnalyzerType ' left & righ
 REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0), SpectrumAnalyzerR(0) ' left & right channel FFT data
 DIM Stars(1 TO STAR_COUNT) AS StarType
 DIM Snakes(1 TO SNAKE_COUNT) AS SnakeType
+DIM Player AS MODPlayerType
 
 ''' @brief Draws a horizontal text character line across the screen.
 ''' @param lx Left X coordinate.
@@ -116,20 +117,16 @@ SUB DrawVisualization
 
     ' These are internal variables and arrays used by the MODPlayer library and are used for showing internal info and visualization
     ' In a general use case, accessing these directly is not required at all
-    SHARED __Song AS __SongType
-    SHARED __Order() AS _UNSIGNED INTEGER
-    SHARED __Pattern() AS __NoteType
-    SHARED __Instrument() AS __InstrumentType
-    SHARED __MODPlayer_Synth AS SoftSynthType
+    SHARED Player AS MODPlayerType
 
     ' Subscript out of range bugfix for player when song is 128 orders long and the song reaches the end
-    ' In this case if the sub is allowed to proceed then __Order(__Song.orderPosition) will cause "subscript out of range"
+    ' In this case if the sub is allowed to proceed then Player.order(Player.song.orderPosition) will cause "subscript out of range"
     ' Note this is only a problem with this demo and not the actual library since we are trying to access internal stuff directly
-    IF __Song.orderPosition >= __Song.orders THEN EXIT SUB
+    IF Player.song.orderPosition >= Player.song.orders THEN EXIT SUB
 
-    DIM startPat AS LONG: startPat = __Order(__Song.orderPosition)
+    DIM startPat AS LONG: startPat = Player.order(Player.song.orderPosition)
 
-    IF startPat >= __Song.patterns THEN EXIT SUB ' this can happen when S3M tunes contain marker / end-of-song patterns
+    IF startPat >= Player.song.patterns THEN EXIT SUB ' this can happen when S3M tunes contain marker / end-of-song patterns
 
     CLS , Black ' clear the framebuffer to black color
 
@@ -137,13 +134,13 @@ SUB DrawVisualization
 
     ' Print song type and name
     COLOR BrightWhite, Magenta
-    LOCATE 1, x: PRINT USING "  \  \: \                                                                        \  "; __Song.subtype; __Song.caption;
+    LOCATE 1, x: PRINT USING "  \  \: \                                                                        \  "; Player.song.subtype; Player.song.caption;
 
     ' Print the header
     COLOR Blink, BrightWhite
-    LOCATE 2, x: PRINT USING "  ORD: ### / ### | PAT: ### / ### | ROW: ## / 63 | CHN: ### / ### | VOC: ### / ###  "; __Song.orderPosition; __Song.orders - 1; startPat; __Song.patterns - 1; __Song.patternRow; __Song.activeChannels; __Song.channels; SoftSynth_GetActiveVoices(__MODPlayer_Synth); SoftSynth_GetTotalVoices(__MODPlayer_Synth);
+    LOCATE 2, x: PRINT USING "  ORD: ### / ### | PAT: ### / ### | ROW: ## / 63 | CHN: ### / ### | VOC: ### / ###  "; Player.song.orderPosition; Player.song.orders - 1; startPat; Player.song.patterns - 1; Player.song.patternRow; Player.song.activeChannels; Player.song.channels; SoftSynth_GetActiveVoices(Player.synth); SoftSynth_GetTotalVoices(Player.synth);
 
-    LOCATE 3, x: PRINT USING "  BPM: ###       | SPD: ###       | VOL: ###%    | BUF: #######ms | REP: \       \  "; __Song.BPM; __Song.speed; SoftSynth_GetMasterVolume(__MODPlayer_Synth) * 100!; SoftSynth_GetBufferedSoundTime(__MODPlayer_Synth) * 1000#; _IIF(__Song.isLooping, "Enabled", "Disabled");
+    LOCATE 3, x: PRINT USING "  BPM: ###       | SPD: ###       | VOL: ###%    | BUF: #######ms | REP: \       \  "; Player.song.BPM; Player.song.speed; SoftSynth_GetMasterVolume(Player.synth) * 100!; SoftSynth_GetBufferedSoundTime(Player.synth) * 1000#; _IIF(Player.song.isLooping, "Enabled", "Disabled");
 
     ' Print the sample list header
     COLOR Blink, Cyan
@@ -151,19 +148,19 @@ SUB DrawVisualization
 
     ' Print the sample information
     DIM AS LONG i, j
-    WHILE i < __Song.instruments
+    WHILE i < Player.song.instruments
         COLOR Yellow, Black
 
         j = 0
-        WHILE j < __Song.channels
-            IF i + 1 = __Pattern(startPat, __Song.patternRow, j).instrument THEN
+        WHILE j < Player.song.channels
+            IF i + 1 = Player.pattern(startPat, Player.song.patternRow, j).instrument THEN
                 COLOR LightMagenta, Blue
             END IF
 
             j = j + 1
         WEND
 
-        LOCATE 5 + i, x: PRINT USING " ###: \                       \ ######## ##### ###### \     \ ########## #########  "; i + 1; __Instrument(i).caption; __Instrument(i).volume; __Instrument(i).c2Spd; __Instrument(i).length; _IIF(__Instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, "Yes", "No"); __Instrument(i).loopStart; __Instrument(i).loopEnd;
+        LOCATE 5 + i, x: PRINT USING " ###: \                       \ ######## ##### ###### \     \ ########## #########  "; i + 1; Player.instrument(i).caption; Player.instrument(i).volume; Player.instrument(i).c2Spd; Player.instrument(i).length; _IIF(Player.instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, "Yes", "No"); Player.instrument(i).loopStart; Player.instrument(i).loopEnd;
 
         i = i + 1
 
@@ -177,7 +174,7 @@ SUB DrawVisualization
     COLOR Blink, Cyan
     _PRINTSTRING (x, j), " PAT RW "
     i = 0
-    WHILE i < __Song.channels
+    WHILE i < Player.song.channels
         _PRINTSTRING (x + 8 + i * 19, j), " CHAN NOT S# FX OP "
         i = i + 1
     WEND
@@ -187,9 +184,9 @@ SUB DrawVisualization
     j = j + 1 ' move to the current line number
 
     ' Find the pattern and row we need to print
-    startRow = __Song.patternRow - (1 + TEXT_LINE_MAX - j) \ 2
+    startRow = Player.song.patternRow - (1 + TEXT_LINE_MAX - j) \ 2
     IF startRow < 0 THEN
-        startRow = __Song.rows + startRow
+        startRow = Player.song.rows + startRow
         startPat = startPat - 1
     END IF
 
@@ -199,7 +196,7 @@ SUB DrawVisualization
     WHILE i < TEXT_LINE_MAX
         COLOR BrightWhite, Black
 
-        IF startPat >= 0 _ANDALSO startPat < __Song.patterns THEN
+        IF startPat >= 0 _ANDALSO startPat < Player.song.patterns THEN
             IF i = cLine THEN
                 COLOR BrightWhite, Blue
             END IF
@@ -211,14 +208,14 @@ SUB DrawVisualization
             p = p + 8
 
             nChan = 0
-            WHILE nChan < __Song.channels
+            WHILE nChan < Player.song.channels
                 COLOR LightCyan
 
                 LOCATE i, p: PRINT USING " (##)"; nChan + 1;
 
                 p = p + 5
 
-                nNote = __Pattern(startPat, startRow, nChan).note
+                nNote = Player.pattern(startPat, startRow, nChan).note
                 IF nNote = __NOTE_NONE THEN
                     COLOR Gray
                     _PRINTSTRING (p, i), "  -  "
@@ -232,7 +229,7 @@ SUB DrawVisualization
 
                 p = p + 5
 
-                nSample = __Pattern(startPat, startRow, nChan).instrument
+                nSample = Player.pattern(startPat, startRow, nChan).instrument
                 IF nSample = 0 THEN
                     COLOR Gray
                     _PRINTSTRING (p, i), "-- "
@@ -243,8 +240,8 @@ SUB DrawVisualization
 
                 p = p + 3
 
-                nEffect = __Pattern(startPat, startRow, nChan).effect
-                nOperand = __Pattern(startPat, startRow, nChan).operand
+                nEffect = Player.pattern(startPat, startRow, nChan).effect
+                nOperand = Player.pattern(startPat, startRow, nChan).operand
 
                 IF nEffect = 0 _ANDALSO nOperand = 0 THEN
                     COLOR Gray
@@ -274,7 +271,7 @@ SUB DrawVisualization
 
         startRow = startRow + 1
         ' Wrap if needed
-        IF startRow >= __Song.rows THEN
+        IF startRow >= Player.song.rows THEN
             startRow = 0
             startPat = startPat + 1
         END IF
@@ -286,23 +283,23 @@ SUB DrawVisualization
 
     ' Print the footer
     COLOR Blink, White
-    IF __Song.isPaused THEN
+    IF Player.song.isPaused THEN
         _PRINTSTRING (x, j), "   ||  :"
     ELSE
         _PRINTSTRING (x, j), "   >>  :"
     END IF
 
     i = 0
-    WHILE i < __Song.channels
-        LOCATE j, x + 8 + i * 19: PRINT USING " (##) V:### B:+### "; i + 1; SoftSynth_GetVoiceVolume(__MODPlayer_Synth, i) * 100!; SoftSynth_GetVoiceBalance(__MODPlayer_Synth, i) * 100!;
+    WHILE i < Player.song.channels
+        LOCATE j, x + 8 + i * 19: PRINT USING " (##) V:### B:+### "; i + 1; SoftSynth_GetVoiceVolume(Player.synth, i) * 100!; SoftSynth_GetVoiceBalance(Player.synth, i) * 100!;
 
         i = i + 1
     WEND
 
-    ' Only re-allocate the array if __Song.samplesPerTick has changed
-    IF FFT.framesPerTick <> __Song.framesPerTick THEN
+    ' Only re-allocate the array if Player.song.samplesPerTick has changed
+    IF FFT.framesPerTick <> Player.song.framesPerTick THEN
         ' We need power of 2 for our FFT function
-        FFT.frames = Math_RoundDownToPowerOf2(__Song.framesPerTick)
+        FFT.frames = Math_RoundDownToPowerOf2(Player.song.framesPerTick)
 
         ' We need this too
         FFT.halfFrames = FFT.frames \ 2
@@ -314,12 +311,12 @@ SUB DrawVisualization
         REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0 TO FFT.halfFrames - 1), SpectrumAnalyzerR(0 TO FFT.halfFrames - 1)
 
         ' Save the frames / tick value
-        FFT.framesPerTick = __Song.framesPerTick
+        FFT.framesPerTick = Player.song.framesPerTick
     END IF
 
     ' Calculate stereo FFT data
-    AudioAnalyzer_CalculateFFT AnalyzerL, SpectrumAnalyzerL(), __MODPlayer_Synth.soundBuffer(), 0, 2, FFT.bits
-    AudioAnalyzer_CalculateFFT AnalyzerR, SpectrumAnalyzerR(), __MODPlayer_Synth.soundBuffer(), 1, 2, FFT.bits
+    AudioAnalyzer_CalculateFFT AnalyzerL, SpectrumAnalyzerL(), Player.synth.soundBuffer(), 0, 2, FFT.bits
+    AudioAnalyzer_CalculateFFT AnalyzerR, SpectrumAnalyzerR(), Player.synth.soundBuffer(), 1, 2, FFT.bits
 
     COLOR Black, Black
 
@@ -591,20 +588,20 @@ END SUB
 
 ''' @brief Dynamically resizes the console window based on song channel count.
 SUB AdjustWindowSize
-    SHARED __Song AS __SongType
+    SHARED Player AS MODPlayerType
     SHARED WindowWidth AS LONG
     SHARED PatternDisplayWidth AS LONG
     SHARED FFT AS FFTType
 
-    IF __Song.isPlaying THEN
-        PatternDisplayWidth = 8 + __Song.channels * 19 ' find the actual width
+    IF Player.song.isPlaying THEN
+        PatternDisplayWidth = 8 + Player.song.channels * 19 ' find the actual width
         WindowWidth = PatternDisplayWidth
         IF WindowWidth < TEXT_WIDTH_MIN THEN WindowWidth = TEXT_WIDTH_MIN ' we don't want the width to be too small
         FFT.size.x = (WindowWidth - TEXT_WIDTH_HEADER) \ 2
         IF PatternDisplayWidth <= TEXT_WIDTH_HEADER THEN
             FFT.size.y = TEXT_LINE_MAX
         ELSE
-            FFT.size.y = 4 + _MIN(__Song.instruments, MAX_VISIBLE_INSTRUMENTS)
+            FFT.size.y = 4 + _MIN(Player.song.instruments, MAX_VISIBLE_INSTRUMENTS)
         END IF
     ELSE
         PatternDisplayWidth = 0
@@ -625,14 +622,13 @@ END SUB
 ''' @param fileName File path or URL to play.
 ''' @return Next application event code.
 FUNCTION OnPlayTune%% (fileName AS STRING)
-    SHARED __Song AS __SongType
-    SHARED __MODPlayer_Synth AS SoftSynthType
+    SHARED Player AS MODPlayerType
 
     OnPlayTune = EVENT_PLAY ' default event is to play next song
 
     DIM buffer AS STRING: buffer = File_Load(fileName) ' load the whole file to memory
 
-    IF NOT MODPlayer_LoadFromMemory(buffer) THEN
+    IF NOT MODPlayer_LoadFromMemory(Player, buffer) THEN
         _MESSAGEBOX APP_NAME, "Failed to load: " + fileName, "error"
 
         EXIT FUNCTION
@@ -647,13 +643,13 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
     END IF
     _TITLE windowTitle
 
-    MODPlayer_Play
+    MODPlayer_Play Player
     AdjustWindowSize
 
     DIM AS LONG k
 
     DO
-        MODPlayer_Update SOFTSYNTH_SOUND_BUFFER_TIME_DEFAULT
+        MODPlayer_Update Player, SOFTSYNTH_SOUND_BUFFER_TIME_DEFAULT
 
         DrawVisualization
 
@@ -664,22 +660,22 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
                 EXIT DO
 
             CASE KEY_SPACE
-                __Song.isPaused = NOT __Song.isPaused
+                Player.song.isPaused = NOT Player.song.isPaused
 
             CASE KEY_PLUS, KEY_EQUAL
-                SoftSynth_SetMasterVolume __MODPlayer_Synth, SoftSynth_GetMasterVolume(__MODPlayer_Synth) + VOLUME_STEP
+                SoftSynth_SetMasterVolume Player.synth, SoftSynth_GetMasterVolume(Player.synth) + VOLUME_STEP
 
             CASE KEY_MINUS, KEY_UNDERSCORE
-                SoftSynth_SetMasterVolume __MODPlayer_Synth, SoftSynth_GetMasterVolume(__MODPlayer_Synth) - VOLUME_STEP
+                SoftSynth_SetMasterVolume Player.synth, SoftSynth_GetMasterVolume(Player.synth) - VOLUME_STEP
 
             CASE KEY_UPPER_L, KEY_LOWER_L
-                MODPlayer_Loop NOT MODPlayer_IsLooping
+                MODPlayer_Loop Player, NOT MODPlayer_IsLooping(Player)
 
             CASE _KEY_LEFT
-                MODPlayer_GoToPreviousPosition
+                MODPlayer_GoToPreviousPosition Player
 
             CASE _KEY_RIGHT
-                MODPlayer_GoToNextPosition
+                MODPlayer_GoToNextPosition Player
 
             CASE _KEY_F1
                 OnPlayTune = EVENT_LOAD
@@ -706,9 +702,9 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
         END IF
 
         _LIMIT FRAME_RATE
-    LOOP WHILE MODPlayer_IsPlaying
+    LOOP WHILE MODPlayer_IsPlaying(Player)
 
-    MODPlayer_Stop
+    MODPlayer_Stop Player
     AdjustWindowSize
 
     _TITLE APP_NAME + _CHR_SPACE + _OS$ ' Set app title to the way it was

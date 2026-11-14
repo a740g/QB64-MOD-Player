@@ -30,6 +30,11 @@ It supports the following classic module formats:
     that parse native tracker files into a unified internal representation.
   - Extensible design inspired by OpenMPT and MikMod: new tracker formats (e.g.
     XM, IT) can be added simply by implementing a loader.
+- Multi-Instance Capability:
+  - Fully encapsulated song state, synthesizer instance, order list, patterns,
+    instruments, and channel states inside `MODPlayerType`.
+  - Supports multiple independent module instances loaded and played
+    concurrently without crosstalk.
 - Supports pitch slides, portamento, vibrato, tremolo, volume slides, arpeggio,
   sample offset, panning, pattern delay, and extended commands.
 - Full-screen visualizer showcasing real-time FFT spectrum analysis, pattern
@@ -98,22 +103,25 @@ OPTION _EXPLICIT
 '$INCLUDE:'source/AudioAnalyzer.bi'
 '$INCLUDE:'source/MODPlayer.bi'
 
-IF NOT MODPlayer_LoadFromDisk("mods/Enigma.mod") THEN
+DIM Player AS MODPlayerType
+
+IF NOT MODPlayer_LoadFromDisk(Player, "mods/Enigma.mod") THEN
     PRINT "Failed to load module!"
     END
 END IF
 
-PRINT "Playing: "; MODPlayer_GetName
-PRINT "Format:  "; MODPlayer_GetType
+PRINT "Playing: "; MODPlayer_GetName(Player)
+PRINT "Format:  "; MODPlayer_GetType(Player)
 
-MODPlayer_Play
+MODPlayer_Play Player
 
-DO WHILE MODPlayer_IsPlaying
-    MODPlayer_Update 0.05
+DO WHILE MODPlayer_IsPlaying(Player)
+    MODPlayer_Update Player, 0.05
     _LIMIT 60
 LOOP
 
-MODPlayer_Stop
+MODPlayer_Stop Player
+MODPlayer_Finalize Player
 SYSTEM
 ```
 
@@ -124,17 +132,19 @@ and constants are documented in [docs/API.md](docs/API.md).
 
 - **[Core Player API](docs/API.md#core-player-api-modplayerbi)**: Playback
   control (`MODPlayer_Play`, `MODPlayer_Stop`, `MODPlayer_Pause`,
-  `MODPlayer_Update`), position navigation, metadata getters, and unified
-  module loading (`MODPlayer_LoadFromDisk`, `MODPlayer_LoadFromMemory`).
+  `MODPlayer_Update`), lifecycle routines (`MODPlayer_Initialize`,
+  `MODPlayer_Finalize`, `MODPlayer_IsInitialized`), position navigation,
+  metadata getters, and unified module loading (`MODPlayer_LoadFromDisk`,
+  `MODPlayer_LoadFromMemory`).
 - **[Dedicated Format Loaders API](docs/API.md#dedicated-format-loaders-api-loaderbi)**:
   Direct loading routines for ProTracker/SoundTracker (`MODLoader_*`), Scream
   Tracker 3 (`S3MLoader_*`), and MultiTracker (`MTMLoader_*`).
 - **[Software Synthesizer API](docs/API.md#software-synthesizer-api-softsynthbi)**:
-  PCM voice mixing, buffer streaming, pan/volume attenuation, frequency
-  control, and direct sample frame peeking/poking.
+  Multi-instance PCM voice mixing, buffer streaming, pan/volume attenuation,
+  frequency control, and direct sample frame peeking/poking.
 - **[Audio Spectrum Analyzer API](docs/API.md#audio-spectrum-analyzer-api-audioanalyzerbi)**:
-  Radix-2 FFT spectral analysis, average intensity, RMS energy calculation,
-  and peak amplitude/bin detection.
+  Multi-instance Radix-2 FFT spectral analysis, average intensity, RMS energy
+  calculation, and peak amplitude/bin detection.
 
 ## Frequently Asked Questions
 
