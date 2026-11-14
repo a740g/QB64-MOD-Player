@@ -15,6 +15,9 @@ $LET TEST_CONSOLE_ONLY = TRUE
 '$INCLUDE:'../source/SoftSynth.bi'
 '$INCLUDE:'../source/AudioAnalyzer.bi'
 '$INCLUDE:'../source/MODPlayer.bi'
+'$INCLUDE:'../source/MODLoader.bi'
+'$INCLUDE:'../source/S3MLoader.bi'
+'$INCLUDE:'../source/MTMLoader.bi'
 
 ''' @brief Tests for AudioConv.bi audio conversion functions.
 SUB Test_AudioConv
@@ -458,6 +461,66 @@ SUB Test_MODPlayer_Memory
     TEST_CASE_END
 END SUB
 
+''' @brief Tests for dedicated MODLoader.
+SUB Test_MODLoader
+    TEST_CASE_BEGIN "MODLoader: Load ProTracker MOD directly"
+    TEST_REQUIRE MODLoader_LoadFromDisk("mods/Enigma.mod"), "MODLoader loads Enigma.mod"
+    TEST_CHECK INSTR(MODPlayer_GetName, "Enigma") > 0, "Song caption matches"
+    TEST_CHECK MODPlayer_GetType = "M.K.", "Song subtype is M.K."
+    TEST_CHECK MODPlayer_GetOrders > 0, "Order count is greater than 0"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MODLoader: Reject incompatible formats"
+    TEST_CHECK_FALSE MODLoader_LoadFromDisk("mods/A Touch of Spring.s3m"), "MODLoader rejects S3M"
+    TEST_CHECK_FALSE MODLoader_LoadFromDisk("mods/cougarstory-ii.mtm"), "MODLoader rejects MTM"
+    TEST_CASE_END
+END SUB
+
+''' @brief Tests for dedicated S3MLoader.
+SUB Test_S3MLoader
+    TEST_CASE_BEGIN "S3MLoader: Load Scream Tracker 3 directly"
+    TEST_REQUIRE S3MLoader_LoadFromDisk("mods/A Touch of Spring.s3m"), "S3MLoader loads S3M"
+    TEST_CHECK INSTR(MODPlayer_GetName, "Touch of Spring") > 0, "Song caption matches"
+    TEST_CHECK MODPlayer_GetType = "SCRM", "Song subtype is SCRM"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "S3MLoader: Load packed S3M directly"
+    TEST_REQUIRE S3MLoader_LoadFromDisk("mods/walkaway_packed.S3M"), "S3MLoader loads packed S3M"
+    TEST_CHECK INSTR(MODPlayer_GetName, "Walkaway") > 0, "Song caption matches"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "S3MLoader: Load from memory"
+    DIM s3mBuf AS STRING: s3mBuf = File_LoadFromDisk("mods/A Touch of Spring.s3m")
+    TEST_REQUIRE S3MLoader_LoadFromMemory(s3mBuf), "S3MLoader loads from memory"
+    TEST_CHECK MODPlayer_GetType = "SCRM", "Subtype is SCRM"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "S3MLoader: Reject incompatible formats"
+    TEST_CHECK_FALSE S3MLoader_LoadFromDisk("mods/Enigma.mod"), "S3MLoader rejects MOD"
+    TEST_CHECK_FALSE S3MLoader_LoadFromDisk("mods/cougarstory-ii.mtm"), "S3MLoader rejects MTM"
+    TEST_CASE_END
+END SUB
+
+''' @brief Tests for dedicated MTMLoader.
+SUB Test_MTMLoader
+    TEST_CASE_BEGIN "MTMLoader: Load MultiTracker directly"
+    TEST_REQUIRE MTMLoader_LoadFromDisk("mods/cougarstory-ii.mtm"), "MTMLoader loads MTM"
+    TEST_CHECK INSTR(MODPlayer_GetName, "Cougar story") > 0, "Song caption matches"
+    TEST_CHECK MODPlayer_GetType = "MTM1", "Song subtype is MTM1"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MTMLoader: Load from memory"
+    DIM mtmBuf AS STRING: mtmBuf = File_LoadFromDisk("mods/cougarstory-ii.mtm")
+    TEST_REQUIRE MTMLoader_LoadFromMemory(mtmBuf), "MTMLoader loads from memory"
+    TEST_CHECK MODPlayer_GetType = "MTM1", "Subtype is MTM1"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MTMLoader: Reject incompatible formats"
+    TEST_CHECK_FALSE MTMLoader_LoadFromDisk("mods/Enigma.mod"), "MTMLoader rejects MOD"
+    TEST_CHECK_FALSE MTMLoader_LoadFromDisk("mods/A Touch of Spring.s3m"), "MTMLoader rejects S3M"
+    TEST_CASE_END
+END SUB
+
 ''' @brief Tests for error handling and invalid inputs.
 SUB Test_MODPlayer_Errors
     TEST_CASE_BEGIN "MODPlayer: Non-existent file"
@@ -485,6 +548,9 @@ Test_MODPlayer_S3M
 Test_MODPlayer_S3M_Packed
 Test_MODPlayer_MTM
 Test_MODPlayer_Memory
+Test_MODLoader
+Test_S3MLoader
+Test_MTMLoader
 Test_MODPlayer_Errors
 
 TEST_END_ALL

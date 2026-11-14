@@ -1,0 +1,364 @@
+'-----------------------------------------------------------------------------------------------------------------------
+' ProTracker / SoundTracker / NoiseTracker / FastTracker (MOD) Loader
+' Copyright (c) 2026 Samuel Gomes
+'-----------------------------------------------------------------------------------------------------------------------
+
+$INCLUDEONCE
+
+'$INCLUDE:'MODPlayer.bi'
+'$INCLUDE:'SoftSynth.bi'
+'$INCLUDE:'Math.bi'
+'$INCLUDE:'String.bi'
+'$INCLUDE:'AudioConv.bi'
+'$INCLUDE:'StringFile.bi'
+'$INCLUDE:'File.bi'
+
+''' @brief Parses and loads a standard ProTracker or compatible MOD module from a memory buffer.
+''' @param buffer Binary string containing the MOD module data.
+''' @return _TRUE if the module was successfully parsed, _FALSE otherwise.
+FUNCTION MODLoader_LoadFromMemory%% (buffer AS STRING)
+    SHARED __Song AS __SongType
+    SHARED __Order() AS _UNSIGNED INTEGER
+    SHARED __Pattern() AS __NoteType
+    SHARED __Instrument() AS __InstrumentType
+    SHARED __Channel() AS __ChannelType
+    SHARED __PeriodTable() AS _UNSIGNED INTEGER
+    SHARED __MODPlayer_Synth AS SoftSynthType
+
+    ' Attempt to open the file
+    DIM i AS LONG, memFile AS StringFile
+    StringFile_Create memFile, buffer
+
+    ' Minimum possible MOD file with 15 samples is at least 600 bytes
+    IF StringFile_GetSize(memFile) < 600 THEN EXIT FUNCTION
+
+    ' Initialize the softsynth sample mixer
+    IF NOT SoftSynth_Initialize(__MODPlayer_Synth) THEN EXIT FUNCTION
+
+    __MODPlayer_InitializeSong ' just in case something is playing
+
+    ' Seek to offset 1080 (438h) in the file and read the file signature if large enough
+    IF StringFile_GetSize(memFile) >= 1084 THEN
+        StringFile_Seek memFile, 1080
+        __Song.subtype = StringFile_ReadString(memFile, 4) ' signature is 4 bytes
+    ELSE
+        __Song.subtype = ""
+    END IF
+
+    ' Also, seek to the beginning of the file and get the song title
+    StringFile_Seek memFile, 0
+    __Song.caption = String_MakePrintable(StringFile_ReadString(memFile, 20)) ' MOD song title is 20 bytes long
+
+    DIM isFLT8 AS _BYTE ' this will we set to true if we are dealing with a FLT8 MOD
+
+    SELECT CASE __Song.subtype
+        CASE "FEST", "FIST", "LARD", "M!K!", "M&K!", "M.K.", "N.T.", "NSMS", "PATT"
+            __Song.channels = 4
+            __Song.instruments = 31
+        CASE "OCTA", "OKTA"
+            __Song.channels = 8
+            __Song.instruments = 31
+        CASE ELSE
+            ' Parse the subtype string to check for more variants
+            IF RIGHT$(__Song.subtype, 3) = "CHN" THEN
+                ' Check xCNH types
+                __Song.channels = VAL(LEFT$(__Song.subtype, 1))
+                __Song.instruments = 31
+            ELSEIF RIGHT$(__Song.subtype, 2) = "CH" _ORELSE RIGHT$(__Song.subtype, 2) = "CN" THEN
+                ' Check for xxCH & xxCN types
+                __Song.channels = VAL(LEFT$(__Song.subtype, 2))
+                __Song.instruments = 31
+            ELSEIF LEFT$(__Song.subtype, 3) = "FLT" _ORELSE LEFT$(__Song.subtype, 3) = "TDZ" _ORELSE LEFT$(__Song.subtype, 3) = "EXO" THEN
+                ' Check for FLTx, TDZx & EXOx types
+                __Song.channels = VAL(RIGHT$(__Song.subtype, 1))
+                __Song.instruments = 31
+                isFLT8 = (__Song.subtype = "FLT8")
+            ELSEIF LEFT$(__Song.subtype, 2) = "CD" _ANDALSO RIGHT$(__Song.subtype, 1) = "1" THEN
+                ' Check for CDx1 types
+                __Song.channels = VAL(MID$(__Song.subtype, 3, 1))
+                __Song.instruments = 31
+            ELSEIF LEFT$(__Song.subtype, 2) = "FA" THEN
+                ' Check for FAxx types
+                __Song.channels = VAL(RIGHT$(__Song.subtype, 2))
+                __Song.instruments = 31
+            ELSE
+                ' Extra checks for 15 sample MOD
+                ' 15 sample MODs must be at least 600 bytes
+                IF StringFile_GetSize(memFile) < 600 THEN EXIT FUNCTION
+
+                ' Caption must only contain printable ASCII or NULL
+                FOR i = 1 TO LEN(__Song.caption)
+                    IF ASC(__Song.caption, i) < _ASC_SPACE _ANDALSO ASC(__Song.caption, i) <> NULL THEN EXIT FUNCTION
+                NEXT
+
+                ' Validate all 15 sample headers (each 30 bytes starting at byte offset 20)
+                DIM sIdx AS LONG, charIdx AS LONG, sampNameChar AS _UNSIGNED _BYTE
+                FOR sIdx = 0 TO 14
+                    ' Check sample name (22 bytes)
+                    FOR charIdx = 1 TO 22
+                        sampNameChar = ASC(buffer, 20 + sIdx * 30 + charIdx)
+                        IF sampNameChar < _ASC_SPACE _ANDALSO sampNameChar <> NULL THEN EXIT FUNCTION
+                    NEXT charIdx
+
+                    ' Check volume (byte 26 of 30-byte header, 1-based offset: 20 + sIdx * 30 + 26)
+                    ' In Amiga ProTracker/SoundTracker volume is strictly 0..64
+                    IF ASC(buffer, 20 + sIdx * 30 + 26) > __INSTRUMENT_VOLUME_MAX THEN EXIT FUNCTION
+
+                    ' Check finetune (byte 25 of 30-byte header, 1-based offset: 20 + sIdx * 30 + 25)
+                    ' Finetune must be <= 15
+                    IF ASC(buffer, 20 + sIdx * 30 + 25) > 15 THEN EXIT FUNCTION
+                NEXT sIdx
+
+                ' Check song orders count at offset 470 (1-based: 471)
+                DIM numOrders15 AS _UNSIGNED _BYTE: numOrders15 = ASC(buffer, 471)
+                IF numOrders15 = 0 _ORELSE numOrders15 > 128 THEN EXIT FUNCTION
+
+                ' Check order table at offset 472 (1-based: 473..600) to find maximum pattern
+                DIM maxPat15 AS _UNSIGNED INTEGER: maxPat15 = 0
+                FOR charIdx = 0 TO 127
+                    DIM patNum15 AS _UNSIGNED _BYTE: patNum15 = ASC(buffer, 473 + charIdx)
+                    IF patNum15 > maxPat15 THEN maxPat15 = patNum15
+                NEXT charIdx
+
+                ' Sanity check max pattern for 15-sample MOD (Amiga ST/PT never exceeded 64 patterns)
+                IF maxPat15 > 64 THEN EXIT FUNCTION
+
+                ' Verify that the buffer has enough bytes for the 600-byte header + pattern data
+                IF StringFile_GetSize(memFile) < 600 + (maxPat15 + 1) * 1024 THEN EXIT FUNCTION
+
+                __Song.channels = 4
+                __Song.instruments = 15
+                __Song.subtype = "MODF" ' change subtype to reflect 15 (Fh) sample mod, otherwise it will contain garbage
+            END IF
+    END SELECT
+
+    ' Sanity check
+    IF __Song.instruments = 0 _ORELSE __Song.channels = 0 THEN EXIT FUNCTION
+
+    ' Resize the instruments array
+    REDIM __Instrument(0 TO __Song.instruments - 1) AS __InstrumentType
+    DIM AS _UNSIGNED _BYTE byte1, byte2
+
+    ' Load the instruments headers
+    FOR i = 0 TO __Song.instruments - 1
+        __Instrument(i).subtype = __INSTRUMENT_PCM ' this format only uses PCM instruments
+
+        ' Read the sample name
+        __Instrument(i).caption = String_MakePrintable(StringFile_ReadString(memFile, 22)) ' MOD sample names are 22 bytes long
+
+        ' Read sample length
+        byte1 = StringFile_ReadByte(memFile)
+        byte2 = StringFile_ReadByte(memFile)
+        __Instrument(i).length = (byte1 * &H100 + byte2) * 2
+
+        ' Read finetune
+        __Instrument(i).c2Spd = __MODPlayer_GetC2Spd(StringFile_ReadByte(memFile)) ' convert finetune to c2spd
+
+        ' Read volume
+        __Instrument(i).volume = StringFile_ReadByte(memFile)
+        IF __Instrument(i).volume > __INSTRUMENT_VOLUME_MAX THEN __Instrument(i).volume = __INSTRUMENT_VOLUME_MAX ' Sanity check
+
+        ' Read loop start
+        byte1 = StringFile_ReadByte(memFile)
+        byte2 = StringFile_ReadByte(memFile)
+        __Instrument(i).loopStart = (byte1 * &H100 + byte2) * 2
+
+        ' Read loop length
+        byte1 = StringFile_ReadByte(memFile)
+        byte2 = StringFile_ReadByte(memFile)
+        DIM loopLength AS _UNSIGNED LONG: loopLength = (byte1 * &H100 + byte2) * 2
+
+        ' Some MOD file loop points are truly fucked
+        ' These checks are taken directly from OpenMPT's MOD loader which seem to do a decent job dealing with messed up MODs
+        ' See if loop start is incorrect as words, but correct as bytes (like in Soundtracker modules)
+        IF loopLength > 2 _ANDALSO __Instrument(i).loopStart + loopLength > __Instrument(i).length _ANDALSO __Instrument(i).loopStart \ 2 + loopLength <= __Instrument(i).length THEN
+            __Instrument(i).loopStart = __Instrument(i).loopStart \ 2
+        END IF
+
+        IF __Instrument(i).length = 2 THEN __Instrument(i).length = 0
+
+        IF __Instrument(i).length > 0 THEN
+            __Instrument(i).loopEnd = __Instrument(i).loopStart + loopLength
+
+            IF __Instrument(i).loopStart >= __Instrument(i).length THEN __Instrument(i).loopStart = __Instrument(i).length - 1
+
+            IF __Instrument(i).loopStart > __Instrument(i).loopEnd _ORELSE __Instrument(i).loopEnd < 4 _ORELSE __Instrument(i).loopEnd - __Instrument(i).loopStart < 4 THEN
+                __Instrument(i).loopStart = 0
+                __Instrument(i).loopEnd = 0
+            END IF
+
+            ' Fix for most likely broken sample loops. This fixes super_sufm_-_new_life.mod (M.K.) which has a long sample which is looped from 0 to 4.
+            ' This module also has notes outside of the Amiga frequency range, so we cannot say that it should be played using ProTracker one-shot loops.
+            ' On the other hand, "Crew Generation" by Necros (6CHN) has a sample with a similar loop, which is supposed to be played.
+            ' To be able to correctly play both modules, we will draw a somewhat arbitrary line here and trust the loop points in MODs with more than
+            ' 4 channels, even if they are tiny and at the very beginning of the sample.
+            IF __Instrument(i).loopEnd <= 8 _ANDALSO __Instrument(i).loopStart = 0 _ANDALSO __Instrument(i).length > __Instrument(i).loopEnd _ANDALSO __Song.channels = 4 THEN
+                __Instrument(i).loopEnd = 0
+            END IF
+
+            IF __Instrument(i).loopEnd > __Instrument(i).loopStart THEN
+                __Instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP
+            ELSE
+                __Instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD
+                __Instrument(i).loopStart = 0
+                __Instrument(i).loopEnd = __Instrument(i).length
+            END IF
+        ELSE
+            __Instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD
+            __Instrument(i).loopStart = 0
+            __Instrument(i).loopEnd = 0
+        END IF
+
+        ' Set sample frame size as 1 since MODs always use 8-bit mono samples
+        __Instrument(i).bytesPerSample = _SIZE_OF_BYTE
+        __Instrument(i).channels = 1
+    NEXT
+
+    __Song.orders = StringFile_ReadByte(memFile)
+    IF __Song.orders >= __MOD_MTM_ORDER_MAX THEN __Song.orders = __MOD_MTM_ORDER_MAX + 1 ' clamp to MOD specific max
+
+    __Song.endJumpOrder = StringFile_ReadByte(memFile)
+    IF __Song.endJumpOrder >= __Song.orders THEN __Song.endJumpOrder = 0
+
+    ' Resize the order array (MODs always have a 128 byte long order table)
+    REDIM __Order(0 TO __MOD_MTM_ORDER_MAX) AS _UNSIGNED INTEGER
+
+    ' Load the pattern table, and find the highest pattern to load
+    FOR i = 0 TO __MOD_MTM_ORDER_MAX ' MODs always have a 128 byte long order table
+        __Order(i) = StringFile_ReadByte(memFile)
+
+        IF isFLT8 THEN __Order(i) = _SHR(__Order(i), 1) ' special FLT8 handling
+
+        IF __Order(i) > __Song.patterns THEN __Song.patterns = __Order(i)
+    NEXT
+    __Song.patterns = __Song.patterns + 1 ' change to count
+
+    __Song.rows = __MOD_S3M_ROWS ' MOD specific value
+
+    ' Resize the pattern data array
+    REDIM __Pattern(0 TO __Song.patterns - 1, 0 TO __Song.rows - 1, 0 TO __Song.channels - 1) AS __NoteType
+
+    ' Skip past the 4 byte signature if this is a 31 sample mod
+    IF __Song.instruments = 31 THEN StringFile_Seek memFile, StringFile_GetPosition(memFile) + 4
+
+    ' Check if the file has enough bytes for all pattern data
+    DIM requiredPatternBytes AS _UNSIGNED _OFFSET
+    requiredPatternBytes = __Song.patterns * __Song.rows * __Song.channels * 4
+    IF StringFile_GetPosition(memFile) + requiredPatternBytes > StringFile_GetSize(memFile) THEN EXIT FUNCTION
+
+    __MODPlayer_LoadTables ' load all needed LUTs
+
+    DIM AS _UNSIGNED _BYTE byte3, byte4
+    DIM AS _UNSIGNED INTEGER a, b, c, period
+
+    ' Load the patterns
+    ' +----------+-----------+----------+-----------+
+    ' | Byte 0   | Byte 1    | Byte 2   | Byte 3    |
+    ' | aaaaBBBB | CCCCCCCCC | DDDDeeee | FFFFFFFFF |
+    ' +----------+-----------+----------+-----------+
+    FOR i = 0 TO __Song.patterns - 1
+        IF isFLT8 THEN
+            ' Special handling for FLT8
+
+            FOR a = 0 TO __Song.rows - 1
+                FOR b = 0 TO 3
+                    GOSUB load_mod_pattern
+                NEXT b
+            NEXT a
+
+            FOR a = 0 TO __Song.rows - 1
+                FOR b = 4 TO 7
+                    GOSUB load_mod_pattern
+                NEXT b
+            NEXT a
+        ELSE
+            ' Regular MOD pattern
+
+            FOR a = 0 TO __Song.rows - 1
+                FOR b = 0 TO __Song.channels - 1
+                    GOSUB load_mod_pattern
+                NEXT b
+            NEXT a
+        END IF
+    NEXT
+
+    ' Load the instruments
+    FOR i = 0 TO __Song.instruments - 1
+        DIM sampBuf AS STRING
+        IF StringFile_GetPosition(memFile) < StringFile_GetSize(memFile) THEN
+            sampBuf = StringFile_ReadString(memFile, __Instrument(i).length)
+        END IF
+
+        ' Load sample size bytes of data and send it to our softsynth sample manager
+        SoftSynth_LoadSound __MODPlayer_Synth, i, sampBuf, __Instrument(i).bytesPerSample, __Instrument(i).channels
+    NEXT
+
+    ' Setup the channel array
+    ' __CHANNEL_PCM = 0 so all MOD channels are by default PCM
+    REDIM __Channel(0 TO __Song.channels - 1) AS __ChannelType
+
+    ' Allocate the number of softsynth voices we need
+    SoftSynth_SetTotalVoices __MODPlayer_Synth, __Song.channels
+
+    ' Setup panning for all channels per AMIGA PAULA's panning setup - LRRLLRRL...
+    ' opencp uses this: for (int i = 0; i < 8; i++) int panpos = ((i * 3) & 2) ? 0xFF : 0x00;
+    ' But ours is better:
+    ' If we have < 4 channels, then 0 & 1 are set as left & right
+    ' If we have > 4 channels, then all prefect 4 groups are set as LRRL
+    ' Any channels that are left out are simply centered by the SoftSynth
+    ' We will also not do hard left or hard right. Some amount of sound from each channel is allowed to blend with the other
+    IF __Song.channels > 1 _ANDALSO __Song.channels < 4 THEN
+        ' Just setup channels 0 and 1. If we have a 3rd channel it will be handle by the SoftSynth
+        SoftSynth_SetVoiceBalance __MODPlayer_Synth, 0, -__CHANNEL_STEREO_SEPARATION
+        SoftSynth_SetVoiceBalance __MODPlayer_Synth, 1, __CHANNEL_STEREO_SEPARATION
+    ELSE
+        FOR i = 0 TO __Song.channels - 1 - (__Song.channels MOD 4) STEP 4
+            SoftSynth_SetVoiceBalance __MODPlayer_Synth, i + 0, -__CHANNEL_STEREO_SEPARATION
+            SoftSynth_SetVoiceBalance __MODPlayer_Synth, i + 1, __CHANNEL_STEREO_SEPARATION
+            SoftSynth_SetVoiceBalance __MODPlayer_Synth, i + 2, __CHANNEL_STEREO_SEPARATION
+            SoftSynth_SetVoiceBalance __MODPlayer_Synth, i + 3, -__CHANNEL_STEREO_SEPARATION
+        NEXT
+    END IF
+
+    MODLoader_LoadFromMemory = _TRUE
+    EXIT FUNCTION
+
+    ' This part loads a single channel worth of pattern data
+    ' It is here so that we do not duplicate this multiple times
+    load_mod_pattern:
+
+    byte1 = StringFile_ReadByte(memFile)
+    byte2 = StringFile_ReadByte(memFile)
+    byte3 = StringFile_ReadByte(memFile)
+    byte4 = StringFile_ReadByte(memFile)
+
+    __Pattern(i, a, b).instrument = (byte1 AND &HF0) OR _SHR(byte3, 4)
+
+    period = _SHL(byte1 AND &HF, 8) OR byte2
+
+    ' Do the look up in the table against what is read in and store note
+    __Pattern(i, a, b).note = __NOTE_NONE
+    FOR c = 0 TO 107
+        IF period >= __PeriodTable(c + 24) THEN
+            __Pattern(i, a, b).note = c
+            EXIT FOR
+        END IF
+    NEXT
+
+    __Pattern(i, a, b).volume = __NOTE_NO_VOLUME ' MODs don't have any volume field in the pattern
+    __Pattern(i, a, b).effect = byte3 AND &HF
+    __Pattern(i, a, b).operand = byte4
+
+    ' Some sanity check
+    IF __Pattern(i, a, b).instrument > __Song.instruments THEN __Pattern(i, a, b).instrument = 0 ' instrument 0 means no instrument. So valid sample are 1-15/31
+
+    RETURN
+END FUNCTION
+
+''' @brief Loads a ProTracker or compatible MOD module from a file on disk or URL.
+''' @param fileName File path or URL to load.
+''' @return _TRUE if the module was loaded, _FALSE otherwise.
+FUNCTION MODLoader_LoadFromDisk%% (fileName AS STRING)
+    IF NOT _FILEEXISTS(fileName) THEN EXIT FUNCTION
+    MODLoader_LoadFromDisk = MODLoader_LoadFromMemory(File_Load(fileName))
+END FUNCTION

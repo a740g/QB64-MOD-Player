@@ -24,6 +24,12 @@ It supports the following classic module formats:
   - Scream Tracker 3 (S3M) files with multi-channel digital audio, custom sample
     rates, and ST3 panning.
   - MultiTracker (MTM) files with track sequencing and 8-bit PCM samples.
+- Modular Architecture:
+  - Core Player engine (`MODPlayer.bi`) decoupled from file parsers.
+  - Dedicated format loaders (`MODLoader.bi`, `S3MLoader.bi`, `MTMLoader.bi`)
+    that parse native tracker files into a unified internal representation.
+  - Extensible design inspired by OpenMPT and MikMod: new tracker formats (e.g.
+    XM, IT) can be added simply by implementing a loader.
 - Supports pitch slides, portamento, vibrato, tremolo, volume slides, arpeggio,
   sample offset, panning, pattern delay, and extended commands.
 - Full-screen visualizer showcasing real-time FFT spectrum analysis, pattern
@@ -113,76 +119,22 @@ SYSTEM
 
 ## API Reference
 
-<!-- markdownlint-disable MD013 -->
-```vb
-' -----------------------------------------------------------------------------
-' Main Player API (MODPlayer.bi)
-' -----------------------------------------------------------------------------
-FUNCTION MODPlayer_LoadFromDisk%% (fileName AS STRING)
-FUNCTION MODPlayer_LoadFromMemory%% (buffer AS STRING)
-SUB MODPlayer_Play
-SUB MODPlayer_Stop
-SUB MODPlayer_Pause (state AS _BYTE)
-FUNCTION MODPlayer_IsPlaying%%
-FUNCTION MODPlayer_IsPaused%%
-SUB MODPlayer_Loop (state AS _BYTE)
-FUNCTION MODPlayer_IsLooping%%
-SUB MODPlayer_Update (bufferTimeSecs AS SINGLE)
-FUNCTION MODPlayer_GetName$
-FUNCTION MODPlayer_GetType$
-FUNCTION MODPlayer_GetPosition&
-FUNCTION MODPlayer_GetOrders~%
-SUB MODPlayer_SetPosition (position AS _UNSIGNED INTEGER)
-SUB MODPlayer_GoToNextPosition
-SUB MODPlayer_GoToPreviousPosition
+The complete API documentation, parameter specifications, type definitions,
+and constants are documented in [docs/API.md](docs/API.md).
 
-' -----------------------------------------------------------------------------
-' Software Synthesizer / Sample Mixer API (SoftSynth.bi)
-' -----------------------------------------------------------------------------
-FUNCTION SoftSynth_Initialize%% (ctx AS SoftSynthType)
-SUB SoftSynth_Finalize (ctx AS SoftSynthType)
-FUNCTION SoftSynth_IsInitialized%% (ctx AS SoftSynthType)
-SUB SoftSynth_LoadSound (ctx AS SoftSynthType, snd AS LONG, buffer AS STRING, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
-FUNCTION SoftSynth_ConvertBytesToFrames~& (bytes AS _UNSIGNED LONG, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
-SUB SoftSynth_PlayVoice (ctx AS SoftSynthType, voice AS _UNSIGNED LONG, snd AS LONG, position AS _UNSIGNED LONG, mode AS LONG, startPosition AS _UNSIGNED LONG, endPosition AS _UNSIGNED LONG)
-SUB SoftSynth_StopVoice (ctx AS SoftSynthType, voice AS _UNSIGNED LONG)
-SUB SoftSynth_Update (ctx AS SoftSynthType, frames AS _UNSIGNED LONG)
-FUNCTION SoftSynth_GetActiveVoices~& (ctx AS SoftSynthType)
-FUNCTION SoftSynth_GetTotalVoices~& (ctx AS SoftSynthType)
-SUB SoftSynth_SetTotalVoices (ctx AS SoftSynthType, voices AS _UNSIGNED LONG)
-FUNCTION SoftSynth_GetTotalSounds~& (ctx AS SoftSynthType)
-FUNCTION SoftSynth_GetSampleRate~& (ctx AS SoftSynthType)
-FUNCTION SoftSynth_GetBufferedSoundTime# (ctx AS SoftSynthType)
-FUNCTION SoftSynth_GetMasterVolume! (ctx AS SoftSynthType)
-SUB SoftSynth_SetMasterVolume (ctx AS SoftSynthType, volume AS SINGLE)
-FUNCTION SoftSynth_GetGlobalVolume! (ctx AS SoftSynthType)
-SUB SoftSynth_SetGlobalVolume (ctx AS SoftSynthType, volume AS SINGLE)
-FUNCTION SoftSynth_GetVoiceVolume! (ctx AS SoftSynthType, voice AS _UNSIGNED LONG)
-SUB SoftSynth_SetVoiceVolume (ctx AS SoftSynthType, voice AS _UNSIGNED LONG, volume AS SINGLE)
-FUNCTION SoftSynth_GetVoiceBalance! (ctx AS SoftSynthType, voice AS _UNSIGNED LONG)
-SUB SoftSynth_SetVoiceBalance (ctx AS SoftSynthType, voice AS _UNSIGNED LONG, balance AS SINGLE)
-FUNCTION SoftSynth_GetVoiceFrequency~& (ctx AS SoftSynthType, voice AS _UNSIGNED LONG)
-SUB SoftSynth_SetVoiceFrequency (ctx AS SoftSynthType, voice AS _UNSIGNED LONG, frequency AS _UNSIGNED LONG)
-FUNCTION SoftSynth_PeekSoundFrameByte%% (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG)
-FUNCTION SoftSynth_PeekSoundFrameInteger% (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG)
-FUNCTION SoftSynth_PeekSoundFrameSingle! (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG)
-SUB SoftSynth_PokeSoundFrameByte (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG, frame AS _BYTE)
-SUB SoftSynth_PokeSoundFrameInteger (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG, frame AS INTEGER)
-SUB SoftSynth_PokeSoundFrameSingle (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG, frame AS SINGLE)
-
-' -----------------------------------------------------------------------------
-' Audio Spectrum Analyzer API (AudioAnalyzer.bi)
-' -----------------------------------------------------------------------------
-FUNCTION AudioAnalyzer_Initialize%% (analyzer AS AudioAnalyzerType)
-SUB AudioAnalyzer_Finalize (analyzer AS AudioAnalyzerType)
-FUNCTION AudioAnalyzer_IsInitialized%% (analyzer AS AudioAnalyzerType)
-SUB AudioAnalyzer_CalculateFFT (analyzer AS AudioAnalyzerType, amplitudeArray() AS _UNSIGNED INTEGER, sampleDataArray() AS SINGLE, sampleOffset AS LONG, sampleIncrement AS LONG, bitDepth AS LONG)
-FUNCTION AudioAnalyzer_GetAverageIntensity! (analyzer AS AudioAnalyzerType)
-FUNCTION AudioAnalyzer_GetRMS! (analyzer AS AudioAnalyzerType)
-FUNCTION AudioAnalyzer_GetPeakAmplitude~% (analyzer AS AudioAnalyzerType)
-FUNCTION AudioAnalyzer_GetPeakBin& (analyzer AS AudioAnalyzerType)
-```
-<!-- markdownlint-enable MD013 -->
+- **[Core Player API](docs/API.md#core-player-api-modplayerbi)**: Playback
+  control (`MODPlayer_Play`, `MODPlayer_Stop`, `MODPlayer_Pause`,
+  `MODPlayer_Update`), position navigation, metadata getters, and unified
+  module loading (`MODPlayer_LoadFromDisk`, `MODPlayer_LoadFromMemory`).
+- **[Dedicated Format Loaders API](docs/API.md#dedicated-format-loaders-api-loaderbi)**:
+  Direct loading routines for ProTracker/SoundTracker (`MODLoader_*`), Scream
+  Tracker 3 (`S3MLoader_*`), and MultiTracker (`MTMLoader_*`).
+- **[Software Synthesizer API](docs/API.md#software-synthesizer-api-softsynthbi)**:
+  PCM voice mixing, buffer streaming, pan/volume attenuation, frequency
+  control, and direct sample frame peeking/poking.
+- **[Audio Spectrum Analyzer API](docs/API.md#audio-spectrum-analyzer-api-audioanalyzerbi)**:
+  Radix-2 FFT spectral analysis, average intensity, RMS energy calculation,
+  and peak amplitude/bin detection.
 
 ## Frequently Asked Questions
 
