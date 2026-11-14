@@ -12,13 +12,10 @@ CONST DOUBLE_EPSILON# = 2.22044604925031308084726333618164062E-16
 
 CONST CHARACTER_BITS& = 8&
 
-TYPE Vector3f
-    x AS SINGLE
-    y AS SINGLE
-    z AS SINGLE
-END TYPE
-
 DECLARE LIBRARY
+    ''' @brief Counts the number of leading zero bits in an unsigned 32-bit integer.
+    ''' @param n The 32-bit unsigned integer to examine.
+    ''' @return The number of leading zero bits (0 to 32).
     FUNCTION Math_CountLeadingZeros~& ALIAS "__builtin_clz" (BYVAL n AS _UNSIGNED LONG)
 END DECLARE
 
@@ -26,9 +23,9 @@ END DECLARE
 ''' most significant set bit (MSB), counting from the least significant bit as position 0.
 ''' @param n The value to examine.
 ''' @return The index of the highest set bit. Returns 0 if n is 0.
-FUNCTION Math_HighestSetBitIndex~& (n AS _UNSIGNED LONG)
+FUNCTION Math_GetHighestSetBitIndex~& (n AS _UNSIGNED LONG)
     IF n THEN
-        Math_HighestSetBitIndex = (CHARACTER_BITS * _SIZE_OF_LONG - 1) - Math_CountLeadingZeros(n)
+        Math_GetHighestSetBitIndex = (CHARACTER_BITS * _SIZE_OF_LONG - 1) - Math_CountLeadingZeros(n)
     END IF
 END FUNCTION
 

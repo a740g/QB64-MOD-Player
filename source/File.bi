@@ -21,7 +21,9 @@ END TYPE
 
 DIM __File AS __FileType
 
-' Load a file from a file or URL
+''' @brief Loads a file from disk or from a URL into memory.
+''' @param PathOrURL The local file path or URL to load.
+''' @return The loaded file content as a string, or empty string on failure.
 FUNCTION File_Load$ (PathOrURL AS STRING)
     IF LEN(Pathname_GetDriveOrScheme(PathOrURL)) > 2 THEN
         File_Load = File_LoadFromURL(PathOrURL)
@@ -30,14 +32,18 @@ FUNCTION File_Load$ (PathOrURL AS STRING)
     END IF
 END FUNCTION
 
-' Loads a whole file from disk into memory
+''' @brief Loads a whole file from disk into memory.
+''' @param path The local file path to load.
+''' @return The loaded file content as a string, or empty string if file does not exist.
 FUNCTION File_LoadFromDisk$ (path AS STRING)
     IF _FILEEXISTS(path) THEN
         File_LoadFromDisk = _READFILE$(path)
     END IF
 END FUNCTION
 
-' Loads a whole file from a URL into memory
+''' @brief Loads a whole file from an HTTP URL into memory.
+''' @param url The URL to download from.
+''' @return The downloaded content as a string, or empty string on failure.
 FUNCTION File_LoadFromURL$ (url AS STRING)
     SHARED __File AS __FileType
 
@@ -66,7 +72,9 @@ FUNCTION File_LoadFromURL$ (url AS STRING)
     END IF
 END FUNCTION
 
-' Changes the default settings for the HTTP downloader
+''' @brief Configures properties for the HTTP file downloader.
+''' @param updatesPerSecond The maximum number of download loop cycles per second (refresh rate).
+''' @param timeoutSeconds The timeout in seconds before download aborts.
 SUB File_SetDownloaderProperties (updatesPerSecond AS _UNSIGNED LONG, timeoutSeconds AS _UNSIGNED LONG)
     SHARED __File AS __FileType
 
@@ -75,25 +83,39 @@ SUB File_SetDownloaderProperties (updatesPerSecond AS _UNSIGNED LONG, timeoutSec
     __File.initialized = _TRUE
 END SUB
 
-' Save a buffer to a file
+''' @brief Saves a buffer to a file on disk.
+''' @param buffer The string buffer to save.
+''' @param fileName The path of the file to save to.
+''' @param overwrite If _FALSE and the file already exists, the file will not be overwritten.
+''' @return _TRUE if the file was written, _FALSE if skipped due to existing file.
 FUNCTION File_Save%% (buffer AS STRING, fileName AS STRING, overwrite AS _BYTE)
     IF _FILEEXISTS(fileName) AND NOT overwrite THEN EXIT FUNCTION
     _WRITEFILE fileName, buffer
     File_Save = _TRUE
 END FUNCTION
 
-' Sub version of the above
+''' @brief Saves a buffer to a file on disk.
+''' @param buffer The string buffer to save.
+''' @param fileName The path of the file to save to.
+''' @param overwrite If _FALSE and the file already exists, the file will not be overwritten.
 SUB File_Save (buffer AS STRING, fileName AS STRING, overwrite AS _BYTE)
     IF _FILEEXISTS(fileName) AND NOT overwrite THEN EXIT SUB
     _WRITEFILE fileName, buffer
 END SUB
 
-' Copies file src to dst. Src file must exist and dst file must not
+''' @brief Copies a source file to a destination file.
+''' @param fileSrc The path of the source file.
+''' @param fileDst The path of the destination file.
+''' @param overwrite If _FALSE and the destination file already exists, it will not be overwritten.
+''' @return _TRUE if the copy succeeded, _FALSE otherwise.
 FUNCTION File_Copy%% (fileSrc AS STRING, fileDst AS STRING, overwrite AS _BYTE)
     File_Copy = File_Save(File_Load(fileSrc), fileDst, overwrite)
 END FUNCTION
 
-' Sub version of the above
+''' @brief Copies a source file to a destination file.
+''' @param fileSrc The path of the source file.
+''' @param fileDst The path of the destination file.
+''' @param overwrite If _FALSE and the destination file already exists, it will not be overwritten.
 SUB File_Copy (fileSrc AS STRING, fileDst AS STRING, overwrite AS _BYTE)
     File_Save File_Load(fileSrc), fileDst, overwrite
 END SUB

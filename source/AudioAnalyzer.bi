@@ -20,6 +20,7 @@ DIM SHARED __AA_sinCosTable(0 TO 2 * __AA_HALF_SAMPLES - 1) AS LONG
 DIM SHARED __AA_fftBuffer(0 TO 2 * __AA_NUM_SAMPLES - 1) AS LONG
 DIM SHARED __AA_initialized AS _BYTE
 
+''' @brief Initializes FFT lookup tables (sine, cosine, and bit-reversal tables).
 SUB __AA_Init
     IF __AA_initialized THEN EXIT SUB
 
@@ -64,6 +65,11 @@ SUB __AA_Init
     __AA_initialized = _TRUE
 END SUB
 
+''' @brief Computes a single radix-2 butterfly calculation on the FFT buffer.
+''' @param sampleIdx Buffer index of the first sample.
+''' @param scCos Fixed-point cosine twiddle factor.
+''' @param scSin Fixed-point sine twiddle factor.
+''' @param distance Offset distance to the second sample in the buffer.
 SUB __AA_CalculateFFT (sampleIdx AS LONG, scCos AS LONG, scSin AS LONG, distance AS LONG)
     DIM realPart AS LONG: realPart = __AA_fftBuffer(sampleIdx) - __AA_fftBuffer(sampleIdx + distance)
     __AA_fftBuffer(sampleIdx) = _SHR(__AA_fftBuffer(sampleIdx) + __AA_fftBuffer(sampleIdx + distance), 1)
@@ -75,6 +81,8 @@ SUB __AA_CalculateFFT (sampleIdx AS LONG, scCos AS LONG, scSin AS LONG, distance
     __AA_fftBuffer(sampleIdx + distance + 1) = _SHR(_CAST(_INTEGER64, realPart) * _CAST(_INTEGER64, scSin), 29) + _SHR(_CAST(_INTEGER64, imagPart) * _CAST(_INTEGER64, scCos), 29)
 END SUB
 
+''' @brief Executes butterfly operations across all stages for the specified FFT bit depth.
+''' @param stage The FFT stage / bit depth to compute.
 SUB __AA_PerformButterflyOperation (stage AS LONG)
     DIM lastStageIdx AS LONG: lastStageIdx = _SHL(1, stage) * 2
     DIM i AS LONG, j AS LONG
@@ -101,14 +109,14 @@ SUB __AA_PerformButterflyOperation (stage AS LONG)
     NEXT i
 END SUB
 
-' @brief FFT for 32-bit floating-point sample data.
-' @param amplitudeArray() Output array of _UNSIGNED INTEGER amplitude values (must be at least (1 SHL bitDepth) / 2 elements).
-' @param sampleDataArray() Input array of SINGLE (fp32) sample data (expected range -1.0 to 1.0).
-' @param sampleOffset Offset from LBOUND(sampleDataArray) to begin reading samples (e.g., 0 for left/mono, 1 for right).
-' @param sampleIncrement Step between consecutive samples (1 for mono, 2 for stereo interleaved).
-' @param bitDepth Log2 of the number of samples to process (e.g., 10 = 1024 samples).
-' @return Average intensity (RMS-like energy measure) of the input signal as SINGLE.
-FUNCTION AudioAnalyzerFFT_DoSingle! (amplitudeArray() AS _UNSIGNED INTEGER, sampleDataArray() AS SINGLE, sampleOffset AS LONG, sampleIncrement AS LONG, bitDepth AS LONG)
+''' @brief Computes FFT spectrum and signal intensity for 32-bit floating-point audio samples.
+''' @param amplitudeArray() Output array of _UNSIGNED INTEGER amplitude values (must have at least (1 SHL bitDepth) / 2 elements).
+''' @param sampleDataArray() Input array of SINGLE (fp32) audio samples (range -1.0 to 1.0).
+''' @param sampleOffset Offset from LBOUND(sampleDataArray) to begin reading samples (e.g., 0 for left/mono, 1 for right).
+''' @param sampleIncrement Stride between consecutive samples (1 for mono, 2 for stereo interleaved).
+''' @param bitDepth Log2 of the number of samples to process (e.g., 10 = 1024 samples).
+''' @return Average signal intensity (RMS energy measure) as SINGLE.
+FUNCTION AudioAnalyzer_CalculateFFT! (amplitudeArray() AS _UNSIGNED INTEGER, sampleDataArray() AS SINGLE, sampleOffset AS LONG, sampleIncrement AS LONG, bitDepth AS LONG)
     __AA_Init
 
     DIM numSamples AS LONG: numSamples = _SHL(1, bitDepth)
@@ -143,5 +151,5 @@ FUNCTION AudioAnalyzerFFT_DoSingle! (amplitudeArray() AS _UNSIGNED INTEGER, samp
         amplitudeArray(LBOUND(amplitudeArray) + i - 1) = _CAST(_UNSIGNED INTEGER, magnitude)
     NEXT
 
-    AudioAnalyzerFFT_DoSingle = averageIntensity
+    AudioAnalyzer_CalculateFFT = averageIntensity
 END FUNCTION

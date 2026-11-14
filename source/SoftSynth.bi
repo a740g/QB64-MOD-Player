@@ -78,7 +78,8 @@ DIM __SoftSynth AS __SoftSynthStateType
 DIM __SoftSynthPipe AS __SoftSynthPipeType
 REDIM __SoftSynth_SoundBuffer(0 TO 0) AS SINGLE ' mixer buffer (stereo interleaved)
 
-' Reset a voice to defaults (does NOT reset pan position)
+''' @brief Resets a voice structure to defaults (does NOT reset pan position).
+''' @param voice Voice structure to reset.
 SUB __SoftSynth_ResetVoice (voice AS __SoftSynthVoiceType)
     voice.sound = SOFTSYNTH_VOICE_NO_SOUND
     voice.volume = SOFTSYNTH_VOICE_VOLUME_MAX
@@ -93,7 +94,9 @@ SUB __SoftSynth_ResetVoice (voice AS __SoftSynthVoiceType)
     voice.playMode = SOFTSYNTH_VOICE_PLAY_FORWARD
 END SUB
 
-' Compute pan gains using equal-power (-3 dB) pan law
+''' @brief Computes pan gains for a voice using equal-power (-3 dB) pan law.
+''' @param voice Voice structure to update.
+''' @param pan Panning value from -1.0 (left) to 1.0 (right).
 SUB __SoftSynth_SetPanPosition (voice AS __SoftSynthVoiceType, pan AS SINGLE)
     DIM p AS SINGLE
     DIM panMapped AS SINGLE
@@ -107,23 +110,29 @@ SUB __SoftSynth_SetPanPosition (voice AS __SoftSynthVoiceType, pan AS SINGLE)
     voice.rightGain = SIN(panMapped)
 END SUB
 
-' Convert bytes to frames
-FUNCTION SoftSynth_BytesToFrames~& (bytes AS _UNSIGNED LONG, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
+''' @brief Converts a byte count to audio sample frame count.
+''' @param bytes Total number of bytes.
+''' @param bytesPerSample Bytes per sample (1 for 8-bit, 2 for 16-bit, 4 for 32-bit).
+''' @param channels Channel count (1 for mono, 2 for stereo).
+''' @return Number of sample frames.
+FUNCTION SoftSynth_ConvertBytesToFrames~& (bytes AS _UNSIGNED LONG, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
     IF bytesPerSample = 0 OR channels = 0 THEN
-        SoftSynth_BytesToFrames = 0
+        SoftSynth_ConvertBytesToFrames = 0
     ELSE
-        SoftSynth_BytesToFrames = bytes \ (CLNG(bytesPerSample) * CLNG(channels))
+        SoftSynth_ConvertBytesToFrames = bytes \ (CLNG(bytesPerSample) * CLNG(channels))
     END IF
 END FUNCTION
 
-' Check if the synth engine is initialized
+''' @brief Checks whether the synthesizer engine is initialized.
+''' @return _TRUE if initialized, _FALSE otherwise.
 FUNCTION SoftSynth_IsInitialized%%
     SHARED __SoftSynth AS __SoftSynthStateType
 
     SoftSynth_IsInitialized = __SoftSynth.initialized
 END FUNCTION
 
-' Initialize the SoftSynth and allocate all required resources
+''' @brief Initializes the SoftSynth and allocates all required audio resources.
+''' @return _TRUE on success, _FALSE on failure.
 FUNCTION SoftSynth_Initialize%%
     SHARED __SoftSynth AS __SoftSynthStateType
     SHARED __SoftSynthPipe AS __SoftSynthPipeType
@@ -163,7 +172,7 @@ FUNCTION SoftSynth_Initialize%%
     SoftSynth_Initialize = _TRUE
 END FUNCTION
 
-' Finalize the SoftSynth — free all resources
+''' @brief Finalizes the SoftSynth and frees all allocated sound and pipe resources.
 SUB SoftSynth_Finalize
     SHARED __SoftSynth AS __SoftSynthStateType
     SHARED __SoftSynthPipe AS __SoftSynthPipeType
@@ -192,23 +201,27 @@ SUB SoftSynth_Finalize
     END IF
 END SUB
 
-' Get the output sample rate
+''' @brief Gets the output sample rate of the synthesizer engine.
+''' @return Sample rate in Hertz.
 FUNCTION SoftSynth_GetSampleRate~&
     SHARED __SoftSynth AS __SoftSynthStateType
 
     SoftSynth_GetSampleRate = __SoftSynth.sampleRate
 END FUNCTION
 
-' Get total number of sound slots
+''' @brief Gets the total number of allocated sound slots.
+''' @return Total sound slots count.
 FUNCTION SoftSynth_GetTotalSounds~&
     SHARED __SoftSynth AS __SoftSynthStateType
 
     SoftSynth_GetTotalSounds = __SoftSynth.totalSounds
 END FUNCTION
 
-' Load raw sound data into a sound slot
-' Converts 8-bit signed, 16-bit signed, or 32-bit float to internal fp32 mono format
-' Multi-channel sounds are flattened to mono by summing channels
+''' @brief Loads raw PCM audio sample data into a sound slot, converting to internal fp32 format.
+''' @param snd Sound slot index (0-based).
+''' @param buffer Raw audio sample data buffer.
+''' @param bytesPerSample Bytes per sample (1 for 8-bit, 2 for 16-bit, 4 for 32-bit float).
+''' @param channels Channel count (multi-channel sounds are flattened to mono).
 SUB SoftSynth_LoadSound (snd AS LONG, buffer AS STRING, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
     SHARED __SoftSynth AS __SoftSynthStateType
 
@@ -235,7 +248,7 @@ SUB SoftSynth_LoadSound (snd AS LONG, buffer AS STRING, bytesPerSample AS _UNSIG
 
     ' Calculate total frames (mono output)
     DIM totalFrames AS _UNSIGNED LONG
-    totalFrames = SoftSynth_BytesToFrames(bytes, bytesPerSample, channels)
+    totalFrames = SoftSynth_ConvertBytesToFrames(bytes, bytesPerSample, channels)
     IF totalFrames = 0 THEN EXIT SUB
 
     ' Allocate the frame buffer for this sound
@@ -284,7 +297,10 @@ SUB SoftSynth_LoadSound (snd AS LONG, buffer AS STRING, bytesPerSample AS _UNSIG
     END SELECT
 END SUB
 
-' Peek a sound frame as SINGLE (fp32)
+''' @brief Reads a single sample frame from a loaded sound as a 32-bit float.
+''' @param snd Sound slot index.
+''' @param position Sample frame index.
+''' @return Normalized sample value (-1.0 to 1.0).
 FUNCTION SoftSynth_PeekSoundFrameSingle! (snd AS LONG, position AS _UNSIGNED LONG)
     SHARED __SoftSynth AS __SoftSynthStateType
 
@@ -295,7 +311,10 @@ FUNCTION SoftSynth_PeekSoundFrameSingle! (snd AS LONG, position AS _UNSIGNED LON
     SoftSynth_PeekSoundFrameSingle = __SoftSynth.sounds(snd).frames(position)
 END FUNCTION
 
-' Poke a sound frame as SINGLE (fp32)
+''' @brief Writes a single sample frame to a loaded sound as a 32-bit float.
+''' @param snd Sound slot index.
+''' @param position Sample frame index.
+''' @param frame Normalized sample value (-1.0 to 1.0).
 SUB SoftSynth_PokeSoundFrameSingle (snd AS LONG, position AS _UNSIGNED LONG, frame AS SINGLE)
     SHARED __SoftSynth AS __SoftSynthStateType
 
@@ -306,34 +325,48 @@ SUB SoftSynth_PokeSoundFrameSingle (snd AS LONG, position AS _UNSIGNED LONG, fra
     __SoftSynth.sounds(snd).frames(position) = frame
 END SUB
 
-' Peek a sound frame as INTEGER (16-bit)
+''' @brief Reads a single sample frame from a loaded sound as a signed 16-bit integer.
+''' @param snd Sound slot index.
+''' @param position Sample frame index.
+''' @return 16-bit signed sample value (-32768 to 32767).
 FUNCTION SoftSynth_PeekSoundFrameInteger% (snd AS LONG, position AS _UNSIGNED LONG)
     SoftSynth_PeekSoundFrameInteger = _CAST(INTEGER, SoftSynth_PeekSoundFrameSingle(snd, position) * __SOFTSYNTH_MULTIPLIER_32_TO_16)
 END FUNCTION
 
-' Poke a sound frame as INTEGER (16-bit)
+''' @brief Writes a single sample frame to a loaded sound as a signed 16-bit integer.
+''' @param snd Sound slot index.
+''' @param position Sample frame index.
+''' @param frame 16-bit signed sample value (-32768 to 32767).
 SUB SoftSynth_PokeSoundFrameInteger (snd AS LONG, position AS _UNSIGNED LONG, frame AS INTEGER)
     SoftSynth_PokeSoundFrameSingle snd, position, frame * __SOFTSYNTH_MULTIPLIER_16_TO_32
 END SUB
 
-' Peek a sound frame as BYTE (8-bit)
+''' @brief Reads a single sample frame from a loaded sound as a signed 8-bit byte.
+''' @param snd Sound slot index.
+''' @param position Sample frame index.
+''' @return 8-bit signed sample value (-128 to 127).
 FUNCTION SoftSynth_PeekSoundFrameByte%% (snd AS LONG, position AS _UNSIGNED LONG)
     SoftSynth_PeekSoundFrameByte = _CAST(_BYTE, SoftSynth_PeekSoundFrameSingle(snd, position) * __SOFTSYNTH_MULTIPLIER_32_TO_8)
 END FUNCTION
 
-' Poke a sound frame as BYTE (8-bit)
+''' @brief Writes a single sample frame to a loaded sound as a signed 8-bit byte.
+''' @param snd Sound slot index.
+''' @param position Sample frame index.
+''' @param frame 8-bit signed sample value (-128 to 127).
 SUB SoftSynth_PokeSoundFrameByte (snd AS LONG, position AS _UNSIGNED LONG, frame AS _BYTE)
     SoftSynth_PokeSoundFrameSingle snd, position, frame * __SOFTSYNTH_MULTIPLIER_8_TO_32
 END SUB
 
-' Get total number of voice slots
+''' @brief Gets the total number of allocated voice slots.
+''' @return Number of voice slots.
 FUNCTION SoftSynth_GetTotalVoices~&
     SHARED __SoftSynth AS __SoftSynthStateType
 
     SoftSynth_GetTotalVoices = __SoftSynth.totalVoices
 END FUNCTION
 
-' Set total number of voice slots (clears existing voices)
+''' @brief Sets total number of voice slots (re-allocates and clears all voices).
+''' @param voices Number of voices to allocate.
 SUB SoftSynth_SetTotalVoices (voices AS _UNSIGNED LONG)
     SHARED __SoftSynth AS __SoftSynthStateType
 
@@ -351,14 +384,17 @@ SUB SoftSynth_SetTotalVoices (voices AS _UNSIGNED LONG)
     NEXT
 END SUB
 
-' Get active voice count (updated each SoftSynth_Update call)
+''' @brief Gets the active voice count updated during each audio mixing pass.
+''' @return Number of active voices.
 FUNCTION SoftSynth_GetActiveVoices~&
     SHARED __SoftSynth AS __SoftSynthStateType
 
     SoftSynth_GetActiveVoices = __SoftSynth.activeVoices
 END FUNCTION
 
-' Set voice volume
+''' @brief Sets the volume for a specific voice.
+''' @param voice Voice index (0-based).
+''' @param volume Volume level (0.0 to 1.0).
 SUB SoftSynth_SetVoiceVolume (voice AS _UNSIGNED LONG, volume AS SINGLE)
     SHARED __SoftSynth AS __SoftSynthStateType
 
@@ -368,7 +404,9 @@ SUB SoftSynth_SetVoiceVolume (voice AS _UNSIGNED LONG, volume AS SINGLE)
     __SoftSynth.voices(voice).volume = _CLAMP(volume, SOFTSYNTH_VOICE_VOLUME_MIN, SOFTSYNTH_VOICE_VOLUME_MAX)
 END SUB
 
-' Get voice volume
+''' @brief Gets the volume level of a voice.
+''' @param voice Voice index (0-based).
+''' @return Voice volume level (0.0 to 1.0).
 FUNCTION SoftSynth_GetVoiceVolume! (voice AS _UNSIGNED LONG)
     SHARED __SoftSynth AS __SoftSynthStateType
 
@@ -378,7 +416,9 @@ FUNCTION SoftSynth_GetVoiceVolume! (voice AS _UNSIGNED LONG)
     SoftSynth_GetVoiceVolume = __SoftSynth.voices(voice).volume
 END FUNCTION
 
-' Set voice stereo balance (pan position)
+''' @brief Sets the stereo pan position for a voice.
+''' @param voice Voice index (0-based).
+''' @param balance Panning balance from -1.0 (left) to 1.0 (right).
 SUB SoftSynth_SetVoiceBalance (voice AS _UNSIGNED LONG, balance AS SINGLE)
     SHARED __SoftSynth AS __SoftSynthStateType
 
@@ -388,7 +428,9 @@ SUB SoftSynth_SetVoiceBalance (voice AS _UNSIGNED LONG, balance AS SINGLE)
     __SoftSynth_SetPanPosition __SoftSynth.voices(voice), balance
 END SUB
 
-' Get voice stereo balance
+''' @brief Gets the current stereo pan position of a voice.
+''' @param voice Voice index (0-based).
+''' @return Pan position from -1.0 (left) to 1.0 (right).
 FUNCTION SoftSynth_GetVoiceBalance! (voice AS _UNSIGNED LONG)
     SHARED __SoftSynth AS __SoftSynthStateType
 
@@ -398,7 +440,9 @@ FUNCTION SoftSynth_GetVoiceBalance! (voice AS _UNSIGNED LONG)
     SoftSynth_GetVoiceBalance = __SoftSynth.voices(voice).panPosition
 END FUNCTION
 
-' Set voice playback frequency
+''' @brief Sets the playback frequency of a voice in Hertz.
+''' @param voice Voice index (0-based).
+''' @param frequency Playback frequency in Hertz.
 SUB SoftSynth_SetVoiceFrequency (voice AS _UNSIGNED LONG, frequency AS _UNSIGNED LONG)
     SHARED __SoftSynth AS __SoftSynthStateType
 
@@ -410,7 +454,8 @@ SUB SoftSynth_SetVoiceFrequency (voice AS _UNSIGNED LONG, frequency AS _UNSIGNED
     __SoftSynth.voices(voice).pitch = CSNG(frequency) / CSNG(__SoftSynth.sampleRate)
 END SUB
 
-' Get voice playback frequency
+''' @brief Gets the current playback frequency of a voice in Hertz.
+''' @return Playback frequency in Hertz.
 FUNCTION SoftSynth_GetVoiceFrequency~& (voice AS _UNSIGNED LONG)
     SHARED __SoftSynth AS __SoftSynthStateType
 
@@ -420,7 +465,8 @@ FUNCTION SoftSynth_GetVoiceFrequency~& (voice AS _UNSIGNED LONG)
     SoftSynth_GetVoiceFrequency = __SoftSynth.voices(voice).frequency
 END FUNCTION
 
-' Stop a voice (unbind its sound)
+''' @brief Stops playback on a voice and unbinds its sound.
+''' @param voice Voice index (0-based).
 SUB SoftSynth_StopVoice (voice AS _UNSIGNED LONG)
     SHARED __SoftSynth AS __SoftSynthStateType
 
@@ -430,7 +476,13 @@ SUB SoftSynth_StopVoice (voice AS _UNSIGNED LONG)
     __SoftSynth_ResetVoice __SoftSynth.voices(voice)
 END SUB
 
-' Play a sound on a voice
+''' @brief Starts playback of a sound on a voice with specified parameters and loop points.
+''' @param voice Voice index (0-based).
+''' @param snd Sound slot index.
+''' @param position Initial playback position in sample frames.
+''' @param mode Loop mode (SOFTSYNTH_VOICE_PLAY_FORWARD or SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP).
+''' @param startPosition Loop start position in sample frames.
+''' @param endPosition Loop end position in sample frames.
 SUB SoftSynth_PlayVoice (voice AS _UNSIGNED LONG, snd AS LONG, position AS _UNSIGNED LONG, mode AS LONG, startPosition AS _UNSIGNED LONG, endPosition AS _UNSIGNED LONG)
     SHARED __SoftSynth AS __SoftSynthStateType
 
@@ -465,21 +517,24 @@ SUB SoftSynth_PlayVoice (voice AS _UNSIGNED LONG, snd AS LONG, position AS _UNSI
     __SoftSynth.voices(voice) = v
 END SUB
 
-' Set global volume (applied to all mixed output)
+''' @brief Sets the global volume multiplier applied across all voices.
+''' @param volume Global volume level (0.0 to 1.0).
 SUB SoftSynth_SetGlobalVolume (volume AS SINGLE)
     SHARED __SoftSynth AS __SoftSynthStateType
 
     __SoftSynth.globalVolume = _CLAMP(volume, 0!, SOFTSYNTH_GLOBAL_VOLUME_MAX)
 END SUB
 
-' Get global volume
+''' @brief Gets the current global software volume level.
+''' @return Global volume level (0.0 to 1.0).
 FUNCTION SoftSynth_GetGlobalVolume!
     SHARED __SoftSynth AS __SoftSynthStateType
 
     SoftSynth_GetGlobalVolume = __SoftSynth.globalVolume
 END FUNCTION
 
-' Set master volume (QB64 sound pipe volume)
+''' @brief Sets the master sound pipe volume via the QB64 audio engine.
+''' @param volume Master volume level (0.0 to 1.0).
 SUB SoftSynth_SetMasterVolume (volume AS SINGLE)
     SHARED __SoftSynthPipe AS __SoftSynthPipeType
 
@@ -487,35 +542,26 @@ SUB SoftSynth_SetMasterVolume (volume AS SINGLE)
     _SNDVOL __SoftSynthPipe.soundHandle, __SoftSynthPipe.soundMasterVolume
 END SUB
 
-' Get master volume
+''' @brief Gets the master sound pipe volume level.
+''' @return Master volume level (0.0 to 1.0).
 FUNCTION SoftSynth_GetMasterVolume!
     SHARED __SoftSynthPipe AS __SoftSynthPipeType
 
     SoftSynth_GetMasterVolume = __SoftSynthPipe.soundMasterVolume
 END FUNCTION
 
-' Get the amount of buffered audio time remaining (seconds)
+''' @brief Gets the amount of queued unplayed audio time remaining in the sound pipe.
+''' @return Remaining buffered audio duration in seconds.
 FUNCTION SoftSynth_GetBufferedSoundTime#
     SHARED __SoftSynthPipe AS __SoftSynthPipeType
 
     SoftSynth_GetBufferedSoundTime = _SNDRAWLEN(__SoftSynthPipe.soundHandle)
 END FUNCTION
 
-' Convert unsigned 8-bit samples to signed 8-bit (in-place)
-SUB SoftSynth_ConvertU8ToS8 (buffer AS STRING)
-    DIM i AS LONG
-    DIM b AS _UNSIGNED _BYTE
 
-    FOR i = 1 TO LEN(buffer)
-        b = ASC(buffer, i)
-        ASC(buffer, i) = b XOR &H80
-    NEXT
-END SUB
-
-
-' CORE MIXER
-' Mixes all active voices into the provided stereo interleaved SINGLE buffer.
-' Accumulates into buffer without clearing it.
+''' @brief Mixes all active voices into the provided stereo interleaved SINGLE buffer.
+''' @param buffer() Output stereo interleaved SINGLE buffer.
+''' @param frames Number of sample frames to render.
 SUB __SoftSynth_Update (buffer() AS SINGLE, frames AS _UNSIGNED LONG)
     SHARED __SoftSynth AS __SoftSynthStateType
 
@@ -609,7 +655,8 @@ SUB __SoftSynth_Update (buffer() AS SINGLE, frames AS _UNSIGNED LONG)
     END IF
 END SUB
 
-' MAIN UPDATE (called regularly to stream audio to sound pipe)
+''' @brief Renders audio frames and streams them to the QB64 raw sound pipe.
+''' @param frames Number of frames to render and push.
 SUB SoftSynth_Update (frames AS _UNSIGNED LONG)
     SHARED __SoftSynth AS __SoftSynthStateType
     SHARED __SoftSynthPipe AS __SoftSynthPipeType

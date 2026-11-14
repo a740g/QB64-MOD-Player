@@ -238,7 +238,7 @@ REDIM __InvertLoopSpeedTable(0 TO 0) AS _UNSIGNED _BYTE ' invert loop speed tabl
 'END
 '-----------------------------------------------------------------------------------------------------------------------
 
-' Loads all required LUTs from DATA
+''' @brief Initializes pitch tables, vibrato waveforms, and lookup tables.
 SUB __MODPlayer_LoadTables
     SHARED __Song AS __SongType
     SHARED __PeriodTable() AS _UNSIGNED INTEGER
@@ -303,8 +303,7 @@ SUB __MODPlayer_LoadTables
 END SUB
 
 
-' This resets all song properties to defaults
-' We do this so that every tune load begins in a known consistent state
+''' @brief Resets all song properties to default values for a clean load state.
 SUB __MODPlayer_InitializeSong
     SHARED __Song AS __SongType
 
@@ -346,7 +345,9 @@ SUB __MODPlayer_InitializeSong
 END SUB
 
 
-' Loads an S3M file into memory and prepares all required globals
+''' @brief Parses and loads a Scream Tracker 3 (S3M) module from a memory buffer.
+''' @param buffer Binary string containing the S3M module data.
+''' @return _TRUE if the module was successfully parsed, _FALSE otherwise.
 FUNCTION __MODPlayer_LoadS3M%% (buffer AS STRING)
     SHARED __Song AS __SongType
     SHARED __Order() AS _UNSIGNED INTEGER
@@ -578,7 +579,7 @@ FUNCTION __MODPlayer_LoadS3M%% (buffer AS STRING)
         '_ECHO " Type =" + STR$(__Instrument(i).subtype)
 
         ' Read the instrument file name. We'll replace it with the title later on if needed
-        __Instrument(i).caption = String_MakePrintable(String_ToBStr(StringFile_ReadString(memFile, 12)))
+        __Instrument(i).caption = String_MakePrintable(String_ConvertToBStr(StringFile_ReadString(memFile, 12)))
         '_ECHO " File name = " + __Instrument(i).caption
 
         IF __Instrument(i).subtype > __INSTRUMENT_PCM THEN ' this is an FM instrument
@@ -957,7 +958,9 @@ FUNCTION __MODPlayer_LoadS3M%% (buffer AS STRING)
 END FUNCTION
 
 
-' Loads an MTM file into memory and prepairs all required globals
+''' @brief Parses and loads a MultiTracker Module (MTM) from a memory buffer.
+''' @param buffer Binary string containing the MTM module data.
+''' @return _TRUE if the module was successfully parsed, _FALSE otherwise.
 FUNCTION __MODPlayer_LoadMTM%% (buffer AS STRING)
     SHARED __Song AS __SongType
     SHARED __Order() AS _UNSIGNED INTEGER
@@ -1172,7 +1175,9 @@ FUNCTION __MODPlayer_LoadMTM%% (buffer AS STRING)
 END FUNCTION
 
 
-' Loads the MOD file into memory and prepares all required globals
+''' @brief Parses and loads a standard ProTracker or compatible MOD module from a memory buffer.
+''' @param buffer Binary string containing the MOD module data.
+''' @return _TRUE if the module was successfully parsed, _FALSE otherwise.
 FUNCTION __MODPlayer_LoadMOD%% (buffer AS STRING)
     SHARED __Song AS __SongType
     SHARED __Order() AS _UNSIGNED INTEGER
@@ -1457,8 +1462,9 @@ FUNCTION __MODPlayer_LoadMOD%% (buffer AS STRING)
 END FUNCTION
 
 
-' This basically calls the loaders in a certain order that makes sense
-' It returns TRUE if a loader is successful
+''' @brief Automatically detects module format and loads a tune from a memory buffer.
+''' @param buffer Binary string containing the module file contents.
+''' @return _TRUE if the module was recognized and loaded, _FALSE otherwise.
 FUNCTION MODPlayer_LoadFromMemory%% (buffer AS STRING)
     IF __MODPlayer_LoadS3M(buffer) THEN
         MODPlayer_LoadFromMemory = _TRUE
@@ -1473,14 +1479,16 @@ FUNCTION MODPlayer_LoadFromMemory%% (buffer AS STRING)
 END FUNCTION
 
 
-' Load the MOD file from disk or a URL
+''' @brief Loads a module file from local disk or URL into memory and initializes playback.
+''' @param fileName File path or URL to load.
+''' @return _TRUE if the module was loaded, _FALSE otherwise.
 FUNCTION MODPlayer_LoadFromDisk%% (fileName AS STRING)
     ' TODO: Startrekker .mod + .nt support. Startrekker module instrument files must have the same name as the module itself, followed by either ".nt" or ".as".
     MODPlayer_LoadFromDisk = MODPlayer_LoadFromMemory(File_Load(fileName))
 END FUNCTION
 
 
-' Initializes the audio mixer, prepares eveything else for playback and kick starts the timer and hence song playback
+''' @brief Prepares channels, initializes the audio mixer, and begins song playback.
 SUB MODPlayer_Play
     SHARED __Song AS __SongType
 
@@ -1499,7 +1507,7 @@ SUB MODPlayer_Play
 END SUB
 
 
-' Frees all allocated resources, stops the timer and hence song playback
+''' @brief Stops playback, mutes voices, and frees player and synthesizer resources.
 SUB MODPlayer_Stop
     SHARED __Song AS __SongType
 
@@ -1510,8 +1518,8 @@ SUB MODPlayer_Stop
 END SUB
 
 
-' This should be called at regular intervals to run the mod player and mixer code
-' You can call this as frequently as you want. The routine will simply exit if nothing is to be done
+''' @brief Ticks the tracker sequencer and renders audio frames to keep the buffer filled.
+''' @param bufferTimeSecs Target duration of audio buffer in seconds (e.g. 0.05).
 SUB MODPlayer_Update (bufferTimeSecs AS SINGLE)
     SHARED __Song AS __SongType
     SHARED __Order() AS _UNSIGNED INTEGER
@@ -1605,7 +1613,7 @@ SUB MODPlayer_Update (bufferTimeSecs AS SINGLE)
 END SUB
 
 
-' Updates a row of notes and play them out on tick 0
+''' @brief Processes the current pattern row at tick 0 and sets up note triggers and effects.
 SUB __MODPlayer_UpdateRow
     SHARED __Song AS __SongType
     SHARED __Pattern() AS __NoteType
@@ -1891,13 +1899,13 @@ SUB __MODPlayer_UpdateRow
     ' Now play all samples that needs to be played
     FOR nChannel = 0 TO __Song.activeChannels
         IF __Channel(nChannel).restart THEN
-            SoftSynth_PlayVoice nChannel, __Channel(nChannel).instrument, SoftSynth_BytesToFrames(__Channel(nChannel).startPosition, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), __Instrument(__Channel(nChannel).instrument).playMode, SoftSynth_BytesToFrames(__Instrument(__Channel(nChannel).instrument).loopStart, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), SoftSynth_BytesToFrames(__Instrument(__Channel(nChannel).instrument).loopEnd, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels)
+            SoftSynth_PlayVoice nChannel, __Channel(nChannel).instrument, SoftSynth_ConvertBytesToFrames(__Channel(nChannel).startPosition, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), __Instrument(__Channel(nChannel).instrument).playMode, SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopStart, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopEnd, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels)
         END IF
     NEXT
 END SUB
 
 
-' Updates any tick based effects after tick 0
+''' @brief Processes tick-based modulation effects (vibrato, tremolo, slides, retrigger) on ticks > 0.
 SUB __MODPlayer_UpdateTick
     SHARED __Song AS __SongType
     SHARED __Pattern() AS __NoteType
@@ -1968,7 +1976,7 @@ SUB __MODPlayer_UpdateTick
                         CASE __MOD_FX_EXTENDED_NOTE_RETRIGGER
                             IF nOpY <> 0 THEN
                                 IF __Song.tick MOD nOpY = 0 THEN
-                                    SoftSynth_PlayVoice nChannel, __Channel(nChannel).instrument, SoftSynth_BytesToFrames(__Channel(nChannel).startPosition, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), __Instrument(__Channel(nChannel).instrument).playMode, SoftSynth_BytesToFrames(__Instrument(__Channel(nChannel).instrument).loopStart, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), SoftSynth_BytesToFrames(__Instrument(__Channel(nChannel).instrument).loopEnd, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels)
+                                    SoftSynth_PlayVoice nChannel, __Channel(nChannel).instrument, SoftSynth_ConvertBytesToFrames(__Channel(nChannel).startPosition, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), __Instrument(__Channel(nChannel).instrument).playMode, SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopStart, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopEnd, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels)
                                 END IF
                             END IF
 
@@ -1984,7 +1992,7 @@ SUB __MODPlayer_UpdateTick
                                 IF nVolume <= __INSTRUMENT_VOLUME_MAX THEN __Channel(nChannel).volume = nVolume
                                 SoftSynth_SetVoiceFrequency nChannel, __MODPlayer_GetFrequencyFromPeriod(__Channel(nChannel).period)
                                 SoftSynth_SetVoiceVolume nChannel, __Channel(nChannel).volume / __INSTRUMENT_VOLUME_MAX
-                                SoftSynth_PlayVoice nChannel, __Channel(nChannel).instrument, SoftSynth_BytesToFrames(__Channel(nChannel).startPosition, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), __Instrument(__Channel(nChannel).instrument).playMode, SoftSynth_BytesToFrames(__Instrument(__Channel(nChannel).instrument).loopStart, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), SoftSynth_BytesToFrames(__Instrument(__Channel(nChannel).instrument).loopEnd, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels)
+                                SoftSynth_PlayVoice nChannel, __Channel(nChannel).instrument, SoftSynth_ConvertBytesToFrames(__Channel(nChannel).startPosition, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), __Instrument(__Channel(nChannel).instrument).playMode, SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopStart, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopEnd, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels)
                             END IF
                     END SELECT
 
@@ -2072,7 +2080,7 @@ SUB __MODPlayer_UpdateTick
                                 SoftSynth_SetVoiceVolume nChannel, __Channel(nChannel).volume / __INSTRUMENT_VOLUME_MAX
                             END IF
 
-                            SoftSynth_PlayVoice nChannel, __Channel(nChannel).instrument, SoftSynth_BytesToFrames(__Channel(nChannel).startPosition, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), __Instrument(__Channel(nChannel).instrument).playMode, SoftSynth_BytesToFrames(__Instrument(__Channel(nChannel).instrument).loopStart, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), SoftSynth_BytesToFrames(__Instrument(__Channel(nChannel).instrument).loopEnd, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels)
+                            SoftSynth_PlayVoice nChannel, __Channel(nChannel).instrument, SoftSynth_ConvertBytesToFrames(__Channel(nChannel).startPosition, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), __Instrument(__Channel(nChannel).instrument).playMode, SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopStart, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopEnd, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels)
                         END IF
                     END IF
 
@@ -2085,7 +2093,8 @@ SUB __MODPlayer_UpdateTick
 END SUB
 
 
-' We always set the global BPM using this and never directly
+''' @brief Sets sequencer tempo (Beats Per Minute) and recalculates timing parameters.
+''' @param nBPM Tempo in BPM (32 to 255).
 SUB __MODPlayer_SetBPM (nBPM AS _UNSIGNED _BYTE)
     $CHECKING:OFF
     SHARED __Song AS __SongType
@@ -2098,8 +2107,9 @@ SUB __MODPlayer_SetBPM (nBPM AS _UNSIGNED _BYTE)
 END SUB
 
 
-' Binary search the period table to find the closest value
-' I hope this is the right way to do glissando. Oh well...
+''' @brief Finds the closest period table entry to a given period value.
+''' @param target Target period value.
+''' @return The closest matched period.
 FUNCTION __MODPlayer_GetClosestPeriod& (target AS LONG)
     SHARED __Song AS __SongType
     SHARED __Channel() AS __ChannelType
@@ -2137,7 +2147,8 @@ FUNCTION __MODPlayer_GetClosestPeriod& (target AS LONG)
 END FUNCTION
 
 
-' Carry out a tone portamento to a certain note
+''' @brief Performs tone portamento calculation towards destination note period for a channel.
+''' @param chan Channel index (0-based).
 SUB __MODPlayer_DoPortamento (chan AS _UNSIGNED _BYTE)
     SHARED __Channel() AS __ChannelType
 
@@ -2162,8 +2173,11 @@ SUB __MODPlayer_DoPortamento (chan AS _UNSIGNED _BYTE)
 END SUB
 
 
-' Carry out a [fine] volume slide
-' Uses +x -y in non-fine mode, else D0x = slide down, Dx0 = slide up, DFx = fine slide down, DxF = fine slide up
+''' @brief Performs volume slide up or down calculation on a channel.
+''' @param chan Channel index (0-based).
+''' @param x Upward slide amount nibble.
+''' @param y Downward slide amount nibble.
+''' @param isNotFine _TRUE for regular volume slide, _FALSE for fine volume slide.
 SUB __MODPlayer_DoVolumeSlide (chan AS _UNSIGNED _BYTE, x AS _UNSIGNED _BYTE, y AS _UNSIGNED _BYTE, isNotFine AS _BYTE)
     SHARED __Channel() AS __ChannelType
 
@@ -2181,7 +2195,8 @@ SUB __MODPlayer_DoVolumeSlide (chan AS _UNSIGNED _BYTE, x AS _UNSIGNED _BYTE, y 
 END SUB
 
 
-' Carry out an S3M tremor command
+''' @brief Processes Scream Tracker 3 tremor effect on a channel.
+''' @param chan Channel index (0-based).
 SUB __MODPlayer_DoS3MTremor (chan AS _UNSIGNED _BYTE)
     SHARED __Channel() AS __ChannelType
 
@@ -2197,7 +2212,9 @@ SUB __MODPlayer_DoS3MTremor (chan AS _UNSIGNED _BYTE)
 END SUB
 
 
-' Carry out a [fine] vibrato at a certain depth and speed
+''' @brief Calculates and applies pitch vibrato oscillation on a channel.
+''' @param chan Channel index (0-based).
+''' @param isNotFine _TRUE for standard vibrato, _FALSE for fine vibrato.
 SUB __MODPlayer_DoVibrato (chan AS _UNSIGNED _BYTE, isNotFine AS _BYTE)
     SHARED __Channel() AS __ChannelType
     SHARED __SineTable() AS _UNSIGNED _BYTE
@@ -2239,7 +2256,8 @@ SUB __MODPlayer_DoVibrato (chan AS _UNSIGNED _BYTE, isNotFine AS _BYTE)
 END SUB
 
 
-' Carry out a tremolo at a certain depth and speed
+''' @brief Calculates and applies volume tremolo oscillation on a channel.
+''' @param chan Channel index (0-based).
 SUB __MODPlayer_DoTremolo (chan AS _UNSIGNED _BYTE)
     SHARED __Channel() AS __ChannelType
     SHARED __SineTable() AS _UNSIGNED _BYTE
@@ -2280,8 +2298,8 @@ SUB __MODPlayer_DoTremolo (chan AS _UNSIGNED _BYTE)
 END SUB
 
 
-' Carry out an invert loop (EFx) effect
-' This will trash the sample managed by the SoftSynth
+''' @brief Processes ProTracker EFx funk / invert loop effect on a channel.
+''' @param chan Channel index (0-based).
 SUB __MODPlayer_DoInvertLoop (chan AS _UNSIGNED _BYTE)
     SHARED __Channel() AS __ChannelType
     SHARED __Instrument() AS __InstrumentType
@@ -2302,13 +2320,15 @@ SUB __MODPlayer_DoInvertLoop (chan AS _UNSIGNED _BYTE)
         END IF
 
         ' Yeah I know, this is weird. QB64 NOT is bitwise and not logical
-        DIM p AS _UNSIGNED LONG: p = SoftSynth_BytesToFrames(__Channel(chan).invertLoopPosition, __Instrument(sampleNumber).bytesPerSample, __Instrument(sampleNumber).channels)
+        DIM p AS _UNSIGNED LONG: p = SoftSynth_ConvertBytesToFrames(__Channel(chan).invertLoopPosition, __Instrument(sampleNumber).bytesPerSample, __Instrument(sampleNumber).channels)
         SoftSynth_PokeSoundFrameByte sampleNumber, p, NOT SoftSynth_PeekSoundFrameByte(sampleNumber, p)
     END IF
 END SUB
 
 
-' This gives us the frequency in khz based on the period
+''' @brief Calculates audio playback frequency in Hertz from an Amiga period value.
+''' @param period Amiga period value.
+''' @return Frequency in Hertz.
 FUNCTION __MODPlayer_GetFrequencyFromPeriod~& (period AS LONG)
     $CHECKING:OFF
     __MODPlayer_GetFrequencyFromPeriod = 14317056 \ period
@@ -2316,7 +2336,9 @@ FUNCTION __MODPlayer_GetFrequencyFromPeriod~& (period AS LONG)
 END FUNCTION
 
 
-' Return C2 speed for a finetune
+''' @brief Calculates middle-C playback speed in Hertz for a ProTracker finetune nibble.
+''' @param ft Signed finetune nibble (0-15).
+''' @return C2 playback speed in Hertz.
 FUNCTION __MODPlayer_GetC2Spd~% (ft AS _UNSIGNED _BYTE)
     $CHECKING:OFF
     SELECT CASE ft
@@ -2359,7 +2381,8 @@ FUNCTION __MODPlayer_GetC2Spd~% (ft AS _UNSIGNED _BYTE)
 END FUNCTION
 
 
-' Returns the tune title
+''' @brief Gets the title name of the currently loaded tune.
+''' @return Tune name string.
 FUNCTION MODPlayer_GetName$
     $CHECKING:OFF
     SHARED __Song AS __SongType
@@ -2369,7 +2392,8 @@ FUNCTION MODPlayer_GetName$
 END FUNCTION
 
 
-' Returns the tune type
+''' @brief Gets the format descriptor or magic tag of the currently loaded tune.
+''' @return Format string (e.g. "M.K.", "SCRM", "MTM1").
 FUNCTION MODPlayer_GetType$
     $CHECKING:OFF
     SHARED __Song AS __SongType
@@ -2379,7 +2403,8 @@ FUNCTION MODPlayer_GetType$
 END FUNCTION
 
 
-' Returns true if a song is playing
+''' @brief Checks whether a song is actively playing.
+''' @return _TRUE if playing, _FALSE otherwise.
 FUNCTION MODPlayer_IsPlaying%%
     $CHECKING:OFF
     SHARED __Song AS __SongType
@@ -2389,7 +2414,8 @@ FUNCTION MODPlayer_IsPlaying%%
 END FUNCTION
 
 
-' Pauses or unpauses playback
+''' @brief Pauses or unpauses song playback.
+''' @param state _TRUE to pause playback, _FALSE to resume.
 SUB MODPlayer_Pause (state AS _BYTE)
     SHARED __Song AS __SongType
 
@@ -2397,7 +2423,8 @@ SUB MODPlayer_Pause (state AS _BYTE)
 END SUB
 
 
-' Rerturns true if the tune if paused
+''' @brief Checks whether song playback is currently paused.
+''' @return _TRUE if paused, _FALSE otherwise.
 FUNCTION MODPlayer_IsPaused%%
     $CHECKING:OFF
     SHARED __Song AS __SongType
@@ -2407,7 +2434,8 @@ FUNCTION MODPlayer_IsPaused%%
 END FUNCTION
 
 
-' Sets the tune to loop if state is true
+''' @brief Sets continuous song looping mode.
+''' @param state _TRUE to loop continuously, _FALSE to stop at song end.
 SUB MODPlayer_Loop (state AS _BYTE)
     SHARED __Song AS __SongType
 
@@ -2415,7 +2443,8 @@ SUB MODPlayer_Loop (state AS _BYTE)
 END SUB
 
 
-' Returns true if a song is looping
+''' @brief Checks whether continuous song looping is enabled.
+''' @return _TRUE if looping is enabled, _FALSE otherwise.
 FUNCTION MODPlayer_IsLooping%%
     $CHECKING:OFF
     SHARED __Song AS __SongType
@@ -2425,7 +2454,7 @@ FUNCTION MODPlayer_IsLooping%%
 END FUNCTION
 
 
-' Moves to the next order positions and wrap if it reaches the end
+''' @brief Advances playback position to the next pattern order, wrapping at song end if looping.
 SUB MODPlayer_GoToNextPosition
     SHARED __Song AS __SongType
 
@@ -2440,7 +2469,7 @@ SUB MODPlayer_GoToNextPosition
 END SUB
 
 
-' Moves to the previous order position and wraps if it reaches the beginning
+''' @brief Rewinds playback position to the previous pattern order, wrapping if looping.
 SUB MODPlayer_GoToPreviousPosition
     SHARED __Song AS __SongType
 
@@ -2455,7 +2484,8 @@ SUB MODPlayer_GoToPreviousPosition
 END SUB
 
 
-' Moves to a specific order postion
+''' @brief Sets the current pattern order playback position.
+''' @param position Target order position index (0-based).
 SUB MODPlayer_SetPosition (position AS _UNSIGNED INTEGER)
     SHARED __Song AS __SongType
 
@@ -2466,7 +2496,8 @@ SUB MODPlayer_SetPosition (position AS _UNSIGNED INTEGER)
 END SUB
 
 
-' Get the current tune order position
+''' @brief Gets the current pattern order playback position index.
+''' @return Current order position index (0-based).
 FUNCTION MODPlayer_GetPosition&
     $CHECKING:OFF
     SHARED __Song AS __SongType
@@ -2476,7 +2507,8 @@ FUNCTION MODPlayer_GetPosition&
 END FUNCTION
 
 
-' Gets the number of orders in the tune
+''' @brief Gets the total number of pattern orders in the loaded tune.
+''' @return Total order count.
 FUNCTION MODPlayer_GetOrders~%
     $CHECKING:OFF
     SHARED __Song AS __SongType

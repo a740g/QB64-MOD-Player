@@ -50,7 +50,7 @@ It currently supports the following formats:
 2. Include the library in your code:
 
    ```vb
-   '$INCLUDE:'source/Audio/MODPlayer.bi'
+   '$INCLUDE:'source/MODPlayer.bi'
    ```
 
 ## API
@@ -76,7 +76,7 @@ SUB MODPlayer_Stop
 SUB MODPlayer_Update (bufferTimeSecs AS SINGLE)
 
 ' Sample Mixer API
-FUNCTION SoftSynth_BytesToFrames~& (bytes AS _UNSIGNED LONG, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
+FUNCTION SoftSynth_ConvertBytesToFrames~& (bytes AS _UNSIGNED LONG, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
 SUB SoftSynth_Finalize
 FUNCTION SoftSynth_GetActiveVoices~&
 FUNCTION SoftSynth_GetBufferedSoundTime#

@@ -29,6 +29,7 @@ $COLOR:0
 '$INCLUDE:'source/String.bi'
 '$INCLUDE:'source/AudioAnalyzer.bi'
 '$INCLUDE:'source/Vector2i.bi'
+'$INCLUDE:'source/Vector3f.bi'
 '$INCLUDE:'source/Math.bi'
 '$INCLUDE:'source/MODPlayer.bi'
 
@@ -91,6 +92,11 @@ REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0), SpectrumAnalyzerR(0) ' left & r
 DIM Stars(1 TO STAR_COUNT) AS StarType
 DIM Snakes(1 TO SNAKE_COUNT) AS SnakeType
 
+''' @brief Draws a horizontal text character line across the screen.
+''' @param lx Left X coordinate.
+''' @param ty Y coordinate.
+''' @param rx Right X coordinate.
+''' @param char ASCII character code to draw.
 SUB DrawHorizontalLine (lx AS LONG, ty AS LONG, rx AS LONG, char AS _UNSIGNED _BYTE)
     DIM l AS LONG: l = lx
     DIM r AS LONG: r = rx
@@ -98,7 +104,7 @@ SUB DrawHorizontalLine (lx AS LONG, ty AS LONG, rx AS LONG, char AS _UNSIGNED _B
     _PRINTSTRING (l, ty), STRING$(1 + r - l, char)
 END SUB
 
-' This displays the current playing MODs visualization on the screen
+''' @brief Renders the tracker visualizer, pattern data, and FFT spectrum analyzers.
 SUB DrawVisualization
     SHARED AS _UNSIGNED INTEGER SpectrumAnalyzerL(), SpectrumAnalyzerR()
 
@@ -296,7 +302,7 @@ SUB DrawVisualization
         FFT.halfFrames = FFT.frames \ 2
 
         ' Get the count of bits that the FFT routine will need
-        FFT.bits = Math_HighestSetBitIndex(FFT.frames)
+        FFT.bits = Math_GetHighestSetBitIndex(FFT.frames)
 
         ' Setup the FFT arrays (half of fftSamples)
         REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0 TO FFT.halfFrames - 1), SpectrumAnalyzerR(0 TO FFT.halfFrames - 1)
@@ -307,8 +313,8 @@ SUB DrawVisualization
 
     ' Get the FFT data and ignore the audio intensity level (for now)
     DIM ignored AS SINGLE
-    ignored = AudioAnalyzerFFT_DoSingle(SpectrumAnalyzerL(), __SoftSynth_SoundBuffer(), 0, 2, FFT.bits)
-    ignored = AudioAnalyzerFFT_DoSingle(SpectrumAnalyzerR(), __SoftSynth_SoundBuffer(), 1, 2, FFT.bits)
+    ignored = AudioAnalyzer_CalculateFFT(SpectrumAnalyzerL(), __SoftSynth_SoundBuffer(), 0, 2, FFT.bits)
+    ignored = AudioAnalyzer_CalculateFFT(SpectrumAnalyzerR(), __SoftSynth_SoundBuffer(), 1, 2, FFT.bits)
 
     COLOR Black, Black
 
@@ -340,7 +346,9 @@ SUB DrawVisualization
     _DISPLAY ' flip the framebuffer
 END SUB
 
-' This a tiny and minimalistic ANSI art renderer
+''' @brief Renders compressed ANSI art onto a graphic image canvas.
+''' @param img QB64 image handle to render onto.
+''' @param s Decompressed ANSI text data string.
 SUB RenderTitleScreen (img AS LONG, s AS STRING)
     ' ANSI to QB SCREEN 0 color mapping table:
     ' ANSI 0 (Black), 1 (Red), 2 (Green), 3 (Yellow), 4 (Blue), 5 (Magenta), 6 (Cyan), 7 (White)
@@ -492,7 +500,8 @@ SUB RenderTitleScreen (img AS LONG, s AS STRING)
     _DEST oldDest
 END SUB
 
-' Welcome screen loop
+''' @brief Runs the interactive welcome screen event loop.
+''' @return Next application event code.
 FUNCTION OnWelcomeScreen%%
     ' Welcome ANSI (144 x 90 chars)
     CONST SIZE_QB64MODPLAYER_ANS_15162& = 15162&
@@ -557,7 +566,7 @@ FUNCTION OnWelcomeScreen%%
     OnWelcomeScreen = e
 END FUNCTION
 
-' Loads the note string table
+''' @brief Loads note name string lookup table for UI display.
 SUB InitializeNoteTable
     DIM AS _UNSIGNED _BYTE n, v
     RESTORE NoteTab
@@ -573,7 +582,7 @@ SUB InitializeNoteTable
     DATA "C-","C#","D-","D#","E-","F-","F#","G-","G#","A-","A#","B-"
 END SUB
 
-' Automatically selects, sets the window size and saves the text width
+''' @brief Dynamically resizes the console window based on song channel count.
 SUB AdjustWindowSize
     SHARED __Song AS __SongType
     SHARED FFT AS FFTType
@@ -603,8 +612,9 @@ SUB AdjustWindowSize
     LOCATE , , _FALSE ' turn cursor off
 END SUB
 
-' Initializes, loads and plays a mod file
-' Also checks for input, shows info etc
+''' @brief Loads and plays a module file, handling UI redraw and user input loop.
+''' @param fileName File path or URL to play.
+''' @return Next application event code.
 FUNCTION OnPlayTune%% (fileName AS STRING)
     SHARED __Song AS __SongType
 
@@ -694,7 +704,8 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
     _TITLE APP_NAME + _CHR_SPACE + _OS$ ' Set app title to the way it was
 END FUNCTION
 
-' Processes the command line one file at a time
+''' @brief Processes files passed via the application command-line arguments.
+''' @return Next application event code.
 FUNCTION OnCommandLine%%
     DIM e AS _BYTE: e = EVENT_NONE
 
@@ -711,7 +722,8 @@ FUNCTION OnCommandLine%%
     OnCommandLine = e
 END FUNCTION
 
-' Processes dropped files one file at a time
+''' @brief Processes files drag-and-dropped onto the application window.
+''' @return Next application event code.
 FUNCTION OnDroppedFiles%%
     ' Make a copy of the dropped file and clear the list
     REDIM fileNames(1 TO _TOTALDROPPEDFILES) AS STRING
@@ -732,7 +744,8 @@ FUNCTION OnDroppedFiles%%
     OnDroppedFiles = e
 END FUNCTION
 
-' Processes a list of files selected by the user
+''' @brief Displays file open dialog and plays user-selected files.
+''' @return Next application event code.
 FUNCTION OnSelectedFiles%%
     DIM ofdList AS STRING
     DIM e AS _BYTE: e = EVENT_NONE
@@ -753,7 +766,8 @@ FUNCTION OnSelectedFiles%%
     OnSelectedFiles = e
 END FUNCTION
 
-' Loads and plays random MODs from modarchive.org
+''' @brief Downloads and plays random tunes streamed from modarchive.org.
+''' @return Next application event code.
 FUNCTION OnModArchiveFiles%%
     DIM e AS _BYTE: e = EVENT_NONE
     DIM AS STRING modArchiveFileName, fileExtension
@@ -782,7 +796,8 @@ FUNCTION OnModArchiveFiles%%
     OnModArchiveFiles = e
 END FUNCTION
 
-' Gets a random file URL from www.modarchive.org
+''' @brief Scrapes modarchive.org for a random module download URL.
+''' @return Direct module download URL string.
 FUNCTION GetRandomModArchiveFileName$
     DIM buffer AS STRING: buffer = File_LoadFromURL("https://modarchive.org/index.php?request=view_random")
     DIM bufPos AS LONG: bufPos = INSTR(buffer, "https://api.modarchive.org/downloads.php?moduleid=")
@@ -792,13 +807,17 @@ FUNCTION GetRandomModArchiveFileName$
     END IF
 END FUNCTION
 
-' Returns a good file name for a modarchive file
+''' @brief Derives a sanitized local filename from a Mod Archive URL.
+''' @param url Download URL string.
+''' @return Sanitized filename string.
 FUNCTION GetSaveFileName$ (url AS STRING)
     DIM saveFileName AS STRING: saveFileName = Pathname_GetFileName(url)
     GetSaveFileName = Pathname_Sanitize(MID$(saveFileName, INSTR(saveFileName, "=") + 1)) ' this will get a file name of type: 12312313#filename.mod
 END FUNCTION
 
-' Saves a file loaded from the internet
+''' @brief Prompts user and saves a downloaded module buffer to disk.
+''' @param buffer Binary file data to save.
+''' @param url Source URL used to generate destination filename.
 SUB QuickSave (buffer AS STRING, url AS STRING)
     STATIC savePath AS STRING, alwaysUseSamePath AS _BYTE, stopNagging AS _BYTE
 
@@ -836,6 +855,8 @@ SUB QuickSave (buffer AS STRING, url AS STRING)
     END IF
 END SUB
 
+''' @brief Initializes star positions and colors for background starfield effect.
+''' @param stars() Array of StarType structures to initialize.
 SUB InitializeStars (stars() AS StarType)
     CONST Z_DIVIDER = 4096!
 
@@ -853,6 +874,9 @@ SUB InitializeStars (stars() AS StarType)
     NEXT i
 END SUB
 
+''' @brief Updates starfield positions and renders stars on screen.
+''' @param stars() Array of StarType structures.
+''' @param speed Forward star travel speed.
 SUB UpdateAndDrawStars (stars() AS StarType, speed AS SINGLE)
     CONST Z_DIVIDER = 4096!
     CONST STAR_249 = CHR$(249)
@@ -905,6 +929,8 @@ SUB UpdateAndDrawStars (stars() AS StarType, speed AS SINGLE)
     NEXT i
 END SUB
 
+''' @brief Initializes bouncing snake positions and colors.
+''' @param snakes() Array of SnakeType structures to initialize.
 SUB InitializeSnakes (snakes() AS SnakeType)
     CONST SNAKE_SIZE_MIN = 5
     CONST SNAKE_SIZE_MAX = 25
@@ -933,6 +959,8 @@ SUB InitializeSnakes (snakes() AS SnakeType)
     NEXT i
 END SUB
 
+''' @brief Updates snake segments and renders bouncing snakes on screen.
+''' @param snakes() Array of SnakeType structures.
 SUB UpdateAndDrawSnakes (snakes() AS SnakeType)
     CONST SNAKE_HEAD = CHR$(15)
     CONST SNAKE_BODY = CHR$(254)
