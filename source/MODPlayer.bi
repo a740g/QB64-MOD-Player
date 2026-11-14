@@ -8,7 +8,7 @@ $INCLUDEONCE
 '$INCLUDE:'SoftSynth.bi'
 '$INCLUDE:'Math.bi'
 '$INCLUDE:'String.bi'
-'$INCLUDE:'Audio/AudioConv.bi'
+'$INCLUDE:'AudioConv.bi'
 '$INCLUDE:'StringFile.bi'
 '$INCLUDE:'File.bi'
 
@@ -927,7 +927,7 @@ FUNCTION __MODPlayer_LoadS3M%% (buffer AS STRING)
                         '_ECHO "Converted to S16:" + STR$(i)
                     ELSE
                         ' Else we'll assume these are 8-bit samples
-                        AudioConv_ConvertU8ToS8 _OFFSET(sampBuf), LEN(sampBuf)
+                        AudioConv_ConvertU8ToS8 sampBuf
                         '_ECHO "Converted to S8:" + STR$(i)
                     END IF
                 END IF
@@ -1163,7 +1163,7 @@ FUNCTION __MODPlayer_LoadMTM%% (buffer AS STRING)
         DIM sampBuf AS STRING: sampBuf = StringFile_ReadString(memFile, __Instrument(i).length)
 
         ' Convert 8-bit unsigned samples to 8-bit signed
-        IF __Instrument(i).bytesPerSample = _SIZE_OF_BYTE THEN AudioConv_ConvertU8ToS8 _OFFSET(sampBuf), LEN(sampBuf)
+        IF __Instrument(i).bytesPerSample = _SIZE_OF_BYTE THEN AudioConv_ConvertU8ToS8 sampBuf
 
         ' Load sample size bytes of data and send it to our softsynth sample manager
         SoftSynth_LoadSound i, sampBuf, __Instrument(i).bytesPerSample, __Instrument(i).channels

@@ -42,7 +42,7 @@ FUNCTION Pathname_IsAbsolute%% (pathName AS STRING)
             ELSEIF n > 2 _ANDALSO ASC(pathName, 2) = PATHNAME_SCHEME_TERMINATOR_CODE THEN
                 DIM c3 AS _UNSIGNED _BYTE: c3 = ASC(pathName, 3)
                 IF (c3 = PATHNAME_DIR_SEPARATOR_CODE_WIN _ORELSE c3 = PATHNAME_DIR_SEPARATOR_CODE_NIX) _ANDALSO _
-                   ((c1 >= __ASC_UPPER_A _ANDALSO c1 <= __ASC_UPPER_Z) _ORELSE (c1 >= __ASC_LOWER_A _ANDALSO c1 <= __ASC_LOWER_Z)) THEN
+                   ((c1 >= ASC_UPPER_A _ANDALSO c1 <= ASC_UPPER_Z) _ORELSE (c1 >= ASC_LOWER_A _ANDALSO c1 <= ASC_LOWER_Z)) THEN
                     Pathname_IsAbsolute = _TRUE
                 END IF
             END IF
