@@ -905,15 +905,13 @@ FUNCTION __MODPlayer_LoadS3M%% (buffer AS STRING)
             ' Seek to the correct position in the file to read the PCM instrument sample data
             StringFile_Seek memFile, instrumentPointer(i)
 
-            DIM AS STRING sampBuf, tempBuf
+            DIM sampBuf AS STRING
 
             ' Load the data
             IF isSampleCompressed(i) THEN
                 ' Decode ADPCM samples before sending it to the SoftSynth!
                 DIM compressionTable AS STRING * 16: compressionTable = StringFile_ReadString(memFile, LEN(compressionTable))
-                tempBuf = StringFile_ReadString(memFile, _SHR(__Instrument(i).length + 1, 1))
-                sampBuf = STRING$(LEN(tempBuf) * 2, NULL)
-                AudioConv_ConvertADPCM4ToS8 _OFFSET(tempBuf), LEN(tempBuf), compressionTable, _OFFSET(sampBuf)
+                sampBuf = AudioConv_ConvertADPCM4ToS8(StringFile_ReadString(memFile, _SHR(__Instrument(i).length + 1, 1)), compressionTable)
                 '_ECHO "Decompressed to S8:" + STR$(i)
             ELSE
                 sampBuf = StringFile_ReadString(memFile, __Instrument(i).length)
@@ -923,7 +921,7 @@ FUNCTION __MODPlayer_LoadS3M%% (buffer AS STRING)
                 IF isUnsignedFormat THEN
                     IF __Instrument(i).bytesPerSample = _SIZE_OF_INTEGER THEN
                         ' Apparently 16-bit audio data is also unsigned when the unsigned flag is set! Fuck!
-                        AudioConv_ConvertU16ToS16 _OFFSET(sampBuf), LEN(sampBuf) \ _SIZE_OF_INTEGER
+                        AudioConv_ConvertU16ToS16 sampBuf
                         '_ECHO "Converted to S16:" + STR$(i)
                     ELSE
                         ' Else we'll assume these are 8-bit samples
@@ -935,15 +933,13 @@ FUNCTION __MODPlayer_LoadS3M%% (buffer AS STRING)
                 ' Stereo sample data is not interleaved! This should be fixed before sending it to the SoftSynth!
                 ' Again, this is not needed if the sample is ADPCM4 compressed
                 IF __Instrument(i).channels = 2 THEN
-                    tempBuf = STRING$(LEN(sampBuf), NULL)
                     IF __Instrument(i).bytesPerSample = _SIZE_OF_INTEGER THEN
-                        AudioConv_ConvertDualMonoToStereoS16 _OFFSET(sampBuf), LEN(sampBuf) \ _SIZE_OF_INTEGER, _OFFSET(tempBuf)
+                        sampBuf = AudioConv_ConvertDualMonoToStereoS16(sampBuf)
                         '_ECHO "Fixed S16 stereo data:" + STR$(i)
                     ELSE
-                        AudioConv_ConvertDualMonoToStereoS8 _OFFSET(sampBuf), LEN(sampBuf), _OFFSET(tempBuf)
+                        sampBuf = AudioConv_ConvertDualMonoToStereoS8(sampBuf)
                         '_ECHO "Fixed S8 stereo data:" + STR$(i)
                     END IF
-                    sampBuf = tempBuf
                 END IF
             END IF
 
