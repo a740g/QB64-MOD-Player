@@ -5,6 +5,19 @@
 
 $INCLUDEONCE
 
+CONST NULL~%% = 0~%%
+
+CONST SINGLE_EPSILON! = 1.19209289550781250000000000000000000E-7
+CONST DOUBLE_EPSILON# = 2.22044604925031308084726333618164062E-16
+
+CONST CHARACTER_BITS& = 8&
+
+TYPE Vector3f
+    x AS SINGLE
+    y AS SINGLE
+    z AS SINGLE
+END TYPE
+
 DECLARE LIBRARY
     FUNCTION Math_CountLeadingZeros~& ALIAS "__builtin_clz" (BYVAL n AS _UNSIGNED LONG)
 END DECLARE
@@ -15,7 +28,7 @@ END DECLARE
 ''' @return The index of the highest set bit. Returns 0 if n is 0.
 FUNCTION Math_HighestSetBitIndex~& (n AS _UNSIGNED LONG)
     IF n THEN
-        Math_HighestSetBitIndex = (8 * _SIZE_OF_LONG - 1) - Math_CountLeadingZeros(n)
+        Math_HighestSetBitIndex = (CHARACTER_BITS * _SIZE_OF_LONG - 1) - Math_CountLeadingZeros(n)
     END IF
 END FUNCTION
 
@@ -24,7 +37,7 @@ END FUNCTION
 ''' @return The nearest power of 2 less than or equal to n, or 0 if n is 0.
 FUNCTION Math_RoundDownToPowerOf2~& (n AS _UNSIGNED LONG)
     IF n THEN
-        Math_RoundDownToPowerOf2 = _SHL(1~&, (8 * _SIZE_OF_LONG - 1) - Math_CountLeadingZeros(n))
+        Math_RoundDownToPowerOf2 = _SHL(1~&, (CHARACTER_BITS * _SIZE_OF_LONG - 1) - Math_CountLeadingZeros(n))
     END IF
 END FUNCTION
 

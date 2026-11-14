@@ -5,10 +5,9 @@
 
 $INCLUDEONCE
 
-'$INCLUDE:'Core/Common.bi'
-'$INCLUDE:'Core/Types.bi'
 '$INCLUDE:'SoftSynth.bi'
 '$INCLUDE:'Math.bi'
+'$INCLUDE:'String.bi'
 '$INCLUDE:'Audio/AudioConv.bi'
 '$INCLUDE:'StringFile.bi'
 '$INCLUDE:'File.bi'

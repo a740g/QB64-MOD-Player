@@ -5,9 +5,6 @@
 
 $INCLUDEONCE
 
-'$INCLUDE:'../Core/Common.bi'
-'$INCLUDE:'../Core/Types.bi'
-
 DECLARE LIBRARY "AudioConv"
     SUB AudioConv_ConvertU8ToS8 (BYVAL buffer AS _UNSIGNED _OFFSET, BYVAL samples AS _UNSIGNED LONG)
     SUB AudioConv_ConvertU16ToS16 (BYVAL buffer AS _UNSIGNED _OFFSET, BYVAL samples AS _UNSIGNED LONG)
