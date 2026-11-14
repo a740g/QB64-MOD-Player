@@ -15,14 +15,19 @@ It supports the following classic module formats:
 
 ## Features
 
-- Pure native QB64-PE code statically compiled without shared libraries or runtime DLL requirements.
+- Pure native QB64-PE code statically compiled without shared libraries or
+  runtime DLL requirements.
 - Fully supported on Windows, Linux, and macOS.
 - Format Support:
-  - ProTracker MOD files with 1 to 99 channels, 15 or 31 samples, and Amiga period limits.
-  - Scream Tracker 3 (S3M) files with multi-channel digital audio, custom sample rates, and ST3 panning.
+  - ProTracker MOD files with 1 to 99 channels, 15 or 31 samples, and Amiga
+    period limits.
+  - Scream Tracker 3 (S3M) files with multi-channel digital audio, custom sample
+    rates, and ST3 panning.
   - MultiTracker (MTM) files with track sequencing and 8-bit PCM samples.
-- Supports pitch slides, portamento, vibrato, tremolo, volume slides, arpeggio, sample offset, panning, pattern delay, and extended commands.
-- Full-screen visualizer showcasing real-time FFT spectrum analysis, pattern viewers, and text-mode animations.
+- Supports pitch slides, portamento, vibrato, tremolo, volume slides, arpeggio,
+  sample offset, panning, pattern delay, and extended commands.
+- Full-screen visualizer showcasing real-time FFT spectrum analysis, pattern
+  viewers, and text-mode animations.
 
 ## Building and Running
 
@@ -40,6 +45,9 @@ make
 
 # Build with C++ compiler optimizations
 make release
+
+# Run the test suite
+make test
 
 # Remove compiled executable
 make clean

@@ -1,4 +1,5 @@
 # Makefile for QB64 MOD Player
+# Requires QB64-PE to be installed
 
 # Detect OS and executable extension
 ifeq ($(OS),Windows_NT)
@@ -32,12 +33,17 @@ RESOURCES = source/QB64MODPlayer.ico
 # Output executable in root
 EXECUTABLE = $(PROJECT)$(EXE)
 
+# Test suite files
+TEST_SOURCES = tests/test_main.bas
+TEST_EXECUTABLE = test_main$(EXE)
+
 # Help message text
 define HELP_TEXT
 QB64 MOD Player Makefile
 Usage:
   make          - Build the project
   make release  - Build the project with C++ optimizations
+  make test     - Build and run the test suite (optional: ARGS="filter")
   make clean    - Remove build artifacts
   make help     - Show this help message
 
@@ -53,16 +59,24 @@ all: $(EXECUTABLE)
 release: CFLAGS += -f:OptimizeCppProgram=true
 release: $(EXECUTABLE)
 
-# Compile
+# Compile main executable
 $(EXECUTABLE): $(SOURCES) $(INCLUDES) $(RESOURCES)
 	$(QB64PE) $(CFLAGS) $(SOURCES) -o $(EXECUTABLE)
+
+# Compile and run test suite
+test: $(TEST_EXECUTABLE)
+	./$(TEST_EXECUTABLE) $(ARGS)
+
+$(TEST_EXECUTABLE): $(TEST_SOURCES) $(INCLUDES)
+	$(QB64PE) $(CFLAGS) $(TEST_SOURCES) -o $(TEST_EXECUTABLE)
 
 # Clean build artifacts
 clean:
 ifeq ($(OS),Windows_NT)
 	@if exist "$(EXECUTABLE)" del /q /f "$(EXECUTABLE)"
+	@if exist "$(TEST_EXECUTABLE)" del /q /f "$(TEST_EXECUTABLE)"
 else
-	rm -f $(EXECUTABLE)
+	rm -f $(EXECUTABLE) $(TEST_EXECUTABLE)
 endif
 
 # Help
@@ -70,4 +84,4 @@ help:
 	$(info $(HELP_TEXT))
 	@:
 
-.PHONY: all release clean help
+.PHONY: all release test clean help

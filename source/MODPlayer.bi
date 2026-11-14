@@ -357,14 +357,17 @@ FUNCTION __MODPlayer_LoadS3M%% (buffer AS STRING)
     SHARED __Channel() AS __ChannelType
     SHARED __MODPlayer_Synth AS SoftSynthType
 
+    ' Open the buffer as a StringFile
+    DIM memFile AS StringFile
+    StringFile_Create memFile, buffer
+
+    ' An S3M file must be at least 48 bytes long to contain the SCRM signature at offset 44
+    IF StringFile_GetSize(memFile) < 48 THEN EXIT FUNCTION
+
     ' Initialize the softsynth sample mixer
     IF NOT SoftSynth_Initialize(__MODPlayer_Synth) THEN EXIT FUNCTION
 
     __MODPlayer_InitializeSong ' just in case something is playing
-
-    ' Open the buffer as a StringFile
-    DIM memFile AS StringFile
-    StringFile_Create memFile, buffer
 
     ' Seek to offset 44 (2Ch) in the file & read the file signature
     StringFile_Seek memFile, 44
@@ -971,14 +974,17 @@ FUNCTION __MODPlayer_LoadMTM%% (buffer AS STRING)
     SHARED __Channel() AS __ChannelType
     SHARED __MODPlayer_Synth AS SoftSynthType
 
+    ' Open the buffer as a StringFile
+    DIM memFile AS StringFile
+    StringFile_Create memFile, buffer
+
+    ' An MTM file must be at least 66 bytes long to contain the header
+    IF StringFile_GetSize(memFile) < 66 THEN EXIT FUNCTION
+
     ' Initialize the softsynth sample mixer
     IF NOT SoftSynth_Initialize(__MODPlayer_Synth) THEN EXIT FUNCTION
 
     __MODPlayer_InitializeSong ' just in case something is playing
-
-    ' Open the buffer as a StringFile
-    DIM memFile AS StringFile
-    StringFile_Create memFile, buffer
 
     ' Read the file signature
     __Song.subtype = StringFile_ReadString(memFile, 4) ' read 4 bytes. Last byte is the version
@@ -1190,18 +1196,25 @@ FUNCTION __MODPlayer_LoadMOD%% (buffer AS STRING)
     SHARED __PeriodTable() AS _UNSIGNED INTEGER
     SHARED __MODPlayer_Synth AS SoftSynthType
 
+    ' Attempt to open the file
+    DIM i AS LONG, memFile AS StringFile
+    StringFile_Create memFile, buffer
+
+    ' Minimum possible MOD file with 15 samples is at least 600 bytes
+    IF StringFile_GetSize(memFile) < 600 THEN EXIT FUNCTION
+
     ' Initialize the softsynth sample mixer
     IF NOT SoftSynth_Initialize(__MODPlayer_Synth) THEN EXIT FUNCTION
 
     __MODPlayer_InitializeSong ' just in case something is playing
 
-    ' Attempt to open the file
-    DIM i AS LONG, memFile AS StringFile
-    StringFile_Create memFile, buffer
-
-    ' Seek to offset 1080 (438h) in the file and read the file signature
-    StringFile_Seek memFile, 1080
-    __Song.subtype = StringFile_ReadString(memFile, 4) ' signature is 4 bytes
+    ' Seek to offset 1080 (438h) in the file and read the file signature if large enough
+    IF StringFile_GetSize(memFile) >= 1084 THEN
+        StringFile_Seek memFile, 1080
+        __Song.subtype = StringFile_ReadString(memFile, 4) ' signature is 4 bytes
+    ELSE
+        __Song.subtype = ""
+    END IF
 
     ' Also, seek to the beginning of the file and get the song title
     StringFile_Seek memFile, 0
@@ -1470,6 +1483,8 @@ END FUNCTION
 ''' @param buffer Binary string containing the module file contents.
 ''' @return _TRUE if the module was recognized and loaded, _FALSE otherwise.
 FUNCTION MODPlayer_LoadFromMemory%% (buffer AS STRING)
+    IF LEN(buffer) = 0 THEN EXIT FUNCTION
+
     IF __MODPlayer_LoadS3M(buffer) THEN
         MODPlayer_LoadFromMemory = _TRUE
         EXIT FUNCTION
@@ -1488,6 +1503,7 @@ END FUNCTION
 ''' @return _TRUE if the module was loaded, _FALSE otherwise.
 FUNCTION MODPlayer_LoadFromDisk%% (fileName AS STRING)
     ' TODO: Startrekker .mod + .nt support. Startrekker module instrument files must have the same name as the module itself, followed by either ".nt" or ".as".
+    IF NOT _FILEEXISTS(fileName) THEN EXIT FUNCTION
     MODPlayer_LoadFromDisk = MODPlayer_LoadFromMemory(File_Load(fileName))
 END FUNCTION
 
