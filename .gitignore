@@ -1,17 +1,32 @@
-# Ignore all
 *
-# Unignore all with extensions
 !*.*
-# Unignore all dirs
 !*/
-# Unignore source
-!source
-# Ignore all exe files
+!Makefile
+*.com
 *.exe
-# Ignore .vscode dir
-.vscode
-# Ignore VS dir
-.vs
-# Ignore macOS stuff
+*.dll
+*.so
+*.dylib
+*.o
+*.obj
+*.a
+*.lib
+*.out
+*.log
+.vs/
+.vscode/
+.fake/
+.devin/
+.claude/
+.copilot/
+.idea/
+.cache/
+.mypy_cache/
+/scratch/
 .DS_Store
+*.command
+Thumbs.db
+desktop.ini
+*.lnk
+*.dSYM
 *.command
