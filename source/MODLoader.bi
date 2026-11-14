@@ -227,17 +227,19 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
     NEXT
     player.song.patterns = player.song.patterns + 1 ' change to count
 
-    player.song.rows = __MOD_S3M_ROWS ' MOD specific value
-
     ' Resize the pattern data array
-    REDIM player.pattern(0 TO player.song.patterns - 1, 0 TO player.song.rows - 1, 0 TO player.song.channels - 1) AS __NoteType
+    REDIM player.pattern(0 TO player.song.patterns - 1) AS __PatternType
+    FOR i = 0 TO player.song.patterns - 1
+        player.pattern(i).rows = __MOD_S3M_ROWS
+        REDIM player.pattern(i).note(0 TO __MOD_S3M_ROWS - 1, 0 TO player.song.channels - 1) AS __NoteType
+    NEXT
 
     ' Skip past the 4 byte signature if this is a 31 sample mod
     IF player.song.instruments = 31 THEN StringFile_Seek memFile, StringFile_GetPosition(memFile) + 4
 
     ' Check if the file has enough bytes for all pattern data
     DIM requiredPatternBytes AS _UNSIGNED _OFFSET
-    requiredPatternBytes = player.song.patterns * player.song.rows * player.song.channels * 4
+    requiredPatternBytes = player.song.patterns * __MOD_S3M_ROWS * player.song.channels * 4
     IF StringFile_GetPosition(memFile) + requiredPatternBytes > StringFile_GetSize(memFile) THEN EXIT FUNCTION
 
     __MODPlayer_LoadTables ' load all needed LUTs
@@ -254,13 +256,13 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
         IF isFLT8 THEN
             ' Special handling for FLT8
 
-            FOR a = 0 TO player.song.rows - 1
+            FOR a = 0 TO player.pattern(i).rows - 1
                 FOR b = 0 TO 3
                     GOSUB load_mod_pattern
                 NEXT b
             NEXT a
 
-            FOR a = 0 TO player.song.rows - 1
+            FOR a = 0 TO player.pattern(i).rows - 1
                 FOR b = 4 TO 7
                     GOSUB load_mod_pattern
                 NEXT b
@@ -268,7 +270,7 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
         ELSE
             ' Regular MOD pattern
 
-            FOR a = 0 TO player.song.rows - 1
+            FOR a = 0 TO player.pattern(i).rows - 1
                 FOR b = 0 TO player.song.channels - 1
                     GOSUB load_mod_pattern
                 NEXT b
@@ -326,25 +328,25 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
     byte3 = StringFile_ReadByte(memFile)
     byte4 = StringFile_ReadByte(memFile)
 
-    player.pattern(i, a, b).instrument = (byte1 AND &HF0) OR _SHR(byte3, 4)
+    player.pattern(i).note(a, b).instrument = (byte1 AND &HF0) OR _SHR(byte3, 4)
 
     period = _SHL(byte1 AND &HF, 8) OR byte2
 
     ' Do the look up in the table against what is read in and store note
-    player.pattern(i, a, b).note = __NOTE_NONE
+    player.pattern(i).note(a, b).note = __NOTE_NONE
     FOR c = 0 TO 107
         IF period >= __PeriodTable(c + 24) THEN
-            player.pattern(i, a, b).note = c
+            player.pattern(i).note(a, b).note = c
             EXIT FOR
         END IF
     NEXT
 
-    player.pattern(i, a, b).volume = __NOTE_NO_VOLUME ' MODs don't have any volume field in the pattern
-    player.pattern(i, a, b).effect = byte3 AND &HF
-    player.pattern(i, a, b).operand = byte4
+    player.pattern(i).note(a, b).volume = __NOTE_NO_VOLUME ' MODs don't have any volume field in the pattern
+    player.pattern(i).note(a, b).effect = byte3 AND &HF
+    player.pattern(i).note(a, b).operand = byte4
 
     ' Some sanity check
-    IF player.pattern(i, a, b).instrument > player.song.instruments THEN player.pattern(i, a, b).instrument = 0 ' instrument 0 means no instrument. So valid sample are 1-15/31
+    IF player.pattern(i).note(a, b).instrument > player.song.instruments THEN player.pattern(i).note(a, b).instrument = 0 ' instrument 0 means no instrument. So valid sample are 1-15/31
 
     RETURN
 END FUNCTION

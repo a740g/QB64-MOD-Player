@@ -98,6 +98,11 @@ TYPE __NoteType
     operand AS _UNSIGNED _BYTE ' effect parameters
 END TYPE
 
+TYPE __PatternType
+    rows AS _UNSIGNED INTEGER ' number of rows in this pattern (typically 64, but can be 1 to 256 for XM, etc.)
+    note(0 TO 0, 0 TO 0) _DYNAMIC AS __NoteType ' note matrix: (0 TO rows - 1, 0 TO channels - 1)
+END TYPE
+
 TYPE __InstrumentType
     caption AS STRING ' instrument name or message
     subtype AS _UNSIGNED _BYTE ' what kind of instrument is this? (PCM, FM melody, FM drum, etc.)
@@ -150,7 +155,6 @@ TYPE __SongType
     channels AS _UNSIGNED LONG ' number of channels in the song
     instruments AS _UNSIGNED LONG ' number of instruments in the song
     orders AS _UNSIGNED INTEGER ' song length in orders
-    rows AS _UNSIGNED _BYTE ' number of rows in each pattern
     endJumpOrder AS _UNSIGNED _BYTE ' this is used for jumping to an order if global looping is on
     patterns AS _UNSIGNED INTEGER ' number of patterns in the song
     orderPosition AS LONG ' the position in the order list. Signed so that we can properly wrap
@@ -184,7 +188,7 @@ TYPE MODPlayerType
     song AS __SongType
     synth AS SoftSynthType
     order(0 TO 0) _DYNAMIC AS _UNSIGNED INTEGER
-    pattern(0 TO 0, 0 TO 0, 0 TO 0) _DYNAMIC AS __NoteType
+    pattern(0 TO 0) _DYNAMIC AS __PatternType
     instrument(0 TO 0) _DYNAMIC AS __InstrumentType
     channel(0 TO 0) _DYNAMIC AS __ChannelType
     initialized AS _BYTE
@@ -298,6 +302,15 @@ SUB MODPlayer_Finalize (player AS MODPlayerType)
     IF player.initialized THEN
         MODPlayer_Stop player
         SoftSynth_Finalize player.synth
+        REDIM player.order(0 TO 0) AS _UNSIGNED INTEGER
+        DIM p AS LONG
+        FOR p = 0 TO UBOUND(player.pattern)
+            REDIM player.pattern(p).note(0 TO 0, 0 TO 0) AS __NoteType
+            player.pattern(p).rows = 0
+        NEXT
+        REDIM player.pattern(0 TO 0) AS __PatternType
+        REDIM player.instrument(0 TO 0) AS __InstrumentType
+        REDIM player.channel(0 TO 0) AS __ChannelType
         __MODPlayer_InitializeSong player
         player.initialized = _FALSE
     END IF
@@ -312,7 +325,6 @@ SUB __MODPlayer_InitializeSong (player AS MODPlayerType)
     player.song.channels = NULL
     player.song.instruments = NULL
     player.song.orders = NULL
-    player.song.rows = NULL
     player.song.endJumpOrder = NULL
     player.song.patterns = NULL
     player.song.orderPosition = NULL
@@ -436,7 +448,13 @@ SUB MODPlayer_Update (player AS MODPlayerType, bufferTimeSecs AS SINGLE)
                 player.song.patternRow = player.song.patternRow + 1
 
                 ' Check if we have finished the pattern and then move to the next one
-                IF player.song.patternRow >= player.song.rows THEN
+                DIM currentPatternRows AS _UNSIGNED INTEGER
+                IF player.song.tickPattern < player.song.patterns THEN
+                    currentPatternRows = player.pattern(player.song.tickPattern).rows
+                END IF
+                IF currentPatternRows = 0 THEN currentPatternRows = __MOD_S3M_ROWS ' fallback safe default
+
+                IF player.song.patternRow >= currentPatternRows THEN
                     player.song.orderPosition = player.song.orderPosition + 1
                     player.song.patternRow = 0
 
@@ -479,11 +497,11 @@ SHARED __PeriodTable() AS _UNSIGNED INTEGER
 
     ' Process all channels
     FOR nChannel = 0 TO player.song.channels - 1
-        nNote = player.pattern(player.song.tickPattern, player.song.tickPatternRow, nChannel).note
-        nInstrument = player.pattern(player.song.tickPattern, player.song.tickPatternRow, nChannel).instrument
-        nVolume = player.pattern(player.song.tickPattern, player.song.tickPatternRow, nChannel).volume
-        nEffect = player.pattern(player.song.tickPattern, player.song.tickPatternRow, nChannel).effect
-        nOperand = player.pattern(player.song.tickPattern, player.song.tickPatternRow, nChannel).operand
+        nNote = player.pattern(player.song.tickPattern).note(player.song.tickPatternRow, nChannel).note
+        nInstrument = player.pattern(player.song.tickPattern).note(player.song.tickPatternRow, nChannel).instrument
+        nVolume = player.pattern(player.song.tickPattern).note(player.song.tickPatternRow, nChannel).volume
+        nEffect = player.pattern(player.song.tickPattern).note(player.song.tickPatternRow, nChannel).effect
+        nOperand = player.pattern(player.song.tickPattern).note(player.song.tickPatternRow, nChannel).operand
         nOpX = _SHR(nOperand, 4)
         nOpY = nOperand AND &HF
         noFrequency = _FALSE
@@ -562,10 +580,15 @@ SHARED __PeriodTable() AS _UNSIGNED INTEGER
 
             CASE __MOD_FX_PATTERN_BREAK
                 player.song.patternRow = (nOpX * 10) + nOpY - 1
-                IF player.song.patternRow >= player.song.rows THEN player.song.patternRow = -1
                 IF NOT breakEffectFlag _ANDALSO NOT jumpEffectFlag THEN
                     player.song.orderPosition = player.song.orderPosition + 1
                     IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
+                END IF
+                IF player.song.orderPosition < player.song.orders THEN
+                    DIM targetPat AS LONG: targetPat = player.order(player.song.orderPosition)
+                    IF targetPat < player.song.patterns THEN
+                        IF player.song.patternRow >= player.pattern(targetPat).rows THEN player.song.patternRow = -1
+                    END IF
                 END IF
                 breakEffectFlag = _TRUE
 
@@ -765,9 +788,9 @@ SHARED __PeriodTable() AS _UNSIGNED INTEGER
         IF player.channel(nChannel).period > 0 THEN
             ' We are not processing a new row but tick 1+ effects
             ' So we pick these using tickPattern and tickPatternRow
-            nVolume = player.pattern(player.song.tickPattern, player.song.tickPatternRow, nChannel).volume
-            nEffect = player.pattern(player.song.tickPattern, player.song.tickPatternRow, nChannel).effect
-            nOperand = player.pattern(player.song.tickPattern, player.song.tickPatternRow, nChannel).operand
+            nVolume = player.pattern(player.song.tickPattern).note(player.song.tickPatternRow, nChannel).volume
+            nEffect = player.pattern(player.song.tickPattern).note(player.song.tickPatternRow, nChannel).effect
+            nOperand = player.pattern(player.song.tickPattern).note(player.song.tickPatternRow, nChannel).operand
             nOpX = _SHR(nOperand, 4)
             nOpY = nOperand AND &HF
 
@@ -1316,6 +1339,17 @@ END FUNCTION
 ''' @return Total order count.
 FUNCTION MODPlayer_GetOrders~% (player AS MODPlayerType)
     MODPlayer_GetOrders = player.song.orders
+END FUNCTION
+
+
+''' @brief Gets the number of rows in a specific pattern.
+''' @param player The MOD player instance.
+''' @param patternIndex Pattern index (0-based).
+''' @return Number of rows in the pattern (0 if invalid pattern index).
+FUNCTION MODPlayer_GetPatternRows~% (player AS MODPlayerType, patternIndex AS _UNSIGNED INTEGER)
+    IF patternIndex < player.song.patterns THEN
+        MODPlayer_GetPatternRows = player.pattern(patternIndex).rows
+    END IF
 END FUNCTION
 
 

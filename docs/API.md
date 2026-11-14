@@ -44,11 +44,16 @@ Include header:
 ### MODPlayer Types
 
 ```vb
+TYPE __PatternType
+    rows AS _UNSIGNED INTEGER
+    note(0 TO 0, 0 TO 0) _DYNAMIC AS __NoteType
+END TYPE
+
 TYPE MODPlayerType
     song AS __SongType
     synth AS SoftSynthType
     order(0 TO 0) _DYNAMIC AS _UNSIGNED INTEGER
-    pattern(0 TO 0, 0 TO 0, 0 TO 0) _DYNAMIC AS __NoteType
+    pattern(0 TO 0) _DYNAMIC AS __PatternType
     instrument(0 TO 0) _DYNAMIC AS __InstrumentType
     channel(0 TO 0) _DYNAMIC AS __ChannelType
     initialized AS _BYTE
@@ -259,6 +264,19 @@ FUNCTION MODPlayer_GetOrders~% (player AS MODPlayerType)
 - **Parameters**:
   - `player`: Target MOD player instance.
 - **Returns**: Total number of orders in the song sequence table.
+
+#### `MODPlayer_GetPatternRows~%`
+
+```vb
+FUNCTION MODPlayer_GetPatternRows~% (player AS MODPlayerType, _
+    patternIndex AS _UNSIGNED INTEGER)
+```
+
+- **Parameters**:
+  - `player`: Target MOD player instance.
+  - `patternIndex`: 0-based pattern index.
+- **Returns**: Total number of rows in the pattern, or 0 if `patternIndex` is
+  invalid.
 
 #### `MODPlayer_SetPosition`
 

@@ -336,29 +336,32 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
         END IF
     NEXT i
 
-    player.song.rows = __MOD_S3M_ROWS ' S3M specific value
-
     ' Resize the pattern data array
-    REDIM player.pattern(0 TO player.song.patterns - 1, 0 TO player.song.rows - 1, 0 TO player.song.channels - 1) AS __NoteType
+    REDIM player.pattern(0 TO player.song.patterns - 1) AS __PatternType
 
     ' Load pattern data and convert it to MOD / MTM style
     FOR i = 0 TO player.song.patterns - 1
+        player.pattern(i).rows = __MOD_S3M_ROWS
+        REDIM player.pattern(i).note(0 TO __MOD_S3M_ROWS - 1, 0 TO player.song.channels - 1) AS __NoteType
+
         ' Set the entire pattern to defaults first
-        DIM row AS LONG: FOR row = 0 TO player.song.rows - 1
+        DIM row AS LONG: FOR row = 0 TO __MOD_S3M_ROWS - 1
             DIM chan AS LONG: FOR chan = 0 TO player.song.channels - 1
-                player.pattern(i, row, chan).note = __NOTE_NONE
-                player.pattern(i, row, chan).instrument = 0
-                player.pattern(i, row, chan).effect = 0
-                player.pattern(i, row, chan).operand = 0
-                player.pattern(i, row, chan).volume = __NOTE_NO_VOLUME
+                player.pattern(i).note(row, chan).note = __NOTE_NONE
+                player.pattern(i).note(row, chan).instrument = 0
+                player.pattern(i).note(row, chan).effect = 0
+                player.pattern(i).note(row, chan).operand = 0
+                player.pattern(i).note(row, chan).volume = __NOTE_NO_VOLUME
             NEXT chan
         NEXT row
+
+        IF patternPointer(i) = 0 THEN _CONTINUE
 
         ' Seek to the correct position in the file to read the pattern data
         StringFile_Seek memFile, patternPointer(i) + 2 ' + 2 here is for the packed data size that we'll conveniently ignore
 
         row = 0
-        WHILE row < player.song.rows
+        WHILE row < __MOD_S3M_ROWS
             DIM flags AS _UNSIGNED _BYTE: flags = StringFile_ReadByte(memFile)
 
             IF flags THEN ' we have some data; unpack it
@@ -383,178 +386,178 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
 
                         SELECT CASE word1
                             CASE 255
-                                player.pattern(i, row, chan).note = __NOTE_NONE
+                                player.pattern(i).note(row, chan).note = __NOTE_NONE
 
                             CASE 254
-                                player.pattern(i, row, chan).note = __NOTE_KEY_OFF
+                                player.pattern(i).note(row, chan).note = __NOTE_KEY_OFF
 
                             CASE ELSE
-                                player.pattern(i, row, chan).note = _SHR(word1, 4) * 12 + (word1 AND &HF)
+                                player.pattern(i).note(row, chan).note = _SHR(word1, 4) * 12 + (word1 AND &HF)
                         END SELECT
 
-                        player.pattern(i, row, chan).instrument = StringFile_ReadByte(memFile)
+                        player.pattern(i).note(row, chan).instrument = StringFile_ReadByte(memFile)
 
-                        'IF player.pattern(i, row, chan).instrument >= player.song.instruments THEN _ECHO "Invalid instrument:" + STR$(player.pattern(i, row, chan).instrument)
+                        'IF player.pattern(i).note(row, chan).instrument >= player.song.instruments THEN _ECHO "Invalid instrument:" + STR$(player.pattern(i).note(row, chan).instrument)
                     END IF
 
                     IF flags AND 64 THEN ' we have volume data
-                        player.pattern(i, row, chan).volume = StringFile_ReadByte(memFile)
+                        player.pattern(i).note(row, chan).volume = StringFile_ReadByte(memFile)
                     END IF
 
                     IF flags AND 128 THEN ' we have effect data
-                        player.pattern(i, row, chan).effect = StringFile_ReadByte(memFile)
-                        player.pattern(i, row, chan).operand = StringFile_ReadByte(memFile)
+                        player.pattern(i).note(row, chan).effect = StringFile_ReadByte(memFile)
+                        player.pattern(i).note(row, chan).operand = StringFile_ReadByte(memFile)
 
                         ' Convert S3M effects to MOD effects
-                        SELECT CASE player.pattern(i, row, chan).effect
+                        SELECT CASE player.pattern(i).note(row, chan).effect
                             CASE &H0 ' None
-                                player.pattern(i, row, chan).operand = &H0 ' get rid of any false arpeggio if there is any param
+                                player.pattern(i).note(row, chan).operand = &H0 ' get rid of any false arpeggio if there is any param
 
                             CASE &H1 ' Axx Set Speed
-                                player.pattern(i, row, chan).effect = __MOD_FX_SPEED
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_SPEED
 
                             CASE &H2 ' Bxx Position Jumpp
-                                player.pattern(i, row, chan).effect = __MOD_FX_POSITION_JUMP
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_POSITION_JUMP
 
                             CASE &H3 ' Cxx Pattern Break
-                                player.pattern(i, row, chan).effect = __MOD_FX_PATTERN_BREAK
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_PATTERN_BREAK
 
                             CASE &H4 ' Dxy Volume Slide or Fine Volume Slide
-                                player.pattern(i, row, chan).effect = __MOD_FX_VOLUME_FINE_SLIDE
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_VOLUME_FINE_SLIDE
 
                             CASE &H5 ' Exx Portamento Down or Fine Portamento Down or Extra Fine Portamento Down
-                                player.pattern(i, row, chan).effect = __MOD_FX_PORTAMENTO_EXTRA_FINE_DOWN
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_PORTAMENTO_EXTRA_FINE_DOWN
 
                             CASE &H6 ' Fxx Portamento Up or Fine Portamento Up or Extra Fine Portamento Up
-                                player.pattern(i, row, chan).effect = __MOD_FX_PORTAMENTO_EXTRA_FINE_UP
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_PORTAMENTO_EXTRA_FINE_UP
 
                             CASE &H7 ' Gxx Tone Portamento
-                                player.pattern(i, row, chan).effect = __MOD_FX_PORTAMENTO
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_PORTAMENTO
 
                             CASE &H8 ' Hxy Vibrato
-                                player.pattern(i, row, chan).effect = __MOD_FX_VIBRATO
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_VIBRATO
 
                             CASE &H9 ' Ixy Tremor
-                                player.pattern(i, row, chan).effect = __MOD_FX_TREMOR
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_TREMOR
 
                             CASE &HA ' Jxy Arpeggio
-                                player.pattern(i, row, chan).effect = __MOD_FX_ARPEGGIO
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_ARPEGGIO
 
                             CASE &HB ' Kxy Volume Slide + Vibrato
-                                player.pattern(i, row, chan).effect = __MOD_FX_VIBRATO_VOLUME_FINE_SLIDE
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_VIBRATO_VOLUME_FINE_SLIDE
 
                             CASE &HC ' Lxy Volume Slide + Tone Portamento
-                                player.pattern(i, row, chan).effect = __MOD_FX_PORTAMENTO_VOLUME_FINE_SLIDE
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_PORTAMENTO_VOLUME_FINE_SLIDE
 
                             CASE &HD ' Mxx Set Channel Volume
-                                player.pattern(i, row, chan).effect = __MOD_FX_CHANNEL_VOLUME
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_CHANNEL_VOLUME
 
                             CASE &HE ' Nxy Channel Volume Slide
-                                player.pattern(i, row, chan).effect = __MOD_FX_CHANNEL_VOLUME_SLIDE
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_CHANNEL_VOLUME_SLIDE
 
                             CASE &HF ' Oxx Sample Offset
-                                player.pattern(i, row, chan).effect = __MOD_FX_SAMPLE_OFFSET
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_SAMPLE_OFFSET
 
                             CASE &H10 ' Pxy Panning Slide or Fine Panning Slide
-                                player.pattern(i, row, chan).effect = __MOD_FX_PANNING_FINE_SLIDE
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_PANNING_FINE_SLIDE
 
                             CASE &H11 ' Qxy Retrigger + Volume Slide
-                                player.pattern(i, row, chan).effect = __MOD_FX_NOTE_RETRIGGER_VOLUME_SLIDE
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_NOTE_RETRIGGER_VOLUME_SLIDE
 
                             CASE &H12 ' Rxy Tremolo
-                                player.pattern(i, row, chan).effect = __MOD_FX_TREMOLO
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_TREMOLO
 
                             CASE &H13 ' Sxy Special commands
-                                SELECT CASE _SHR(player.pattern(i, row, chan).operand, 4)
+                                SELECT CASE _SHR(player.pattern(i).note(row, chan).operand, 4)
                                     CASE &H1 ' S1x Glissando Control
-                                        player.pattern(i, row, chan).effect = __MOD_FX_EXTENDED
-                                        player.pattern(i, row, chan).operand = _SHL(__MOD_FX_EXTENDED_GLISSANDO_CONTROL, 4) OR (player.pattern(i, row, chan).operand AND &HF)
+                                        player.pattern(i).note(row, chan).effect = __MOD_FX_EXTENDED
+                                        player.pattern(i).note(row, chan).operand = _SHL(__MOD_FX_EXTENDED_GLISSANDO_CONTROL, 4) OR (player.pattern(i).note(row, chan).operand AND &HF)
 
                                     CASE &H2 ' S2x Set Finetune
-                                        player.pattern(i, row, chan).effect = __MOD_FX_EXTENDED
-                                        player.pattern(i, row, chan).operand = _SHL(__MOD_FX_EXTENDED_FINETUNE, 4) OR (player.pattern(i, row, chan).operand AND &HF)
+                                        player.pattern(i).note(row, chan).effect = __MOD_FX_EXTENDED
+                                        player.pattern(i).note(row, chan).operand = _SHL(__MOD_FX_EXTENDED_FINETUNE, 4) OR (player.pattern(i).note(row, chan).operand AND &HF)
 
                                     CASE &H3 ' S3x Set Vibrato Waveform
-                                        player.pattern(i, row, chan).effect = __MOD_FX_EXTENDED
-                                        player.pattern(i, row, chan).operand = _SHL(__MOD_FX_EXTENDED_VIBRATO_WAVEFORM, 4) OR (player.pattern(i, row, chan).operand AND &HF)
+                                        player.pattern(i).note(row, chan).effect = __MOD_FX_EXTENDED
+                                        player.pattern(i).note(row, chan).operand = _SHL(__MOD_FX_EXTENDED_VIBRATO_WAVEFORM, 4) OR (player.pattern(i).note(row, chan).operand AND &HF)
 
                                     CASE &H4 ' S4x Set Tremolo Waveform
-                                        player.pattern(i, row, chan).effect = __MOD_FX_EXTENDED
-                                        player.pattern(i, row, chan).operand = _SHL(__MOD_FX_EXTENDED_TREMOLO_WAVEFORM, 4) OR (player.pattern(i, row, chan).operand AND &HF)
+                                        player.pattern(i).note(row, chan).effect = __MOD_FX_EXTENDED
+                                        player.pattern(i).note(row, chan).operand = _SHL(__MOD_FX_EXTENDED_TREMOLO_WAVEFORM, 4) OR (player.pattern(i).note(row, chan).operand AND &HF)
 
                                     CASE &H5 ' S5x Set Panbrello Waveform
-                                        player.pattern(i, row, chan).effect = __MOD_FX_PANBRELLO_WAVEFORM
-                                        player.pattern(i, row, chan).operand = player.pattern(i, row, chan).operand AND &HF
+                                        player.pattern(i).note(row, chan).effect = __MOD_FX_PANBRELLO_WAVEFORM
+                                        player.pattern(i).note(row, chan).operand = player.pattern(i).note(row, chan).operand AND &HF
 
                                     CASE &H6 ' S6x Fine Pattern Delay
-                                        player.pattern(i, row, chan).effect = __MOD_FX_PATTERN_FINE_DELAY
-                                        player.pattern(i, row, chan).operand = player.pattern(i, row, chan).operand AND &HF
+                                        player.pattern(i).note(row, chan).effect = __MOD_FX_PATTERN_FINE_DELAY
+                                        player.pattern(i).note(row, chan).operand = player.pattern(i).note(row, chan).operand AND &HF
 
                                     CASE &H8 ' S8x Set Panning
-                                        player.pattern(i, row, chan).effect = __MOD_FX_EXTENDED
-                                        player.pattern(i, row, chan).operand = _SHL(__MOD_FX_EXTENDED_PANNING_4, 4) OR (player.pattern(i, row, chan).operand AND &HF)
+                                        player.pattern(i).note(row, chan).effect = __MOD_FX_EXTENDED
+                                        player.pattern(i).note(row, chan).operand = _SHL(__MOD_FX_EXTENDED_PANNING_4, 4) OR (player.pattern(i).note(row, chan).operand AND &HF)
 
                                     CASE &H9 ' S9x Sound Control
-                                        player.pattern(i, row, chan).effect = __MOD_FX_SOUND_CONTROL
-                                        player.pattern(i, row, chan).operand = player.pattern(i, row, chan).operand AND &HF
+                                        player.pattern(i).note(row, chan).effect = __MOD_FX_SOUND_CONTROL
+                                        player.pattern(i).note(row, chan).operand = player.pattern(i).note(row, chan).operand AND &HF
 
                                     CASE &HA ' SAx High Offset
-                                        player.pattern(i, row, chan).effect = __MOD_FX_HIGH_OFFSET
-                                        player.pattern(i, row, chan).operand = player.pattern(i, row, chan).operand AND &HF
+                                        player.pattern(i).note(row, chan).effect = __MOD_FX_HIGH_OFFSET
+                                        player.pattern(i).note(row, chan).operand = player.pattern(i).note(row, chan).operand AND &HF
 
                                     CASE &HB ' SB0 Pattern Loop Start
-                                        player.pattern(i, row, chan).effect = __MOD_FX_EXTENDED
-                                        player.pattern(i, row, chan).operand = _SHL(__MOD_FX_EXTENDED_PATTERN_LOOP, 4) OR (player.pattern(i, row, chan).operand AND &HF) ' SBx
+                                        player.pattern(i).note(row, chan).effect = __MOD_FX_EXTENDED
+                                        player.pattern(i).note(row, chan).operand = _SHL(__MOD_FX_EXTENDED_PATTERN_LOOP, 4) OR (player.pattern(i).note(row, chan).operand AND &HF) ' SBx
 
                                     CASE &HC ' SCx Note Cut
-                                        player.pattern(i, row, chan).effect = __MOD_FX_EXTENDED
-                                        player.pattern(i, row, chan).operand = _SHL(__MOD_FX_EXTENDED_NOTE_CUT, 4) OR (player.pattern(i, row, chan).operand AND &HF) ' SCx
+                                        player.pattern(i).note(row, chan).effect = __MOD_FX_EXTENDED
+                                        player.pattern(i).note(row, chan).operand = _SHL(__MOD_FX_EXTENDED_NOTE_CUT, 4) OR (player.pattern(i).note(row, chan).operand AND &HF) ' SCx
 
                                     CASE &HD ' SDx Note Delay
-                                        player.pattern(i, row, chan).effect = __MOD_FX_EXTENDED
-                                        player.pattern(i, row, chan).operand = _SHL(__MOD_FX_EXTENDED_NOTE_DELAY, 4) OR (player.pattern(i, row, chan).operand AND &HF) ' SDx
+                                        player.pattern(i).note(row, chan).effect = __MOD_FX_EXTENDED
+                                        player.pattern(i).note(row, chan).operand = _SHL(__MOD_FX_EXTENDED_NOTE_DELAY, 4) OR (player.pattern(i).note(row, chan).operand AND &HF) ' SDx
 
                                     CASE &HE ' SEx Pattern Delay
-                                        player.pattern(i, row, chan).effect = __MOD_FX_EXTENDED
-                                        player.pattern(i, row, chan).operand = _SHL(__MOD_FX_EXTENDED_PATTERN_DELAY, 4) OR (player.pattern(i, row, chan).operand AND &HF) ' SEx
+                                        player.pattern(i).note(row, chan).effect = __MOD_FX_EXTENDED
+                                        player.pattern(i).note(row, chan).operand = _SHL(__MOD_FX_EXTENDED_PATTERN_DELAY, 4) OR (player.pattern(i).note(row, chan).operand AND &HF) ' SEx
 
                                         'CASE ELSE
                                         '    ' Trap for unhandled stuff
-                                        '    _ECHO "Uhandled special effect:" + STR$(player.pattern(i, row, chan).operand) + " |" + STR$(_SHR(player.pattern(i, row, chan).operand, 4))
+                                        '    _ECHO "Uhandled special effect:" + STR$(player.pattern(i).note(row, chan).operand) + " |" + STR$(_SHR(player.pattern(i).note(row, chan).operand, 4))
                                 END SELECT
 
                             CASE &H14 ' Txx Tempo
-                                player.pattern(i, row, chan).effect = __MOD_FX_TEMPO
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_TEMPO
 
                             CASE &H15 ' Uxy Fine Vibrato
-                                player.pattern(i, row, chan).effect = __MOD_FX_VIBRATO_FINE
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_VIBRATO_FINE
 
                             CASE &H16 ' Vxx Set Global Volume
-                                player.pattern(i, row, chan).effect = __MOD_FX_GLOBAL_VOLUME
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_GLOBAL_VOLUME
 
                             CASE &H17 ' Wxy Global Volume Slide
-                                player.pattern(i, row, chan).effect = __MOD_FX_GLOBAL_VOLUME_SLIDE
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_GLOBAL_VOLUME_SLIDE
 
                             CASE &H18 ' Xxx Set Panning
-                                IF player.pattern(i, row, chan).operand <= 128 THEN
+                                IF player.pattern(i).note(row, chan).operand <= 128 THEN
                                     ' Ranges from 0 (left) to 128 (right)
-                                    player.pattern(i, row, chan).effect = __MOD_FX_PANNING_8
-                                    player.pattern(i, row, chan).operand = (player.pattern(i, row, chan).operand * 255&) \ 128&
+                                    player.pattern(i).note(row, chan).effect = __MOD_FX_PANNING_8
+                                    player.pattern(i).note(row, chan).operand = (player.pattern(i).note(row, chan).operand * 255&) \ 128&
                                 else
                                     ' If it is anything else, then we'll simply ignore the effect
-                                    player.pattern(i, row, chan).effect = &H0
-                                    player.pattern(i, row, chan).operand = &H0
+                                    player.pattern(i).note(row, chan).effect = &H0
+                                    player.pattern(i).note(row, chan).operand = &H0
                                 END IF
 
                             CASE &H19 ' Yxy Panbrello
-                                player.pattern(i, row, chan).effect = __MOD_FX_PANBRELLO
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_PANBRELLO
 
                             CASE &H20 ' Zxx MIDI Macro
-                                player.pattern(i, row, chan).effect = __MOD_FX_MIDI_MACRO
+                                player.pattern(i).note(row, chan).effect = __MOD_FX_MIDI_MACRO
 
                                 'CASE ELSE
                                 '    ' Trap for unhandled stuff
-                                '    _ECHO "Uhandled effect:" + STR$(player.pattern(i, row, chan).effect)
+                                '    _ECHO "Uhandled effect:" + STR$(player.pattern(i).note(row, chan).effect)
                         END SELECT
                     END IF
                 END IF

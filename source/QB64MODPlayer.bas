@@ -138,7 +138,9 @@ SUB DrawVisualization
 
     ' Print the header
     COLOR Blink, BrightWhite
-    LOCATE 2, x: PRINT USING "  ORD: ### / ### | PAT: ### / ### | ROW: ## / 63 | CHN: ### / ### | VOC: ### / ###  "; Player.song.orderPosition; Player.song.orders - 1; startPat; Player.song.patterns - 1; Player.song.patternRow; Player.song.activeChannels; Player.song.channels; SoftSynth_GetActiveVoices(Player.synth); SoftSynth_GetTotalVoices(Player.synth);
+    DIM curPatRows AS LONG
+    IF startPat < Player.song.patterns THEN curPatRows = Player.pattern(startPat).rows ELSE curPatRows = 64
+    LOCATE 2, x: PRINT USING "  ORD: ### / ### | PAT: ### / ### | ROW: ### / ### | CHN: ### / ### | VOC: ### / ###  "; Player.song.orderPosition; Player.song.orders - 1; startPat; Player.song.patterns - 1; Player.song.patternRow; curPatRows - 1; Player.song.activeChannels; Player.song.channels; SoftSynth_GetActiveVoices(Player.synth); SoftSynth_GetTotalVoices(Player.synth);
 
     LOCATE 3, x: PRINT USING "  BPM: ###       | SPD: ###       | VOL: ###%    | BUF: #######ms | REP: \       \  "; Player.song.BPM; Player.song.speed; SoftSynth_GetMasterVolume(Player.synth) * 100!; SoftSynth_GetBufferedSoundTime(Player.synth) * 1000#; _IIF(Player.song.isLooping, "Enabled", "Disabled");
 
@@ -153,7 +155,7 @@ SUB DrawVisualization
 
         j = 0
         WHILE j < Player.song.channels
-            IF i + 1 = Player.pattern(startPat, Player.song.patternRow, j).instrument THEN
+            IF i + 1 = Player.pattern(startPat).note(Player.song.patternRow, j).instrument THEN
                 COLOR LightMagenta, Blue
             END IF
 
@@ -186,8 +188,12 @@ SUB DrawVisualization
     ' Find the pattern and row we need to print
     startRow = Player.song.patternRow - (1 + TEXT_LINE_MAX - j) \ 2
     IF startRow < 0 THEN
-        startRow = Player.song.rows + startRow
-        startPat = startPat - 1
+        IF startPat > 0 THEN
+            startRow = Player.pattern(startPat - 1).rows + startRow
+            startPat = startPat - 1
+        ELSE
+            startRow = 0
+        END IF
     END IF
 
     ' Now just dump everything to the screen
@@ -215,7 +221,7 @@ SUB DrawVisualization
 
                 p = p + 5
 
-                nNote = Player.pattern(startPat, startRow, nChan).note
+                nNote = Player.pattern(startPat).note(startRow, nChan).note
                 IF nNote = __NOTE_NONE THEN
                     COLOR Gray
                     _PRINTSTRING (p, i), "  -  "
@@ -229,7 +235,7 @@ SUB DrawVisualization
 
                 p = p + 5
 
-                nSample = Player.pattern(startPat, startRow, nChan).instrument
+                nSample = Player.pattern(startPat).note(startRow, nChan).instrument
                 IF nSample = 0 THEN
                     COLOR Gray
                     _PRINTSTRING (p, i), "-- "
@@ -240,8 +246,8 @@ SUB DrawVisualization
 
                 p = p + 3
 
-                nEffect = Player.pattern(startPat, startRow, nChan).effect
-                nOperand = Player.pattern(startPat, startRow, nChan).operand
+                nEffect = Player.pattern(startPat).note(startRow, nChan).effect
+                nOperand = Player.pattern(startPat).note(startRow, nChan).operand
 
                 IF nEffect = 0 _ANDALSO nOperand = 0 THEN
                     COLOR Gray
@@ -271,9 +277,11 @@ SUB DrawVisualization
 
         startRow = startRow + 1
         ' Wrap if needed
-        IF startRow >= Player.song.rows THEN
-            startRow = 0
-            startPat = startPat + 1
+        IF startPat < Player.song.patterns THEN
+            IF startRow >= Player.pattern(startPat).rows THEN
+                startRow = 0
+                startPat = startPat + 1
+            END IF
         END IF
 
         i = i + 1

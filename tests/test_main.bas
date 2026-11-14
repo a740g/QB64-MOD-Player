@@ -599,6 +599,57 @@ SUB Test_MODPlayer_MultiInstance
     TEST_CASE_END
 END SUB
 
+''' @brief Tests for pattern structure and variable row counts.
+SUB Test_MODPlayer_PatternRows
+    TEST_CASE_BEGIN "MODPlayer: Pattern structure and row counts"
+    DIM player AS MODPlayerType
+    TEST_REQUIRE MODPlayer_LoadFromDisk(player, "mods/Enigma.mod"), "Load Enigma.mod"
+
+    ' MOD patterns have 64 rows
+    TEST_CHECK MODPlayer_GetPatternRows(player, 0) = 64, "Pattern 0 has 64 rows"
+    TEST_CHECK player.pattern(0).rows = 64, "Pattern 0 direct rows property is 64"
+    TEST_CHECK MODPlayer_GetPatternRows(player, 9999) = 0, "Out-of-range pattern returns 0 rows"
+
+    ' Validate note matrix indexing
+    TEST_CHECK player.pattern(0).note(0, 0).note <= 108 _ORELSE player.pattern(0).note(0, 0).note = __NOTE_NONE, "Valid note value at (0, 0)"
+
+    ' Test S3M pattern rows
+    DIM s3mPlayer AS MODPlayerType
+    TEST_REQUIRE MODPlayer_LoadFromDisk(s3mPlayer, "mods/A Touch of Spring.s3m"), "Load A Touch of Spring.s3m"
+    TEST_CHECK MODPlayer_GetPatternRows(s3mPlayer, 0) = 64, "S3M pattern 0 has 64 rows"
+    TEST_CHECK s3mPlayer.pattern(0).rows = 64, "S3M pattern 0 direct rows is 64"
+
+    ' Test MTM pattern rows
+    DIM mtmPlayer AS MODPlayerType
+    TEST_REQUIRE MODPlayer_LoadFromDisk(mtmPlayer, "mods/cougarstory-ii.mtm"), "Load cougarstory-ii.mtm"
+    TEST_CHECK MODPlayer_GetPatternRows(mtmPlayer, 0) = 64, "MTM pattern 0 has 64 rows"
+    TEST_CHECK mtmPlayer.pattern(0).rows = 64, "MTM pattern 0 direct rows is 64"
+
+    ' Test variable row support on custom pattern matrix
+    DIM customPlayer AS MODPlayerType
+    TEST_REQUIRE MODPlayer_Initialize(customPlayer), "Initialize custom player"
+    customPlayer.song.patterns = 2
+    customPlayer.song.channels = 4
+    customPlayer.song.orders = 2
+    REDIM customPlayer.order(0 TO 1) AS _UNSIGNED INTEGER
+    customPlayer.order(0) = 0
+    customPlayer.order(1) = 1
+    REDIM customPlayer.pattern(0 TO 1) AS __PatternType
+    customPlayer.pattern(0).rows = 32
+    REDIM customPlayer.pattern(0).note(0 TO 31, 0 TO 3) AS __NoteType
+    customPlayer.pattern(1).rows = 16
+    REDIM customPlayer.pattern(1).note(0 TO 15, 0 TO 3) AS __NoteType
+
+    TEST_CHECK MODPlayer_GetPatternRows(customPlayer, 0) = 32, "Custom pattern 0 has 32 rows"
+    TEST_CHECK MODPlayer_GetPatternRows(customPlayer, 1) = 16, "Custom pattern 1 has 16 rows"
+
+    MODPlayer_Finalize player
+    MODPlayer_Finalize s3mPlayer
+    MODPlayer_Finalize mtmPlayer
+    MODPlayer_Finalize customPlayer
+    TEST_CASE_END
+END SUB
+
 ''' @brief Tests for error handling and invalid inputs.
 SUB Test_MODPlayer_Errors
     TEST_CASE_BEGIN "MODPlayer: Non-existent file"
@@ -633,6 +684,7 @@ Test_MODLoader
 Test_S3MLoader
 Test_MTMLoader
 Test_MODPlayer_MultiInstance
+Test_MODPlayer_PatternRows
 Test_MODPlayer_Errors
 
 TEST_END_ALL

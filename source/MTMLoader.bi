@@ -62,13 +62,13 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
     DIM byte1 AS _UNSIGNED _BYTE: byte1 = StringFile_ReadByte(memFile)
 
     ' Read the beats per track (row count)
-    player.song.rows = StringFile_ReadByte(memFile)
+    DIM numRows AS _UNSIGNED _BYTE: numRows = StringFile_ReadByte(memFile)
 
     ' Read the number of channels
     player.song.channels = StringFile_ReadByte(memFile)
 
     ' Sanity check
-    IF numTracks = 0 _ORELSE player.song.instruments = 0 _ORELSE player.song.rows = 0 _ORELSE player.song.channels = 0 THEN EXIT FUNCTION
+    IF numTracks = 0 _ORELSE player.song.instruments = 0 _ORELSE numRows = 0 _ORELSE player.song.channels = 0 THEN EXIT FUNCTION
 
     ' Resize the channel array
     REDIM player.channel(0 TO player.song.channels - 1) AS __ChannelType
@@ -141,10 +141,10 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
     NEXT
 
     ' Read and convert track data
-    DIM mtmTrack(0 TO numTracks - 1, 0 TO player.song.rows - 1) AS __NoteType, j AS LONG
+    DIM mtmTrack(0 TO numTracks - 1, 0 TO numRows - 1) AS __NoteType, j AS LONG
     DIM AS _UNSIGNED _BYTE byte2, byte3
     FOR i = 0 TO numTracks - 1
-        FOR j = 0 TO player.song.rows - 1
+        FOR j = 0 TO numRows - 1
             ' Read 3 bytes
             byte1 = StringFile_ReadByte(memFile)
             byte2 = StringFile_ReadByte(memFile)
@@ -180,7 +180,11 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
     NEXT i
 
     ' Resize the pattern data array
-    REDIM player.pattern(0 TO player.song.patterns - 1, 0 TO player.song.rows - 1, 0 TO player.song.channels - 1) AS __NoteType
+    REDIM player.pattern(0 TO player.song.patterns - 1) AS __PatternType
+    FOR i = 0 TO player.song.patterns - 1
+        player.pattern(i).rows = numRows
+        REDIM player.pattern(i).note(0 TO numRows - 1, 0 TO player.song.channels - 1) AS __NoteType
+    NEXT
 
     ' Read track sequencing data and assemble that to our pattern data
     DIM k AS LONG, w AS _UNSIGNED INTEGER
@@ -192,17 +196,17 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
             IF j >= player.song.channels THEN _CONTINUE ' ignore excess channel information
 
             IF w THEN
-                FOR k = 0 TO player.song.rows - 1
-                    player.pattern(i, k, j) = mtmTrack(w - 1, k)
+                FOR k = 0 TO numRows - 1
+                    player.pattern(i).note(k, j) = mtmTrack(w - 1, k)
                 NEXT k
             ELSE
                 ' Populate empty channel
-                FOR k = 0 TO player.song.rows - 1
-                    player.pattern(i, k, j).note = __NOTE_NONE
-                    player.pattern(i, k, j).instrument = 0
-                    player.pattern(i, k, j).effect = 0
-                    player.pattern(i, k, j).operand = 0
-                    player.pattern(i, k, j).volume = __NOTE_NO_VOLUME
+                FOR k = 0 TO numRows - 1
+                    player.pattern(i).note(k, j).note = __NOTE_NONE
+                    player.pattern(i).note(k, j).instrument = 0
+                    player.pattern(i).note(k, j).effect = 0
+                    player.pattern(i).note(k, j).operand = 0
+                    player.pattern(i).note(k, j).volume = __NOTE_NO_VOLUME
                 NEXT k
             END IF
         NEXT j
