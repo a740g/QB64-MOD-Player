@@ -32,6 +32,20 @@ RESOURCES = source/QB64MODPlayer.ico
 # Output executable in root
 EXECUTABLE = $(PROJECT)$(EXE)
 
+# Help message text
+define HELP_TEXT
+QB64 MOD Player Makefile
+Usage:
+  make          - Build the project
+  make release  - Build the project with C++ optimizations
+  make clean    - Remove build artifacts
+  make help     - Show this help message
+
+Requirements:
+  - QB64-PE must be installed and in PATH
+  - Set QB64PE variable if not in default PATH
+endef
+
 # Default target
 all: $(EXECUTABLE)
 
@@ -53,15 +67,7 @@ endif
 
 # Help
 help:
-	@echo "QB64 MOD Player Makefile"
-	@echo "Usage:"
-	@echo "  make          - Build the project"
-	@echo "  make release  - Build the project with C++ optimizations"
-	@echo "  make clean    - Remove build artifacts"
-	@echo "  make help     - Show this help message"
-	@echo ""
-	@echo "Requirements:"
-	@echo "  - QB64-PE must be installed and in PATH"
-	@echo "  - Set QB64PE variable if not in default PATH"
+	$(info $(HELP_TEXT))
+	@:
 
 .PHONY: all release clean help
