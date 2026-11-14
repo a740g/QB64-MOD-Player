@@ -114,7 +114,7 @@ SUB DrawVisualization
     SHARED __Order() AS _UNSIGNED INTEGER
     SHARED __Pattern() AS __NoteType
     SHARED __Instrument() AS __InstrumentType
-    SHARED __SoftSynth_SoundBuffer() AS SINGLE
+    SHARED __MODPlayer_Synth AS SoftSynthType
 
     ' Subscript out of range bugfix for player when song is 128 orders long and the song reaches the end
     ' In this case if the sub is allowed to proceed then __Order(__Song.orderPosition) will cause "subscript out of range"
@@ -135,9 +135,9 @@ SUB DrawVisualization
 
     ' Print the header
     COLOR Blink, BrightWhite
-    LOCATE 2, x: PRINT USING "  ORD: ### / ### | PAT: ### / ### | ROW: ## / 63 | CHN: ### / ### | VOC: ### / ###  "; __Song.orderPosition; __Song.orders - 1; startPat; __Song.patterns - 1; __Song.patternRow; __Song.activeChannels; __Song.channels; SoftSynth_GetActiveVoices; SoftSynth_GetTotalVoices;
+    LOCATE 2, x: PRINT USING "  ORD: ### / ### | PAT: ### / ### | ROW: ## / 63 | CHN: ### / ### | VOC: ### / ###  "; __Song.orderPosition; __Song.orders - 1; startPat; __Song.patterns - 1; __Song.patternRow; __Song.activeChannels; __Song.channels; SoftSynth_GetActiveVoices(__MODPlayer_Synth); SoftSynth_GetTotalVoices(__MODPlayer_Synth);
 
-    LOCATE 3, x: PRINT USING "  BPM: ###       | SPD: ###       | VOL: ###%    | BUF: #######ms | REP: \       \  "; __Song.BPM; __Song.speed; SoftSynth_GetMasterVolume * 100!; SoftSynth_GetBufferedSoundTime * 1000#; _IIF(__Song.isLooping, "Enabled", "Disabled");
+    LOCATE 3, x: PRINT USING "  BPM: ###       | SPD: ###       | VOL: ###%    | BUF: #######ms | REP: \       \  "; __Song.BPM; __Song.speed; SoftSynth_GetMasterVolume(__MODPlayer_Synth) * 100!; SoftSynth_GetBufferedSoundTime(__MODPlayer_Synth) * 1000#; _IIF(__Song.isLooping, "Enabled", "Disabled");
 
     ' Print the sample list header
     COLOR Blink, Cyan
@@ -288,7 +288,7 @@ SUB DrawVisualization
 
     i = 0
     WHILE i < __Song.channels
-        LOCATE j, x + 8 + i * 19: PRINT USING " (##) V:### B:+### "; i + 1; SoftSynth_GetVoiceVolume(i) * 100!; SoftSynth_GetVoiceBalance(i) * 100!;
+        LOCATE j, x + 8 + i * 19: PRINT USING " (##) V:### B:+### "; i + 1; SoftSynth_GetVoiceVolume(__MODPlayer_Synth, i) * 100!; SoftSynth_GetVoiceBalance(__MODPlayer_Synth, i) * 100!;
 
         i = i + 1
     WEND
@@ -313,8 +313,8 @@ SUB DrawVisualization
 
     ' Get the FFT data and ignore the audio intensity level (for now)
     DIM ignored AS SINGLE
-    ignored = AudioAnalyzer_CalculateFFT(SpectrumAnalyzerL(), __SoftSynth_SoundBuffer(), 0, 2, FFT.bits)
-    ignored = AudioAnalyzer_CalculateFFT(SpectrumAnalyzerR(), __SoftSynth_SoundBuffer(), 1, 2, FFT.bits)
+    ignored = AudioAnalyzer_CalculateFFT(SpectrumAnalyzerL(), __MODPlayer_Synth.soundBuffer(), 0, 2, FFT.bits)
+    ignored = AudioAnalyzer_CalculateFFT(SpectrumAnalyzerR(), __MODPlayer_Synth.soundBuffer(), 1, 2, FFT.bits)
 
     COLOR Black, Black
 
@@ -617,6 +617,7 @@ END SUB
 ''' @return Next application event code.
 FUNCTION OnPlayTune%% (fileName AS STRING)
     SHARED __Song AS __SongType
+    SHARED __MODPlayer_Synth AS SoftSynthType
 
     OnPlayTune = EVENT_PLAY ' default event is to play next song
 
@@ -657,10 +658,10 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
                 __Song.isPaused = NOT __Song.isPaused
 
             CASE KEY_PLUS, KEY_EQUAL
-                SoftSynth_SetMasterVolume SoftSynth_GetMasterVolume + VOLUME_STEP
+                SoftSynth_SetMasterVolume __MODPlayer_Synth, SoftSynth_GetMasterVolume(__MODPlayer_Synth) + VOLUME_STEP
 
             CASE KEY_MINUS, KEY_UNDERSCORE
-                SoftSynth_SetMasterVolume SoftSynth_GetMasterVolume - VOLUME_STEP
+                SoftSynth_SetMasterVolume __MODPlayer_Synth, SoftSynth_GetMasterVolume(__MODPlayer_Synth) - VOLUME_STEP
 
             CASE KEY_UPPER_L, KEY_LOWER_L
                 MODPlayer_Loop NOT MODPlayer_IsLooping

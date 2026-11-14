@@ -77,35 +77,35 @@ SUB MODPlayer_Update (bufferTimeSecs AS SINGLE)
 
 ' Sample Mixer API
 FUNCTION SoftSynth_ConvertBytesToFrames~& (bytes AS _UNSIGNED LONG, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
-SUB SoftSynth_Finalize
-FUNCTION SoftSynth_GetActiveVoices~&
-FUNCTION SoftSynth_GetBufferedSoundTime#
-FUNCTION SoftSynth_GetGlobalVolume!
-FUNCTION SoftSynth_GetMasterVolume!
-FUNCTION SoftSynth_GetSampleRate~&
-FUNCTION SoftSynth_GetTotalSounds~&
-FUNCTION SoftSynth_GetTotalVoices~&
-FUNCTION SoftSynth_GetVoiceBalance! (voice AS _UNSIGNED LONG)
-FUNCTION SoftSynth_GetVoiceFrequency~& (voice AS _UNSIGNED LONG)
-FUNCTION SoftSynth_GetVoiceVolume! (voice AS _UNSIGNED LONG)
-FUNCTION SoftSynth_Initialize%%
-FUNCTION SoftSynth_IsInitialized%%
-SUB SoftSynth_LoadSound (snd AS LONG, buffer AS STRING, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
-FUNCTION SoftSynth_PeekSoundFrameByte%% (snd AS LONG, position AS _UNSIGNED LONG)
-FUNCTION SoftSynth_PeekSoundFrameInteger% (snd AS LONG, position AS _UNSIGNED LONG)
-FUNCTION SoftSynth_PeekSoundFrameSingle! (snd AS LONG, position AS _UNSIGNED LONG)
-SUB SoftSynth_PlayVoice (voice AS _UNSIGNED LONG, snd AS LONG, position AS _UNSIGNED LONG, mode AS LONG, startFrame AS _UNSIGNED LONG, endFrame AS _UNSIGNED LONG)
-SUB SoftSynth_PokeSoundFrameByte (snd AS LONG, position AS _UNSIGNED LONG, frame AS _BYTE)
-SUB SoftSynth_PokeSoundFrameInteger (snd AS LONG, position AS _UNSIGNED LONG, frame AS INTEGER)
-SUB SoftSynth_PokeSoundFrameSingle (snd AS LONG, position AS _UNSIGNED LONG, frame AS SINGLE)
-SUB SoftSynth_SetGlobalVolume (volume AS SINGLE)
-SUB SoftSynth_SetMasterVolume (volume AS SINGLE)
-SUB SoftSynth_SetTotalVoices (voices AS _UNSIGNED LONG)
-SUB SoftSynth_SetVoiceBalance (voice AS _UNSIGNED LONG, balance AS SINGLE)
-SUB SoftSynth_SetVoiceFrequency (voice AS _UNSIGNED LONG, frequency AS _UNSIGNED LONG)
-SUB SoftSynth_SetVoiceVolume (voice AS _UNSIGNED LONG, volume AS SINGLE)
-SUB SoftSynth_StopVoice (voice AS _UNSIGNED LONG)
-SUB SoftSynth_Update (frames AS _UNSIGNED LONG)
+SUB SoftSynth_Finalize (ctx AS SoftSynthType)
+FUNCTION SoftSynth_GetActiveVoices~& (ctx AS SoftSynthType)
+FUNCTION SoftSynth_GetBufferedSoundTime# (ctx AS SoftSynthType)
+FUNCTION SoftSynth_GetGlobalVolume! (ctx AS SoftSynthType)
+FUNCTION SoftSynth_GetMasterVolume! (ctx AS SoftSynthType)
+FUNCTION SoftSynth_GetSampleRate~& (ctx AS SoftSynthType)
+FUNCTION SoftSynth_GetTotalSounds~& (ctx AS SoftSynthType)
+FUNCTION SoftSynth_GetTotalVoices~& (ctx AS SoftSynthType)
+FUNCTION SoftSynth_GetVoiceBalance! (ctx AS SoftSynthType, voice AS _UNSIGNED LONG)
+FUNCTION SoftSynth_GetVoiceFrequency~& (ctx AS SoftSynthType, voice AS _UNSIGNED LONG)
+FUNCTION SoftSynth_GetVoiceVolume! (ctx AS SoftSynthType, voice AS _UNSIGNED LONG)
+FUNCTION SoftSynth_Initialize%% (ctx AS SoftSynthType)
+FUNCTION SoftSynth_IsInitialized%% (ctx AS SoftSynthType)
+SUB SoftSynth_LoadSound (ctx AS SoftSynthType, snd AS LONG, buffer AS STRING, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
+FUNCTION SoftSynth_PeekSoundFrameByte%% (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG)
+FUNCTION SoftSynth_PeekSoundFrameInteger% (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG)
+FUNCTION SoftSynth_PeekSoundFrameSingle! (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG)
+SUB SoftSynth_PlayVoice (ctx AS SoftSynthType, voice AS _UNSIGNED LONG, snd AS LONG, position AS _UNSIGNED LONG, mode AS LONG, startPosition AS _UNSIGNED LONG, endPosition AS _UNSIGNED LONG)
+SUB SoftSynth_PokeSoundFrameByte (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG, frame AS _BYTE)
+SUB SoftSynth_PokeSoundFrameInteger (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG, frame AS INTEGER)
+SUB SoftSynth_PokeSoundFrameSingle (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG, frame AS SINGLE)
+SUB SoftSynth_SetGlobalVolume (ctx AS SoftSynthType, volume AS SINGLE)
+SUB SoftSynth_SetMasterVolume (ctx AS SoftSynthType, volume AS SINGLE)
+SUB SoftSynth_SetTotalVoices (ctx AS SoftSynthType, voices AS _UNSIGNED LONG)
+SUB SoftSynth_SetVoiceBalance (ctx AS SoftSynthType, voice AS _UNSIGNED LONG, balance AS SINGLE)
+SUB SoftSynth_SetVoiceFrequency (ctx AS SoftSynthType, voice AS _UNSIGNED LONG, frequency AS _UNSIGNED LONG)
+SUB SoftSynth_SetVoiceVolume (ctx AS SoftSynthType, voice AS _UNSIGNED LONG, volume AS SINGLE)
+SUB SoftSynth_StopVoice (ctx AS SoftSynthType, voice AS _UNSIGNED LONG)
+SUB SoftSynth_Update (ctx AS SoftSynthType, frames AS _UNSIGNED LONG)
 ```
 
 ## FAQ

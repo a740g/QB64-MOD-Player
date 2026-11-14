@@ -180,6 +180,7 @@ TYPE __SongType
 END TYPE
 
 DIM __Song AS __SongType ' tune specific data
+DIM __MODPlayer_Synth AS SoftSynthType ' softsynth instance for MOD playback
 REDIM __Order(0 TO 0) AS _UNSIGNED INTEGER ' order list
 REDIM __Pattern(0 TO 0, 0 TO 0, 0 TO 0) AS __NoteType ' pattern data strored as (pattern, row, channel)
 REDIM __Instrument(0 TO 0) AS __InstrumentType ' instrument info array
@@ -354,9 +355,10 @@ FUNCTION __MODPlayer_LoadS3M%% (buffer AS STRING)
     SHARED __Pattern() AS __NoteType
     SHARED __Instrument() AS __InstrumentType
     SHARED __Channel() AS __ChannelType
+    SHARED __MODPlayer_Synth AS SoftSynthType
 
     ' Initialize the softsynth sample mixer
-    IF NOT SoftSynth_Initialize THEN EXIT FUNCTION
+    IF NOT SoftSynth_Initialize(__MODPlayer_Synth) THEN EXIT FUNCTION
 
     __MODPlayer_InitializeSong ' just in case something is playing
 
@@ -431,7 +433,7 @@ FUNCTION __MODPlayer_LoadS3M%% (buffer AS STRING)
     DIM byte1 AS _UNSIGNED _BYTE: byte1 = StringFile_ReadByte(memFile)
     '_ECHO "Global volume =" + STR$(byte1)
     IF byte1 > __S3M_GLOBAL_VOLUME_MAX THEN byte1 = __S3M_GLOBAL_VOLUME_MAX
-    SoftSynth_SetGlobalVolume byte1 / __S3M_GLOBAL_VOLUME_MAX
+    SoftSynth_SetGlobalVolume __MODPlayer_Synth, byte1 / __S3M_GLOBAL_VOLUME_MAX
     '_ECHO "SoftSynth global volume =" + STR$(SoftSynth_GetGlobalVolume)
 
     ' Read the initial speed value
@@ -484,7 +486,7 @@ FUNCTION __MODPlayer_LoadS3M%% (buffer AS STRING)
     REDIM __Channel(0 TO __Song.channels - 1) AS __ChannelType
 
     ' Allocate the number of SoftSynth voices we need
-    SoftSynth_SetTotalVoices __Song.channels
+    SoftSynth_SetTotalVoices __MODPlayer_Synth, __Song.channels
 
     ' Set voice panning positions
     FOR i = 0 TO __Song.channels - 1
@@ -494,11 +496,11 @@ FUNCTION __MODPlayer_LoadS3M%% (buffer AS STRING)
         ' 25 <= x <= 29: Adlib/OPL2 #1 drums (Ax)
         SELECT CASE channelInfo(i)
             CASE 0 TO 7
-                SoftSynth_SetVoiceBalance i, -__CHANNEL_STEREO_SEPARATION ' pan to the left
+                SoftSynth_SetVoiceBalance __MODPlayer_Synth, i, -__CHANNEL_STEREO_SEPARATION ' pan to the left
                 __Channel(i).subtype = __INSTRUMENT_PCM
 
             CASE 8 TO 15
-                SoftSynth_SetVoiceBalance i, __CHANNEL_STEREO_SEPARATION ' pan it to the right
+                SoftSynth_SetVoiceBalance __MODPlayer_Synth, i, __CHANNEL_STEREO_SEPARATION ' pan it to the right
                 __Channel(i).subtype = __INSTRUMENT_PCM
 
             CASE 16 TO 24
@@ -548,7 +550,7 @@ FUNCTION __MODPlayer_LoadS3M%% (buffer AS STRING)
             IF i < __Song.channels THEN
                 ' WTF! Ewww!
                 IF _READBIT(byte1, 4) THEN ' if bit 4 is set - byte1 AND &H10
-                    SoftSynth_SetVoiceBalance i, (byte1 AND 15) / 15! * 2! - SOFTSYNTH_VOICE_PAN_RIGHT ' pan = (x / 15) * 2 - 1
+                    SoftSynth_SetVoiceBalance __MODPlayer_Synth, i, (byte1 AND 15) / 15! * 2! - SOFTSYNTH_VOICE_PAN_RIGHT ' pan = (x / 15) * 2 - 1
                     '_ECHO "Channel " + STR$(i) + " panning =" + STR$(SoftSynth_GetVoiceBalance(i))
                 END IF
             END IF
@@ -558,7 +560,7 @@ FUNCTION __MODPlayer_LoadS3M%% (buffer AS STRING)
     ' Set everything to mono if stereo flag is not set. This is so retarded! Sigh!
     IF NOT isStereo THEN
         FOR i = 0 TO __Song.channels - 1
-            SoftSynth_SetVoiceBalance i, 0!
+            SoftSynth_SetVoiceBalance __MODPlayer_Synth, i, 0!
             '_ECHO "Channel " + STR$(i) + " panning =" + STR$(SoftSynth_GetVoiceBalance(i))
         NEXT i
     END IF
@@ -946,7 +948,7 @@ FUNCTION __MODPlayer_LoadS3M%% (buffer AS STRING)
 
             ' Load sample size bytes of data and send it to our softsynth sample manager
             ' Sounds with zero frames will not cause any issues
-            SoftSynth_LoadSound i, sampBuf, __Instrument(i).bytesPerSample, __Instrument(i).channels
+            SoftSynth_LoadSound __MODPlayer_Synth, i, sampBuf, __Instrument(i).bytesPerSample, __Instrument(i).channels
         END IF
     NEXT i
 
@@ -967,9 +969,10 @@ FUNCTION __MODPlayer_LoadMTM%% (buffer AS STRING)
     SHARED __Pattern() AS __NoteType
     SHARED __Instrument() AS __InstrumentType
     SHARED __Channel() AS __ChannelType
+    SHARED __MODPlayer_Synth AS SoftSynthType
 
     ' Initialize the softsynth sample mixer
-    IF NOT SoftSynth_Initialize THEN EXIT FUNCTION
+    IF NOT SoftSynth_Initialize(__MODPlayer_Synth) THEN EXIT FUNCTION
 
     __MODPlayer_InitializeSong ' just in case something is playing
 
@@ -1020,7 +1023,7 @@ FUNCTION __MODPlayer_LoadMTM%% (buffer AS STRING)
     REDIM __Channel(0 TO __Song.channels - 1) AS __ChannelType
 
     ' Allocate the number of softsynth voices we need
-    SoftSynth_SetTotalVoices __Song.channels
+    SoftSynth_SetTotalVoices __MODPlayer_Synth, __Song.channels
 
     ' Read the panning positions
     DIM i AS LONG: FOR i = 0 TO __MTM_S3M_CHANNEL_MAX
@@ -1029,7 +1032,7 @@ FUNCTION __MODPlayer_LoadMTM%% (buffer AS STRING)
         ' Adjust and save the values per our mixer requirements
         IF i < __Song.channels AND byte1 < 16 THEN
             ' __CHANNEL_PCM = 0 so all MTM channels are by default PCM
-            SoftSynth_SetVoiceBalance i, (byte1 / 15!) * 2! - SOFTSYNTH_VOICE_PAN_RIGHT ' pan = (x / 15) * 2 - 1
+            SoftSynth_SetVoiceBalance __MODPlayer_Synth, i, (byte1 / 15!) * 2! - SOFTSYNTH_VOICE_PAN_RIGHT ' pan = (x / 15) * 2 - 1
         END IF
     NEXT i
 
@@ -1165,7 +1168,7 @@ FUNCTION __MODPlayer_LoadMTM%% (buffer AS STRING)
         IF __Instrument(i).bytesPerSample = _SIZE_OF_BYTE THEN AudioConv_ConvertU8ToS8 sampBuf
 
         ' Load sample size bytes of data and send it to our softsynth sample manager
-        SoftSynth_LoadSound i, sampBuf, __Instrument(i).bytesPerSample, __Instrument(i).channels
+        SoftSynth_LoadSound __MODPlayer_Synth, i, sampBuf, __Instrument(i).bytesPerSample, __Instrument(i).channels
     NEXT i
 
     ' Load all needed LUTs
@@ -1185,9 +1188,10 @@ FUNCTION __MODPlayer_LoadMOD%% (buffer AS STRING)
     SHARED __Instrument() AS __InstrumentType
     SHARED __Channel() AS __ChannelType
     SHARED __PeriodTable() AS _UNSIGNED INTEGER
+    SHARED __MODPlayer_Synth AS SoftSynthType
 
     ' Initialize the softsynth sample mixer
-    IF NOT SoftSynth_Initialize THEN EXIT FUNCTION
+    IF NOT SoftSynth_Initialize(__MODPlayer_Synth) THEN EXIT FUNCTION
 
     __MODPlayer_InitializeSong ' just in case something is playing
 
@@ -1396,7 +1400,7 @@ FUNCTION __MODPlayer_LoadMOD%% (buffer AS STRING)
         DIM sampBuf AS STRING: sampBuf = StringFile_ReadString(memFile, __Instrument(i).length)
 
         ' Load sample size bytes of data and send it to our softsynth sample manager
-        SoftSynth_LoadSound i, sampBuf, __Instrument(i).bytesPerSample, __Instrument(i).channels
+        SoftSynth_LoadSound __MODPlayer_Synth, i, sampBuf, __Instrument(i).bytesPerSample, __Instrument(i).channels
     NEXT
 
     ' Setup the channel array
@@ -1404,7 +1408,7 @@ FUNCTION __MODPlayer_LoadMOD%% (buffer AS STRING)
     REDIM __Channel(0 TO __Song.channels - 1) AS __ChannelType
 
     ' Allocate the number of softsynth voices we need
-    SoftSynth_SetTotalVoices __Song.channels
+    SoftSynth_SetTotalVoices __MODPlayer_Synth, __Song.channels
 
     ' Setup panning for all channels per AMIGA PAULA's panning setup - LRRLLRRL...
     ' opencp uses this: for (int i = 0; i < 8; i++) int panpos = ((i * 3) & 2) ? 0xFF : 0x00;
@@ -1415,14 +1419,14 @@ FUNCTION __MODPlayer_LoadMOD%% (buffer AS STRING)
     ' We will also not do hard left or hard right. Some amount of sound from each channel is allowed to blend with the other
     IF __Song.channels > 1 AND __Song.channels < 4 THEN
         ' Just setup channels 0 and 1. If we have a 3rd channel it will be handle by the SoftSynth
-        SoftSynth_SetVoiceBalance 0, -__CHANNEL_STEREO_SEPARATION
-        SoftSynth_SetVoiceBalance 1, __CHANNEL_STEREO_SEPARATION
+        SoftSynth_SetVoiceBalance __MODPlayer_Synth, 0, -__CHANNEL_STEREO_SEPARATION
+        SoftSynth_SetVoiceBalance __MODPlayer_Synth, 1, __CHANNEL_STEREO_SEPARATION
     ELSE
         FOR i = 0 TO __Song.channels - 1 - (__Song.channels MOD 4) STEP 4
-            SoftSynth_SetVoiceBalance i + 0, -__CHANNEL_STEREO_SEPARATION
-            SoftSynth_SetVoiceBalance i + 1, __CHANNEL_STEREO_SEPARATION
-            SoftSynth_SetVoiceBalance i + 2, __CHANNEL_STEREO_SEPARATION
-            SoftSynth_SetVoiceBalance i + 3, -__CHANNEL_STEREO_SEPARATION
+            SoftSynth_SetVoiceBalance __MODPlayer_Synth, i + 0, -__CHANNEL_STEREO_SEPARATION
+            SoftSynth_SetVoiceBalance __MODPlayer_Synth, i + 1, __CHANNEL_STEREO_SEPARATION
+            SoftSynth_SetVoiceBalance __MODPlayer_Synth, i + 2, __CHANNEL_STEREO_SEPARATION
+            SoftSynth_SetVoiceBalance __MODPlayer_Synth, i + 3, -__CHANNEL_STEREO_SEPARATION
         NEXT
     END IF
 
@@ -1491,9 +1495,10 @@ END FUNCTION
 ''' @brief Prepares channels, initializes the audio mixer, and begins song playback.
 SUB MODPlayer_Play
     SHARED __Song AS __SongType
+    SHARED __MODPlayer_Synth AS SoftSynthType
 
     ' Initialize some important stuff
-    __Song.tempoTimerValue = (SoftSynth_GetSampleRate * __SONG_BPM_DEFAULT) \ 50
+    __Song.tempoTimerValue = (SoftSynth_GetSampleRate(__MODPlayer_Synth) * __SONG_BPM_DEFAULT) \ 50
     __Song.orderPosition = NULL
     __Song.patternRow = NULL
     __Song.speed = __Song.defaultSpeed
@@ -1510,9 +1515,10 @@ END SUB
 ''' @brief Stops playback, mutes voices, and frees player and synthesizer resources.
 SUB MODPlayer_Stop
     SHARED __Song AS __SongType
+    SHARED __MODPlayer_Synth AS SoftSynthType
 
     ' Tell softsynth we are done
-    SoftSynth_Finalize
+    SoftSynth_Finalize __MODPlayer_Synth
 
     __Song.isPlaying = _FALSE
 END SUB
@@ -1523,9 +1529,10 @@ END SUB
 SUB MODPlayer_Update (bufferTimeSecs AS SINGLE)
     SHARED __Song AS __SongType
     SHARED __Order() AS _UNSIGNED INTEGER
+    SHARED __MODPlayer_Synth AS SoftSynthType
 
     ' Keep feeding the buffer until it is filled to our specified upper limit
-    DO WHILE SoftSynth_GetBufferedSoundTime < bufferTimeSecs
+    DO WHILE SoftSynth_GetBufferedSoundTime(__MODPlayer_Synth) < bufferTimeSecs
         ' Check conditions for which we should just exit and not process anything
         ' 1. Song is done and we are not looping
         ' 2. Playback was not requested
@@ -1605,7 +1612,7 @@ SUB MODPlayer_Update (bufferTimeSecs AS SINGLE)
         END IF
 
         ' Mix the current tick
-        SoftSynth_Update __Song.framesPerTick
+        SoftSynth_Update __MODPlayer_Synth, __Song.framesPerTick
 
         ' Increment song tick on each update
         __Song.tick = __Song.tick + 1
@@ -1620,6 +1627,7 @@ SUB __MODPlayer_UpdateRow
     SHARED __Instrument() AS __InstrumentType
     SHARED __Channel() AS __ChannelType
     SHARED __PeriodTable() AS _UNSIGNED INTEGER
+    SHARED __MODPlayer_Synth AS SoftSynthType
 
     DIM AS _UNSIGNED _BYTE nChannel, nNote, nInstrument, nVolume, nEffect, nOperand, nOpX, nOpY
     ' The effect flags below are set to true when a pattern jump effect and pattern break effect are triggered
@@ -1693,7 +1701,7 @@ SUB __MODPlayer_UpdateRow
 
             CASE __MOD_FX_PANNING_8
                 ' Don't care about DMP panning BS. We are doing this Fasttracker style
-                SoftSynth_SetVoiceBalance nChannel, (nOperand / 255!) * 2! - SOFTSYNTH_VOICE_PAN_RIGHT ' pan = ((x / 255) * 2) - 1
+                SoftSynth_SetVoiceBalance __MODPlayer_Synth, nChannel, (nOperand / 255!) * 2! - SOFTSYNTH_VOICE_PAN_RIGHT ' pan = ((x / 255) * 2) - 1
 
             CASE __MOD_FX_SAMPLE_OFFSET
                 __Channel(nChannel).startPosition = _SHL(nOperand, 8)
@@ -1761,7 +1769,7 @@ SUB __MODPlayer_UpdateRow
 
                     CASE __MOD_FX_EXTENDED_PANNING_4
                         IF nOpY > 15 THEN nOpY = 15
-                        SoftSynth_SetVoiceBalance nChannel, (nOpY / 15!) * 2! - SOFTSYNTH_VOICE_PAN_RIGHT ' pan = (x / 15) * 2 - 1
+                        SoftSynth_SetVoiceBalance __MODPlayer_Synth, nChannel, (nOpY / 15!) * 2! - SOFTSYNTH_VOICE_PAN_RIGHT ' pan = (x / 15) * 2 - 1
 
                     CASE __MOD_FX_EXTENDED_VOLUME_FINE_SLIDE_UP
                         __Channel(nChannel).volume = __Channel(nChannel).volume + nOpY
@@ -1871,7 +1879,7 @@ SUB __MODPlayer_UpdateRow
 
             CASE __MOD_FX_GLOBAL_VOLUME
                 ' ST3 ignores out-of-range values
-                IF nOperand <= __S3M_GLOBAL_VOLUME_MAX THEN SoftSynth_SetGlobalVolume nOperand / __S3M_GLOBAL_VOLUME_MAX
+                IF nOperand <= __S3M_GLOBAL_VOLUME_MAX THEN SoftSynth_SetGlobalVolume __MODPlayer_Synth, nOperand / __S3M_GLOBAL_VOLUME_MAX
 
             CASE __MOD_FX_GLOBAL_VOLUME_SLIDE
                 ERROR _ERR_FEATURE_UNAVAILABLE
@@ -1888,10 +1896,10 @@ SUB __MODPlayer_UpdateRow
 
         IF NOT noFrequency THEN
             IF nEffect <> __MOD_FX_TREMOLO THEN
-                SoftSynth_SetVoiceVolume nChannel, __Channel(nChannel).volume / __INSTRUMENT_VOLUME_MAX
+                SoftSynth_SetVoiceVolume __MODPlayer_Synth, nChannel, __Channel(nChannel).volume / __INSTRUMENT_VOLUME_MAX
             END IF
             IF __Channel(nChannel).period > 0 THEN
-                SoftSynth_SetVoiceFrequency nChannel, __MODPlayer_GetFrequencyFromPeriod(__Channel(nChannel).period)
+                SoftSynth_SetVoiceFrequency __MODPlayer_Synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(__Channel(nChannel).period)
             END IF
         END IF
     NEXT
@@ -1899,7 +1907,7 @@ SUB __MODPlayer_UpdateRow
     ' Now play all samples that needs to be played
     FOR nChannel = 0 TO __Song.activeChannels
         IF __Channel(nChannel).restart THEN
-            SoftSynth_PlayVoice nChannel, __Channel(nChannel).instrument, SoftSynth_ConvertBytesToFrames(__Channel(nChannel).startPosition, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), __Instrument(__Channel(nChannel).instrument).playMode, SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopStart, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopEnd, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels)
+            SoftSynth_PlayVoice __MODPlayer_Synth, nChannel, __Channel(nChannel).instrument, SoftSynth_ConvertBytesToFrames(__Channel(nChannel).startPosition, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), __Instrument(__Channel(nChannel).instrument).playMode, SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopStart, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopEnd, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels)
         END IF
     NEXT
 END SUB
@@ -1912,6 +1920,7 @@ SUB __MODPlayer_UpdateTick
     SHARED __Instrument() AS __InstrumentType
     SHARED __Channel() AS __ChannelType
     SHARED __PeriodTable() AS _UNSIGNED INTEGER
+    SHARED __MODPlayer_Synth AS SoftSynthType
 
     DIM AS _UNSIGNED _BYTE nChannel, nVolume, nEffect, nOperand, nOpX, nOpY
 
@@ -1934,22 +1943,22 @@ SUB __MODPlayer_UpdateTick
                     IF nOperand THEN
                         SELECT CASE __Song.tick MOD 3
                             CASE 0
-                                SoftSynth_SetVoiceFrequency nChannel, __MODPlayer_GetFrequencyFromPeriod(__Channel(nChannel).period)
+                                SoftSynth_SetVoiceFrequency __MODPlayer_Synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(__Channel(nChannel).period)
                             CASE 1
-                                SoftSynth_SetVoiceFrequency nChannel, __MODPlayer_GetFrequencyFromPeriod(__PeriodTable(__Channel(nChannel).note + nOpX))
+                                SoftSynth_SetVoiceFrequency __MODPlayer_Synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(__PeriodTable(__Channel(nChannel).note + nOpX))
                             CASE 2
-                                SoftSynth_SetVoiceFrequency nChannel, __MODPlayer_GetFrequencyFromPeriod(__PeriodTable(__Channel(nChannel).note + nOpY))
+                                SoftSynth_SetVoiceFrequency __MODPlayer_Synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(__PeriodTable(__Channel(nChannel).note + nOpY))
                         END SELECT
                     END IF
 
                 CASE __MOD_FX_PORTAMENTO_UP
                     __Channel(nChannel).period = __Channel(nChannel).period - _SHL(nOperand, 2)
                     IF __Channel(nChannel).period < 1 THEN __Channel(nChannel).period = 1 ' clamp to avoid division by zero
-                    SoftSynth_SetVoiceFrequency nChannel, __MODPlayer_GetFrequencyFromPeriod(__Channel(nChannel).period)
+                    SoftSynth_SetVoiceFrequency __MODPlayer_Synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(__Channel(nChannel).period)
 
                 CASE __MOD_FX_PORTAMENTO_DOWN
                     __Channel(nChannel).period = __Channel(nChannel).period + _SHL(nOperand, 2)
-                    SoftSynth_SetVoiceFrequency nChannel, __MODPlayer_GetFrequencyFromPeriod(__Channel(nChannel).period)
+                    SoftSynth_SetVoiceFrequency __MODPlayer_Synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(__Channel(nChannel).period)
 
                 CASE __MOD_FX_PORTAMENTO
                     __MODPlayer_DoPortamento nChannel
@@ -1976,23 +1985,23 @@ SUB __MODPlayer_UpdateTick
                         CASE __MOD_FX_EXTENDED_NOTE_RETRIGGER
                             IF nOpY <> 0 THEN
                                 IF __Song.tick MOD nOpY = 0 THEN
-                                    SoftSynth_PlayVoice nChannel, __Channel(nChannel).instrument, SoftSynth_ConvertBytesToFrames(__Channel(nChannel).startPosition, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), __Instrument(__Channel(nChannel).instrument).playMode, SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopStart, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopEnd, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels)
+                                    SoftSynth_PlayVoice __MODPlayer_Synth, nChannel, __Channel(nChannel).instrument, SoftSynth_ConvertBytesToFrames(__Channel(nChannel).startPosition, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), __Instrument(__Channel(nChannel).instrument).playMode, SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopStart, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopEnd, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels)
                                 END IF
                             END IF
 
                         CASE __MOD_FX_EXTENDED_NOTE_CUT
                             IF __Song.tick = nOpY THEN
                                 __Channel(nChannel).volume = 0
-                                SoftSynth_SetVoiceVolume nChannel, __Channel(nChannel).volume / __INSTRUMENT_VOLUME_MAX
+                                SoftSynth_SetVoiceVolume __MODPlayer_Synth, nChannel, __Channel(nChannel).volume / __INSTRUMENT_VOLUME_MAX
                             END IF
 
                         CASE __MOD_FX_EXTENDED_NOTE_DELAY
                             IF __Song.tick = nOpY THEN
                                 __Channel(nChannel).volume = __Instrument(__Channel(nChannel).instrument).volume
                                 IF nVolume <= __INSTRUMENT_VOLUME_MAX THEN __Channel(nChannel).volume = nVolume
-                                SoftSynth_SetVoiceFrequency nChannel, __MODPlayer_GetFrequencyFromPeriod(__Channel(nChannel).period)
-                                SoftSynth_SetVoiceVolume nChannel, __Channel(nChannel).volume / __INSTRUMENT_VOLUME_MAX
-                                SoftSynth_PlayVoice nChannel, __Channel(nChannel).instrument, SoftSynth_ConvertBytesToFrames(__Channel(nChannel).startPosition, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), __Instrument(__Channel(nChannel).instrument).playMode, SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopStart, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopEnd, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels)
+                                SoftSynth_SetVoiceFrequency __MODPlayer_Synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(__Channel(nChannel).period)
+                                SoftSynth_SetVoiceVolume __MODPlayer_Synth, nChannel, __Channel(nChannel).volume / __INSTRUMENT_VOLUME_MAX
+                                SoftSynth_PlayVoice __MODPlayer_Synth, nChannel, __Channel(nChannel).instrument, SoftSynth_ConvertBytesToFrames(__Channel(nChannel).startPosition, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), __Instrument(__Channel(nChannel).instrument).playMode, SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopStart, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopEnd, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels)
                             END IF
                     END SELECT
 
@@ -2001,11 +2010,11 @@ SUB __MODPlayer_UpdateTick
 
                 CASE __MOD_FX_PORTAMENTO_EXTRA_FINE_DOWN
                     IF __Channel(nChannel).lastPortamento < &HE0 THEN __Channel(nChannel).period = __Channel(nChannel).period + _SHL(__Channel(nChannel).lastPortamento, 2)
-                    SoftSynth_SetVoiceFrequency nChannel, __MODPlayer_GetFrequencyFromPeriod(__Channel(nChannel).period)
+                    SoftSynth_SetVoiceFrequency __MODPlayer_Synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(__Channel(nChannel).period)
 
                 CASE __MOD_FX_PORTAMENTO_EXTRA_FINE_UP
                     IF __Channel(nChannel).lastPortamento < &HE0 THEN __Channel(nChannel).period = __Channel(nChannel).period - _SHL(__Channel(nChannel).lastPortamento, 2)
-                    SoftSynth_SetVoiceFrequency nChannel, __MODPlayer_GetFrequencyFromPeriod(__Channel(nChannel).period)
+                    SoftSynth_SetVoiceFrequency __MODPlayer_Synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(__Channel(nChannel).period)
 
                 CASE __MOD_FX_TREMOR
                     __MODPlayer_DoS3MTremor nChannel
@@ -2077,10 +2086,10 @@ SUB __MODPlayer_UpdateTick
 
                                 __Channel(nChannel).volume = _CLAMP(__Channel(nChannel).volume, 0, __INSTRUMENT_VOLUME_MAX)
 
-                                SoftSynth_SetVoiceVolume nChannel, __Channel(nChannel).volume / __INSTRUMENT_VOLUME_MAX
+                                SoftSynth_SetVoiceVolume __MODPlayer_Synth, nChannel, __Channel(nChannel).volume / __INSTRUMENT_VOLUME_MAX
                             END IF
 
-                            SoftSynth_PlayVoice nChannel, __Channel(nChannel).instrument, SoftSynth_ConvertBytesToFrames(__Channel(nChannel).startPosition, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), __Instrument(__Channel(nChannel).instrument).playMode, SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopStart, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopEnd, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels)
+                            SoftSynth_PlayVoice __MODPlayer_Synth, nChannel, __Channel(nChannel).instrument, SoftSynth_ConvertBytesToFrames(__Channel(nChannel).startPosition, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), __Instrument(__Channel(nChannel).instrument).playMode, SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopStart, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels), SoftSynth_ConvertBytesToFrames(__Instrument(__Channel(nChannel).instrument).loopEnd, __Instrument(__Channel(nChannel).instrument).bytesPerSample, __Instrument(__Channel(nChannel).instrument).channels)
                         END IF
                     END IF
 
@@ -2151,6 +2160,7 @@ END FUNCTION
 ''' @param chan Channel index (0-based).
 SUB __MODPlayer_DoPortamento (chan AS _UNSIGNED _BYTE)
     SHARED __Channel() AS __ChannelType
+    SHARED __MODPlayer_Synth AS SoftSynthType
 
     ' Slide up/down and clamp to destination
     IF __Channel(chan).period < __Channel(chan).portamentoTo THEN
@@ -2166,9 +2176,9 @@ SUB __MODPlayer_DoPortamento (chan AS _UNSIGNED _BYTE)
     END IF
 
     IF __Channel(chan).useGlissando THEN
-        SoftSynth_SetVoiceFrequency chan, __MODPlayer_GetFrequencyFromPeriod(__MODPlayer_GetClosestPeriod(__Channel(chan).period))
+        SoftSynth_SetVoiceFrequency __MODPlayer_Synth, chan, __MODPlayer_GetFrequencyFromPeriod(__MODPlayer_GetClosestPeriod(__Channel(chan).period))
     ELSE
-        SoftSynth_SetVoiceFrequency chan, __MODPlayer_GetFrequencyFromPeriod(__Channel(chan).period)
+        SoftSynth_SetVoiceFrequency __MODPlayer_Synth, chan, __MODPlayer_GetFrequencyFromPeriod(__Channel(chan).period)
     END IF
 END SUB
 
@@ -2180,6 +2190,7 @@ END SUB
 ''' @param isNotFine _TRUE for regular volume slide, _FALSE for fine volume slide.
 SUB __MODPlayer_DoVolumeSlide (chan AS _UNSIGNED _BYTE, x AS _UNSIGNED _BYTE, y AS _UNSIGNED _BYTE, isNotFine AS _BYTE)
     SHARED __Channel() AS __ChannelType
+    SHARED __MODPlayer_Synth AS SoftSynthType
 
     IF isNotFine THEN
         __Channel(chan).volume = __Channel(chan).volume + x - y
@@ -2191,7 +2202,7 @@ SUB __MODPlayer_DoVolumeSlide (chan AS _UNSIGNED _BYTE, x AS _UNSIGNED _BYTE, y 
     IF __Channel(chan).volume > __INSTRUMENT_VOLUME_MAX THEN __Channel(chan).volume = __INSTRUMENT_VOLUME_MAX
     IF __Channel(chan).volume < 0 THEN __Channel(chan).volume = 0
 
-    SoftSynth_SetVoiceVolume chan, __Channel(chan).volume / __INSTRUMENT_VOLUME_MAX
+    SoftSynth_SetVoiceVolume __MODPlayer_Synth, chan, __Channel(chan).volume / __INSTRUMENT_VOLUME_MAX
 END SUB
 
 
@@ -2199,13 +2210,14 @@ END SUB
 ''' @param chan Channel index (0-based).
 SUB __MODPlayer_DoS3MTremor (chan AS _UNSIGNED _BYTE)
     SHARED __Channel() AS __ChannelType
+    SHARED __MODPlayer_Synth AS SoftSynthType
 
     __Channel(chan).tremorPosition = __Channel(chan).tremorPosition MOD (_SHR(__Channel(chan).tremorParameters, 4) + (__Channel(chan).tremorParameters AND &HF))
 
     IF __Channel(chan).tremorPosition < _SHR(__Channel(chan).tremorParameters, 4) THEN
-        SoftSynth_SetVoiceVolume chan, __Channel(chan).volume / __INSTRUMENT_VOLUME_MAX
+        SoftSynth_SetVoiceVolume __MODPlayer_Synth, chan, __Channel(chan).volume / __INSTRUMENT_VOLUME_MAX
     ELSE
-        SoftSynth_SetVoiceVolume chan, 0
+        SoftSynth_SetVoiceVolume __MODPlayer_Synth, chan, 0
     END IF
 
     __Channel(chan).tremorPosition = __Channel(chan).tremorPosition + 1
@@ -2218,6 +2230,7 @@ END SUB
 SUB __MODPlayer_DoVibrato (chan AS _UNSIGNED _BYTE, isNotFine AS _BYTE)
     SHARED __Channel() AS __ChannelType
     SHARED __SineTable() AS _UNSIGNED _BYTE
+    SHARED __MODPlayer_Synth AS SoftSynthType
 
     DIM delta AS _UNSIGNED INTEGER
     DIM temp AS _UNSIGNED _BYTE
@@ -2244,9 +2257,9 @@ SUB __MODPlayer_DoVibrato (chan AS _UNSIGNED _BYTE, isNotFine AS _BYTE)
     IF isNotFine THEN delta = _SHL(delta, 2) ' make vibrato 4 times bigger
 
     IF __Channel(chan).vibratoPosition >= 0 THEN
-        SoftSynth_SetVoiceFrequency chan, __MODPlayer_GetFrequencyFromPeriod(__Channel(chan).period + delta)
+        SoftSynth_SetVoiceFrequency __MODPlayer_Synth, chan, __MODPlayer_GetFrequencyFromPeriod(__Channel(chan).period + delta)
     ELSE
-        SoftSynth_SetVoiceFrequency chan, __MODPlayer_GetFrequencyFromPeriod(__Channel(chan).period - delta)
+        SoftSynth_SetVoiceFrequency __MODPlayer_Synth, chan, __MODPlayer_GetFrequencyFromPeriod(__Channel(chan).period - delta)
     END IF
 
     __Channel(chan).vibratoPosition = __Channel(chan).vibratoPosition + __Channel(chan).vibratoSpeed
@@ -2261,6 +2274,7 @@ END SUB
 SUB __MODPlayer_DoTremolo (chan AS _UNSIGNED _BYTE)
     SHARED __Channel() AS __ChannelType
     SHARED __SineTable() AS _UNSIGNED _BYTE
+    SHARED __MODPlayer_Synth AS SoftSynthType
 
     DIM delta AS _UNSIGNED INTEGER
     DIM temp AS _UNSIGNED _BYTE
@@ -2287,10 +2301,10 @@ SUB __MODPlayer_DoTremolo (chan AS _UNSIGNED _BYTE)
 
     IF __Channel(chan).tremoloPosition >= 0 THEN
         IF __Channel(chan).volume + delta > __INSTRUMENT_VOLUME_MAX THEN delta = __INSTRUMENT_VOLUME_MAX - __Channel(chan).volume
-        SoftSynth_SetVoiceVolume chan, (__Channel(chan).volume + delta) / __INSTRUMENT_VOLUME_MAX
+        SoftSynth_SetVoiceVolume __MODPlayer_Synth, chan, (__Channel(chan).volume + delta) / __INSTRUMENT_VOLUME_MAX
     ELSE
         IF __Channel(chan).volume - delta < 0 THEN delta = __Channel(chan).volume
-        SoftSynth_SetVoiceVolume chan, (__Channel(chan).volume - delta) / __INSTRUMENT_VOLUME_MAX
+        SoftSynth_SetVoiceVolume __MODPlayer_Synth, chan, (__Channel(chan).volume - delta) / __INSTRUMENT_VOLUME_MAX
     END IF
 
     __Channel(chan).tremoloPosition = __Channel(chan).tremoloPosition + __Channel(chan).tremoloSpeed
@@ -2304,6 +2318,7 @@ SUB __MODPlayer_DoInvertLoop (chan AS _UNSIGNED _BYTE)
     SHARED __Channel() AS __ChannelType
     SHARED __Instrument() AS __InstrumentType
     SHARED __InvertLoopSpeedTable() AS _UNSIGNED _BYTE
+    SHARED __MODPlayer_Synth AS SoftSynthType
 
     __Channel(chan).invertLoopDelay = __Channel(chan).invertLoopDelay + __InvertLoopSpeedTable(__Channel(chan).invertLoopSpeed)
 
@@ -2321,7 +2336,7 @@ SUB __MODPlayer_DoInvertLoop (chan AS _UNSIGNED _BYTE)
 
         ' Yeah I know, this is weird. QB64 NOT is bitwise and not logical
         DIM p AS _UNSIGNED LONG: p = SoftSynth_ConvertBytesToFrames(__Channel(chan).invertLoopPosition, __Instrument(sampleNumber).bytesPerSample, __Instrument(sampleNumber).channels)
-        SoftSynth_PokeSoundFrameByte sampleNumber, p, NOT SoftSynth_PeekSoundFrameByte(sampleNumber, p)
+        SoftSynth_PokeSoundFrameByte __MODPlayer_Synth, sampleNumber, p, NOT SoftSynth_PeekSoundFrameByte(__MODPlayer_Synth, sampleNumber, p)
     END IF
 END SUB
 
