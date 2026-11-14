@@ -417,7 +417,7 @@ FUNCTION __MODPlayer_LoadS3M%% (buffer AS STRING)
     '_ECHO "CWT/V = " + HEX$(word1)
 
     ' ST3.00 does volumeslides on EVERY tick. So we'll update the flag
-    __Song.useST300VolumeSlides = __Song.useST300VolumeSlides OR (word1 = &H1300)
+    __Song.useST300VolumeSlides = __Song.useST300VolumeSlides _ORELSE (word1 = &H1300)
     '_ECHO "useST300VolumeSlides =" + STR$(__Song.useST300VolumeSlides)
 
     ' Read the sample format type
@@ -658,10 +658,10 @@ FUNCTION __MODPlayer_LoadS3M%% (buffer AS STRING)
             '_ECHO " Instrument name = " + __Instrument(i).caption
 
             ' Read and verify the 'SCRS' label. This will ensure we are reading the file correctly somewhat until this point
-            IF StringFile_ReadString(memFile, 4) <> "SCRS" AND __INSTRUMENT_PCM = __Instrument(i).subtype THEN EXIT FUNCTION
+            IF StringFile_ReadString(memFile, 4) <> "SCRS" _ANDALSO __INSTRUMENT_PCM = __Instrument(i).subtype THEN EXIT FUNCTION
 
             ' Validate a few things
-            IF __Instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP AND __Instrument(i).loopEnd > 2 THEN
+            IF __Instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP _ANDALSO __Instrument(i).loopEnd > 2 THEN
                 IF __Instrument(i).loopEnd > __Instrument(i).length THEN __Instrument(i).loopEnd = __Instrument(i).length
             ELSE
                 __Instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD
@@ -1017,7 +1017,7 @@ FUNCTION __MODPlayer_LoadMTM%% (buffer AS STRING)
     __Song.channels = StringFile_ReadByte(memFile)
 
     ' Sanity check
-    IF numTracks = 0 OR __Song.instruments = 0 OR __Song.rows = 0 OR __Song.channels = 0 THEN EXIT FUNCTION
+    IF numTracks = 0 _ORELSE __Song.instruments = 0 _ORELSE __Song.rows = 0 _ORELSE __Song.channels = 0 THEN EXIT FUNCTION
 
     ' Resize the channel array
     REDIM __Channel(0 TO __Song.channels - 1) AS __ChannelType
@@ -1030,7 +1030,7 @@ FUNCTION __MODPlayer_LoadMTM%% (buffer AS STRING)
         byte1 = StringFile_ReadByte(memFile) ' read the raw value
 
         ' Adjust and save the values per our mixer requirements
-        IF i < __Song.channels AND byte1 < 16 THEN
+        IF i < __Song.channels _ANDALSO byte1 < 16 THEN
             ' __CHANNEL_PCM = 0 so all MTM channels are by default PCM
             SoftSynth_SetVoiceBalance __MODPlayer_Synth, i, (byte1 / 15!) * 2! - SOFTSYNTH_VOICE_PAN_RIGHT ' pan = (x / 15) * 2 - 1
         END IF
@@ -1051,11 +1051,11 @@ FUNCTION __MODPlayer_LoadMTM%% (buffer AS STRING)
 
         ' Read loop start
         __Instrument(i).loopStart = StringFile_ReadLong(memFile)
-        IF __Instrument(i).loopStart < 0 OR __Instrument(i).loopStart >= __Instrument(i).length THEN __Instrument(i).loopStart = 0 ' sanity check
+        IF __Instrument(i).loopStart < 0 _ORELSE __Instrument(i).loopStart >= __Instrument(i).length THEN __Instrument(i).loopStart = 0 ' sanity check
 
         ' Read loop end
         __Instrument(i).loopEnd = StringFile_ReadLong(memFile)
-        IF __Instrument(i).loopEnd < 0 OR __Instrument(i).loopEnd >= __Instrument(i).length THEN
+        IF __Instrument(i).loopEnd < 0 _ORELSE __Instrument(i).loopEnd >= __Instrument(i).length THEN
             __Instrument(i).loopEnd = __Instrument(i).length ' sanity check
         END IF
 
@@ -1122,7 +1122,7 @@ FUNCTION __MODPlayer_LoadMTM%% (buffer AS STRING)
             mtmTrack(i, j).volume = __NOTE_NO_VOLUME
 
             ' MTM fix: when the effect is volume-slide, slide-up always overrides slide-down
-            IF mtmTrack(i, j).effect = &HA AND (mtmTrack(i, j).operand AND &HF0) <> 0 THEN
+            IF mtmTrack(i, j).effect = &HA _ANDALSO (mtmTrack(i, j).operand AND &HF0) <> 0 THEN
                 mtmTrack(i, j).operand = mtmTrack(i, j).operand AND &HF0
             END IF
         NEXT j
@@ -1222,16 +1222,16 @@ FUNCTION __MODPlayer_LoadMOD%% (buffer AS STRING)
                 ' Check xCNH types
                 __Song.channels = VAL(LEFT$(__Song.subtype, 1))
                 __Song.instruments = 31
-            ELSEIF RIGHT$(__Song.subtype, 2) = "CH" OR RIGHT$(__Song.subtype, 2) = "CN" THEN
+            ELSEIF RIGHT$(__Song.subtype, 2) = "CH" _ORELSE RIGHT$(__Song.subtype, 2) = "CN" THEN
                 ' Check for xxCH & xxCN types
                 __Song.channels = VAL(LEFT$(__Song.subtype, 2))
                 __Song.instruments = 31
-            ELSEIF LEFT$(__Song.subtype, 3) = "FLT" OR LEFT$(__Song.subtype, 3) = "TDZ" OR LEFT$(__Song.subtype, 3) = "EXO" THEN
+            ELSEIF LEFT$(__Song.subtype, 3) = "FLT" _ORELSE LEFT$(__Song.subtype, 3) = "TDZ" _ORELSE LEFT$(__Song.subtype, 3) = "EXO" THEN
                 ' Check for FLTx, TDZx & EXOx types
                 __Song.channels = VAL(RIGHT$(__Song.subtype, 1))
                 __Song.instruments = 31
                 isFLT8 = (__Song.subtype = "FLT8")
-            ELSEIF LEFT$(__Song.subtype, 2) = "CD" AND RIGHT$(__Song.subtype, 1) = "1" THEN
+            ELSEIF LEFT$(__Song.subtype, 2) = "CD" _ANDALSO RIGHT$(__Song.subtype, 1) = "1" THEN
                 ' Check for CDx1 types
                 __Song.channels = VAL(MID$(__Song.subtype, 3, 1))
                 __Song.instruments = 31
@@ -1242,7 +1242,7 @@ FUNCTION __MODPlayer_LoadMOD%% (buffer AS STRING)
             ELSE
                 ' Extra checks for 15 sample MOD
                 FOR i = 1 TO LEN(__Song.caption)
-                    IF ASC(__Song.caption, i) < _ASC_SPACE AND ASC(__Song.caption, i) <> NULL THEN EXIT FUNCTION ' this is probably not a 15 sample MOD file
+                    IF ASC(__Song.caption, i) < _ASC_SPACE _ANDALSO ASC(__Song.caption, i) <> NULL THEN EXIT FUNCTION ' this is probably not a 15 sample MOD file
                 NEXT
                 __Song.channels = 4
                 __Song.instruments = 15
@@ -1251,7 +1251,7 @@ FUNCTION __MODPlayer_LoadMOD%% (buffer AS STRING)
     END SELECT
 
     ' Sanity check
-    IF __Song.instruments = 0 OR __Song.channels = 0 THEN EXIT FUNCTION
+    IF __Song.instruments = 0 _ORELSE __Song.channels = 0 THEN EXIT FUNCTION
 
     ' Resize the instruments array
     REDIM __Instrument(0 TO __Song.instruments - 1) AS __InstrumentType
@@ -1289,7 +1289,7 @@ FUNCTION __MODPlayer_LoadMOD%% (buffer AS STRING)
         ' Some MOD file loop points are truly fucked
         ' These checks are taken directly from OpenMPT's MOD loader which seem to do a decent job dealing with messed up MODs
         ' See if loop start is incorrect as words, but correct as bytes (like in Soundtracker modules)
-        IF loopLength > 2 AND __Instrument(i).loopStart + loopLength > __Instrument(i).length AND __Instrument(i).loopStart \ 2 + loopLength <= __Instrument(i).length THEN
+        IF loopLength > 2 _ANDALSO __Instrument(i).loopStart + loopLength > __Instrument(i).length _ANDALSO __Instrument(i).loopStart \ 2 + loopLength <= __Instrument(i).length THEN
             __Instrument(i).loopStart = __Instrument(i).loopStart \ 2
         END IF
 
@@ -1300,7 +1300,7 @@ FUNCTION __MODPlayer_LoadMOD%% (buffer AS STRING)
 
             IF __Instrument(i).loopStart >= __Instrument(i).length THEN __Instrument(i).loopStart = __Instrument(i).length - 1
 
-            IF __Instrument(i).loopStart > __Instrument(i).loopEnd OR __Instrument(i).loopEnd < 4 OR __Instrument(i).loopEnd - __Instrument(i).loopStart < 4 THEN
+            IF __Instrument(i).loopStart > __Instrument(i).loopEnd _ORELSE __Instrument(i).loopEnd < 4 _ORELSE __Instrument(i).loopEnd - __Instrument(i).loopStart < 4 THEN
                 __Instrument(i).loopStart = 0
                 __Instrument(i).loopEnd = 0
             END IF
@@ -1310,7 +1310,7 @@ FUNCTION __MODPlayer_LoadMOD%% (buffer AS STRING)
             ' On the other hand, "Crew Generation" by Necros (6CHN) has a sample with a similar loop, which is supposed to be played.
             ' To be able to correctly play both modules, we will draw a somewhat arbitrary line here and trust the loop points in MODs with more than
             ' 4 channels, even if they are tiny and at the very beginning of the sample.
-            IF __Instrument(i).loopEnd <= 8 AND __Instrument(i).loopStart = 0 AND __Instrument(i).length > __Instrument(i).loopEnd AND __Song.channels = 4 THEN
+            IF __Instrument(i).loopEnd <= 8 _ANDALSO __Instrument(i).loopStart = 0 _ANDALSO __Instrument(i).length > __Instrument(i).loopEnd _ANDALSO __Song.channels = 4 THEN
                 __Instrument(i).loopEnd = 0
             END IF
 
@@ -1417,7 +1417,7 @@ FUNCTION __MODPlayer_LoadMOD%% (buffer AS STRING)
     ' If we have > 4 channels, then all prefect 4 groups are set as LRRL
     ' Any channels that are left out are simply centered by the SoftSynth
     ' We will also not do hard left or hard right. Some amount of sound from each channel is allowed to blend with the other
-    IF __Song.channels > 1 AND __Song.channels < 4 THEN
+    IF __Song.channels > 1 _ANDALSO __Song.channels < 4 THEN
         ' Just setup channels 0 and 1. If we have a 3rd channel it will be handle by the SoftSynth
         SoftSynth_SetVoiceBalance __MODPlayer_Synth, 0, -__CHANNEL_STEREO_SEPARATION
         SoftSynth_SetVoiceBalance __MODPlayer_Synth, 1, __CHANNEL_STEREO_SEPARATION
@@ -1722,7 +1722,7 @@ SUB __MODPlayer_UpdateRow
             CASE __MOD_FX_PATTERN_BREAK
                 __Song.patternRow = (nOpX * 10) + nOpY - 1
                 IF __Song.patternRow >= __Song.rows THEN __Song.patternRow = -1
-                IF NOT breakEffectFlag AND NOT jumpEffectFlag THEN
+                IF NOT breakEffectFlag _ANDALSO NOT jumpEffectFlag THEN
                     __Song.orderPosition = __Song.orderPosition + 1
                     IF __Song.orderPosition >= __Song.orders THEN __Song.orderPosition = __Song.endJumpOrder
                 END IF
@@ -2324,7 +2324,7 @@ SUB __MODPlayer_DoInvertLoop (chan AS _UNSIGNED _BYTE)
 
     DIM sampleNumber AS _UNSIGNED _BYTE: sampleNumber = __Channel(chan).instrument ' cache the sample number case we'll use this often below
 
-    IF __Channel(chan).invertLoopDelay >= 128 AND SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP = __Instrument(sampleNumber).playMode THEN
+    IF __Channel(chan).invertLoopDelay >= 128 _ANDALSO SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP = __Instrument(sampleNumber).playMode THEN
         __Channel(chan).invertLoopDelay = 0 ' reset delay
         IF __Channel(chan).invertLoopPosition < __Instrument(sampleNumber).loopStart THEN
             __Channel(chan).invertLoopPosition = __Instrument(sampleNumber).loopStart

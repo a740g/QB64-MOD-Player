@@ -109,7 +109,7 @@ END SUB
 ''' @param channels Channel count (1 for mono, 2 for stereo).
 ''' @return Number of sample frames.
 FUNCTION SoftSynth_ConvertBytesToFrames~& (bytes AS _UNSIGNED LONG, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
-    IF bytesPerSample = 0 OR channels = 0 THEN
+    IF bytesPerSample = 0 _ORELSE channels = 0 THEN
         SoftSynth_ConvertBytesToFrames = 0
     ELSE
         SoftSynth_ConvertBytesToFrames = bytes \ (CLNG(bytesPerSample) * CLNG(channels))
@@ -218,7 +218,7 @@ SUB SoftSynth_LoadSound (ctx AS SoftSynthType, snd AS LONG, buffer AS STRING, by
     IF NOT ctx.initialized THEN EXIT SUB
     IF snd < 0 THEN EXIT SUB
     IF channels < 1 THEN EXIT SUB
-    IF bytesPerSample <> 1 AND bytesPerSample <> 2 AND bytesPerSample <> 4 THEN EXIT SUB
+    IF bytesPerSample <> 1 _ANDALSO bytesPerSample <> 2 _ANDALSO bytesPerSample <> 4 THEN EXIT SUB
 
     DIM bytes AS _UNSIGNED LONG
     bytes = LEN(buffer)
@@ -294,7 +294,7 @@ END SUB
 ''' @return Normalized sample value (-1.0 to 1.0).
 FUNCTION SoftSynth_PeekSoundFrameSingle! (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG)
     IF NOT ctx.initialized THEN EXIT FUNCTION
-    IF snd < 0 OR snd >= ctx.totalSounds THEN EXIT FUNCTION
+    IF snd < 0 _ORELSE snd >= ctx.totalSounds THEN EXIT FUNCTION
     IF position >= ctx.sounds(snd).length THEN EXIT FUNCTION
 
     SoftSynth_PeekSoundFrameSingle = ctx.sounds(snd).frames(position)
@@ -307,7 +307,7 @@ END FUNCTION
 ''' @param frame Normalized sample value (-1.0 to 1.0).
 SUB SoftSynth_PokeSoundFrameSingle (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG, frame AS SINGLE)
     IF NOT ctx.initialized THEN EXIT SUB
-    IF snd < 0 OR snd >= ctx.totalSounds THEN EXIT SUB
+    IF snd < 0 _ORELSE snd >= ctx.totalSounds THEN EXIT SUB
     IF position >= ctx.sounds(snd).length THEN EXIT SUB
 
     ctx.sounds(snd).frames(position) = frame
@@ -469,12 +469,12 @@ END SUB
 SUB SoftSynth_PlayVoice (ctx AS SoftSynthType, voice AS _UNSIGNED LONG, snd AS LONG, position AS _UNSIGNED LONG, mode AS LONG, startPosition AS _UNSIGNED LONG, endPosition AS _UNSIGNED LONG)
     IF NOT ctx.initialized THEN EXIT SUB
     IF voice >= ctx.totalVoices THEN EXIT SUB
-    IF snd < 0 OR snd >= ctx.totalSounds THEN EXIT SUB
+    IF snd < 0 _ORELSE snd >= ctx.totalSounds THEN EXIT SUB
 
     DIM v AS __SoftSynthVoiceType
     v = ctx.voices(voice) ' work on local copy to preserve pan
 
-    IF mode < SOFTSYNTH_VOICE_PLAY_FORWARD OR mode > SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP THEN
+    IF mode < SOFTSYNTH_VOICE_PLAY_FORWARD _ORELSE mode > SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP THEN
         v.playMode = SOFTSYNTH_VOICE_PLAY_FORWARD
     ELSE
         v.playMode = mode
@@ -554,7 +554,7 @@ SUB __SoftSynth_Update (ctx AS SoftSynthType, buffer() AS SINGLE, frames AS _UNS
         IF ctx.voices(v).sound = SOFTSYNTH_VOICE_NO_SOUND THEN _CONTINUE
 
         DIM sndIdx AS LONG: sndIdx = ctx.voices(v).sound
-        IF sndIdx < 0 OR sndIdx >= ctx.totalSounds THEN
+        IF sndIdx < 0 _ORELSE sndIdx >= ctx.totalSounds THEN
             ctx.voices(v).sound = SOFTSYNTH_VOICE_NO_SOUND
             _CONTINUE
         END IF

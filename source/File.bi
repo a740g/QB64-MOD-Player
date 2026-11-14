@@ -62,7 +62,7 @@ FUNCTION File_LoadFromURL$ (url AS STRING)
             GET h, , buffer
             content = content + buffer
             IF __File.updatesPerSecond > 0 THEN _LIMIT __File.updatesPerSecond
-            IF __File.timeoutTicks > 0 AND (Time_GetTicks - startTick) > __File.timeoutTicks THEN EXIT WHILE
+            IF __File.timeoutTicks > 0 _ANDALSO (Time_GetTicks - startTick) > __File.timeoutTicks THEN EXIT WHILE
             __File.percentCompleted = (LEN(content) / LOF(h)) * 100!
         WEND
 
@@ -89,7 +89,7 @@ END SUB
 ''' @param overwrite If _FALSE and the file already exists, the file will not be overwritten.
 ''' @return _TRUE if the file was written, _FALSE if skipped due to existing file.
 FUNCTION File_Save%% (buffer AS STRING, fileName AS STRING, overwrite AS _BYTE)
-    IF _FILEEXISTS(fileName) AND NOT overwrite THEN EXIT FUNCTION
+    IF _FILEEXISTS(fileName) _ANDALSO NOT overwrite THEN EXIT FUNCTION
     _WRITEFILE fileName, buffer
     File_Save = _TRUE
 END FUNCTION
@@ -99,7 +99,7 @@ END FUNCTION
 ''' @param fileName The path of the file to save to.
 ''' @param overwrite If _FALSE and the file already exists, the file will not be overwritten.
 SUB File_Save (buffer AS STRING, fileName AS STRING, overwrite AS _BYTE)
-    IF _FILEEXISTS(fileName) AND NOT overwrite THEN EXIT SUB
+    IF _FILEEXISTS(fileName) _ANDALSO NOT overwrite THEN EXIT SUB
     _WRITEFILE fileName, buffer
 END SUB
 
