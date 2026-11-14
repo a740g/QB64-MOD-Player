@@ -84,10 +84,11 @@ TYPE FFTType
     size AS Vector2i
 END TYPE
 
-REDIM SHARED NoteTable(0) AS STRING * 2 ' this contains the note stings
-DIM SHARED WindowWidth AS LONG ' the width of our windows in characters
-DIM SHARED PatternDisplayWidth AS LONG ' the width of the pattern display in characters
-DIM SHARED FFT AS FFTType ' global FFT info
+REDIM NoteTable(0) AS STRING * 2 ' this contains the note stings
+DIM WindowWidth AS LONG ' the width of our windows in characters
+DIM PatternDisplayWidth AS LONG ' the width of the pattern display in characters
+DIM FFT AS FFTType ' global FFT info
+DIM AnalyzerL AS AudioAnalyzerType, AnalyzerR AS AudioAnalyzerType ' left & right audio analyzers
 REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0), SpectrumAnalyzerR(0) ' left & right channel FFT data
 DIM Stars(1 TO STAR_COUNT) AS StarType
 DIM Snakes(1 TO SNAKE_COUNT) AS SnakeType
@@ -106,6 +107,11 @@ END SUB
 
 ''' @brief Renders the tracker visualizer, pattern data, and FFT spectrum analyzers.
 SUB DrawVisualization
+    SHARED NoteTable() AS STRING * 2
+    SHARED WindowWidth AS LONG
+    SHARED PatternDisplayWidth AS LONG
+    SHARED FFT AS FFTType
+    SHARED AS AudioAnalyzerType AnalyzerL, AnalyzerR
     SHARED AS _UNSIGNED INTEGER SpectrumAnalyzerL(), SpectrumAnalyzerR()
 
     ' These are internal variables and arrays used by the MODPlayer library and are used for showing internal info and visualization
@@ -311,10 +317,9 @@ SUB DrawVisualization
         FFT.framesPerTick = __Song.framesPerTick
     END IF
 
-    ' Get the FFT data and ignore the audio intensity level (for now)
-    DIM ignored AS SINGLE
-    ignored = AudioAnalyzer_CalculateFFT(SpectrumAnalyzerL(), __MODPlayer_Synth.soundBuffer(), 0, 2, FFT.bits)
-    ignored = AudioAnalyzer_CalculateFFT(SpectrumAnalyzerR(), __MODPlayer_Synth.soundBuffer(), 1, 2, FFT.bits)
+    ' Calculate stereo FFT data
+    AudioAnalyzer_CalculateFFT AnalyzerL, SpectrumAnalyzerL(), __MODPlayer_Synth.soundBuffer(), 0, 2, FFT.bits
+    AudioAnalyzer_CalculateFFT AnalyzerR, SpectrumAnalyzerR(), __MODPlayer_Synth.soundBuffer(), 1, 2, FFT.bits
 
     COLOR Black, Black
 
@@ -568,6 +573,8 @@ END FUNCTION
 
 ''' @brief Loads note name string lookup table for UI display.
 SUB InitializeNoteTable
+    SHARED NoteTable() AS STRING * 2
+
     DIM AS _UNSIGNED _BYTE n, v
     RESTORE NoteTab
     READ v
@@ -585,6 +592,8 @@ END SUB
 ''' @brief Dynamically resizes the console window based on song channel count.
 SUB AdjustWindowSize
     SHARED __Song AS __SongType
+    SHARED WindowWidth AS LONG
+    SHARED PatternDisplayWidth AS LONG
     SHARED FFT AS FFTType
 
     IF __Song.isPlaying THEN

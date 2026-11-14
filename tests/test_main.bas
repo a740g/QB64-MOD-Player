@@ -13,6 +13,7 @@ $LET TEST_CONSOLE_ONLY = TRUE
 '$INCLUDE:'../source/Pathname.bi'
 '$INCLUDE:'../source/AudioConv.bi'
 '$INCLUDE:'../source/SoftSynth.bi'
+'$INCLUDE:'../source/AudioAnalyzer.bi'
 '$INCLUDE:'../source/MODPlayer.bi'
 
 ''' @brief Tests for AudioConv.bi audio conversion functions.
@@ -246,6 +247,109 @@ SUB Test_StringFile
     TEST_CASE_END
 END SUB
 
+''' @brief Tests for AudioAnalyzer.bi multi-instance audio spectrum analyzer.
+SUB Test_AudioAnalyzer
+    TEST_CASE_BEGIN "AudioAnalyzer: Lifecycle and initialization"
+    DIM analyzer AS AudioAnalyzerType
+    TEST_CHECK_FALSE AudioAnalyzer_IsInitialized(analyzer), "Analyzer uninitialized before AudioAnalyzer_Initialize"
+
+    TEST_REQUIRE AudioAnalyzer_Initialize(analyzer), "AudioAnalyzer_Initialize should succeed"
+    TEST_CHECK AudioAnalyzer_IsInitialized(analyzer), "Analyzer initialized after AudioAnalyzer_Initialize"
+    TEST_CHECK AudioAnalyzer_GetAverageIntensity(analyzer) = 0!, "Initial average intensity is 0"
+    TEST_CHECK AudioAnalyzer_GetRMS(analyzer) = 0!, "Initial RMS is 0"
+    TEST_CHECK AudioAnalyzer_GetPeakAmplitude(analyzer) = 0, "Initial peak amplitude is 0"
+    TEST_CHECK AudioAnalyzer_GetPeakBin(analyzer) = 0, "Initial peak bin is 0"
+
+    AudioAnalyzer_Finalize analyzer
+    TEST_CHECK_FALSE AudioAnalyzer_IsInitialized(analyzer), "Analyzer uninitialized after AudioAnalyzer_Finalize"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "AudioAnalyzer: FFT calculation, intensity, RMS and peak detection"
+    DIM aa AS AudioAnalyzerType
+    DIM bitDepth AS LONG: bitDepth = 8 ' 256 samples
+    DIM numSamples AS LONG: numSamples = _SHL(1, bitDepth) ' 256
+    DIM halfSamples AS LONG: halfSamples = numSamples \ 2 ' 128
+    REDIM amps(0 TO halfSamples - 1) AS _UNSIGNED INTEGER
+    REDIM silence(0 TO numSamples - 1) AS SINGLE
+
+    ' FFT on pure silence
+    AudioAnalyzer_CalculateFFT aa, amps(), silence(), 0, 1, bitDepth
+    TEST_CHECK AudioAnalyzer_GetAverageIntensity(aa) = 0!, "Silence has 0 average intensity"
+    TEST_CHECK AudioAnalyzer_GetRMS(aa) = 0!, "Silence has 0 RMS level"
+    TEST_CHECK AudioAnalyzer_GetPeakAmplitude(aa) = 0, "Silence produces 0 peak amplitude"
+    TEST_CHECK amps(0) = 0, "Silence produces 0 amplitude at DC/bin 0"
+
+    ' FFT on a constant DC signal 0.5
+    REDIM dcSignal(0 TO numSamples - 1) AS SINGLE
+    DIM k AS LONG
+    FOR k = 0 TO numSamples - 1
+        dcSignal(k) = 0.5!
+    NEXT k
+
+    AudioAnalyzer_CalculateFFT aa, amps(), dcSignal(), 0, 1, bitDepth
+    TEST_CHECK ABS(AudioAnalyzer_GetAverageIntensity(aa) - 0.25!) < 0.001!, "Intensity of 0.5 amplitude signal is 0.25"
+    TEST_CHECK ABS(AudioAnalyzer_GetRMS(aa) - 0.5!) < 0.001!, "RMS of 0.5 amplitude signal is 0.5"
+    TEST_CHECK AudioAnalyzer_IsInitialized(aa), "Auto-initialized if called directly"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "AudioAnalyzer: Safety bounds validation"
+    DIM safeAa AS AudioAnalyzerType
+    TEST_REQUIRE AudioAnalyzer_Initialize(safeAa), "Init safeAa"
+    REDIM smallAmps(0 TO 3) AS _UNSIGNED INTEGER
+    REDIM testSignal(0 TO 255) AS SINGLE
+
+    ' Bit depth exceeding AUDIO_ANALYZER_MAX_BIT_DEPTH
+    AudioAnalyzer_CalculateFFT safeAa, smallAmps(), testSignal(), 0, 1, 15
+    TEST_CHECK AudioAnalyzer_GetAverageIntensity(safeAa) = 0!, "Invalid bitDepth > 11 safely rejected"
+
+    ' Bit depth < 1
+    AudioAnalyzer_CalculateFFT safeAa, smallAmps(), testSignal(), 0, 1, 0
+    TEST_CHECK AudioAnalyzer_GetAverageIntensity(safeAa) = 0!, "Invalid bitDepth < 1 safely rejected"
+
+    ' Destination array too small for requested bit depth (8 requires 128 bins, only 4 provided)
+    AudioAnalyzer_CalculateFFT safeAa, smallAmps(), testSignal(), 0, 1, 8
+    TEST_CHECK AudioAnalyzer_GetAverageIntensity(safeAa) = 0!, "Undersized destination array safely rejected"
+
+    AudioAnalyzer_Finalize safeAa
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "AudioAnalyzer: Multi-instance isolation"
+    DIM aa1 AS AudioAnalyzerType, aa2 AS AudioAnalyzerType
+    TEST_REQUIRE AudioAnalyzer_Initialize(aa1), "Init aa1"
+    TEST_REQUIRE AudioAnalyzer_Initialize(aa2), "Init aa2"
+
+    REDIM amps1(0 TO 63) AS _UNSIGNED INTEGER
+    REDIM amps2(0 TO 63) AS _UNSIGNED INTEGER
+    REDIM sig1(0 TO 127) AS SINGLE
+    REDIM sig2(0 TO 127) AS SINGLE
+
+    ' sig1 has silence, sig2 has an alternating +/-1.0 AC square wave
+    FOR k = 0 TO 127
+        sig1(k) = 0!
+        sig2(k) = _IIF(k MOD 2 = 0, 1.0!, -1.0!)
+    NEXT k
+
+    AudioAnalyzer_CalculateFFT aa1, amps1(), sig1(), 0, 1, 7
+    AudioAnalyzer_CalculateFFT aa2, amps2(), sig2(), 0, 1, 7
+
+    TEST_CHECK AudioAnalyzer_GetAverageIntensity(aa1) = 0!, "aa1 calculates 0 intensity for silence"
+    TEST_CHECK AudioAnalyzer_GetRMS(aa1) = 0!, "aa1 calculates 0 RMS for silence"
+    TEST_CHECK ABS(AudioAnalyzer_GetAverageIntensity(aa2) - 1.0!) < 0.001!, "aa2 calculates 1.0 intensity for full-scale signal"
+    TEST_CHECK ABS(AudioAnalyzer_GetRMS(aa2) - 1.0!) < 0.001!, "aa2 calculates 1.0 RMS for full-scale signal"
+    TEST_CHECK amps1(10) = 0, "aa1 bins are 0"
+    TEST_CHECK AudioAnalyzer_GetPeakAmplitude(aa1) = 0, "aa1 peak amplitude is 0"
+    TEST_CHECK AudioAnalyzer_GetPeakAmplitude(aa2) > 0, "aa2 peak amplitude > 0"
+    TEST_CHECK_FALSE AudioAnalyzer_GetPeakAmplitude(aa1) = AudioAnalyzer_GetPeakAmplitude(aa2), "Instances maintain independent peak metrics"
+    TEST_CHECK amps1(aa2.peakBin) = 0, "aa1 amplitude at aa2 peak bin is 0"
+    TEST_CHECK amps2(aa2.peakBin) > 0, "aa2 amplitude at peak bin is positive"
+
+    AudioAnalyzer_Finalize aa1
+    AudioAnalyzer_Finalize aa2
+    TEST_CHECK_FALSE AudioAnalyzer_IsInitialized(aa1), "aa1 finalized"
+    TEST_CHECK_FALSE AudioAnalyzer_IsInitialized(aa2), "aa2 finalized"
+    TEST_CASE_END
+END SUB
+
 ''' @brief Tests for ProTracker MOD loading and playback.
 SUB Test_MODPlayer_MOD
     TEST_CASE_BEGIN "MODPlayer: ProTracker MOD (Enigma.mod)"
@@ -375,6 +479,7 @@ TEST_BEGIN_ALL
 Test_AudioConv
 Test_SoftSynth
 Test_StringFile
+Test_AudioAnalyzer
 Test_MODPlayer_MOD
 Test_MODPlayer_S3M
 Test_MODPlayer_S3M_Packed

@@ -169,6 +169,18 @@ FUNCTION SoftSynth_PeekSoundFrameSingle! (ctx AS SoftSynthType, snd AS LONG, pos
 SUB SoftSynth_PokeSoundFrameByte (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG, frame AS _BYTE)
 SUB SoftSynth_PokeSoundFrameInteger (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG, frame AS INTEGER)
 SUB SoftSynth_PokeSoundFrameSingle (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG, frame AS SINGLE)
+
+' -----------------------------------------------------------------------------
+' Audio Spectrum Analyzer API (AudioAnalyzer.bi)
+' -----------------------------------------------------------------------------
+FUNCTION AudioAnalyzer_Initialize%% (analyzer AS AudioAnalyzerType)
+SUB AudioAnalyzer_Finalize (analyzer AS AudioAnalyzerType)
+FUNCTION AudioAnalyzer_IsInitialized%% (analyzer AS AudioAnalyzerType)
+SUB AudioAnalyzer_CalculateFFT (analyzer AS AudioAnalyzerType, amplitudeArray() AS _UNSIGNED INTEGER, sampleDataArray() AS SINGLE, sampleOffset AS LONG, sampleIncrement AS LONG, bitDepth AS LONG)
+FUNCTION AudioAnalyzer_GetAverageIntensity! (analyzer AS AudioAnalyzerType)
+FUNCTION AudioAnalyzer_GetRMS! (analyzer AS AudioAnalyzerType)
+FUNCTION AudioAnalyzer_GetPeakAmplitude~% (analyzer AS AudioAnalyzerType)
+FUNCTION AudioAnalyzer_GetPeakBin& (analyzer AS AudioAnalyzerType)
 ```
 <!-- markdownlint-enable MD013 -->
 
