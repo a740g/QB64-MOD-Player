@@ -62,13 +62,13 @@ CONST KEY_UNDERSCORE& = _ASC_UNDERSCORE
 CONST KEY_UPPER_L& = ASC_UPPER_L
 CONST KEY_LOWER_L& = ASC_LOWER_L
 
-TYPE StarType
+TYPE Star
     p AS Vector3f ' position
     a AS SINGLE ' angle
     c AS _UNSIGNED LONG ' color
 END TYPE
 
-TYPE SnakeType
+TYPE Snake
     p AS STRING ' position buffer (x = 1 byte, y = 1 byte)
     s AS SINGLE ' speed
     t AS SINGLE ' movement counter
@@ -76,7 +76,7 @@ TYPE SnakeType
     c AS _UNSIGNED LONG ' color
 END TYPE
 
-TYPE FFTType
+TYPE FFTInfo
     framesPerTick AS LONG
     frames AS LONG
     halfFrames AS LONG
@@ -87,19 +87,19 @@ END TYPE
 REDIM NoteTable(0) AS STRING * 2 ' this contains the note stings
 DIM WindowWidth AS LONG ' the width of our windows in characters
 DIM PatternDisplayWidth AS LONG ' the width of the pattern display in characters
-DIM FFT AS FFTType ' global FFT info
-DIM AnalyzerL AS AudioAnalyzerType, AnalyzerR AS AudioAnalyzerType ' left & right audio analyzers
+DIM FFT AS FFTInfo ' global FFT info
+DIM AnalyzerL AS AudioAnalyzer, AnalyzerR AS AudioAnalyzer ' left & right audio analyzers
 REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0), SpectrumAnalyzerR(0) ' left & right channel FFT data
-DIM Stars(1 TO STAR_COUNT) AS StarType
-DIM Snakes(1 TO SNAKE_COUNT) AS SnakeType
-DIM Player AS MODPlayerType
+DIM Stars(1 TO STAR_COUNT) AS Star
+DIM Snakes(1 TO SNAKE_COUNT) AS Snake
+DIM Player AS MODPlayer
 
 ''' @brief Draws a horizontal text character line across the screen.
 ''' @param lx Left X coordinate.
 ''' @param ty Y coordinate.
 ''' @param rx Right X coordinate.
 ''' @param char ASCII character code to draw.
-SUB DrawHorizontalLine (lx AS LONG, ty AS LONG, rx AS LONG, char AS _UNSIGNED _BYTE)
+SUB UI_DrawHorizontalLine (lx AS LONG, ty AS LONG, rx AS LONG, char AS _UNSIGNED _BYTE)
     DIM l AS LONG: l = lx
     DIM r AS LONG: r = rx
     IF l > r THEN SWAP l, r
@@ -107,17 +107,17 @@ SUB DrawHorizontalLine (lx AS LONG, ty AS LONG, rx AS LONG, char AS _UNSIGNED _B
 END SUB
 
 ''' @brief Renders the tracker visualizer, pattern data, and FFT spectrum analyzers.
-SUB DrawVisualization
+SUB Visualizer_Draw
     SHARED NoteTable() AS STRING * 2
     SHARED WindowWidth AS LONG
     SHARED PatternDisplayWidth AS LONG
-    SHARED FFT AS FFTType
-    SHARED AS AudioAnalyzerType AnalyzerL, AnalyzerR
+    SHARED FFT AS FFTInfo
+    SHARED AS AudioAnalyzer AnalyzerL, AnalyzerR
     SHARED AS _UNSIGNED INTEGER SpectrumAnalyzerL(), SpectrumAnalyzerR()
 
     ' These are internal variables and arrays used by the MODPlayer library and are used for showing internal info and visualization
     ' In a general use case, accessing these directly is not required at all
-    SHARED Player AS MODPlayerType
+    SHARED Player AS MODPlayer
 
     ' Subscript out of range bugfix for player when song is 128 orders long and the song reaches the end
     ' In this case if the sub is allowed to proceed then Player.order(Player.song.orderPosition) will cause "subscript out of range"
@@ -338,7 +338,7 @@ SUB DrawVisualization
             IF x > FFT.size.x THEN x = FFT.size.x
             p = FFT.size.x ' this is starting x position of the bar
             COLOR LightGreen + x MOD Brown, Black
-            DrawHorizontalLine p, j, p - x + 1, 254
+            UI_DrawHorizontalLine p, j, p - x + 1, 254
         END IF
 
         ' Next calculate for the one on the right and draw
@@ -347,7 +347,7 @@ SUB DrawVisualization
             IF x > FFT.size.x THEN x = FFT.size.x
             p = FFT.size.x + TEXT_WIDTH_HEADER + 1 ' this is starting x position of the bar
             COLOR LightGreen + x MOD Brown, Black
-            DrawHorizontalLine p, j, p + x - 1, 254
+            UI_DrawHorizontalLine p, j, p + x - 1, 254
         END IF
 
         i = i + 1
@@ -359,7 +359,7 @@ END SUB
 ''' @brief Renders compressed ANSI art onto a graphic image canvas.
 ''' @param img QB64 image handle to render onto.
 ''' @param s Decompressed ANSI text data string.
-SUB RenderTitleScreen (img AS LONG, s AS STRING)
+SUB UI_RenderTitleScreen (img AS LONG, s AS STRING)
     ' ANSI to QB SCREEN 0 color mapping table:
     ' ANSI 0 (Black), 1 (Red), 2 (Green), 3 (Yellow), 4 (Blue), 5 (Magenta), 6 (Cyan), 7 (White)
     STATIC ansi2qb(0 TO 7) AS _UNSIGNED _BYTE
@@ -512,7 +512,7 @@ END SUB
 
 ''' @brief Runs the interactive welcome screen event loop.
 ''' @return Next application event code.
-FUNCTION OnWelcomeScreen%%
+FUNCTION App_OnWelcomeScreen%%
     ' Welcome ANSI (144 x 90 chars)
     CONST SIZE_QB64MODPLAYER_ANS_15162& = 15162&
     CONST DATA_QB64MODPLAYER_ANS_15162 = _
@@ -528,12 +528,12 @@ FUNCTION OnWelcomeScreen%%
         "sZVyFTBPN4ldofCbxO4ESkhr+5uDNmx8XW+3R9AZr4PTKal1pjqlYXEE48neer/b24R7X++D+Tzcag+gMh62Nx5BPpsvwJKYpzWsGIbEAc1mL1DD" + _
         "jJh1WT4etRvjQQfOhKPO5bKFH/tiycDAyDiBIYoBBJiZPZ18FcLcHU0NGJABAJPUQiY="
 
-    SHARED Stars() AS StarType
-    SHARED Snakes() AS SnakeType
+    SHARED Stars() AS Star
+    SHARED Snakes() AS Snake
 
     ' Load the ANSI art data and render it to a text surface
     DIM titlePage AS LONG: titlePage = _NEWIMAGE(TEXT_WIDTH_MIN, TEXT_LINE_MAX, 0)
-    RenderTitleScreen titlePage, _INFLATE$(_BASE64DECODE$(DATA_QB64MODPLAYER_ANS_15162), SIZE_QB64MODPLAYER_ANS_15162)
+    UI_RenderTitleScreen titlePage, _INFLATE$(_BASE64DECODE$(DATA_QB64MODPLAYER_ANS_15162), SIZE_QB64MODPLAYER_ANS_15162)
     _CLEARCOLOR _ASC_SPACE + _SHL(White, 8), titlePage ' Set all blank cells to be transparent
 
     DIM bgType AS LONG: bgType = Math_GetRandomBetween(0, 1)
@@ -546,10 +546,10 @@ FUNCTION OnWelcomeScreen%%
         ' Draw the background
         SELECT CASE bgType
             CASE 1
-                UpdateAndDrawSnakes Snakes()
+                Snake_UpdateAndDraw Snakes()
 
             CASE ELSE
-                UpdateAndDrawStars Stars(), 1!
+                Star_UpdateAndDraw Stars(), 1!
         END SELECT
 
         _PUTIMAGE , titlePage
@@ -573,11 +573,11 @@ FUNCTION OnWelcomeScreen%%
 
     _FREEIMAGE titlePage
 
-    OnWelcomeScreen = e
+    App_OnWelcomeScreen = e
 END FUNCTION
 
 ''' @brief Loads note name string lookup table for UI display.
-SUB InitializeNoteTable
+SUB Visualizer_InitializeNoteTable
     SHARED NoteTable() AS STRING * 2
 
     DIM AS _UNSIGNED _BYTE n, v
@@ -595,11 +595,11 @@ SUB InitializeNoteTable
 END SUB
 
 ''' @brief Dynamically resizes the console window based on song channel count.
-SUB AdjustWindowSize
-    SHARED Player AS MODPlayerType
+SUB App_AdjustWindowSize
+    SHARED Player AS MODPlayer
     SHARED WindowWidth AS LONG
     SHARED PatternDisplayWidth AS LONG
-    SHARED FFT AS FFTType
+    SHARED FFT AS FFTInfo
 
     IF Player.song.isPlaying THEN
         PatternDisplayWidth = 8 + Player.song.channels * 19 ' find the actual width
@@ -629,10 +629,10 @@ END SUB
 ''' @brief Loads and plays a module file, handling UI redraw and user input loop.
 ''' @param fileName File path or URL to play.
 ''' @return Next application event code.
-FUNCTION OnPlayTune%% (fileName AS STRING)
-    SHARED Player AS MODPlayerType
+FUNCTION App_OnPlayTune%% (fileName AS STRING)
+    SHARED Player AS MODPlayer
 
-    OnPlayTune = EVENT_PLAY ' default event is to play next song
+    App_OnPlayTune = EVENT_PLAY ' default event is to play next song
 
     DIM buffer AS STRING: buffer = File_Load(fileName) ' load the whole file to memory
 
@@ -645,21 +645,21 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
     ' Set the app _TITLE to display the file name
     DIM windowTitle AS STRING
     IF LEN(Pathname_GetDriveOrScheme(fileName)) > 2 THEN
-        windowTitle = GetSaveFileName(fileName) + " - " + APP_NAME
+        windowTitle = App_GetSaveFileName(fileName) + " - " + APP_NAME
     ELSE
         windowTitle = Pathname_GetFileName(fileName) + " - " + APP_NAME
     END IF
     _TITLE windowTitle
 
     MODPlayer_Play Player
-    AdjustWindowSize
+    App_AdjustWindowSize
 
     DIM AS LONG k
 
     DO
         MODPlayer_Update Player, SOFTSYNTH_SOUND_BUFFER_TIME_DEFAULT
 
-        DrawVisualization
+        Visualizer_Draw
 
         k = _KEYHIT
 
@@ -686,11 +686,11 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
                 MODPlayer_GoToNextPosition Player
 
             CASE _KEY_F1
-                OnPlayTune = EVENT_LOAD
+                App_OnPlayTune = EVENT_LOAD
                 EXIT DO
 
             CASE _KEY_F6 ' quick save for files loaded from ModArchive
-                QuickSave buffer, fileName
+                App_QuickSave buffer, fileName
 
             CASE 21248 ' Shift + Delete - you known what it does
                 IF LEN(Pathname_GetDriveOrScheme(fileName)) > 2 THEN
@@ -704,7 +704,7 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
         END SELECT
 
         IF _TOTALDROPPEDFILES > 0 THEN
-            OnPlayTune = EVENT_DROP
+            App_OnPlayTune = EVENT_DROP
 
             EXIT DO
         END IF
@@ -713,14 +713,14 @@ FUNCTION OnPlayTune%% (fileName AS STRING)
     LOOP WHILE MODPlayer_IsPlaying(Player)
 
     MODPlayer_Stop Player
-    AdjustWindowSize
+    App_AdjustWindowSize
 
     _TITLE APP_NAME + _CHR_SPACE + _OS$ ' Set app title to the way it was
 END FUNCTION
 
 ''' @brief Processes files passed via the application command-line arguments.
 ''' @return Next application event code.
-FUNCTION OnCommandLine%%
+FUNCTION App_OnCommandLine%%
     DIM e AS _BYTE: e = EVENT_NONE
 
     IF (COMMAND$(1) = "/?" _ORELSE COMMAND$(1) = "-?") THEN
@@ -728,17 +728,17 @@ FUNCTION OnCommandLine%%
         e = EVENT_QUIT
     ELSE
         DIM i AS LONG: FOR i = 1 TO _COMMANDCOUNT
-            e = OnPlayTune(COMMAND$(i))
+            e = App_OnPlayTune(COMMAND$(i))
             IF e <> EVENT_PLAY THEN EXIT FOR
         NEXT
     END IF
 
-    OnCommandLine = e
+    App_OnCommandLine = e
 END FUNCTION
 
 ''' @brief Processes files drag-and-dropped onto the application window.
 ''' @return Next application event code.
-FUNCTION OnDroppedFiles%%
+FUNCTION App_OnDroppedFiles%%
     ' Make a copy of the dropped file and clear the list
     REDIM fileNames(1 TO _TOTALDROPPEDFILES) AS STRING
 
@@ -751,16 +751,16 @@ FUNCTION OnDroppedFiles%%
 
     ' Now play the dropped file one at a time
     FOR i = LBOUND(fileNames) TO UBOUND(fileNames)
-        e = OnPlayTune(fileNames(i))
+        e = App_OnPlayTune(fileNames(i))
         IF e <> EVENT_PLAY THEN EXIT FOR
     NEXT
 
-    OnDroppedFiles = e
+    App_OnDroppedFiles = e
 END FUNCTION
 
 ''' @brief Displays file open dialog and plays user-selected files.
 ''' @return Next application event code.
-FUNCTION OnSelectedFiles%%
+FUNCTION App_OnSelectedFiles%%
     DIM ofdList AS STRING
     DIM e AS _BYTE: e = EVENT_NONE
 
@@ -773,16 +773,16 @@ FUNCTION OnSelectedFiles%%
     DIM j AS LONG: j = String_Tokenize(ofdList, "|", _STR_LF, _FALSE, fileNames())
 
     DIM i AS LONG: FOR i = 0 TO j - 1
-        e = OnPlayTune(fileNames(i))
+        e = App_OnPlayTune(fileNames(i))
         IF e <> EVENT_PLAY THEN EXIT FOR
     NEXT
 
-    OnSelectedFiles = e
+    App_OnSelectedFiles = e
 END FUNCTION
 
 ''' @brief Downloads and plays random tunes streamed from modarchive.org.
 ''' @return Next application event code.
-FUNCTION OnModArchiveFiles%%
+FUNCTION App_OnModArchiveFiles%%
     DIM e AS _BYTE: e = EVENT_NONE
     DIM AS STRING modArchiveFileName, fileExtension
 
@@ -796,43 +796,43 @@ FUNCTION OnModArchiveFiles%%
                 EXIT DO
             END IF
 
-            modArchiveFileName = GetRandomModArchiveFileName$
+            modArchiveFileName = ModArchive_GetRandomFileName$
             fileExtension = LCASE$(Pathname_GetFileExtension(modArchiveFileName))
 
-            _TITLE "Downloading: " + GetSaveFileName(modArchiveFileName) + " - " + APP_NAME
+            _TITLE "Downloading: " + App_GetSaveFileName(modArchiveFileName) + " - " + APP_NAME
         LOOP UNTIL fileExtension = ".mod" _ORELSE fileExtension = ".mtm" _ORELSE fileExtension = ".s3m"
 
-        e = OnPlayTune(modArchiveFileName)
+        e = App_OnPlayTune(modArchiveFileName)
     LOOP WHILE e = EVENT_NONE _ORELSE e = EVENT_PLAY
 
     _TITLE APP_NAME + _CHR_SPACE + _OS$ ' Set app title to the way it was
 
-    OnModArchiveFiles = e
+    App_OnModArchiveFiles = e
 END FUNCTION
 
 ''' @brief Scrapes modarchive.org for a random module download URL.
 ''' @return Direct module download URL string.
-FUNCTION GetRandomModArchiveFileName$
+FUNCTION ModArchive_GetRandomFileName$
     DIM buffer AS STRING: buffer = File_LoadFromURL("https://modarchive.org/index.php?request=view_random")
     DIM bufPos AS LONG: bufPos = INSTR(buffer, "https://api.modarchive.org/downloads.php?moduleid=")
 
     IF bufPos > 0 THEN
-        GetRandomModArchiveFileName = MID$(buffer, bufPos, INSTR(bufPos, buffer, _CHR_QUOTE) - bufPos)
+        ModArchive_GetRandomFileName = MID$(buffer, bufPos, INSTR(bufPos, buffer, _CHR_QUOTE) - bufPos)
     END IF
 END FUNCTION
 
 ''' @brief Derives a sanitized local filename from a Mod Archive URL.
 ''' @param url Download URL string.
 ''' @return Sanitized filename string.
-FUNCTION GetSaveFileName$ (url AS STRING)
+FUNCTION App_GetSaveFileName$ (url AS STRING)
     DIM saveFileName AS STRING: saveFileName = Pathname_GetFileName(url)
-    GetSaveFileName = Pathname_Sanitize(MID$(saveFileName, INSTR(saveFileName, "=") + 1)) ' this will get a file name of type: 12312313#filename.mod
+    App_GetSaveFileName = Pathname_Sanitize(MID$(saveFileName, INSTR(saveFileName, "=") + 1)) ' this will get a file name of type: 12312313#filename.mod
 END FUNCTION
 
 ''' @brief Prompts user and saves a downloaded module buffer to disk.
 ''' @param buffer Binary file data to save.
 ''' @param url Source URL used to generate destination filename.
-SUB QuickSave (buffer AS STRING, url AS STRING)
+SUB App_QuickSave (buffer AS STRING, url AS STRING)
     STATIC savePath AS STRING, alwaysUseSamePath AS _BYTE, stopNagging AS _BYTE
 
     IF LEN(Pathname_GetDriveOrScheme(url)) > 2 THEN
@@ -844,7 +844,7 @@ SUB QuickSave (buffer AS STRING, url AS STRING)
             savePath = Pathname_AddDirectorySeparator(savePath)
         END IF
 
-        DIM saveFileName AS STRING: saveFileName = savePath + GetSaveFileName(url)
+        DIM saveFileName AS STRING: saveFileName = savePath + App_GetSaveFileName(url)
 
         IF _FILEEXISTS(saveFileName) THEN
             IF _MESSAGEBOX(APP_NAME, "Overwrite " + saveFileName + "?", "yesno", "warning", 0) = 0 THEN EXIT SUB
@@ -870,8 +870,8 @@ SUB QuickSave (buffer AS STRING, url AS STRING)
 END SUB
 
 ''' @brief Initializes star positions and colors for background starfield effect.
-''' @param stars() Array of StarType structures to initialize.
-SUB InitializeStars (stars() AS StarType)
+''' @param stars() Array of Star structures to initialize.
+SUB Star_InitializeAll (stars() AS Star)
     CONST Z_DIVIDER = 4096!
 
     DIM L AS LONG: L = LBOUND(stars)
@@ -889,9 +889,9 @@ SUB InitializeStars (stars() AS StarType)
 END SUB
 
 ''' @brief Updates starfield positions and renders stars on screen.
-''' @param stars() Array of StarType structures.
+''' @param stars() Array of Star structures.
 ''' @param speed Forward star travel speed.
-SUB UpdateAndDrawStars (stars() AS StarType, speed AS SINGLE)
+SUB Star_UpdateAndDraw (stars() AS Star, speed AS SINGLE)
     CONST Z_DIVIDER = 4096!
     CONST STAR_249 = CHR$(249)
     CONST STAR_7 = CHR$(7)
@@ -944,8 +944,8 @@ SUB UpdateAndDrawStars (stars() AS StarType, speed AS SINGLE)
 END SUB
 
 ''' @brief Initializes bouncing snake positions and colors.
-''' @param snakes() Array of SnakeType structures to initialize.
-SUB InitializeSnakes (snakes() AS SnakeType)
+''' @param snakes() Array of Snake structures to initialize.
+SUB Snake_InitializeAll (snakes() AS Snake)
     CONST SNAKE_SIZE_MIN = 5
     CONST SNAKE_SIZE_MAX = 25
 
@@ -974,8 +974,8 @@ SUB InitializeSnakes (snakes() AS SnakeType)
 END SUB
 
 ''' @brief Updates snake segments and renders bouncing snakes on screen.
-''' @param snakes() Array of SnakeType structures.
-SUB UpdateAndDrawSnakes (snakes() AS SnakeType)
+''' @param snakes() Array of Snake structures.
+SUB Snake_UpdateAndDraw (snakes() AS Snake)
     CONST SNAKE_HEAD = CHR$(15)
     CONST SNAKE_BODY = CHR$(254)
 
@@ -1041,12 +1041,12 @@ END SUB
 _TITLE APP_NAME + _CHR_SPACE + _OS$ ' set the program name in the titlebar
 CHDIR _STARTDIR$ ' change to the directory specifed by the environment
 _ACCEPTFILEDROP ' enable drag and drop of files
-InitializeNoteTable ' initialize note string table
-AdjustWindowSize ' set the initial window size
+Visualizer_InitializeNoteTable ' initialize note string table
+App_AdjustWindowSize ' set the initial window size
 _ALLOWFULLSCREEN _SQUAREPIXELS , _SMOOTH ' allow the user to press Alt+Enter to go fullscreen
 RANDOMIZE TIMER
-InitializeStars Stars()
-InitializeSnakes Snakes()
+Star_InitializeAll Stars()
+Snake_InitializeAll Snakes()
 
 DIM event AS _BYTE: event = EVENT_CMDS ' default to command line event first
 
@@ -1057,19 +1057,19 @@ DO
             EXIT DO
 
         CASE EVENT_DROP
-            event = OnDroppedFiles
+            event = App_OnDroppedFiles
 
         CASE EVENT_LOAD
-            event = OnSelectedFiles
+            event = App_OnSelectedFiles
 
         CASE EVENT_CMDS
-            event = OnCommandLine
+            event = App_OnCommandLine
 
         CASE EVENT_HTTP
-            event = OnModArchiveFiles
+            event = App_OnModArchiveFiles
 
         CASE ELSE
-            event = OnWelcomeScreen
+            event = App_OnWelcomeScreen
     END SELECT
 LOOP
 

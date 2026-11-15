@@ -103,7 +103,7 @@ END SUB
 ''' @brief Tests for SoftSynth.bi software synthesizer and mixer.
 SUB Test_SoftSynth
     TEST_CASE_BEGIN "SoftSynth: Lifecycle and default state"
-    DIM ctx AS SoftSynthType
+    DIM ctx AS SoftSynth
     TEST_CHECK_FALSE SoftSynth_IsInitialized(ctx), "Context uninitialized before SoftSynth_Initialize"
 
     TEST_REQUIRE SoftSynth_Initialize(ctx), "SoftSynth_Initialize should succeed"
@@ -125,7 +125,7 @@ SUB Test_SoftSynth
     TEST_CASE_END
 
     TEST_CASE_BEGIN "SoftSynth: Sound loading and frame peek/poke"
-    DIM synth AS SoftSynthType
+    DIM synth AS SoftSynth
     TEST_REQUIRE SoftSynth_Initialize(synth), "Initialize synth"
 
     ' Create 4 signed 8-bit mono PCM sample frames: 0, 64, -64 (192), 0
@@ -153,7 +153,7 @@ SUB Test_SoftSynth
     TEST_CASE_END
 
     TEST_CASE_BEGIN "SoftSynth: Voices and playback parameters"
-    DIM synth2 AS SoftSynthType
+    DIM synth2 AS SoftSynth
     TEST_REQUIRE SoftSynth_Initialize(synth2), "Initialize synth2"
 
     SoftSynth_SetTotalVoices synth2, 8
@@ -191,7 +191,7 @@ SUB Test_SoftSynth
     TEST_CASE_END
 
     TEST_CASE_BEGIN "SoftSynth: Multi-instance context isolation"
-    DIM ctxA AS SoftSynthType, ctxB AS SoftSynthType
+    DIM ctxA AS SoftSynth, ctxB AS SoftSynth
     TEST_REQUIRE SoftSynth_Initialize(ctxA), "Initialize ctxA"
     TEST_REQUIRE SoftSynth_Initialize(ctxB), "Initialize ctxB"
 
@@ -253,7 +253,7 @@ END SUB
 ''' @brief Tests for AudioAnalyzer.bi multi-instance audio spectrum analyzer.
 SUB Test_AudioAnalyzer
     TEST_CASE_BEGIN "AudioAnalyzer: Lifecycle and initialization"
-    DIM analyzer AS AudioAnalyzerType
+    DIM analyzer AS AudioAnalyzer
     TEST_CHECK_FALSE AudioAnalyzer_IsInitialized(analyzer), "Analyzer uninitialized before AudioAnalyzer_Initialize"
 
     TEST_REQUIRE AudioAnalyzer_Initialize(analyzer), "AudioAnalyzer_Initialize should succeed"
@@ -268,7 +268,7 @@ SUB Test_AudioAnalyzer
     TEST_CASE_END
 
     TEST_CASE_BEGIN "AudioAnalyzer: FFT calculation, intensity, RMS and peak detection"
-    DIM aa AS AudioAnalyzerType
+    DIM aa AS AudioAnalyzer
     DIM bitDepth AS LONG: bitDepth = 8 ' 256 samples
     DIM numSamples AS LONG: numSamples = _SHL(1, bitDepth) ' 256
     DIM halfSamples AS LONG: halfSamples = numSamples \ 2 ' 128
@@ -296,7 +296,7 @@ SUB Test_AudioAnalyzer
     TEST_CASE_END
 
     TEST_CASE_BEGIN "AudioAnalyzer: Safety bounds validation"
-    DIM safeAa AS AudioAnalyzerType
+    DIM safeAa AS AudioAnalyzer
     TEST_REQUIRE AudioAnalyzer_Initialize(safeAa), "Init safeAa"
     REDIM smallAmps(0 TO 3) AS _UNSIGNED INTEGER
     REDIM testSignal(0 TO 255) AS SINGLE
@@ -317,7 +317,7 @@ SUB Test_AudioAnalyzer
     TEST_CASE_END
 
     TEST_CASE_BEGIN "AudioAnalyzer: Multi-instance isolation"
-    DIM aa1 AS AudioAnalyzerType, aa2 AS AudioAnalyzerType
+    DIM aa1 AS AudioAnalyzer, aa2 AS AudioAnalyzer
     TEST_REQUIRE AudioAnalyzer_Initialize(aa1), "Init aa1"
     TEST_REQUIRE AudioAnalyzer_Initialize(aa2), "Init aa2"
 
@@ -356,7 +356,7 @@ END SUB
 ''' @brief Tests for ProTracker MOD loading and playback.
 SUB Test_MODPlayer_Lifecycle
     TEST_CASE_BEGIN "MODPlayer: Lifecycle management"
-    DIM player AS MODPlayerType
+    DIM player AS MODPlayer
     TEST_CHECK_FALSE MODPlayer_IsInitialized(player), "Not initialized initially"
     TEST_REQUIRE MODPlayer_Initialize(player), "Initialize player"
     TEST_CHECK MODPlayer_IsInitialized(player), "Player is initialized"
@@ -368,7 +368,7 @@ END SUB
 ''' @brief Tests for ProTracker MOD loading and playback.
 SUB Test_MODPlayer_MOD
     TEST_CASE_BEGIN "MODPlayer: ProTracker MOD (Enigma.mod)"
-    DIM player AS MODPlayerType
+    DIM player AS MODPlayer
     TEST_REQUIRE MODPlayer_LoadFromDisk(player, "mods/Enigma.mod"), "Load Enigma.mod"
     TEST_CHECK INSTR(MODPlayer_GetName(player), "Enigma") > 0, "Song caption contains 'Enigma'"
     TEST_CHECK MODPlayer_GetType(player) = "M.K.", "Song subtype is M.K."
@@ -415,7 +415,7 @@ END SUB
 ''' @brief Tests for Scream Tracker 3 S3M loading and playback.
 SUB Test_MODPlayer_S3M
     TEST_CASE_BEGIN "MODPlayer: Scream Tracker 3 (A Touch of Spring.s3m)"
-    DIM player AS MODPlayerType
+    DIM player AS MODPlayer
     TEST_REQUIRE MODPlayer_LoadFromDisk(player, "mods/A Touch of Spring.s3m"), "Load A Touch of Spring.s3m"
     TEST_CHECK INSTR(MODPlayer_GetName(player), "Touch of Spring") > 0, "Song caption matches"
     TEST_CHECK MODPlayer_GetType(player) = "SCRM", "Song subtype is SCRM"
@@ -433,7 +433,7 @@ END SUB
 ''' @brief Tests for Scream Tracker 3 packed ADPCM sample module loading.
 SUB Test_MODPlayer_S3M_Packed
     TEST_CASE_BEGIN "MODPlayer: S3M with ADPCM samples (walkaway_packed.S3M)"
-    DIM player AS MODPlayerType
+    DIM player AS MODPlayer
     TEST_REQUIRE MODPlayer_LoadFromDisk(player, "mods/walkaway_packed.S3M"), "Load walkaway_packed.S3M"
     TEST_CHECK INSTR(MODPlayer_GetName(player), "Walkaway") > 0, "Song caption matches"
     TEST_CHECK MODPlayer_GetType(player) = "SCRM", "Song subtype is SCRM"
@@ -451,7 +451,7 @@ END SUB
 ''' @brief Tests for MultiTracker MTM loading and playback.
 SUB Test_MODPlayer_MTM
     TEST_CASE_BEGIN "MODPlayer: MultiTracker (cougarstory-ii.mtm)"
-    DIM player AS MODPlayerType
+    DIM player AS MODPlayer
     TEST_REQUIRE MODPlayer_LoadFromDisk(player, "mods/cougarstory-ii.mtm"), "Load cougarstory-ii.mtm"
     TEST_CHECK INSTR(MODPlayer_GetName(player), "Cougar story") > 0, "Song caption matches"
     TEST_CHECK MODPlayer_GetType(player) = "MTM1", "Song subtype is MTM1"
@@ -469,7 +469,7 @@ END SUB
 ''' @brief Tests for in-memory module loading.
 SUB Test_MODPlayer_Memory
     TEST_CASE_BEGIN "MODPlayer: Load from memory string"
-    DIM player AS MODPlayerType
+    DIM player AS MODPlayer
     DIM modBuffer AS STRING
     modBuffer = File_LoadFromDisk("mods/Enigma.mod")
     TEST_REQUIRE LEN(modBuffer) > 0, "Loaded file into memory string"
@@ -489,7 +489,7 @@ END SUB
 ''' @brief Tests for dedicated MODLoader.
 SUB Test_MODLoader
     TEST_CASE_BEGIN "MODLoader: Load ProTracker MOD directly"
-    DIM player AS MODPlayerType
+    DIM player AS MODPlayer
     TEST_REQUIRE MODLoader_LoadFromDisk(player, "mods/Enigma.mod"), "MODLoader loads Enigma.mod"
     TEST_CHECK INSTR(MODPlayer_GetName(player), "Enigma") > 0, "Song caption matches"
     TEST_CHECK MODPlayer_GetType(player) = "M.K.", "Song subtype is M.K."
@@ -506,7 +506,7 @@ END SUB
 ''' @brief Tests for dedicated S3MLoader.
 SUB Test_S3MLoader
     TEST_CASE_BEGIN "S3MLoader: Load Scream Tracker 3 directly"
-    DIM player AS MODPlayerType
+    DIM player AS MODPlayer
     TEST_REQUIRE S3MLoader_LoadFromDisk(player, "mods/A Touch of Spring.s3m"), "S3MLoader loads S3M"
     TEST_CHECK INSTR(MODPlayer_GetName(player), "Touch of Spring") > 0, "Song caption matches"
     TEST_CHECK MODPlayer_GetType(player) = "SCRM", "Song subtype is SCRM"
@@ -533,7 +533,7 @@ END SUB
 ''' @brief Tests for dedicated MTMLoader.
 SUB Test_MTMLoader
     TEST_CASE_BEGIN "MTMLoader: Load MultiTracker directly"
-    DIM player AS MODPlayerType
+    DIM player AS MODPlayer
     TEST_REQUIRE MTMLoader_LoadFromDisk(player, "mods/cougarstory-ii.mtm"), "MTMLoader loads MTM"
     TEST_CHECK INSTR(MODPlayer_GetName(player), "Cougar story") > 0, "Song caption matches"
     TEST_CHECK MODPlayer_GetType(player) = "MTM1", "Song subtype is MTM1"
@@ -555,8 +555,8 @@ END SUB
 ''' @brief Tests for multi-instance isolation and concurrent state handling.
 SUB Test_MODPlayer_MultiInstance
     TEST_CASE_BEGIN "MODPlayer: Multi-instance independent playback"
-    DIM player1 AS MODPlayerType
-    DIM player2 AS MODPlayerType
+    DIM player1 AS MODPlayer
+    DIM player2 AS MODPlayer
 
     TEST_REQUIRE MODPlayer_LoadFromDisk(player1, "mods/Enigma.mod"), "Load Enigma into player1"
     TEST_REQUIRE MODPlayer_LoadFromDisk(player2, "mods/A Touch of Spring.s3m"), "Load S3M into player2"
@@ -602,7 +602,7 @@ END SUB
 ''' @brief Tests for pattern structure and variable row counts.
 SUB Test_MODPlayer_PatternRows
     TEST_CASE_BEGIN "MODPlayer: Pattern structure and row counts"
-    DIM player AS MODPlayerType
+    DIM player AS MODPlayer
     TEST_REQUIRE MODPlayer_LoadFromDisk(player, "mods/Enigma.mod"), "Load Enigma.mod"
 
     ' MOD patterns have 64 rows
@@ -614,19 +614,19 @@ SUB Test_MODPlayer_PatternRows
     TEST_CHECK player.pattern(0).note(0, 0).note <= 108 _ORELSE player.pattern(0).note(0, 0).note = __NOTE_NONE, "Valid note value at (0, 0)"
 
     ' Test S3M pattern rows
-    DIM s3mPlayer AS MODPlayerType
+    DIM s3mPlayer AS MODPlayer
     TEST_REQUIRE MODPlayer_LoadFromDisk(s3mPlayer, "mods/A Touch of Spring.s3m"), "Load A Touch of Spring.s3m"
     TEST_CHECK MODPlayer_GetPatternRows(s3mPlayer, 0) = 64, "S3M pattern 0 has 64 rows"
     TEST_CHECK s3mPlayer.pattern(0).rows = 64, "S3M pattern 0 direct rows is 64"
 
     ' Test MTM pattern rows
-    DIM mtmPlayer AS MODPlayerType
+    DIM mtmPlayer AS MODPlayer
     TEST_REQUIRE MODPlayer_LoadFromDisk(mtmPlayer, "mods/cougarstory-ii.mtm"), "Load cougarstory-ii.mtm"
     TEST_CHECK MODPlayer_GetPatternRows(mtmPlayer, 0) = 64, "MTM pattern 0 has 64 rows"
     TEST_CHECK mtmPlayer.pattern(0).rows = 64, "MTM pattern 0 direct rows is 64"
 
     ' Test variable row support on custom pattern matrix
-    DIM customPlayer AS MODPlayerType
+    DIM customPlayer AS MODPlayer
     TEST_REQUIRE MODPlayer_Initialize(customPlayer), "Initialize custom player"
     customPlayer.song.patterns = 2
     customPlayer.song.channels = 4
@@ -634,11 +634,11 @@ SUB Test_MODPlayer_PatternRows
     REDIM customPlayer.order(0 TO 1) AS _UNSIGNED INTEGER
     customPlayer.order(0) = 0
     customPlayer.order(1) = 1
-    REDIM customPlayer.pattern(0 TO 1) AS __PatternType
+    REDIM customPlayer.pattern(0 TO 1) AS __MODPlayerPattern
     customPlayer.pattern(0).rows = 32
-    REDIM customPlayer.pattern(0).note(0 TO 31, 0 TO 3) AS __NoteType
+    REDIM customPlayer.pattern(0).note(0 TO 31, 0 TO 3) AS __MODPlayerNote
     customPlayer.pattern(1).rows = 16
-    REDIM customPlayer.pattern(1).note(0 TO 15, 0 TO 3) AS __NoteType
+    REDIM customPlayer.pattern(1).note(0 TO 15, 0 TO 3) AS __MODPlayerNote
 
     TEST_CHECK MODPlayer_GetPatternRows(customPlayer, 0) = 32, "Custom pattern 0 has 32 rows"
     TEST_CHECK MODPlayer_GetPatternRows(customPlayer, 1) = 16, "Custom pattern 1 has 16 rows"
@@ -653,7 +653,7 @@ END SUB
 ''' @brief Tests for error handling and invalid inputs.
 SUB Test_MODPlayer_Errors
     TEST_CASE_BEGIN "MODPlayer: Non-existent file"
-    DIM player AS MODPlayerType
+    DIM player AS MODPlayer
     TEST_REQUIRE_FALSE MODPlayer_LoadFromDisk(player, "mods/non_existent_file_98765.mod"), "Should return FALSE for missing file"
     TEST_CASE_END
 

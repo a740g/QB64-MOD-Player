@@ -44,18 +44,18 @@ Include header:
 ### MODPlayer Types
 
 ```vb
-TYPE __PatternType
+TYPE __MODPlayerPattern
     rows AS _UNSIGNED INTEGER
-    note(0 TO 0, 0 TO 0) _DYNAMIC AS __NoteType
+    note(0 TO 0, 0 TO 0) _DYNAMIC AS __MODPlayerNote
 END TYPE
 
-TYPE MODPlayerType
-    song AS __SongType
-    synth AS SoftSynthType
+TYPE MODPlayer
+    song AS __MODPlayerSong
+    synth AS SoftSynth
     order(0 TO 0) _DYNAMIC AS _UNSIGNED INTEGER
-    pattern(0 TO 0) _DYNAMIC AS __PatternType
-    instrument(0 TO 0) _DYNAMIC AS __InstrumentType
-    channel(0 TO 0) _DYNAMIC AS __ChannelType
+    pattern(0 TO 0) _DYNAMIC AS __MODPlayerPattern
+    instrument(0 TO 0) _DYNAMIC AS __MODPlayerInstrument
+    channel(0 TO 0) _DYNAMIC AS __MODPlayerChannel
     initialized AS _BYTE
 END TYPE
 ```
@@ -65,7 +65,7 @@ END TYPE
 #### `MODPlayer_Initialize%%`
 
 ```vb
-FUNCTION MODPlayer_Initialize%% (player AS MODPlayerType)
+FUNCTION MODPlayer_Initialize%% (player AS MODPlayer)
 ```
 
 - **Description**: Initializes an instance of the MOD player, ensuring shared
@@ -78,7 +78,7 @@ FUNCTION MODPlayer_Initialize%% (player AS MODPlayerType)
 #### `MODPlayer_Finalize`
 
 ```vb
-SUB MODPlayer_Finalize (player AS MODPlayerType)
+SUB MODPlayer_Finalize (player AS MODPlayer)
 ```
 
 - **Description**: Stops active playback, releases voices and mixer buffers in
@@ -89,7 +89,7 @@ SUB MODPlayer_Finalize (player AS MODPlayerType)
 #### `MODPlayer_IsInitialized%%`
 
 ```vb
-FUNCTION MODPlayer_IsInitialized%% (player AS MODPlayerType)
+FUNCTION MODPlayer_IsInitialized%% (player AS MODPlayer)
 ```
 
 - **Parameters**:
@@ -103,7 +103,7 @@ FUNCTION MODPlayer_IsInitialized%% (player AS MODPlayerType)
 #### `MODPlayer_LoadFromDisk%%`
 
 ```vb
-FUNCTION MODPlayer_LoadFromDisk%% (player AS MODPlayerType, fileName AS STRING)
+FUNCTION MODPlayer_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
 ```
 
 - **Description**: Loads and parses a tracker module file from disk.
@@ -117,7 +117,7 @@ FUNCTION MODPlayer_LoadFromDisk%% (player AS MODPlayerType, fileName AS STRING)
 #### `MODPlayer_LoadFromMemory%%`
 
 ```vb
-FUNCTION MODPlayer_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
+FUNCTION MODPlayer_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 ```
 
 - **Description**: Parses a tracker module from an in-memory binary string.
@@ -134,7 +134,7 @@ FUNCTION MODPlayer_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
 #### `MODPlayer_Play`
 
 ```vb
-SUB MODPlayer_Play (player AS MODPlayerType)
+SUB MODPlayer_Play (player AS MODPlayer)
 ```
 
 - **Description**: Starts or resumes song playback from the current position.
@@ -144,7 +144,7 @@ SUB MODPlayer_Play (player AS MODPlayerType)
 #### `MODPlayer_Stop`
 
 ```vb
-SUB MODPlayer_Stop (player AS MODPlayerType)
+SUB MODPlayer_Stop (player AS MODPlayer)
 ```
 
 - **Description**: Stops song playback, resets voice outputs, and rewinds
@@ -155,7 +155,7 @@ SUB MODPlayer_Stop (player AS MODPlayerType)
 #### `MODPlayer_Pause`
 
 ```vb
-SUB MODPlayer_Pause (player AS MODPlayerType, state AS _BYTE)
+SUB MODPlayer_Pause (player AS MODPlayer, state AS _BYTE)
 ```
 
 - **Description**: Sets the pause state of the player.
@@ -166,7 +166,7 @@ SUB MODPlayer_Pause (player AS MODPlayerType, state AS _BYTE)
 #### `MODPlayer_IsPlaying%%`
 
 ```vb
-FUNCTION MODPlayer_IsPlaying%% (player AS MODPlayerType)
+FUNCTION MODPlayer_IsPlaying%% (player AS MODPlayer)
 ```
 
 - **Parameters**:
@@ -176,7 +176,7 @@ FUNCTION MODPlayer_IsPlaying%% (player AS MODPlayerType)
 #### `MODPlayer_IsPaused%%`
 
 ```vb
-FUNCTION MODPlayer_IsPaused%% (player AS MODPlayerType)
+FUNCTION MODPlayer_IsPaused%% (player AS MODPlayer)
 ```
 
 - **Parameters**:
@@ -186,7 +186,7 @@ FUNCTION MODPlayer_IsPaused%% (player AS MODPlayerType)
 #### `MODPlayer_Loop`
 
 ```vb
-SUB MODPlayer_Loop (player AS MODPlayerType, state AS _BYTE)
+SUB MODPlayer_Loop (player AS MODPlayer, state AS _BYTE)
 ```
 
 - **Description**: Enables or disables song-level looping when reaching the end
@@ -198,7 +198,7 @@ SUB MODPlayer_Loop (player AS MODPlayerType, state AS _BYTE)
 #### `MODPlayer_IsLooping%%`
 
 ```vb
-FUNCTION MODPlayer_IsLooping%% (player AS MODPlayerType)
+FUNCTION MODPlayer_IsLooping%% (player AS MODPlayer)
 ```
 
 - **Parameters**:
@@ -208,7 +208,7 @@ FUNCTION MODPlayer_IsLooping%% (player AS MODPlayerType)
 #### `MODPlayer_Update`
 
 ```vb
-SUB MODPlayer_Update (player AS MODPlayerType, bufferTimeSecs AS SINGLE)
+SUB MODPlayer_Update (player AS MODPlayer, bufferTimeSecs AS SINGLE)
 ```
 
 - **Description**: Drives tracker tick sequencing and generates PCM audio
@@ -226,7 +226,7 @@ SUB MODPlayer_Update (player AS MODPlayerType, bufferTimeSecs AS SINGLE)
 #### `MODPlayer_GetName$`
 
 ```vb
-FUNCTION MODPlayer_GetName$ (player AS MODPlayerType)
+FUNCTION MODPlayer_GetName$ (player AS MODPlayer)
 ```
 
 - **Parameters**:
@@ -237,7 +237,7 @@ FUNCTION MODPlayer_GetName$ (player AS MODPlayerType)
 #### `MODPlayer_GetType$`
 
 ```vb
-FUNCTION MODPlayer_GetType$ (player AS MODPlayerType)
+FUNCTION MODPlayer_GetType$ (player AS MODPlayer)
 ```
 
 - **Parameters**:
@@ -248,7 +248,7 @@ FUNCTION MODPlayer_GetType$ (player AS MODPlayerType)
 #### `MODPlayer_GetPosition&`
 
 ```vb
-FUNCTION MODPlayer_GetPosition& (player AS MODPlayerType)
+FUNCTION MODPlayer_GetPosition& (player AS MODPlayer)
 ```
 
 - **Parameters**:
@@ -258,7 +258,7 @@ FUNCTION MODPlayer_GetPosition& (player AS MODPlayerType)
 #### `MODPlayer_GetOrders~%`
 
 ```vb
-FUNCTION MODPlayer_GetOrders~% (player AS MODPlayerType)
+FUNCTION MODPlayer_GetOrders~% (player AS MODPlayer)
 ```
 
 - **Parameters**:
@@ -268,7 +268,7 @@ FUNCTION MODPlayer_GetOrders~% (player AS MODPlayerType)
 #### `MODPlayer_GetPatternRows~%`
 
 ```vb
-FUNCTION MODPlayer_GetPatternRows~% (player AS MODPlayerType, _
+FUNCTION MODPlayer_GetPatternRows~% (player AS MODPlayer, _
     patternIndex AS _UNSIGNED INTEGER)
 ```
 
@@ -281,7 +281,7 @@ FUNCTION MODPlayer_GetPatternRows~% (player AS MODPlayerType, _
 #### `MODPlayer_SetPosition`
 
 ```vb
-SUB MODPlayer_SetPosition (player AS MODPlayerType, position AS _UNSIGNED INTEGER)
+SUB MODPlayer_SetPosition (player AS MODPlayer, position AS _UNSIGNED INTEGER)
 ```
 
 - **Description**: Jumps playback directly to the specified 0-based order index.
@@ -292,7 +292,7 @@ SUB MODPlayer_SetPosition (player AS MODPlayerType, position AS _UNSIGNED INTEGE
 #### `MODPlayer_GoToNextPosition`
 
 ```vb
-SUB MODPlayer_GoToNextPosition (player AS MODPlayerType)
+SUB MODPlayer_GoToNextPosition (player AS MODPlayer)
 ```
 
 - **Description**: Advances playback immediately to the next order in sequence.
@@ -302,7 +302,7 @@ SUB MODPlayer_GoToNextPosition (player AS MODPlayerType)
 #### `MODPlayer_GoToPreviousPosition`
 
 ```vb
-SUB MODPlayer_GoToPreviousPosition (player AS MODPlayerType)
+SUB MODPlayer_GoToPreviousPosition (player AS MODPlayer)
 ```
 
 - **Description**: Rewinds playback immediately to the preceding order in
@@ -320,8 +320,8 @@ when building custom loader dispatch pipelines.
 ### ProTracker Loader (`MODLoader.bi`)
 
 ```vb
-FUNCTION MODLoader_LoadFromDisk%% (player AS MODPlayerType, fileName AS STRING)
-FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
+FUNCTION MODLoader_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
+FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 ```
 
 - **Supported Formats**: ProTracker, SoundTracker, NoiseTracker, StarTrekker,
@@ -333,8 +333,8 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
 ### Scream Tracker 3 Loader (`S3MLoader.bi`)
 
 ```vb
-FUNCTION S3MLoader_LoadFromDisk%% (player AS MODPlayerType, fileName AS STRING)
-FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
+FUNCTION S3MLoader_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
+FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 ```
 
 - **Supported Formats**: Scream Tracker 3 (`SCRM` signature) modules with
@@ -347,8 +347,8 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
 ### MultiTracker Loader (`MTMLoader.bi`)
 
 ```vb
-FUNCTION MTMLoader_LoadFromDisk%% (player AS MODPlayerType, fileName AS STRING)
-FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
+FUNCTION MTMLoader_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
+FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 ```
 
 - **Supported Formats**: MultiTracker Module (`MTM` signature) files with track
@@ -387,9 +387,9 @@ CONST SOFTSYNTH_SOUND_BUFFER_TIME_DEFAULT! = 0.05! ' 50 ms default refill
 ### SoftSynth Types
 
 ```vb
-TYPE SoftSynthType
-    sounds(0 TO 0) _DYNAMIC AS __SoftSynthSoundType
-    voices(0 TO 0) _DYNAMIC AS __SoftSynthVoiceType
+TYPE SoftSynth
+    sounds(0 TO 0) _DYNAMIC AS __SoftSynthSound
+    voices(0 TO 0) _DYNAMIC AS __SoftSynthVoice
     sampleRate AS _UNSIGNED LONG
     activeVoices AS _UNSIGNED LONG
     globalVolume AS SINGLE
@@ -410,7 +410,7 @@ END TYPE
 #### `SoftSynth_Initialize%%`
 
 ```vb
-FUNCTION SoftSynth_Initialize%% (ctx AS SoftSynthType)
+FUNCTION SoftSynth_Initialize%% (ctx AS SoftSynth)
 ```
 
 - **Description**: Initializes an instance of the software synthesizer, opens
@@ -420,7 +420,7 @@ FUNCTION SoftSynth_Initialize%% (ctx AS SoftSynthType)
 #### `SoftSynth_Finalize`
 
 ```vb
-SUB SoftSynth_Finalize (ctx AS SoftSynthType)
+SUB SoftSynth_Finalize (ctx AS SoftSynth)
 ```
 
 - **Description**: Closes sound handles, unbinds voices, frees sample memory,
@@ -429,7 +429,7 @@ SUB SoftSynth_Finalize (ctx AS SoftSynthType)
 #### `SoftSynth_IsInitialized%%`
 
 ```vb
-FUNCTION SoftSynth_IsInitialized%% (ctx AS SoftSynthType)
+FUNCTION SoftSynth_IsInitialized%% (ctx AS SoftSynth)
 ```
 
 - **Returns**: `_TRUE` if the context has been initialized; `_FALSE` otherwise.
@@ -442,7 +442,7 @@ FUNCTION SoftSynth_IsInitialized%% (ctx AS SoftSynthType)
 
 <!-- markdownlint-disable MD013 -->
 ```vb
-SUB SoftSynth_LoadSound (ctx AS SoftSynthType, snd AS LONG, buffer AS STRING, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
+SUB SoftSynth_LoadSound (ctx AS SoftSynth, snd AS LONG, buffer AS STRING, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
 ```
 <!-- markdownlint-enable MD013 -->
 
@@ -459,7 +459,7 @@ SUB SoftSynth_LoadSound (ctx AS SoftSynthType, snd AS LONG, buffer AS STRING, by
 
 <!-- markdownlint-disable MD013 -->
 ```vb
-SUB SoftSynth_PlayVoice (ctx AS SoftSynthType, voice AS _UNSIGNED LONG, snd AS LONG, position AS _UNSIGNED LONG, mode AS LONG, startPosition AS _UNSIGNED LONG, endPosition AS _UNSIGNED LONG)
+SUB SoftSynth_PlayVoice (ctx AS SoftSynth, voice AS _UNSIGNED LONG, snd AS LONG, position AS _UNSIGNED LONG, mode AS LONG, startPosition AS _UNSIGNED LONG, endPosition AS _UNSIGNED LONG)
 ```
 <!-- markdownlint-enable MD013 -->
 
@@ -476,7 +476,7 @@ SUB SoftSynth_PlayVoice (ctx AS SoftSynthType, voice AS _UNSIGNED LONG, snd AS L
 #### `SoftSynth_StopVoice`
 
 ```vb
-SUB SoftSynth_StopVoice (ctx AS SoftSynthType, voice AS _UNSIGNED LONG)
+SUB SoftSynth_StopVoice (ctx AS SoftSynth, voice AS _UNSIGNED LONG)
 ```
 
 - **Description**: Immediately stops and silences the specified voice.
@@ -484,7 +484,7 @@ SUB SoftSynth_StopVoice (ctx AS SoftSynthType, voice AS _UNSIGNED LONG)
 #### `SoftSynth_Update`
 
 ```vb
-SUB SoftSynth_Update (ctx AS SoftSynthType, frames AS _UNSIGNED LONG)
+SUB SoftSynth_Update (ctx AS SoftSynth, frames AS _UNSIGNED LONG)
 ```
 
 - **Description**: Renders the requested number of stereo audio frames from
@@ -494,7 +494,7 @@ SUB SoftSynth_Update (ctx AS SoftSynthType, frames AS _UNSIGNED LONG)
 #### `SoftSynth_GetBufferedSoundTime#`
 
 ```vb
-FUNCTION SoftSynth_GetBufferedSoundTime# (ctx AS SoftSynthType)
+FUNCTION SoftSynth_GetBufferedSoundTime# (ctx AS SoftSynth)
 ```
 
 - **Returns**: Estimated duration in seconds of unprocessed audio currently
@@ -506,21 +506,21 @@ FUNCTION SoftSynth_GetBufferedSoundTime# (ctx AS SoftSynthType)
 
 <!-- markdownlint-disable MD013 -->
 ```vb
-FUNCTION SoftSynth_GetActiveVoices~& (ctx AS SoftSynthType)
-FUNCTION SoftSynth_GetTotalVoices~& (ctx AS SoftSynthType)
-SUB SoftSynth_SetTotalVoices (ctx AS SoftSynthType, voices AS _UNSIGNED LONG)
-FUNCTION SoftSynth_GetTotalSounds~& (ctx AS SoftSynthType)
-FUNCTION SoftSynth_GetSampleRate~& (ctx AS SoftSynthType)
-FUNCTION SoftSynth_GetMasterVolume! (ctx AS SoftSynthType)
-SUB SoftSynth_SetMasterVolume (ctx AS SoftSynthType, volume AS SINGLE)
-FUNCTION SoftSynth_GetGlobalVolume! (ctx AS SoftSynthType)
-SUB SoftSynth_SetGlobalVolume (ctx AS SoftSynthType, volume AS SINGLE)
-FUNCTION SoftSynth_GetVoiceVolume! (ctx AS SoftSynthType, voice AS _UNSIGNED LONG)
-SUB SoftSynth_SetVoiceVolume (ctx AS SoftSynthType, voice AS _UNSIGNED LONG, volume AS SINGLE)
-FUNCTION SoftSynth_GetVoiceBalance! (ctx AS SoftSynthType, voice AS _UNSIGNED LONG)
-SUB SoftSynth_SetVoiceBalance (ctx AS SoftSynthType, voice AS _UNSIGNED LONG, balance AS SINGLE)
-FUNCTION SoftSynth_GetVoiceFrequency~& (ctx AS SoftSynthType, voice AS _UNSIGNED LONG)
-SUB SoftSynth_SetVoiceFrequency (ctx AS SoftSynthType, voice AS _UNSIGNED LONG, frequency AS _UNSIGNED LONG)
+FUNCTION SoftSynth_GetActiveVoices~& (ctx AS SoftSynth)
+FUNCTION SoftSynth_GetTotalVoices~& (ctx AS SoftSynth)
+SUB SoftSynth_SetTotalVoices (ctx AS SoftSynth, voices AS _UNSIGNED LONG)
+FUNCTION SoftSynth_GetTotalSounds~& (ctx AS SoftSynth)
+FUNCTION SoftSynth_GetSampleRate~& (ctx AS SoftSynth)
+FUNCTION SoftSynth_GetMasterVolume! (ctx AS SoftSynth)
+SUB SoftSynth_SetMasterVolume (ctx AS SoftSynth, volume AS SINGLE)
+FUNCTION SoftSynth_GetGlobalVolume! (ctx AS SoftSynth)
+SUB SoftSynth_SetGlobalVolume (ctx AS SoftSynth, volume AS SINGLE)
+FUNCTION SoftSynth_GetVoiceVolume! (ctx AS SoftSynth, voice AS _UNSIGNED LONG)
+SUB SoftSynth_SetVoiceVolume (ctx AS SoftSynth, voice AS _UNSIGNED LONG, volume AS SINGLE)
+FUNCTION SoftSynth_GetVoiceBalance! (ctx AS SoftSynth, voice AS _UNSIGNED LONG)
+SUB SoftSynth_SetVoiceBalance (ctx AS SoftSynth, voice AS _UNSIGNED LONG, balance AS SINGLE)
+FUNCTION SoftSynth_GetVoiceFrequency~& (ctx AS SoftSynth, voice AS _UNSIGNED LONG)
+SUB SoftSynth_SetVoiceFrequency (ctx AS SoftSynth, voice AS _UNSIGNED LONG, frequency AS _UNSIGNED LONG)
 ```
 <!-- markdownlint-enable MD013 -->
 
@@ -537,12 +537,12 @@ sound samples:
 
 <!-- markdownlint-disable MD013 -->
 ```vb
-FUNCTION SoftSynth_PeekSoundFrameByte%% (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG)
-FUNCTION SoftSynth_PeekSoundFrameInteger% (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG)
-FUNCTION SoftSynth_PeekSoundFrameSingle! (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG)
-SUB SoftSynth_PokeSoundFrameByte (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG, frame AS _BYTE)
-SUB SoftSynth_PokeSoundFrameInteger (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG, frame AS INTEGER)
-SUB SoftSynth_PokeSoundFrameSingle (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG, frame AS SINGLE)
+FUNCTION SoftSynth_PeekSoundFrameByte%% (ctx AS SoftSynth, snd AS LONG, position AS _UNSIGNED LONG)
+FUNCTION SoftSynth_PeekSoundFrameInteger% (ctx AS SoftSynth, snd AS LONG, position AS _UNSIGNED LONG)
+FUNCTION SoftSynth_PeekSoundFrameSingle! (ctx AS SoftSynth, snd AS LONG, position AS _UNSIGNED LONG)
+SUB SoftSynth_PokeSoundFrameByte (ctx AS SoftSynth, snd AS LONG, position AS _UNSIGNED LONG, frame AS _BYTE)
+SUB SoftSynth_PokeSoundFrameInteger (ctx AS SoftSynth, snd AS LONG, position AS _UNSIGNED LONG, frame AS INTEGER)
+SUB SoftSynth_PokeSoundFrameSingle (ctx AS SoftSynth, snd AS LONG, position AS _UNSIGNED LONG, frame AS SINGLE)
 ```
 <!-- markdownlint-enable MD013 -->
 
@@ -567,7 +567,7 @@ CONST AUDIO_ANALYZER_MAX_BINS = AUDIO_ANALYZER_MAX_SAMPLES \ 2      ' 1024
 ### AudioAnalyzer Types
 
 ```vb
-TYPE AudioAnalyzerType
+TYPE AudioAnalyzer
     fftBuffer(0 TO 2 * AUDIO_ANALYZER_MAX_SAMPLES - 1) AS LONG
     averageIntensity AS SINGLE
     peakAmplitude AS _UNSIGNED INTEGER
@@ -581,17 +581,17 @@ END TYPE
 #### `AudioAnalyzer_Initialize%%`
 
 ```vb
-FUNCTION AudioAnalyzer_Initialize%% (analyzer AS AudioAnalyzerType)
+FUNCTION AudioAnalyzer_Initialize%% (analyzer AS AudioAnalyzer)
 ```
 
-- **Description**: Initializes an `AudioAnalyzerType` instance and populates
+- **Description**: Initializes an `AudioAnalyzer` instance and populates
   shared trigonometric and bit-reversal lookup tables if not already loaded.
 - **Returns**: `_TRUE` on success; `_FALSE` on failure.
 
 #### `AudioAnalyzer_Finalize`
 
 ```vb
-SUB AudioAnalyzer_Finalize (analyzer AS AudioAnalyzerType)
+SUB AudioAnalyzer_Finalize (analyzer AS AudioAnalyzer)
 ```
 
 - **Description**: Clears internal FFT buffers and resets metrics.
@@ -599,7 +599,7 @@ SUB AudioAnalyzer_Finalize (analyzer AS AudioAnalyzerType)
 #### `AudioAnalyzer_IsInitialized%%`
 
 ```vb
-FUNCTION AudioAnalyzer_IsInitialized%% (analyzer AS AudioAnalyzerType)
+FUNCTION AudioAnalyzer_IsInitialized%% (analyzer AS AudioAnalyzer)
 ```
 
 - **Returns**: `_TRUE` if initialized; `_FALSE` otherwise.
@@ -608,7 +608,7 @@ FUNCTION AudioAnalyzer_IsInitialized%% (analyzer AS AudioAnalyzerType)
 
 <!-- markdownlint-disable MD013 -->
 ```vb
-SUB AudioAnalyzer_CalculateFFT (analyzer AS AudioAnalyzerType, amplitudeArray() AS _UNSIGNED INTEGER, sampleDataArray() AS SINGLE, sampleOffset AS LONG, sampleIncrement AS LONG, bitDepth AS LONG)
+SUB AudioAnalyzer_CalculateFFT (analyzer AS AudioAnalyzer, amplitudeArray() AS _UNSIGNED INTEGER, sampleDataArray() AS SINGLE, sampleOffset AS LONG, sampleIncrement AS LONG, bitDepth AS LONG)
 ```
 <!-- markdownlint-enable MD013 -->
 
@@ -634,7 +634,7 @@ SUB AudioAnalyzer_CalculateFFT (analyzer AS AudioAnalyzerType, amplitudeArray() 
 #### `AudioAnalyzer_GetAverageIntensity!`
 
 ```vb
-FUNCTION AudioAnalyzer_GetAverageIntensity! (analyzer AS AudioAnalyzerType)
+FUNCTION AudioAnalyzer_GetAverageIntensity! (analyzer AS AudioAnalyzer)
 ```
 
 - **Returns**: Average spectrum bin intensity scaled to `[0.0, 1.0]`. Useful
@@ -643,7 +643,7 @@ FUNCTION AudioAnalyzer_GetAverageIntensity! (analyzer AS AudioAnalyzerType)
 #### `AudioAnalyzer_GetRMS!`
 
 ```vb
-FUNCTION AudioAnalyzer_GetRMS! (analyzer AS AudioAnalyzerType)
+FUNCTION AudioAnalyzer_GetRMS! (analyzer AS AudioAnalyzer)
 ```
 
 - **Returns**: Root-Mean-Square energy of the spectrum magnitude scaled to
@@ -652,7 +652,7 @@ FUNCTION AudioAnalyzer_GetRMS! (analyzer AS AudioAnalyzerType)
 #### `AudioAnalyzer_GetPeakAmplitude~%`
 
 ```vb
-FUNCTION AudioAnalyzer_GetPeakAmplitude~% (analyzer AS AudioAnalyzerType)
+FUNCTION AudioAnalyzer_GetPeakAmplitude~% (analyzer AS AudioAnalyzer)
 ```
 
 - **Returns**: Maximum magnitude among all computed frequency bins.
@@ -660,7 +660,7 @@ FUNCTION AudioAnalyzer_GetPeakAmplitude~% (analyzer AS AudioAnalyzerType)
 #### `AudioAnalyzer_GetPeakBin&`
 
 ```vb
-FUNCTION AudioAnalyzer_GetPeakBin& (analyzer AS AudioAnalyzerType)
+FUNCTION AudioAnalyzer_GetPeakBin& (analyzer AS AudioAnalyzer)
 ```
 
 - **Returns**: Zero-based bin index containing the peak amplitude.

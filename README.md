@@ -32,7 +32,7 @@ It supports the following classic module formats:
     XM, IT) can be added simply by implementing a loader.
 - Multi-Instance Capability:
   - Fully encapsulated song state, synthesizer instance, order list, patterns,
-    instruments, and channel states inside `MODPlayerType`.
+    instruments, and channel states inside `MODPlayer`.
   - Supports multiple independent module instances loaded and played
     concurrently without crosstalk.
 - Supports pitch slides, portamento, vibrato, tremolo, volume slides, arpeggio,
@@ -103,7 +103,7 @@ OPTION _EXPLICIT
 '$INCLUDE:'source/AudioAnalyzer.bi'
 '$INCLUDE:'source/MODPlayer.bi'
 
-DIM Player AS MODPlayerType
+DIM Player AS MODPlayer
 
 IF NOT MODPlayer_LoadFromDisk(Player, "mods/Enigma.mod") THEN
     PRINT "Failed to load module!"

@@ -16,7 +16,7 @@ $INCLUDEONCE
 ''' @brief Parses and loads a MultiTracker Module (MTM) from a memory buffer.
 ''' @param buffer Binary string containing the MTM module data.
 ''' @return _TRUE if the module was successfully parsed, _FALSE otherwise.
-FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
+FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
 
     ' Open the buffer as a StringFile
@@ -71,7 +71,7 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
     IF numTracks = 0 _ORELSE player.song.instruments = 0 _ORELSE numRows = 0 _ORELSE player.song.channels = 0 THEN EXIT FUNCTION
 
     ' Resize the channel array
-    REDIM player.channel(0 TO player.song.channels - 1) AS __ChannelType
+    REDIM player.channel(0 TO player.song.channels - 1) AS __MODPlayerChannel
 
     ' Allocate the number of softsynth voices we need
     SoftSynth_SetTotalVoices player.synth, player.song.channels
@@ -88,7 +88,7 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
     NEXT i
 
     ' Resize the instruments array
-    REDIM player.instrument(0 TO player.song.instruments - 1) AS __InstrumentType
+    REDIM player.instrument(0 TO player.song.instruments - 1) AS __MODPlayerInstrument
 
     ' Read the instruments information
     FOR i = 0 TO player.song.instruments - 1
@@ -141,7 +141,7 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
     NEXT
 
     ' Read and convert track data
-    DIM mtmTrack(0 TO numTracks - 1, 0 TO numRows - 1) AS __NoteType, j AS LONG
+    DIM mtmTrack(0 TO numTracks - 1, 0 TO numRows - 1) AS __MODPlayerNote, j AS LONG
     DIM AS _UNSIGNED _BYTE byte2, byte3
     FOR i = 0 TO numTracks - 1
         FOR j = 0 TO numRows - 1
@@ -180,10 +180,10 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
     NEXT i
 
     ' Resize the pattern data array
-    REDIM player.pattern(0 TO player.song.patterns - 1) AS __PatternType
+    REDIM player.pattern(0 TO player.song.patterns - 1) AS __MODPlayerPattern
     FOR i = 0 TO player.song.patterns - 1
         player.pattern(i).rows = numRows
-        REDIM player.pattern(i).note(0 TO numRows - 1, 0 TO player.song.channels - 1) AS __NoteType
+        REDIM player.pattern(i).note(0 TO numRows - 1, 0 TO player.song.channels - 1) AS __MODPlayerNote
     NEXT
 
     ' Read track sequencing data and assemble that to our pattern data
@@ -235,7 +235,7 @@ END FUNCTION
 ''' @brief Loads a MultiTracker Module (MTM) from a file on disk or URL.
 ''' @param fileName File path or URL to load.
 ''' @return _TRUE if the module was loaded, _FALSE otherwise.
-FUNCTION MTMLoader_LoadFromDisk%% (player AS MODPlayerType, fileName AS STRING)
+FUNCTION MTMLoader_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
     IF NOT _FILEEXISTS(fileName) THEN EXIT FUNCTION
     MTMLoader_LoadFromDisk = MTMLoader_LoadFromMemory(player, File_Load(fileName))
 END FUNCTION

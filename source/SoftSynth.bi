@@ -30,13 +30,13 @@ CONST __SOFTSYNTH_MULTIPLIER_16_TO_32! = 1! / 32768!
 CONST __SOFTSYNTH_MULTIPLIER_8_TO_32! = 1! / 128!
 
 ' A single mono sound stored as floating-point frames
-TYPE __SoftSynthSoundType
+TYPE __SoftSynthSound
     frames(0 TO 0) _DYNAMIC AS SINGLE ' mono fp32 sample frames, independently sized per sound
     length AS _UNSIGNED LONG ' number of valid frames
 END TYPE
 
 ' A single playback voice with all its state
-TYPE __SoftSynthVoiceType
+TYPE __SoftSynthVoice
     sound AS LONG ' index into sounds array, or SOFTSYNTH_VOICE_NO_SOUND
     frequency AS _UNSIGNED LONG ' playback frequency in Hz
     pitch AS SINGLE ' frequency / sampleRate — step rate through frames
@@ -54,9 +54,9 @@ TYPE __SoftSynthVoiceType
 END TYPE
 
 ' Main synthesizer context — holds all sounds, voices, sound pipe, and mix buffer
-TYPE SoftSynthType
-    sounds(0 TO 0) _DYNAMIC AS __SoftSynthSoundType ' managed sound slots
-    voices(0 TO 0) _DYNAMIC AS __SoftSynthVoiceType ' managed voice slots
+TYPE SoftSynth
+    sounds(0 TO 0) _DYNAMIC AS __SoftSynthSound ' managed sound slots
+    voices(0 TO 0) _DYNAMIC AS __SoftSynthVoice ' managed voice slots
     sampleRate AS _UNSIGNED LONG ' mixer output sample rate
     activeVoices AS _UNSIGNED LONG ' count of currently active voices
     globalVolume AS SINGLE ' global volume multiplier (0.0 - 1.0)
@@ -73,7 +73,7 @@ END TYPE
 
 ''' @brief Resets a voice structure to defaults (does NOT reset pan position).
 ''' @param voice Voice structure to reset.
-SUB __SoftSynth_ResetVoice (voice AS __SoftSynthVoiceType)
+SUB __SoftSynth_ResetVoice (voice AS __SoftSynthVoice)
     voice.sound = SOFTSYNTH_VOICE_NO_SOUND
     voice.volume = SOFTSYNTH_VOICE_VOLUME_MAX
     voice.frequency = 0
@@ -90,7 +90,7 @@ END SUB
 ''' @brief Computes pan gains for a voice using equal-power (-3 dB) pan law.
 ''' @param voice Voice structure to update.
 ''' @param pan Panning value from -1.0 (left) to 1.0 (right).
-SUB __SoftSynth_SetPanPosition (voice AS __SoftSynthVoiceType, pan AS SINGLE)
+SUB __SoftSynth_SetPanPosition (voice AS __SoftSynthVoice, pan AS SINGLE)
     DIM p AS SINGLE
     DIM panMapped AS SINGLE
 
@@ -119,14 +119,14 @@ END FUNCTION
 ''' @brief Checks whether the synthesizer engine is initialized.
 ''' @param ctx Synthesizer context.
 ''' @return _TRUE if initialized, _FALSE otherwise.
-FUNCTION SoftSynth_IsInitialized%% (ctx AS SoftSynthType)
+FUNCTION SoftSynth_IsInitialized%% (ctx AS SoftSynth)
     SoftSynth_IsInitialized = ctx.initialized
 END FUNCTION
 
 ''' @brief Initializes the SoftSynth and allocates all required audio resources.
 ''' @param ctx Synthesizer context.
 ''' @return _TRUE on success, _FALSE on failure.
-FUNCTION SoftSynth_Initialize%% (ctx AS SoftSynthType)
+FUNCTION SoftSynth_Initialize%% (ctx AS SoftSynth)
     ' Return true if already initialized
     IF ctx.initialized THEN
         SoftSynth_Initialize = _TRUE
@@ -164,7 +164,7 @@ END FUNCTION
 
 ''' @brief Finalizes the SoftSynth and frees all allocated sound and pipe resources.
 ''' @param ctx Synthesizer context.
-SUB SoftSynth_Finalize (ctx AS SoftSynthType)
+SUB SoftSynth_Finalize (ctx AS SoftSynth)
     IF ctx.initialized THEN
         IF ctx.soundHandle > 0 THEN
             _SNDRAWDONE ctx.soundHandle
@@ -197,14 +197,14 @@ END SUB
 ''' @brief Gets the output sample rate of the synthesizer engine.
 ''' @param ctx Synthesizer context.
 ''' @return Sample rate in Hertz.
-FUNCTION SoftSynth_GetSampleRate~& (ctx AS SoftSynthType)
+FUNCTION SoftSynth_GetSampleRate~& (ctx AS SoftSynth)
     SoftSynth_GetSampleRate = ctx.sampleRate
 END FUNCTION
 
 ''' @brief Gets the total number of allocated sound slots.
 ''' @param ctx Synthesizer context.
 ''' @return Total sound slots count.
-FUNCTION SoftSynth_GetTotalSounds~& (ctx AS SoftSynthType)
+FUNCTION SoftSynth_GetTotalSounds~& (ctx AS SoftSynth)
     SoftSynth_GetTotalSounds = ctx.totalSounds
 END FUNCTION
 
@@ -214,7 +214,7 @@ END FUNCTION
 ''' @param buffer Raw audio sample data buffer.
 ''' @param bytesPerSample Bytes per sample (1 for 8-bit, 2 for 16-bit, 4 for 32-bit float).
 ''' @param channels Channel count (multi-channel sounds are flattened to mono).
-SUB SoftSynth_LoadSound (ctx AS SoftSynthType, snd AS LONG, buffer AS STRING, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
+SUB SoftSynth_LoadSound (ctx AS SoftSynth, snd AS LONG, buffer AS STRING, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
     IF NOT ctx.initialized THEN EXIT SUB
     IF snd < 0 THEN EXIT SUB
     IF channels < 1 THEN EXIT SUB
@@ -229,9 +229,9 @@ SUB SoftSynth_LoadSound (ctx AS SoftSynthType, snd AS LONG, buffer AS STRING, by
         DIM newCount AS LONG
         newCount = snd + 1
         IF ctx.totalSounds = 0 THEN
-            REDIM ctx.sounds(0 TO newCount - 1) AS __SoftSynthSoundType
+            REDIM ctx.sounds(0 TO newCount - 1) AS __SoftSynthSound
         ELSE
-            REDIM _PRESERVE ctx.sounds(0 TO newCount - 1) AS __SoftSynthSoundType
+            REDIM _PRESERVE ctx.sounds(0 TO newCount - 1) AS __SoftSynthSound
         END IF
         ctx.totalSounds = newCount
     END IF
@@ -292,7 +292,7 @@ END SUB
 ''' @param snd Sound slot index.
 ''' @param position Sample frame index.
 ''' @return Normalized sample value (-1.0 to 1.0).
-FUNCTION SoftSynth_PeekSoundFrameSingle! (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG)
+FUNCTION SoftSynth_PeekSoundFrameSingle! (ctx AS SoftSynth, snd AS LONG, position AS _UNSIGNED LONG)
     IF NOT ctx.initialized THEN EXIT FUNCTION
     IF snd < 0 _ORELSE snd >= ctx.totalSounds THEN EXIT FUNCTION
     IF position >= ctx.sounds(snd).length THEN EXIT FUNCTION
@@ -305,7 +305,7 @@ END FUNCTION
 ''' @param snd Sound slot index.
 ''' @param position Sample frame index.
 ''' @param frame Normalized sample value (-1.0 to 1.0).
-SUB SoftSynth_PokeSoundFrameSingle (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG, frame AS SINGLE)
+SUB SoftSynth_PokeSoundFrameSingle (ctx AS SoftSynth, snd AS LONG, position AS _UNSIGNED LONG, frame AS SINGLE)
     IF NOT ctx.initialized THEN EXIT SUB
     IF snd < 0 _ORELSE snd >= ctx.totalSounds THEN EXIT SUB
     IF position >= ctx.sounds(snd).length THEN EXIT SUB
@@ -318,7 +318,7 @@ END SUB
 ''' @param snd Sound slot index.
 ''' @param position Sample frame index.
 ''' @return 16-bit signed sample value (-32768 to 32767).
-FUNCTION SoftSynth_PeekSoundFrameInteger% (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG)
+FUNCTION SoftSynth_PeekSoundFrameInteger% (ctx AS SoftSynth, snd AS LONG, position AS _UNSIGNED LONG)
     SoftSynth_PeekSoundFrameInteger = _CAST(INTEGER, SoftSynth_PeekSoundFrameSingle(ctx, snd, position) * __SOFTSYNTH_MULTIPLIER_32_TO_16)
 END FUNCTION
 
@@ -327,7 +327,7 @@ END FUNCTION
 ''' @param snd Sound slot index.
 ''' @param position Sample frame index.
 ''' @param frame 16-bit signed sample value (-32768 to 32767).
-SUB SoftSynth_PokeSoundFrameInteger (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG, frame AS INTEGER)
+SUB SoftSynth_PokeSoundFrameInteger (ctx AS SoftSynth, snd AS LONG, position AS _UNSIGNED LONG, frame AS INTEGER)
     SoftSynth_PokeSoundFrameSingle ctx, snd, position, frame * __SOFTSYNTH_MULTIPLIER_16_TO_32
 END SUB
 
@@ -336,7 +336,7 @@ END SUB
 ''' @param snd Sound slot index.
 ''' @param position Sample frame index.
 ''' @return 8-bit signed sample value (-128 to 127).
-FUNCTION SoftSynth_PeekSoundFrameByte%% (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG)
+FUNCTION SoftSynth_PeekSoundFrameByte%% (ctx AS SoftSynth, snd AS LONG, position AS _UNSIGNED LONG)
     SoftSynth_PeekSoundFrameByte = _CAST(_BYTE, SoftSynth_PeekSoundFrameSingle(ctx, snd, position) * __SOFTSYNTH_MULTIPLIER_32_TO_8)
 END FUNCTION
 
@@ -345,25 +345,25 @@ END FUNCTION
 ''' @param snd Sound slot index.
 ''' @param position Sample frame index.
 ''' @param frame 8-bit signed sample value (-128 to 127).
-SUB SoftSynth_PokeSoundFrameByte (ctx AS SoftSynthType, snd AS LONG, position AS _UNSIGNED LONG, frame AS _BYTE)
+SUB SoftSynth_PokeSoundFrameByte (ctx AS SoftSynth, snd AS LONG, position AS _UNSIGNED LONG, frame AS _BYTE)
     SoftSynth_PokeSoundFrameSingle ctx, snd, position, frame * __SOFTSYNTH_MULTIPLIER_8_TO_32
 END SUB
 
 ''' @brief Gets the total number of allocated voice slots.
 ''' @param ctx Synthesizer context.
 ''' @return Number of voice slots.
-FUNCTION SoftSynth_GetTotalVoices~& (ctx AS SoftSynthType)
+FUNCTION SoftSynth_GetTotalVoices~& (ctx AS SoftSynth)
     SoftSynth_GetTotalVoices = ctx.totalVoices
 END FUNCTION
 
 ''' @brief Sets total number of voice slots (re-allocates and clears all voices).
 ''' @param ctx Synthesizer context.
 ''' @param voices Number of voices to allocate.
-SUB SoftSynth_SetTotalVoices (ctx AS SoftSynthType, voices AS _UNSIGNED LONG)
+SUB SoftSynth_SetTotalVoices (ctx AS SoftSynth, voices AS _UNSIGNED LONG)
     IF NOT ctx.initialized THEN EXIT SUB
     IF voices < 1 THEN EXIT SUB
 
-    REDIM ctx.voices(0 TO voices - 1) AS __SoftSynthVoiceType
+    REDIM ctx.voices(0 TO voices - 1) AS __SoftSynthVoice
     ctx.totalVoices = voices
 
     ' Initialize all voices with defaults
@@ -377,7 +377,7 @@ END SUB
 ''' @brief Gets the active voice count updated during each audio mixing pass.
 ''' @param ctx Synthesizer context.
 ''' @return Number of active voices.
-FUNCTION SoftSynth_GetActiveVoices~& (ctx AS SoftSynthType)
+FUNCTION SoftSynth_GetActiveVoices~& (ctx AS SoftSynth)
     SoftSynth_GetActiveVoices = ctx.activeVoices
 END FUNCTION
 
@@ -385,7 +385,7 @@ END FUNCTION
 ''' @param ctx Synthesizer context.
 ''' @param voice Voice index (0-based).
 ''' @param volume Volume level (0.0 to 1.0).
-SUB SoftSynth_SetVoiceVolume (ctx AS SoftSynthType, voice AS _UNSIGNED LONG, volume AS SINGLE)
+SUB SoftSynth_SetVoiceVolume (ctx AS SoftSynth, voice AS _UNSIGNED LONG, volume AS SINGLE)
     IF NOT ctx.initialized THEN EXIT SUB
     IF voice >= ctx.totalVoices THEN EXIT SUB
 
@@ -396,7 +396,7 @@ END SUB
 ''' @param ctx Synthesizer context.
 ''' @param voice Voice index (0-based).
 ''' @return Voice volume level (0.0 to 1.0).
-FUNCTION SoftSynth_GetVoiceVolume! (ctx AS SoftSynthType, voice AS _UNSIGNED LONG)
+FUNCTION SoftSynth_GetVoiceVolume! (ctx AS SoftSynth, voice AS _UNSIGNED LONG)
     IF NOT ctx.initialized THEN EXIT FUNCTION
     IF voice >= ctx.totalVoices THEN EXIT FUNCTION
 
@@ -407,7 +407,7 @@ END FUNCTION
 ''' @param ctx Synthesizer context.
 ''' @param voice Voice index (0-based).
 ''' @param balance Panning balance from -1.0 (left) to 1.0 (right).
-SUB SoftSynth_SetVoiceBalance (ctx AS SoftSynthType, voice AS _UNSIGNED LONG, balance AS SINGLE)
+SUB SoftSynth_SetVoiceBalance (ctx AS SoftSynth, voice AS _UNSIGNED LONG, balance AS SINGLE)
     IF NOT ctx.initialized THEN EXIT SUB
     IF voice >= ctx.totalVoices THEN EXIT SUB
 
@@ -418,7 +418,7 @@ END SUB
 ''' @param ctx Synthesizer context.
 ''' @param voice Voice index (0-based).
 ''' @return Pan position from -1.0 (left) to 1.0 (right).
-FUNCTION SoftSynth_GetVoiceBalance! (ctx AS SoftSynthType, voice AS _UNSIGNED LONG)
+FUNCTION SoftSynth_GetVoiceBalance! (ctx AS SoftSynth, voice AS _UNSIGNED LONG)
     IF NOT ctx.initialized THEN EXIT FUNCTION
     IF voice >= ctx.totalVoices THEN EXIT FUNCTION
 
@@ -429,7 +429,7 @@ END FUNCTION
 ''' @param ctx Synthesizer context.
 ''' @param voice Voice index (0-based).
 ''' @param frequency Playback frequency in Hertz.
-SUB SoftSynth_SetVoiceFrequency (ctx AS SoftSynthType, voice AS _UNSIGNED LONG, frequency AS _UNSIGNED LONG)
+SUB SoftSynth_SetVoiceFrequency (ctx AS SoftSynth, voice AS _UNSIGNED LONG, frequency AS _UNSIGNED LONG)
     IF NOT ctx.initialized THEN EXIT SUB
     IF voice >= ctx.totalVoices THEN EXIT SUB
     IF frequency = 0 THEN EXIT SUB
@@ -441,7 +441,7 @@ END SUB
 ''' @brief Gets the current playback frequency of a voice in Hertz.
 ''' @param ctx Synthesizer context.
 ''' @return Playback frequency in Hertz.
-FUNCTION SoftSynth_GetVoiceFrequency~& (ctx AS SoftSynthType, voice AS _UNSIGNED LONG)
+FUNCTION SoftSynth_GetVoiceFrequency~& (ctx AS SoftSynth, voice AS _UNSIGNED LONG)
     IF NOT ctx.initialized THEN EXIT FUNCTION
     IF voice >= ctx.totalVoices THEN EXIT FUNCTION
 
@@ -451,7 +451,7 @@ END FUNCTION
 ''' @brief Stops playback on a voice and unbinds its sound.
 ''' @param ctx Synthesizer context.
 ''' @param voice Voice index (0-based).
-SUB SoftSynth_StopVoice (ctx AS SoftSynthType, voice AS _UNSIGNED LONG)
+SUB SoftSynth_StopVoice (ctx AS SoftSynth, voice AS _UNSIGNED LONG)
     IF NOT ctx.initialized THEN EXIT SUB
     IF voice >= ctx.totalVoices THEN EXIT SUB
 
@@ -466,12 +466,12 @@ END SUB
 ''' @param mode Loop mode (SOFTSYNTH_VOICE_PLAY_FORWARD or SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP).
 ''' @param startPosition Loop start position in sample frames.
 ''' @param endPosition Loop end position in sample frames.
-SUB SoftSynth_PlayVoice (ctx AS SoftSynthType, voice AS _UNSIGNED LONG, snd AS LONG, position AS _UNSIGNED LONG, mode AS LONG, startPosition AS _UNSIGNED LONG, endPosition AS _UNSIGNED LONG)
+SUB SoftSynth_PlayVoice (ctx AS SoftSynth, voice AS _UNSIGNED LONG, snd AS LONG, position AS _UNSIGNED LONG, mode AS LONG, startPosition AS _UNSIGNED LONG, endPosition AS _UNSIGNED LONG)
     IF NOT ctx.initialized THEN EXIT SUB
     IF voice >= ctx.totalVoices THEN EXIT SUB
     IF snd < 0 _ORELSE snd >= ctx.totalSounds THEN EXIT SUB
 
-    DIM v AS __SoftSynthVoiceType
+    DIM v AS __SoftSynthVoice
     v = ctx.voices(voice) ' work on local copy to preserve pan
 
     IF mode < SOFTSYNTH_VOICE_PLAY_FORWARD _ORELSE mode > SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP THEN
@@ -501,21 +501,21 @@ END SUB
 ''' @brief Sets the global volume multiplier applied across all voices.
 ''' @param ctx Synthesizer context.
 ''' @param volume Global volume level (0.0 to 1.0).
-SUB SoftSynth_SetGlobalVolume (ctx AS SoftSynthType, volume AS SINGLE)
+SUB SoftSynth_SetGlobalVolume (ctx AS SoftSynth, volume AS SINGLE)
     ctx.globalVolume = _CLAMP(volume, 0!, SOFTSYNTH_GLOBAL_VOLUME_MAX)
 END SUB
 
 ''' @brief Gets the current global software volume level.
 ''' @param ctx Synthesizer context.
 ''' @return Global volume level (0.0 to 1.0).
-FUNCTION SoftSynth_GetGlobalVolume! (ctx AS SoftSynthType)
+FUNCTION SoftSynth_GetGlobalVolume! (ctx AS SoftSynth)
     SoftSynth_GetGlobalVolume = ctx.globalVolume
 END FUNCTION
 
 ''' @brief Sets the master sound pipe volume via the QB64 audio engine.
 ''' @param ctx Synthesizer context.
 ''' @param volume Master volume level (0.0 to 1.0).
-SUB SoftSynth_SetMasterVolume (ctx AS SoftSynthType, volume AS SINGLE)
+SUB SoftSynth_SetMasterVolume (ctx AS SoftSynth, volume AS SINGLE)
     ctx.soundMasterVolume = _CLAMP(volume, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
     _SNDVOL ctx.soundHandle, ctx.soundMasterVolume
 END SUB
@@ -523,14 +523,14 @@ END SUB
 ''' @brief Gets the master sound pipe volume level.
 ''' @param ctx Synthesizer context.
 ''' @return Master volume level (0.0 to 1.0).
-FUNCTION SoftSynth_GetMasterVolume! (ctx AS SoftSynthType)
+FUNCTION SoftSynth_GetMasterVolume! (ctx AS SoftSynth)
     SoftSynth_GetMasterVolume = ctx.soundMasterVolume
 END FUNCTION
 
 ''' @brief Gets the amount of queued unplayed audio time remaining in the sound pipe.
 ''' @param ctx Synthesizer context.
 ''' @return Remaining buffered audio duration in seconds.
-FUNCTION SoftSynth_GetBufferedSoundTime# (ctx AS SoftSynthType)
+FUNCTION SoftSynth_GetBufferedSoundTime# (ctx AS SoftSynth)
     SoftSynth_GetBufferedSoundTime = _SNDRAWLEN(ctx.soundHandle)
 END FUNCTION
 
@@ -538,7 +538,7 @@ END FUNCTION
 ''' @param ctx Synthesizer context.
 ''' @param buffer() Output stereo interleaved SINGLE buffer.
 ''' @param frames Number of sample frames to render.
-SUB __SoftSynth_Update (ctx AS SoftSynthType, buffer() AS SINGLE, frames AS _UNSIGNED LONG)
+SUB __SoftSynth_Update (ctx AS SoftSynth, buffer() AS SINGLE, frames AS _UNSIGNED LONG)
     IF NOT ctx.initialized THEN EXIT SUB
     IF frames = 0 THEN EXIT SUB
     IF ctx.totalVoices = 0 THEN EXIT SUB
@@ -640,7 +640,7 @@ END SUB
 ''' @brief Renders audio frames and streams them to the QB64 raw sound pipe.
 ''' @param ctx Synthesizer context.
 ''' @param frames Number of frames to render and push.
-SUB SoftSynth_Update (ctx AS SoftSynthType, frames AS _UNSIGNED LONG)
+SUB SoftSynth_Update (ctx AS SoftSynth, frames AS _UNSIGNED LONG)
     IF NOT ctx.initialized THEN EXIT SUB
 
     ' Resize buffer if frame count changed

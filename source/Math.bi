@@ -5,12 +5,15 @@
 
 $INCLUDEONCE
 
-CONST NULL~%% = 0~%%
+CONST MATH_NULL~%% = 0~%%
+CONST NULL~%% = MATH_NULL~%%
 
-CONST SINGLE_EPSILON! = 1.19209289550781250000000000000000000E-7
-CONST DOUBLE_EPSILON# = 2.22044604925031308084726333618164062E-16
+CONST MATH_SINGLE_EPSILON! = 1.19209289550781250000000000000000000E-7
+CONST MATH_DOUBLE_EPSILON# = 2.22044604925031308084726333618164062E-16
+CONST SINGLE_EPSILON! = MATH_SINGLE_EPSILON!
+CONST DOUBLE_EPSILON# = MATH_DOUBLE_EPSILON#
 
-CONST CHARACTER_BITS& = 8&
+CONST __MATH_CHARACTER_BITS& = 8&
 
 DECLARE LIBRARY
     ''' @brief Counts the number of leading zero bits in an unsigned 32-bit integer.
@@ -25,7 +28,7 @@ END DECLARE
 ''' @return The index of the highest set bit. Returns 0 if n is 0.
 FUNCTION Math_GetHighestSetBitIndex~& (n AS _UNSIGNED LONG)
     IF n THEN
-        Math_GetHighestSetBitIndex = (CHARACTER_BITS * _SIZE_OF_LONG - 1) - Math_CountLeadingZeros(n)
+        Math_GetHighestSetBitIndex = (__MATH_CHARACTER_BITS * _SIZE_OF_LONG - 1) - Math_CountLeadingZeros(n)
     END IF
 END FUNCTION
 
@@ -34,7 +37,7 @@ END FUNCTION
 ''' @return The nearest power of 2 less than or equal to n, or 0 if n is 0.
 FUNCTION Math_RoundDownToPowerOf2~& (n AS _UNSIGNED LONG)
     IF n THEN
-        Math_RoundDownToPowerOf2 = _SHL(1~&, (CHARACTER_BITS * _SIZE_OF_LONG - 1) - Math_CountLeadingZeros(n))
+        Math_RoundDownToPowerOf2 = _SHL(1~&, (__MATH_CHARACTER_BITS * _SIZE_OF_LONG - 1) - Math_CountLeadingZeros(n))
     END IF
 END FUNCTION
 

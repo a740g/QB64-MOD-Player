@@ -16,8 +16,8 @@ $INCLUDEONCE
 ''' @brief Parses and loads a standard ProTracker or compatible MOD module from a memory buffer.
 ''' @param buffer Binary string containing the MOD module data.
 ''' @return _TRUE if the module was successfully parsed, _FALSE otherwise.
-FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
-    SHARED __PeriodTable() AS _UNSIGNED INTEGER
+FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
+    SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
 
     ' Attempt to open the file
     DIM i AS LONG, memFile AS StringFile
@@ -130,7 +130,7 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
     IF player.song.instruments = 0 _ORELSE player.song.channels = 0 THEN EXIT FUNCTION
 
     ' Resize the instruments array
-    REDIM player.instrument(0 TO player.song.instruments - 1) AS __InstrumentType
+    REDIM player.instrument(0 TO player.song.instruments - 1) AS __MODPlayerInstrument
     DIM AS _UNSIGNED _BYTE byte1, byte2
 
     ' Load the instruments headers
@@ -228,10 +228,10 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
     player.song.patterns = player.song.patterns + 1 ' change to count
 
     ' Resize the pattern data array
-    REDIM player.pattern(0 TO player.song.patterns - 1) AS __PatternType
+    REDIM player.pattern(0 TO player.song.patterns - 1) AS __MODPlayerPattern
     FOR i = 0 TO player.song.patterns - 1
         player.pattern(i).rows = __MOD_S3M_ROWS
-        REDIM player.pattern(i).note(0 TO __MOD_S3M_ROWS - 1, 0 TO player.song.channels - 1) AS __NoteType
+        REDIM player.pattern(i).note(0 TO __MOD_S3M_ROWS - 1, 0 TO player.song.channels - 1) AS __MODPlayerNote
     NEXT
 
     ' Skip past the 4 byte signature if this is a 31 sample mod
@@ -291,7 +291,7 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
 
     ' Setup the channel array
     ' __CHANNEL_PCM = 0 so all MOD channels are by default PCM
-    REDIM player.channel(0 TO player.song.channels - 1) AS __ChannelType
+    REDIM player.channel(0 TO player.song.channels - 1) AS __MODPlayerChannel
 
     ' Allocate the number of softsynth voices we need
     SoftSynth_SetTotalVoices player.synth, player.song.channels
@@ -335,7 +335,7 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
     ' Do the look up in the table against what is read in and store note
     player.pattern(i).note(a, b).note = __NOTE_NONE
     FOR c = 0 TO 107
-        IF period >= __PeriodTable(c + 24) THEN
+        IF period >= __MODPlayer_PeriodTable(c + 24) THEN
             player.pattern(i).note(a, b).note = c
             EXIT FOR
         END IF
@@ -354,7 +354,7 @@ END FUNCTION
 ''' @brief Loads a ProTracker or compatible MOD module from a file on disk or URL.
 ''' @param fileName File path or URL to load.
 ''' @return _TRUE if the module was loaded, _FALSE otherwise.
-FUNCTION MODLoader_LoadFromDisk%% (player AS MODPlayerType, fileName AS STRING)
+FUNCTION MODLoader_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
     IF NOT _FILEEXISTS(fileName) THEN EXIT FUNCTION
     MODLoader_LoadFromDisk = MODLoader_LoadFromMemory(player, File_Load(fileName))
 END FUNCTION

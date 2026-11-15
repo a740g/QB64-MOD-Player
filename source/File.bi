@@ -12,14 +12,14 @@ CONST __FILE_UPDATES_PER_SECOND_DEFAULT = 120 ' refresh happens 120 times a seco
 CONST __FILE_TIMEOUT_DEFAULT = 60 * 5 ' timeout happens after 5 mins by default
 
 ' This keeps track of the settings used by LoadFileFromURL()
-TYPE __FileType
+TYPE __FileState
     initialized AS _BYTE
     updatesPerSecond AS _UNSIGNED LONG
     timeoutTicks AS _UNSIGNED _INTEGER64
     percentCompleted AS _UNSIGNED _BYTE
 END TYPE
 
-DIM __File AS __FileType
+DIM __File AS __FileState
 
 ''' @brief Loads a file from disk or from a URL into memory.
 ''' @param PathOrURL The local file path or URL to load.
@@ -45,7 +45,7 @@ END FUNCTION
 ''' @param url The URL to download from.
 ''' @return The downloaded content as a string, or empty string on failure.
 FUNCTION File_LoadFromURL$ (url AS STRING)
-    SHARED __File AS __FileType
+    SHARED __File AS __FileState
 
     ' Set default properties if this is the first time
     IF NOT __File.initialized THEN File_SetDownloaderProperties __FILE_UPDATES_PER_SECOND_DEFAULT, __FILE_TIMEOUT_DEFAULT
@@ -76,7 +76,7 @@ END FUNCTION
 ''' @param updatesPerSecond The maximum number of download loop cycles per second (refresh rate).
 ''' @param timeoutSeconds The timeout in seconds before download aborts.
 SUB File_SetDownloaderProperties (updatesPerSecond AS _UNSIGNED LONG, timeoutSeconds AS _UNSIGNED LONG)
-    SHARED __File AS __FileType
+    SHARED __File AS __FileState
 
     __File.updatesPerSecond = updatesPerSecond
     __File.timeoutTicks = 1000 * timeoutSeconds ' convert to ticks

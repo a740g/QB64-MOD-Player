@@ -90,7 +90,7 @@ CONST __MOD_FX_GLOBAL_VOLUME_SLIDE~%% = 34~%%
 CONST __MOD_FX_PANBRELLO~%% = 35~%%
 CONST __MOD_FX_MIDI_MACRO~%% = 36~%%
 
-TYPE __NoteType
+TYPE __MODPlayerNote
     note AS _UNSIGNED _BYTE ' contains info on 1 note
     instrument AS _UNSIGNED _BYTE ' instrument number to play
     volume AS _UNSIGNED _BYTE ' volume value. Not used for MODs. 255 = no volume
@@ -98,12 +98,12 @@ TYPE __NoteType
     operand AS _UNSIGNED _BYTE ' effect parameters
 END TYPE
 
-TYPE __PatternType
+TYPE __MODPlayerPattern
     rows AS _UNSIGNED INTEGER ' number of rows in this pattern (typically 64, but can be 1 to 256 for XM, etc.)
-    note(0 TO 0, 0 TO 0) _DYNAMIC AS __NoteType ' note matrix: (0 TO rows - 1, 0 TO channels - 1)
+    note(0 TO 0, 0 TO 0) _DYNAMIC AS __MODPlayerNote ' note matrix: (0 TO rows - 1, 0 TO channels - 1)
 END TYPE
 
-TYPE __InstrumentType
+TYPE __MODPlayerInstrument
     caption AS STRING ' instrument name or message
     subtype AS _UNSIGNED _BYTE ' what kind of instrument is this? (PCM, FM melody, FM drum, etc.)
     length AS _UNSIGNED LONG ' sample length in bytes
@@ -116,7 +116,7 @@ TYPE __InstrumentType
     channels AS _UNSIGNED _BYTE ' number of channels per frame (SoftSynth will flatten sounds to mono)
 END TYPE
 
-TYPE __ChannelType
+TYPE __MODPlayerChannel
     instrument AS _UNSIGNED _BYTE ' instrument number to be mixed
     subtype AS _UNSIGNED _BYTE ' what kind of channel is this? (PCM, FM melody, FM drum, etc.) TODO: Do we really need this?
     volume AS INTEGER ' channel volume. This is a signed int because we need -ve values & to clip properly
@@ -148,7 +148,7 @@ TYPE __ChannelType
     retriggerTickCount AS _UNSIGNED _BYTE ' last retrigger tick count
 END TYPE
 
-TYPE __SongType
+TYPE __MODPlayerSong
     caption AS STRING ' song name
     subtype AS STRING * 4 ' 4 char MOD type - use this to find out what tracker was used
     comment AS STRING ' song comment / message (if any)
@@ -184,55 +184,55 @@ TYPE __SongType
     hasSpecialCustomData AS _BYTE ' special custom data in file (uses "Special" field)
 END TYPE
 
-TYPE MODPlayerType
-    song AS __SongType
-    synth AS SoftSynthType
+TYPE MODPlayer
+    song AS __MODPlayerSong
+    synth AS SoftSynth
     order(0 TO 0) _DYNAMIC AS _UNSIGNED INTEGER
-    pattern(0 TO 0) _DYNAMIC AS __PatternType
-    instrument(0 TO 0) _DYNAMIC AS __InstrumentType
-    channel(0 TO 0) _DYNAMIC AS __ChannelType
+    pattern(0 TO 0) _DYNAMIC AS __MODPlayerPattern
+    instrument(0 TO 0) _DYNAMIC AS __MODPlayerInstrument
+    channel(0 TO 0) _DYNAMIC AS __MODPlayerChannel
     initialized AS _BYTE
 END TYPE
 
-REDIM __PeriodTable(0 TO 0) AS _UNSIGNED INTEGER ' Amiga period table
-REDIM __SineTable(0 TO 0) AS _UNSIGNED _BYTE ' sine table used for effects
-REDIM __InvertLoopSpeedTable(0 TO 0) AS _UNSIGNED _BYTE ' invert loop speed table for EFx
-DIM __tablesInitialized AS _BYTE
+REDIM __MODPlayer_PeriodTable(0 TO 0) AS _UNSIGNED INTEGER ' Amiga period table
+REDIM __MODPlayer_SineTable(0 TO 0) AS _UNSIGNED _BYTE ' sine table used for effects
+REDIM __MODPlayer_InvertLoopSpeedTable(0 TO 0) AS _UNSIGNED _BYTE ' invert loop speed table for EFx
+DIM __MODPlayer_tablesInitialized AS _BYTE
 
 SUB __MODPlayer_LoadTables
-    SHARED __PeriodTable() AS _UNSIGNED INTEGER
-    SHARED __SineTable() AS _UNSIGNED _BYTE
-    SHARED __InvertLoopSpeedTable() AS _UNSIGNED _BYTE
-    SHARED __tablesInitialized AS _BYTE
+    SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
+    SHARED __MODPlayer_SineTable() AS _UNSIGNED _BYTE
+    SHARED __MODPlayer_InvertLoopSpeedTable() AS _UNSIGNED _BYTE
+    SHARED __MODPlayer_tablesInitialized AS _BYTE
 
-    IF __tablesInitialized THEN EXIT SUB
+    IF __MODPlayer_tablesInitialized THEN EXIT SUB
 
     ' Load the period table
     RESTORE PeriodTab
     DIM periodCount AS LONG: READ periodCount
-    REDIM __PeriodTable(0 TO periodCount - 1) AS _UNSIGNED INTEGER ' allocate size elements
+    REDIM __MODPlayer_PeriodTable(0 TO periodCount - 1) AS _UNSIGNED INTEGER ' allocate size elements
     ' Now read size values
     DIM i AS LONG: FOR i = 0 TO periodCount - 1
-        READ __PeriodTable(i)
+        READ __MODPlayer_PeriodTable(i)
     NEXT
 
     ' Load the sine table
     RESTORE SineTab
     DIM s AS LONG: READ s
-    REDIM __SineTable(0 TO s - 1) AS _UNSIGNED _BYTE
+    REDIM __MODPlayer_SineTable(0 TO s - 1) AS _UNSIGNED _BYTE
     FOR i = 0 TO s - 1
-        READ __SineTable(i)
+        READ __MODPlayer_SineTable(i)
     NEXT
 
     ' Load the invert loop table
     RESTORE ILSpdTab
     READ s
-    REDIM __InvertLoopSpeedTable(0 TO s - 1) AS _UNSIGNED _BYTE
+    REDIM __MODPlayer_InvertLoopSpeedTable(0 TO s - 1) AS _UNSIGNED _BYTE
     FOR i = 0 TO s - 1
-        READ __InvertLoopSpeedTable(i)
+        READ __MODPlayer_InvertLoopSpeedTable(i)
     NEXT
 
-    __tablesInitialized = _TRUE
+    __MODPlayer_tablesInitialized = _TRUE
     EXIT SUB
 
     ' Amiga period table data for 11 octaves
@@ -271,7 +271,7 @@ END SUB
 ''' @brief Checks whether a player instance is initialized.
 ''' @param player The MOD player instance.
 ''' @return _TRUE if initialized, _FALSE otherwise.
-FUNCTION MODPlayer_IsInitialized%% (player AS MODPlayerType)
+FUNCTION MODPlayer_IsInitialized%% (player AS MODPlayer)
     MODPlayer_IsInitialized = player.initialized
 END FUNCTION
 
@@ -279,7 +279,7 @@ END FUNCTION
 ''' @brief Initializes a MOD player instance and its software synthesizer.
 ''' @param player The MOD player instance.
 ''' @return _TRUE on success, _FALSE on failure.
-FUNCTION MODPlayer_Initialize%% (player AS MODPlayerType)
+FUNCTION MODPlayer_Initialize%% (player AS MODPlayer)
     IF player.initialized THEN
         MODPlayer_Initialize = _TRUE
         EXIT FUNCTION
@@ -298,19 +298,19 @@ END FUNCTION
 
 ''' @brief Finalizes a MOD player instance, stopping playback and freeing resources.
 ''' @param player The MOD player instance.
-SUB MODPlayer_Finalize (player AS MODPlayerType)
+SUB MODPlayer_Finalize (player AS MODPlayer)
     IF player.initialized THEN
         MODPlayer_Stop player
         SoftSynth_Finalize player.synth
         REDIM player.order(0 TO 0) AS _UNSIGNED INTEGER
         DIM p AS LONG
         FOR p = 0 TO UBOUND(player.pattern)
-            REDIM player.pattern(p).note(0 TO 0, 0 TO 0) AS __NoteType
+            REDIM player.pattern(p).note(0 TO 0, 0 TO 0) AS __MODPlayerNote
             player.pattern(p).rows = 0
         NEXT
-        REDIM player.pattern(0 TO 0) AS __PatternType
-        REDIM player.instrument(0 TO 0) AS __InstrumentType
-        REDIM player.channel(0 TO 0) AS __ChannelType
+        REDIM player.pattern(0 TO 0) AS __MODPlayerPattern
+        REDIM player.instrument(0 TO 0) AS __MODPlayerInstrument
+        REDIM player.channel(0 TO 0) AS __MODPlayerChannel
         __MODPlayer_InitializeSong player
         player.initialized = _FALSE
     END IF
@@ -318,7 +318,7 @@ END SUB
 
 
 ''' @brief Resets all song properties to default values for a clean load state.
-SUB __MODPlayer_InitializeSong (player AS MODPlayerType)
+SUB __MODPlayer_InitializeSong (player AS MODPlayer)
     player.song.caption = _STR_EMPTY
     player.song.subtype = _STR_EMPTY
     player.song.comment = _STR_EMPTY
@@ -357,7 +357,7 @@ END SUB
 
 
 ''' @brief Prepares channels, initializes the audio mixer, and begins song playback.
-SUB MODPlayer_Play (player AS MODPlayerType)
+SUB MODPlayer_Play (player AS MODPlayer)
     IF NOT player.initialized THEN EXIT SUB
 
     ' Initialize some important stuff
@@ -376,7 +376,7 @@ END SUB
 
 
 ''' @brief Stops playback, mutes voices, and frees player and synthesizer resources.
-SUB MODPlayer_Stop (player AS MODPlayerType)
+SUB MODPlayer_Stop (player AS MODPlayer)
     IF NOT player.initialized THEN EXIT SUB
 
     SoftSynth_Finalize player.synth
@@ -387,7 +387,7 @@ END SUB
 
 ''' @brief Ticks the tracker sequencer and renders audio frames to keep the buffer filled.
 ''' @param bufferTimeSecs Target duration of audio buffer in seconds (e.g. 0.05).
-SUB MODPlayer_Update (player AS MODPlayerType, bufferTimeSecs AS SINGLE)
+SUB MODPlayer_Update (player AS MODPlayer, bufferTimeSecs AS SINGLE)
     IF NOT player.initialized THEN EXIT SUB
 
     ' Keep feeding the buffer until it is filled to our specified upper limit
@@ -486,8 +486,8 @@ END SUB
 
 
 ''' @brief Processes the current pattern row at tick 0 and sets up note triggers and effects.
-SUB __MODPlayer_UpdateRow (player AS MODPlayerType)
-SHARED __PeriodTable() AS _UNSIGNED INTEGER
+SUB __MODPlayer_UpdateRow (player AS MODPlayer)
+SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
     DIM AS _UNSIGNED _BYTE nChannel, nNote, nInstrument, nVolume, nEffect, nOperand, nOpX, nOpY
     ' The effect flags below are set to true when a pattern jump effect and pattern break effect are triggered
     DIM AS _BYTE jumpEffectFlag, breakEffectFlag, noFrequency
@@ -519,7 +519,7 @@ SHARED __PeriodTable() AS _UNSIGNED INTEGER
         END IF
 
         IF nNote < __NOTE_NONE THEN
-            player.channel(nChannel).lastPeriod = (8363 * __PeriodTable(nNote)) \ player.instrument(player.channel(nChannel).instrument).c2Spd
+            player.channel(nChannel).lastPeriod = (8363 * __MODPlayer_PeriodTable(nNote)) \ player.instrument(player.channel(nChannel).instrument).c2Spd
             player.channel(nChannel).note = nNote
             player.channel(nChannel).restart = _TRUE
             player.song.activeChannels = nChannel
@@ -778,8 +778,8 @@ END SUB
 
 
 ''' @brief Processes tick-based modulation effects (vibrato, tremolo, slides, retrigger) on ticks > 0.
-SUB __MODPlayer_UpdateTick (player AS MODPlayerType)
-SHARED __PeriodTable() AS _UNSIGNED INTEGER
+SUB __MODPlayer_UpdateTick (player AS MODPlayer)
+SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
     DIM AS _UNSIGNED _BYTE nChannel, nVolume, nEffect, nOperand, nOpX, nOpY
 
     ' Process all channels
@@ -803,9 +803,9 @@ SHARED __PeriodTable() AS _UNSIGNED INTEGER
                             CASE 0
                                 SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(player.channel(nChannel).period)
                             CASE 1
-                                SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(__PeriodTable(player.channel(nChannel).note + nOpX))
+                                SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(__MODPlayer_PeriodTable(player.channel(nChannel).note + nOpX))
                             CASE 2
-                                SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(__PeriodTable(player.channel(nChannel).note + nOpY))
+                                SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(__MODPlayer_PeriodTable(player.channel(nChannel).note + nOpY))
                         END SELECT
                     END IF
 
@@ -963,7 +963,7 @@ END SUB
 ''' @brief Sets sequencer tempo (Beats Per Minute) and recalculates timing parameters.
 ''' @param player The MOD player instance.
 ''' @param nBPM Tempo in BPM (32 to 255).
-SUB __MODPlayer_SetBPM (player AS MODPlayerType, nBPM AS _UNSIGNED _BYTE)
+SUB __MODPlayer_SetBPM (player AS MODPlayer, nBPM AS _UNSIGNED _BYTE)
     IF nBPM = 0 THEN EXIT SUB
 
     player.song.BPM = nBPM
@@ -981,7 +981,7 @@ END SUB
 ''' @param target Target period value.
 ''' @return The closest matched period.
 FUNCTION __MODPlayer_GetClosestPeriod& (target AS LONG)
-    SHARED __PeriodTable() AS _UNSIGNED INTEGER
+    SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
 
     DIM AS LONG startPos, endPos, midPos, leftVal, rightVal
 
@@ -994,30 +994,30 @@ FUNCTION __MODPlayer_GetClosestPeriod& (target AS LONG)
     END IF
 
     startPos = 0
-    endPos = UBOUND(__PeriodTable)
+    endPos = UBOUND(__MODPlayer_PeriodTable)
     WHILE startPos + 1 < endPos
         midPos = startPos + (endPos - startPos) \ 2
-        IF __PeriodTable(midPos) <= target THEN
+        IF __MODPlayer_PeriodTable(midPos) <= target THEN
             endPos = midPos
         ELSE
             startPos = midPos
         END IF
     WEND
 
-    rightVal = ABS(__PeriodTable(startPos) - target)
-    leftVal = ABS(__PeriodTable(endPos) - target)
+    rightVal = ABS(__MODPlayer_PeriodTable(startPos) - target)
+    leftVal = ABS(__MODPlayer_PeriodTable(endPos) - target)
 
     IF leftVal <= rightVal THEN
-        __MODPlayer_GetClosestPeriod = __PeriodTable(endPos)
+        __MODPlayer_GetClosestPeriod = __MODPlayer_PeriodTable(endPos)
     ELSE
-        __MODPlayer_GetClosestPeriod = __PeriodTable(startPos)
+        __MODPlayer_GetClosestPeriod = __MODPlayer_PeriodTable(startPos)
     END IF
 END FUNCTION
 
 
 ''' @brief Performs tone portamento calculation towards destination note period for a channel.
 ''' @param chan Channel index (0-based).
-SUB __MODPlayer_DoPortamento (player AS MODPlayerType, chan AS _UNSIGNED _BYTE)
+SUB __MODPlayer_DoPortamento (player AS MODPlayer, chan AS _UNSIGNED _BYTE)
 ' Slide up/down and clamp to destination
     IF player.channel(chan).period < player.channel(chan).portamentoTo THEN
         player.channel(chan).period = player.channel(chan).period + _SHL(player.channel(chan).portamentoSpeed, 2)
@@ -1044,7 +1044,7 @@ END SUB
 ''' @param x Upward slide amount nibble.
 ''' @param y Downward slide amount nibble.
 ''' @param isNotFine _TRUE for regular volume slide, _FALSE for fine volume slide.
-SUB __MODPlayer_DoVolumeSlide (player AS MODPlayerType, chan AS _UNSIGNED _BYTE, x AS _UNSIGNED _BYTE, y AS _UNSIGNED _BYTE, isNotFine AS _BYTE)
+SUB __MODPlayer_DoVolumeSlide (player AS MODPlayer, chan AS _UNSIGNED _BYTE, x AS _UNSIGNED _BYTE, y AS _UNSIGNED _BYTE, isNotFine AS _BYTE)
 IF isNotFine THEN
         player.channel(chan).volume = player.channel(chan).volume + x - y
     ELSE
@@ -1061,7 +1061,7 @@ END SUB
 
 ''' @brief Processes Scream Tracker 3 tremor effect on a channel.
 ''' @param chan Channel index (0-based).
-SUB __MODPlayer_DoS3MTremor (player AS MODPlayerType, chan AS _UNSIGNED _BYTE)
+SUB __MODPlayer_DoS3MTremor (player AS MODPlayer, chan AS _UNSIGNED _BYTE)
 player.channel(chan).tremorPosition = player.channel(chan).tremorPosition MOD (_SHR(player.channel(chan).tremorParameters, 4) + (player.channel(chan).tremorParameters AND &HF))
 
     IF player.channel(chan).tremorPosition < _SHR(player.channel(chan).tremorParameters, 4) THEN
@@ -1077,8 +1077,8 @@ END SUB
 ''' @brief Calculates and applies pitch vibrato oscillation on a channel.
 ''' @param chan Channel index (0-based).
 ''' @param isNotFine _TRUE for standard vibrato, _FALSE for fine vibrato.
-SUB __MODPlayer_DoVibrato (player AS MODPlayerType, chan AS _UNSIGNED _BYTE, isNotFine AS _BYTE)
-SHARED __SineTable() AS _UNSIGNED _BYTE
+SUB __MODPlayer_DoVibrato (player AS MODPlayer, chan AS _UNSIGNED _BYTE, isNotFine AS _BYTE)
+SHARED __MODPlayer_SineTable() AS _UNSIGNED _BYTE
     DIM delta AS _UNSIGNED INTEGER
     DIM temp AS _UNSIGNED _BYTE
 
@@ -1086,7 +1086,7 @@ SHARED __SineTable() AS _UNSIGNED _BYTE
 
     SELECT CASE player.channel(chan).waveControl AND 3
         CASE 0 ' Sine
-            delta = __SineTable(temp)
+            delta = __MODPlayer_SineTable(temp)
 
         CASE 1 ' Saw down
             temp = _SHL(temp, 3)
@@ -1118,8 +1118,8 @@ END SUB
 
 ''' @brief Calculates and applies volume tremolo oscillation on a channel.
 ''' @param chan Channel index (0-based).
-SUB __MODPlayer_DoTremolo (player AS MODPlayerType, chan AS _UNSIGNED _BYTE)
-SHARED __SineTable() AS _UNSIGNED _BYTE
+SUB __MODPlayer_DoTremolo (player AS MODPlayer, chan AS _UNSIGNED _BYTE)
+SHARED __MODPlayer_SineTable() AS _UNSIGNED _BYTE
     DIM delta AS _UNSIGNED INTEGER
     DIM temp AS _UNSIGNED _BYTE
 
@@ -1127,7 +1127,7 @@ SHARED __SineTable() AS _UNSIGNED _BYTE
 
     SELECT CASE _SHR(player.channel(chan).waveControl, 4) AND 3
         CASE 0 ' Sine
-            delta = __SineTable(temp)
+            delta = __MODPlayer_SineTable(temp)
 
         CASE 1 ' Saw down
             temp = _SHL(temp, 3)
@@ -1158,9 +1158,9 @@ END SUB
 
 ''' @brief Processes ProTracker EFx funk / invert loop effect on a channel.
 ''' @param chan Channel index (0-based).
-SUB __MODPlayer_DoInvertLoop (player AS MODPlayerType, chan AS _UNSIGNED _BYTE)
-SHARED __InvertLoopSpeedTable() AS _UNSIGNED _BYTE
-    player.channel(chan).invertLoopDelay = player.channel(chan).invertLoopDelay + __InvertLoopSpeedTable(player.channel(chan).invertLoopSpeed)
+SUB __MODPlayer_DoInvertLoop (player AS MODPlayer, chan AS _UNSIGNED _BYTE)
+SHARED __MODPlayer_InvertLoopSpeedTable() AS _UNSIGNED _BYTE
+    player.channel(chan).invertLoopDelay = player.channel(chan).invertLoopDelay + __MODPlayer_InvertLoopSpeedTable(player.channel(chan).invertLoopSpeed)
 
     DIM sampleNumber AS _UNSIGNED _BYTE: sampleNumber = player.channel(chan).instrument ' cache the sample number case we'll use this often below
 
@@ -1234,7 +1234,7 @@ END FUNCTION
 
 ''' @brief Gets the title name of the currently loaded tune.
 ''' @return Tune name string.
-FUNCTION MODPlayer_GetName$ (player AS MODPlayerType)
+FUNCTION MODPlayer_GetName$ (player AS MODPlayer)
     MODPlayer_GetName = player.song.caption
 END FUNCTION
 
@@ -1242,7 +1242,7 @@ END FUNCTION
 ''' @brief Gets the format descriptor or magic tag of the currently loaded tune.
 ''' @param player The MOD player instance.
 ''' @return Format string (e.g. "M.K.", "SCRM", "MTM1").
-FUNCTION MODPlayer_GetType$ (player AS MODPlayerType)
+FUNCTION MODPlayer_GetType$ (player AS MODPlayer)
     MODPlayer_GetType = player.song.subtype
 END FUNCTION
 
@@ -1250,7 +1250,7 @@ END FUNCTION
 ''' @brief Checks whether a song is actively playing.
 ''' @param player The MOD player instance.
 ''' @return _TRUE if playing, _FALSE otherwise.
-FUNCTION MODPlayer_IsPlaying%% (player AS MODPlayerType)
+FUNCTION MODPlayer_IsPlaying%% (player AS MODPlayer)
     MODPlayer_IsPlaying = player.song.isPlaying
 END FUNCTION
 
@@ -1258,7 +1258,7 @@ END FUNCTION
 ''' @brief Pauses or unpauses song playback.
 ''' @param player The MOD player instance.
 ''' @param state _TRUE to pause playback, _FALSE to resume.
-SUB MODPlayer_Pause (player AS MODPlayerType, state AS _BYTE)
+SUB MODPlayer_Pause (player AS MODPlayer, state AS _BYTE)
     player.song.isPaused = state
 END SUB
 
@@ -1266,7 +1266,7 @@ END SUB
 ''' @brief Checks whether song playback is currently paused.
 ''' @param player The MOD player instance.
 ''' @return _TRUE if paused, _FALSE otherwise.
-FUNCTION MODPlayer_IsPaused%% (player AS MODPlayerType)
+FUNCTION MODPlayer_IsPaused%% (player AS MODPlayer)
     MODPlayer_IsPaused = player.song.isPaused
 END FUNCTION
 
@@ -1274,7 +1274,7 @@ END FUNCTION
 ''' @brief Sets continuous song looping mode.
 ''' @param player The MOD player instance.
 ''' @param state _TRUE to loop continuously, _FALSE to stop at song end.
-SUB MODPlayer_Loop (player AS MODPlayerType, state AS _BYTE)
+SUB MODPlayer_Loop (player AS MODPlayer, state AS _BYTE)
     player.song.isLooping = state
 END SUB
 
@@ -1282,14 +1282,14 @@ END SUB
 ''' @brief Checks whether continuous song looping is enabled.
 ''' @param player The MOD player instance.
 ''' @return _TRUE if looping is enabled, _FALSE otherwise.
-FUNCTION MODPlayer_IsLooping%% (player AS MODPlayerType)
+FUNCTION MODPlayer_IsLooping%% (player AS MODPlayer)
     MODPlayer_IsLooping = player.song.isLooping
 END FUNCTION
 
 
 ''' @brief Advances playback position to the next pattern order, wrapping at song end if looping.
 ''' @param player The MOD player instance.
-SUB MODPlayer_GoToNextPosition (player AS MODPlayerType)
+SUB MODPlayer_GoToNextPosition (player AS MODPlayer)
     IF player.song.isLooping THEN ' if we are looping
         player.song.orderPosition = player.song.orderPosition + 1 ' move to the next order
         IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = 0 ' wrap to first order if we have reached the end
@@ -1303,7 +1303,7 @@ END SUB
 
 ''' @brief Rewinds playback position to the previous pattern order, wrapping if looping.
 ''' @param player The MOD player instance.
-SUB MODPlayer_GoToPreviousPosition (player AS MODPlayerType)
+SUB MODPlayer_GoToPreviousPosition (player AS MODPlayer)
     IF player.song.isLooping THEN ' if we are looping
         player.song.orderPosition = player.song.orderPosition - 1 ' move to the previous order
         IF player.song.orderPosition < 0 THEN player.song.orderPosition = player.song.orders - 1 ' wrap to the last order if we have crossed the beginning
@@ -1318,7 +1318,7 @@ END SUB
 ''' @brief Sets the current pattern order playback position.
 ''' @param player The MOD player instance.
 ''' @param position Target order position index (0-based).
-SUB MODPlayer_SetPosition (player AS MODPlayerType, position AS _UNSIGNED INTEGER)
+SUB MODPlayer_SetPosition (player AS MODPlayer, position AS _UNSIGNED INTEGER)
     IF position < player.song.orders THEN
         player.song.orderPosition = position
         player.song.patternRow = 0
@@ -1329,7 +1329,7 @@ END SUB
 ''' @brief Gets the current pattern order playback position index.
 ''' @param player The MOD player instance.
 ''' @return Current order position index (0-based).
-FUNCTION MODPlayer_GetPosition& (player AS MODPlayerType)
+FUNCTION MODPlayer_GetPosition& (player AS MODPlayer)
     MODPlayer_GetPosition = player.song.orderPosition
 END FUNCTION
 
@@ -1337,7 +1337,7 @@ END FUNCTION
 ''' @brief Gets the total number of pattern orders in the loaded tune.
 ''' @param player The MOD player instance.
 ''' @return Total order count.
-FUNCTION MODPlayer_GetOrders~% (player AS MODPlayerType)
+FUNCTION MODPlayer_GetOrders~% (player AS MODPlayer)
     MODPlayer_GetOrders = player.song.orders
 END FUNCTION
 
@@ -1346,7 +1346,7 @@ END FUNCTION
 ''' @param player The MOD player instance.
 ''' @param patternIndex Pattern index (0-based).
 ''' @return Number of rows in the pattern (0 if invalid pattern index).
-FUNCTION MODPlayer_GetPatternRows~% (player AS MODPlayerType, patternIndex AS _UNSIGNED INTEGER)
+FUNCTION MODPlayer_GetPatternRows~% (player AS MODPlayer, patternIndex AS _UNSIGNED INTEGER)
     IF patternIndex < player.song.patterns THEN
         MODPlayer_GetPatternRows = player.pattern(patternIndex).rows
     END IF
@@ -1361,7 +1361,7 @@ END FUNCTION
 ''' @param player The MOD player instance.
 ''' @param buffer In-memory binary representation of the module file.
 ''' @return _TRUE on success, _FALSE on failure.
-FUNCTION MODPlayer_LoadFromMemory%% (player AS MODPlayerType, buffer AS STRING)
+FUNCTION MODPlayer_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     IF NOT MODPlayer_IsInitialized(player) THEN
         IF NOT MODPlayer_Initialize(player) THEN EXIT FUNCTION
     END IF
@@ -1387,7 +1387,7 @@ END FUNCTION
 ''' @param player The MOD player instance.
 ''' @param fileName Path to the module file.
 ''' @return _TRUE on success, _FALSE on failure.
-FUNCTION MODPlayer_LoadFromDisk%% (player AS MODPlayerType, fileName AS STRING)
+FUNCTION MODPlayer_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
     DIM buffer AS STRING: buffer = File_LoadFromDisk(fileName)
     IF LEN(buffer) = 0 THEN EXIT FUNCTION
     MODPlayer_LoadFromDisk = MODPlayer_LoadFromMemory(player, buffer)

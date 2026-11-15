@@ -16,18 +16,18 @@ CONST AUDIO_ANALYZER_MAX_SAMPLES = 2 ^ AUDIO_ANALYZER_MAX_BIT_DEPTH ' 2048
 CONST AUDIO_ANALYZER_MAX_BINS = AUDIO_ANALYZER_MAX_SAMPLES \ 2 ' 1024
 
 ' Internal constants
-CONST __AA_HALF_SAMPLES = AUDIO_ANALYZER_MAX_BINS
-CONST __AA_QUARTER_SAMPLES = __AA_HALF_SAMPLES \ 2
-CONST __AA_SCALE_FACTOR& = 2 ^ 28
-CONST __AA_F32_TO_S16_MULTIPLIER! = 32767!
+CONST __AUDIO_ANALYZER_HALF_SAMPLES = AUDIO_ANALYZER_MAX_BINS
+CONST __AUDIO_ANALYZER_QUARTER_SAMPLES = __AUDIO_ANALYZER_HALF_SAMPLES \ 2
+CONST __AUDIO_ANALYZER_SCALE_FACTOR& = 2 ^ 28
+CONST __AUDIO_ANALYZER_F32_TO_S16! = 32767!
 
 ' Lookup tables
-DIM __AA_bitReversalTable(0 TO AUDIO_ANALYZER_MAX_SAMPLES - 1) AS _UNSIGNED INTEGER
-DIM __AA_sinCosTable(0 TO 2 * __AA_HALF_SAMPLES - 1) AS LONG
-DIM __AA_tablesInitialized AS _BYTE
+DIM __AudioAnalyzer_bitReversalTable(0 TO AUDIO_ANALYZER_MAX_SAMPLES - 1) AS _UNSIGNED INTEGER
+DIM __AudioAnalyzer_sinCosTable(0 TO 2 * __AUDIO_ANALYZER_HALF_SAMPLES - 1) AS LONG
+DIM __AudioAnalyzer_tablesInitialized AS _BYTE
 
 ' Main audio analyzer context - holds instance-specific FFT working buffer and analysis metrics
-TYPE AudioAnalyzerType
+TYPE AudioAnalyzer
     fftBuffer(0 TO 2 * AUDIO_ANALYZER_MAX_SAMPLES - 1) AS LONG
     averageIntensity AS SINGLE
     peakAmplitude AS _UNSIGNED INTEGER
@@ -36,29 +36,29 @@ TYPE AudioAnalyzerType
 END TYPE
 
 ''' @brief Initializes FFT lookup tables (sine, cosine, and bit-reversal tables).
-SUB __AA_Init
-    SHARED __AA_bitReversalTable() AS _UNSIGNED INTEGER
-    SHARED __AA_sinCosTable() AS LONG
-    SHARED __AA_tablesInitialized AS _BYTE
+SUB __AudioAnalyzer_Init
+    SHARED __AudioAnalyzer_bitReversalTable() AS _UNSIGNED INTEGER
+    SHARED __AudioAnalyzer_sinCosTable() AS LONG
+    SHARED __AudioAnalyzer_tablesInitialized AS _BYTE
 
-    IF __AA_tablesInitialized THEN EXIT SUB
+    IF __AudioAnalyzer_tablesInitialized THEN EXIT SUB
 
     DIM i AS LONG
     DIM angle AS DOUBLE
 
-    FOR i = 0 TO __AA_QUARTER_SAMPLES - 1
-        angle = _PI(2.0# * i) / (4.0# * __AA_QUARTER_SAMPLES)
-        __AA_sinCosTable(i * 2) = INT(COS(angle) * __AA_SCALE_FACTOR)
-        __AA_sinCosTable(i * 2 + 1) = INT(SIN(angle) * __AA_SCALE_FACTOR)
+    FOR i = 0 TO __AUDIO_ANALYZER_QUARTER_SAMPLES - 1
+        angle = _PI(2.0# * i) / (4.0# * __AUDIO_ANALYZER_QUARTER_SAMPLES)
+        __AudioAnalyzer_sinCosTable(i * 2) = INT(COS(angle) * __AUDIO_ANALYZER_SCALE_FACTOR)
+        __AudioAnalyzer_sinCosTable(i * 2 + 1) = INT(SIN(angle) * __AUDIO_ANALYZER_SCALE_FACTOR)
     NEXT
 
     DIM reversedIndex AS LONG
     DIM stp AS LONG
 
     FOR i = 0 TO AUDIO_ANALYZER_MAX_SAMPLES - 1
-        __AA_bitReversalTable(i) = reversedIndex
+        __AudioAnalyzer_bitReversalTable(i) = reversedIndex
 
-        stp = __AA_HALF_SAMPLES
+        stp = __AUDIO_ANALYZER_HALF_SAMPLES
         WHILE stp <> 0 _ANDALSO stp <= reversedIndex
             reversedIndex = reversedIndex - stp
             stp = _SHR(stp, 1)
@@ -67,35 +67,35 @@ SUB __AA_Init
         reversedIndex = reversedIndex + stp
     NEXT
 
-    FOR i = __AA_HALF_SAMPLES \ 4 + 1 TO __AA_HALF_SAMPLES \ 2
+    FOR i = __AUDIO_ANALYZER_HALF_SAMPLES \ 4 + 1 TO __AUDIO_ANALYZER_HALF_SAMPLES \ 2
         DIM mirrorIdx AS LONG
-        mirrorIdx = __AA_HALF_SAMPLES \ 2 - i
-        __AA_sinCosTable(i * 2) = __AA_sinCosTable(mirrorIdx * 2 + 1)
-        __AA_sinCosTable(i * 2 + 1) = __AA_sinCosTable(mirrorIdx * 2)
+        mirrorIdx = __AUDIO_ANALYZER_HALF_SAMPLES \ 2 - i
+        __AudioAnalyzer_sinCosTable(i * 2) = __AudioAnalyzer_sinCosTable(mirrorIdx * 2 + 1)
+        __AudioAnalyzer_sinCosTable(i * 2 + 1) = __AudioAnalyzer_sinCosTable(mirrorIdx * 2)
     NEXT
 
-    FOR i = __AA_HALF_SAMPLES \ 2 + 1 TO __AA_HALF_SAMPLES - 1
+    FOR i = __AUDIO_ANALYZER_HALF_SAMPLES \ 2 + 1 TO __AUDIO_ANALYZER_HALF_SAMPLES - 1
         DIM negMirrorIdx AS LONG
-        negMirrorIdx = __AA_HALF_SAMPLES - i
-        __AA_sinCosTable(i * 2) = -__AA_sinCosTable(negMirrorIdx * 2)
-        __AA_sinCosTable(i * 2 + 1) = __AA_sinCosTable(negMirrorIdx * 2 + 1)
+        negMirrorIdx = __AUDIO_ANALYZER_HALF_SAMPLES - i
+        __AudioAnalyzer_sinCosTable(i * 2) = -__AudioAnalyzer_sinCosTable(negMirrorIdx * 2)
+        __AudioAnalyzer_sinCosTable(i * 2 + 1) = __AudioAnalyzer_sinCosTable(negMirrorIdx * 2 + 1)
     NEXT
 
-    __AA_tablesInitialized = _TRUE
+    __AudioAnalyzer_tablesInitialized = _TRUE
 END SUB
 
 ''' @brief Checks whether the audio analyzer instance is initialized.
 ''' @param analyzer Audio analyzer context.
 ''' @return _TRUE if initialized, _FALSE otherwise.
-FUNCTION AudioAnalyzer_IsInitialized%% (analyzer AS AudioAnalyzerType)
+FUNCTION AudioAnalyzer_IsInitialized%% (analyzer AS AudioAnalyzer)
     AudioAnalyzer_IsInitialized = analyzer.initialized
 END FUNCTION
 
 ''' @brief Initializes an audio analyzer instance and ensures shared lookup tables are ready.
 ''' @param analyzer Audio analyzer context.
 ''' @return _TRUE on success, _FALSE on failure.
-FUNCTION AudioAnalyzer_Initialize%% (analyzer AS AudioAnalyzerType)
-    __AA_Init
+FUNCTION AudioAnalyzer_Initialize%% (analyzer AS AudioAnalyzer)
+    __AudioAnalyzer_Init
     analyzer.averageIntensity = 0!
     analyzer.peakAmplitude = 0
     analyzer.peakBin = 0
@@ -105,7 +105,7 @@ END FUNCTION
 
 ''' @brief Finalizes an audio analyzer instance.
 ''' @param analyzer Audio analyzer context.
-SUB AudioAnalyzer_Finalize (analyzer AS AudioAnalyzerType)
+SUB AudioAnalyzer_Finalize (analyzer AS AudioAnalyzer)
     analyzer.averageIntensity = 0!
     analyzer.peakAmplitude = 0
     analyzer.peakBin = 0
@@ -115,28 +115,28 @@ END SUB
 ''' @brief Gets the average audio signal intensity (mean squared amplitude, 0.0 - 1.0).
 ''' @param analyzer Audio analyzer context.
 ''' @return Average signal intensity as SINGLE.
-FUNCTION AudioAnalyzer_GetAverageIntensity! (analyzer AS AudioAnalyzerType)
+FUNCTION AudioAnalyzer_GetAverageIntensity! (analyzer AS AudioAnalyzer)
     AudioAnalyzer_GetAverageIntensity = analyzer.averageIntensity
 END FUNCTION
 
 ''' @brief Gets the RMS (Root Mean Square) signal level (0.0 - 1.0).
 ''' @param analyzer Audio analyzer context.
 ''' @return RMS signal level as SINGLE.
-FUNCTION AudioAnalyzer_GetRMS! (analyzer AS AudioAnalyzerType)
+FUNCTION AudioAnalyzer_GetRMS! (analyzer AS AudioAnalyzer)
     AudioAnalyzer_GetRMS = SQR(analyzer.averageIntensity)
 END FUNCTION
 
 ''' @brief Gets the peak amplitude across all frequency bins from the last FFT.
 ''' @param analyzer Audio analyzer context.
 ''' @return Peak amplitude as _UNSIGNED INTEGER.
-FUNCTION AudioAnalyzer_GetPeakAmplitude~% (analyzer AS AudioAnalyzerType)
+FUNCTION AudioAnalyzer_GetPeakAmplitude~% (analyzer AS AudioAnalyzer)
     AudioAnalyzer_GetPeakAmplitude = analyzer.peakAmplitude
 END FUNCTION
 
 ''' @brief Gets the 0-based frequency bin index of the peak amplitude from the last FFT.
 ''' @param analyzer Audio analyzer context.
 ''' @return Frequency bin index as LONG.
-FUNCTION AudioAnalyzer_GetPeakBin& (analyzer AS AudioAnalyzerType)
+FUNCTION AudioAnalyzer_GetPeakBin& (analyzer AS AudioAnalyzer)
     AudioAnalyzer_GetPeakBin = analyzer.peakBin
 END FUNCTION
 
@@ -146,7 +146,7 @@ END FUNCTION
 ''' @param scCos Fixed-point cosine twiddle factor.
 ''' @param scSin Fixed-point sine twiddle factor.
 ''' @param distance Offset distance to the second sample in the buffer.
-SUB __AA_CalculateFFT (analyzer AS AudioAnalyzerType, sampleIdx AS LONG, scCos AS LONG, scSin AS LONG, distance AS LONG)
+SUB __AudioAnalyzer_CalculateFFT (analyzer AS AudioAnalyzer, sampleIdx AS LONG, scCos AS LONG, scSin AS LONG, distance AS LONG)
     DIM realPart AS LONG: realPart = analyzer.fftBuffer(sampleIdx) - analyzer.fftBuffer(sampleIdx + distance)
     analyzer.fftBuffer(sampleIdx) = _SHR(analyzer.fftBuffer(sampleIdx) + analyzer.fftBuffer(sampleIdx + distance), 1)
 
@@ -160,8 +160,8 @@ END SUB
 ''' @brief Executes butterfly operations across all stages for the specified FFT bit depth.
 ''' @param analyzer Audio analyzer context.
 ''' @param stage The FFT stage / bit depth to compute.
-SUB __AA_PerformButterflyOperation (analyzer AS AudioAnalyzerType, stage AS LONG)
-    SHARED __AA_sinCosTable() AS LONG
+SUB __AudioAnalyzer_PerformButterfly (analyzer AS AudioAnalyzer, stage AS LONG)
+    SHARED __AudioAnalyzer_sinCosTable() AS LONG
 
     DIM lastStageIdx AS LONG: lastStageIdx = _SHL(1, stage) * 2
     DIM i AS LONG, j AS LONG
@@ -171,17 +171,17 @@ SUB __AA_PerformButterflyOperation (analyzer AS AudioAnalyzerType, stage AS LONG
     DIM sampleIdx AS LONG
 
     FOR i = AUDIO_ANALYZER_MAX_BIT_DEPTH - stage TO AUDIO_ANALYZER_MAX_BIT_DEPTH - 1
-        stepSize = _SHR(__AA_HALF_SAMPLES, i)
+        stepSize = _SHR(__AUDIO_ANALYZER_HALF_SAMPLES, i)
         distance = 2 * stepSize
 
         FOR j = 0 TO stepSize - 1
             scIdx = _SHL(j, i)
-            scCos = __AA_sinCosTable(scIdx * 2)
-            scSin = __AA_sinCosTable(scIdx * 2 + 1)
+            scCos = __AudioAnalyzer_sinCosTable(scIdx * 2)
+            scSin = __AudioAnalyzer_sinCosTable(scIdx * 2 + 1)
 
             sampleIdx = j * 2
             WHILE sampleIdx < lastStageIdx
-                __AA_CalculateFFT analyzer, sampleIdx, scCos, scSin, distance
+                __AudioAnalyzer_CalculateFFT analyzer, sampleIdx, scCos, scSin, distance
                 sampleIdx = sampleIdx + 2 * distance
             WEND
         NEXT j
@@ -195,8 +195,8 @@ END SUB
 ''' @param sampleOffset Offset from LBOUND(sampleDataArray) to begin reading samples (e.g., 0 for left/mono, 1 for right).
 ''' @param sampleIncrement Stride between consecutive samples (1 for mono, 2 for stereo interleaved).
 ''' @param bitDepth Log2 of the number of samples to process (e.g., 10 = 1024 samples).
-SUB AudioAnalyzer_CalculateFFT (analyzer AS AudioAnalyzerType, amplitudeArray() AS _UNSIGNED INTEGER, sampleDataArray() AS SINGLE, sampleOffset AS LONG, sampleIncrement AS LONG, bitDepth AS LONG)
-    SHARED __AA_bitReversalTable() AS _UNSIGNED INTEGER
+SUB AudioAnalyzer_CalculateFFT (analyzer AS AudioAnalyzer, amplitudeArray() AS _UNSIGNED INTEGER, sampleDataArray() AS SINGLE, sampleOffset AS LONG, sampleIncrement AS LONG, bitDepth AS LONG)
+    SHARED __AudioAnalyzer_bitReversalTable() AS _UNSIGNED INTEGER
 
     IF NOT analyzer.initialized THEN
         DIM ignored AS _BYTE: ignored = AudioAnalyzer_Initialize(analyzer)
@@ -219,7 +219,7 @@ SUB AudioAnalyzer_CalculateFFT (analyzer AS AudioAnalyzerType, amplitudeArray() 
     FOR i = 0 TO numSamples - 1
         DIM sample AS SINGLE: sample = _CLAMP(sampleDataArray(samplePos), -1!, 1)
 
-        analyzer.fftBuffer(i * 2) = _SHL(INT(sample * __AA_F32_TO_S16_MULTIPLIER), 12)
+        analyzer.fftBuffer(i * 2) = _SHL(INT(sample * __AUDIO_ANALYZER_F32_TO_S16), 12)
         analyzer.fftBuffer(i * 2 + 1) = 0
 
         avgIntensity = avgIntensity + sample * sample
@@ -229,14 +229,14 @@ SUB AudioAnalyzer_CalculateFFT (analyzer AS AudioAnalyzerType, amplitudeArray() 
 
     analyzer.averageIntensity = avgIntensity / CSNG(numSamples)
 
-    __AA_PerformButterflyOperation analyzer, bitDepth
+    __AudioAnalyzer_PerformButterfly analyzer, bitDepth
 
     DIM shiftAmount AS LONG: shiftAmount = AUDIO_ANALYZER_MAX_BIT_DEPTH - bitDepth
     DIM peakAmp AS _UNSIGNED INTEGER: peakAmp = 0
     DIM peakBinIdx AS LONG: peakBinIdx = 0
 
     FOR i = 1 TO halfNumSamples
-        DIM revIdx AS LONG: revIdx = _SHR(__AA_bitReversalTable(i), shiftAmount)
+        DIM revIdx AS LONG: revIdx = _SHR(__AudioAnalyzer_bitReversalTable(i), shiftAmount)
         DIM realPart AS LONG: realPart = _SHR(analyzer.fftBuffer(revIdx * 2), 12)
         DIM imagPart AS LONG: imagPart = _SHR(analyzer.fftBuffer(revIdx * 2 + 1), 12)
         DIM magSquared AS DOUBLE: magSquared = (CDBL(realPart) * CDBL(realPart) + CDBL(imagPart) * CDBL(imagPart)) * CDBL(i)
