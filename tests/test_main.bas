@@ -705,14 +705,18 @@ SUB Test_Opal_SoundGeneration
     Opal_Write chip, &HA0, &H57 ' Frequency low
     Opal_Write chip, &HB0, &H31 ' Key on, Octave 4, freq high
 
-    DIM AS INTEGER leftSample, rightSample
+    DIM samples(0 TO 399) AS SINGLE
+    DIM AS SINGLE leftSample, rightSample
     DIM hasNonZero AS _BYTE: hasNonZero = _FALSE
     DIM i AS LONG
-    FOR i = 1 TO 200
-        Opal_GenerateSample chip, leftSample, rightSample
+    FOR i = 0 TO 399: samples(i) = 0!: NEXT
+    Opal_MixSamples chip, samples(), 200, 1!
+    FOR i = 0 TO 199
+        leftSample = samples(i * 2)
+        rightSample = samples(i * 2 + 1)
         IF leftSample <> 0 OR rightSample <> 0 THEN hasNonZero = _TRUE
-        TEST_CHECK leftSample >= -32768 AND leftSample <= 32767, "Left sample within bounds"
-        TEST_CHECK rightSample >= -32768 AND rightSample <= 32767, "Right sample within bounds"
+        TEST_CHECK leftSample >= -1! AND leftSample <= 1!, "Left sample within bounds"
+        TEST_CHECK rightSample >= -1! AND rightSample <= 1!, "Right sample within bounds"
     NEXT i
     TEST_CHECK hasNonZero, "Synthesized non-zero audio samples"
     TEST_CASE_END
@@ -743,11 +747,15 @@ SUB Test_Opal_RhythmMode
     Opal_Write chip, &HBD, &H20
     Opal_Write chip, &HBD, &H20 OR &H10
 
-    DIM AS INTEGER leftSample, rightSample
+    DIM samples(0 TO 399) AS SINGLE
+    DIM AS SINGLE leftSample, rightSample
     DIM hasSound AS _BYTE: hasSound = _FALSE
     DIM i AS LONG
-    FOR i = 1 TO 200
-        Opal_GenerateSample chip, leftSample, rightSample
+    FOR i = 0 TO 399: samples(i) = 0!: NEXT
+    Opal_MixSamples chip, samples(), 200, 1!
+    FOR i = 0 TO 199
+        leftSample = samples(i * 2)
+        rightSample = samples(i * 2 + 1)
         IF leftSample <> 0 OR rightSample <> 0 THEN hasSound = _TRUE
     NEXT i
     TEST_CHECK hasSound, "Rhythm mode generated sound output"

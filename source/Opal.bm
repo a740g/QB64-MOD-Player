@@ -959,8 +959,9 @@ END SUB
 SUB Opal_MixSamples (self AS Opal, buffer() AS SINGLE, frames AS _UNSIGNED LONG, volume AS SINGLE)
     CONST __OPAL_MULTIPLIER_16_TO_32! = 1! / 32768!
 
-    DIM AS INTEGER l, r
+    DIM AS SINGLE l, r
     DIM samples AS _UNSIGNED LONG: samples = frames * 2
+    DIM scale AS SINGLE: scale = __OPAL_MULTIPLIER_16_TO_32 * volume
 
     DIM i AS _UNSIGNED LONG
     WHILE i < samples
@@ -971,17 +972,15 @@ SUB Opal_MixSamples (self AS Opal, buffer() AS SINGLE, frames AS _UNSIGNED LONG,
             self.sampleAccum = self.sampleAccum - self.sampleRate
         LOOP
 
-        DIM numer AS _INTEGER64
-        numer = self.sampleAccum * 65536~&& + (self.sampleRate \ 2)
-        DIM fract AS LONG
-        fract = numer \ self.sampleRate
+        DIM numer AS _INTEGER64: numer = self.sampleAccum * 65536~&& + (self.sampleRate \ 2)
+        DIM fract AS LONG: fract = numer \ self.sampleRate
         l = __Opal_Interpolate(self.lastOutput(0), self.currOutput(0), fract)
         r = __Opal_Interpolate(self.lastOutput(1), self.currOutput(1), fract)
 
         self.sampleAccum = self.sampleAccum + OPAL_OPL3_SAMPLE_RATE
 
-        buffer(i) = buffer(i) + (l * __OPAL_MULTIPLIER_16_TO_32!) * volume
-        buffer(i + 1) = buffer(i + 1) + (r * __OPAL_MULTIPLIER_16_TO_32!) * volume
+        buffer(i) = buffer(i) + l * scale
+        buffer(i + 1) = buffer(i + 1) + r * scale
 
         i = i + 2
     WEND

@@ -98,6 +98,10 @@ SUB __MODPlayer_InitializeSong (player AS MODPlayer)
     player.song.defaultSpeed = __MODPLAYER_SONG_SPEED_DEFAULT ' set this to default MOD speed
     player.song.defaultBPM = __MODPLAYER_SONG_BPM_DEFAULT ' set this to default MOD BPM
     player.song.tick = 0
+    player.song.rowTickDelay = 0
+    player.song.globalVolume = __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
+    player.song.defaultGlobalVolume = __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
+    player.song.isS3M = _FALSE
     player.song.tempoTimerValue = 0
     player.song.framesPerTick = 0
     player.song.activeChannels = 0
@@ -151,5 +155,29 @@ FUNCTION __MODPlayer_GetC2Spd~% (ft AS _UNSIGNED _BYTE)
             __MODPlayer_GetC2Spd = 8280
         CASE ELSE
             __MODPlayer_GetC2Spd = 8363
+    END SELECT
+END FUNCTION
+
+''' @brief Returns the S3M S2x finetune rate for the encoded nibble.
+''' @param ft S3M finetune value (0-15).
+''' @return Middle-C playback rate in Hertz.
+FUNCTION __MODPlayer_GetS3MC2Spd~% (ft AS _UNSIGNED _BYTE)
+    SELECT CASE ft AND &HF
+        CASE 0: __MODPlayer_GetS3MC2Spd = 7895
+        CASE 1: __MODPlayer_GetS3MC2Spd = 7941
+        CASE 2: __MODPlayer_GetS3MC2Spd = 7985
+        CASE 3: __MODPlayer_GetS3MC2Spd = 8046
+        CASE 4: __MODPlayer_GetS3MC2Spd = 8107
+        CASE 5: __MODPlayer_GetS3MC2Spd = 8169
+        CASE 6: __MODPlayer_GetS3MC2Spd = 8232
+        CASE 7: __MODPlayer_GetS3MC2Spd = 8280
+        CASE 8: __MODPlayer_GetS3MC2Spd = 8363
+        CASE 9: __MODPlayer_GetS3MC2Spd = 8413
+        CASE 10: __MODPlayer_GetS3MC2Spd = 8463
+        CASE 11: __MODPlayer_GetS3MC2Spd = 8529
+        CASE 12: __MODPlayer_GetS3MC2Spd = 8581
+        CASE 13: __MODPlayer_GetS3MC2Spd = 8651
+        CASE 14: __MODPlayer_GetS3MC2Spd = 8723
+        CASE 15: __MODPlayer_GetS3MC2Spd = 8757
     END SELECT
 END FUNCTION

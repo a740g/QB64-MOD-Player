@@ -45,6 +45,7 @@ TYPE __SoftSynthVoice
     panPosition AS SINGLE ' stereo pan (-1.0 left, 0.0 center, 1.0 right)
     leftGain AS SINGLE ' left channel gain (computed from panPosition)
     rightGain AS SINGLE ' right channel gain (computed from panPosition)
+    surround AS _BYTE ' surround mode inverts one stereo side
     position AS SINGLE ' current fractional frame position in the sound buffer
     iPosition AS _UNSIGNED LONG ' integer part of position
     startPosition AS _UNSIGNED LONG ' loop start or playback start (in frames)
@@ -85,6 +86,7 @@ SUB __SoftSynth_ResetVoice (voice AS __SoftSynthVoice)
     voice.endPosition = 0
     voice.frame = 0!
     voice.oldFrame = 0!
+    voice.surround = _FALSE
     voice.playMode = SOFTSYNTH_VOICE_PLAY_FORWARD
 END SUB
 
@@ -415,6 +417,17 @@ SUB SoftSynth_SetVoiceBalance (ctx AS SoftSynth, voice AS _UNSIGNED LONG, balanc
     __SoftSynth_SetPanPosition ctx.voices(voice), balance
 END SUB
 
+''' @brief Enables or disables phase-inverted stereo surround on a voice.
+''' @param ctx Synthesizer context.
+''' @param voice Voice index (0-based).
+''' @param enabled Nonzero to invert the left output channel.
+SUB SoftSynth_SetVoiceSurround (ctx AS SoftSynth, voice AS _UNSIGNED LONG, enabled AS _BYTE)
+    IF NOT ctx.initialized THEN EXIT SUB
+    IF voice >= ctx.totalVoices THEN EXIT SUB
+
+    ctx.voices(voice).surround = (enabled <> _FALSE)
+END SUB
+
 ''' @brief Gets the current stereo pan position of a voice.
 ''' @param ctx Synthesizer context.
 ''' @param voice Voice index (0-based).
@@ -584,6 +597,7 @@ SUB SoftSynth_Render (ctx AS SoftSynth, frames AS _UNSIGNED LONG)
         DIM voiceVol AS SINGLE: voiceVol = ctx.voices(v).volume
         DIM voiceLGain AS SINGLE: voiceLGain = ctx.voices(v).leftGain
         DIM voiceRGain AS SINGLE: voiceRGain = ctx.voices(v).rightGain
+        IF ctx.voices(v).surround THEN voiceLGain = -voiceLGain
         DIM voiceStartPos AS _UNSIGNED LONG: voiceStartPos = ctx.voices(v).startPosition
         DIM voiceEndPos AS _UNSIGNED LONG: voiceEndPos = ctx.voices(v).endPosition
         DIM voiceMode AS LONG: voiceMode = ctx.voices(v).playMode

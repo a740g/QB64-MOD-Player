@@ -86,6 +86,7 @@ CONST __MODPLAYER_FX_GLOBAL_VOLUME~%% = 33~%%
 CONST __MODPLAYER_FX_GLOBAL_VOLUME_SLIDE~%% = 34~%%
 CONST __MODPLAYER_FX_PANBRELLO~%% = 35~%%
 CONST __MODPLAYER_FX_MIDI_MACRO~%% = 36~%%
+CONST __MODPLAYER_FX_STEREO_CONTROL~%% = 37~%% ' Legacy S3M SAx channel panning
 
 TYPE __MODPlayerNote
     note AS _UNSIGNED _BYTE ' contains info on 1 note
@@ -123,6 +124,32 @@ TYPE __MODPlayerChannel
     period AS LONG ' this is the period of the playing sample used by various effects
     lastPeriod AS LONG ' last period set in channel
     startPosition AS _UNSIGNED LONG ' this is starting position of the sample. Usually zero else value from sample offset effect
+    channelVolume AS _UNSIGNED _BYTE ' S3M channel volume (Mxx), independent of sample volume
+    defaultPanning AS _UNSIGNED _BYTE ' initial 8-bit S3M pan used when playback restarts
+    panning AS _UNSIGNED _BYTE ' current 8-bit S3M pan position
+    c2Spd AS _UNSIGNED INTEGER ' per-channel C2SPD, including S2x finetune
+    lastSampleOffset AS _UNSIGNED _BYTE ' S3M Oxx effect memory
+    lastPanningSlide AS _UNSIGNED _BYTE ' S3M Pxy effect memory
+    lastChannelVolumeSlide AS _UNSIGNED _BYTE ' S3M Nxy effect memory
+    lastGlobalVolumeSlide AS _UNSIGNED _BYTE ' S3M Wxy effect memory
+    lastTempo AS _UNSIGNED _BYTE ' S3M Txx effect memory
+    tremorOnTicks AS _UNSIGNED _BYTE ' S3M Ixy on-time, including the encoded +1
+    tremorOffTicks AS _UNSIGNED _BYTE ' S3M Ixy off-time, including the encoded +1
+    panbrelloPosition AS _UNSIGNED _BYTE ' S3M Yxy phase
+    panbrelloSpeed AS _UNSIGNED _BYTE ' S3M Yxy speed
+    panbrelloDepth AS _UNSIGNED _BYTE ' S3M Yxy depth
+    panbrelloWaveform AS _UNSIGNED _BYTE ' S3M S5x waveform
+    panbrelloBasePanning AS _UNSIGNED _BYTE ' fixed pan center while Yxy oscillates
+    panbrelloActive AS _BYTE ' current S3M panbrello row
+    noteDelayPending AS _BYTE ' a delayed note is waiting for its tick
+    noteDelayTick AS _UNSIGNED _BYTE ' S3M SDx tick to trigger the pending note
+    delayedNote AS _UNSIGNED _BYTE ' pending note number
+    delayedInstrument AS _UNSIGNED _BYTE ' pending instrument index
+    delayedHasInstrument AS _BYTE ' whether the delayed row changes instrument
+    delayedVolume AS _UNSIGNED _BYTE ' pending S3M volume-column value
+    delayedPeriod AS LONG ' pending note period
+    delayedStartPosition AS _UNSIGNED LONG ' pending sample start in bytes
+    tremorMuted AS _BYTE ' current S3M tremor gate
     patternLoopRow AS INTEGER ' this (signed) is the beginning of the loop in the pattern for effect E6x
     patternLoopRowCounter AS _UNSIGNED _BYTE ' this is a loop counter for effect E6x
     portamentoTo AS LONG ' frequency to porta to value for E3x
@@ -172,7 +199,11 @@ TYPE __MODPlayerSong
     BPM AS _UNSIGNED _BYTE ' current song BPM
     defaultSpeed AS _UNSIGNED _BYTE ' default song speed
     defaultBPM AS _UNSIGNED _BYTE ' default song BPM
-    tick AS _UNSIGNED _BYTE ' current song tick
+    tick AS _UNSIGNED INTEGER ' current song tick (may exceed 255 with S6x fine pattern delay)
+    rowTickDelay AS _UNSIGNED INTEGER ' accumulated S3M S6x extra ticks on the current row
+    globalVolume AS _UNSIGNED _BYTE ' current S3M Vxx global volume (0-64)
+    defaultGlobalVolume AS _UNSIGNED _BYTE ' S3M header global volume (0-64)
+    isS3M AS _BYTE ' true when the loaded song uses S3M effect and volume semantics
     tempoTimerValue AS _UNSIGNED LONG ' (mixer_sample_rate * default_bpm) / 50
     framesPerTick AS _UNSIGNED LONG ' this is the amount of sample frames we have to mix per tick based on mixerRate & bpm
     activeChannels AS _UNSIGNED LONG ' just a count of channels that are "active"

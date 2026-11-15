@@ -37,6 +37,7 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
     ' Check if this is really an S3M file
     IF player.song.subtype <> "SCRM" THEN EXIT FUNCTION
+    player.song.isS3M = _TRUE
 
     ' Seek to the beginning of the file and get the song title
     StringFile_Seek memFile, 0
@@ -98,17 +99,20 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     DIM byte1 AS _UNSIGNED _BYTE: byte1 = StringFile_ReadByte(memFile)
     '_ECHO "Global volume =" + STR$(byte1)
     IF byte1 > __MODPLAYER_S3M_GLOBAL_VOLUME_MAX THEN byte1 = __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
+    player.song.globalVolume = byte1
+    player.song.defaultGlobalVolume = byte1
     SoftSynth_SetGlobalVolume player.synth, byte1 / __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
     '_ECHO "SoftSynth global volume =" + STR$(SoftSynth_GetGlobalVolume)
 
     ' Read the initial speed value
     player.song.defaultSpeed = StringFile_ReadByte(memFile)
+    IF player.song.defaultSpeed = 0 THEN player.song.defaultSpeed = __MODPLAYER_SONG_SPEED_DEFAULT
     '_ECHO "Initial speed =" + STR$(player.song.defaultSpeed)
 
     ' Read the initial BPM
     player.song.defaultBPM = StringFile_ReadByte(memFile)
     '_ECHO "Initial BPM =" + STR$(player.song.defaultBPM)
-    IF player.song.defaultBPM = 0 THEN player.song.defaultBPM = __MODPLAYER_SONG_BPM_DEFAULT ' avoid division by zero
+    IF player.song.defaultBPM < 32 THEN player.song.defaultBPM = __MODPLAYER_SONG_BPM_DEFAULT ' S3M tempo values below 32 are not BPM values
 
     ' Read SoundBlaster master volume crap and check if the stereo frag is set
     byte1 = StringFile_ReadByte(memFile)
@@ -155,16 +159,24 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
     ' Set voice panning positions
     FOR i = 0 TO player.song.channels - 1
+        player.channel(i).channelVolume = __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
+        player.channel(i).panning = 128
+        player.channel(i).defaultPanning = 128
+
         ' 0 <= x <= 7: Left PCM channel 1-8 (Lx)
         ' 8 <= x <= 15: Right PCM channel 1-8 (Rx)
         ' 16 <= x <= 24: Adlib/OPL2 #1 melody (Ax)
         ' 25 <= x <= 29: Adlib/OPL2 #1 drums (Ax)
         SELECT CASE channelInfo(i)
             CASE 0 TO 7
+                player.channel(i).panning = 0
+                player.channel(i).defaultPanning = 0
                 SoftSynth_SetVoiceBalance player.synth, i, -__MODPLAYER_STEREO_SEPARATION ' pan to the left
                 player.channel(i).subtype = __MODPLAYER_INSTRUMENT_PCM
 
             CASE 8 TO 15
+                player.channel(i).panning = 255
+                player.channel(i).defaultPanning = 255
                 SoftSynth_SetVoiceBalance player.synth, i, __MODPLAYER_STEREO_SEPARATION ' pan it to the right
                 player.channel(i).subtype = __MODPLAYER_INSTRUMENT_PCM
 
@@ -239,7 +251,9 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
             IF i < player.song.channels THEN
                 ' WTF! Ewww!
                 IF _READBIT(byte1, 4) THEN ' if bit 4 is set - byte1 AND &H10
-                    SoftSynth_SetVoiceBalance player.synth, i, (byte1 AND 15) / 15! * 2! - SOFTSYNTH_VOICE_PAN_RIGHT ' pan = (x / 15) * 2 - 1
+                    player.channel(i).panning = (byte1 AND 15) * 17
+                    player.channel(i).defaultPanning = player.channel(i).panning
+                    SoftSynth_SetVoiceBalance player.synth, i, player.channel(i).panning / 255! * 2! - SOFTSYNTH_VOICE_PAN_RIGHT
                     '_ECHO "Channel " + STR$(i) + " panning =" + STR$(SoftSynth_GetVoiceBalance(i))
                 END IF
             END IF
@@ -249,6 +263,8 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     ' Set everything to mono if stereo flag is not set. This is so retarded! Sigh!
     IF NOT isStereo THEN
         FOR i = 0 TO player.song.channels - 1
+            player.channel(i).panning = 128
+            player.channel(i).defaultPanning = 128
             SoftSynth_SetVoiceBalance player.synth, i, 0!
             '_ECHO "Channel " + STR$(i) + " panning =" + STR$(SoftSynth_GetVoiceBalance(i))
         NEXT i
@@ -527,6 +543,10 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
                             CASE &H13 ' Sxy Special commands
                                 SELECT CASE _SHR(player.pattern(i).note(row, chan).operand, 4)
+                                    CASE &H0 ' S0x Set filter (not implemented by ST3)
+                                        player.pattern(i).note(row, chan).effect = &H0
+                                        player.pattern(i).note(row, chan).operand = &H0
+
                                     CASE &H1 ' S1x Glissando Control
                                         player.pattern(i).note(row, chan).effect = __MODPLAYER_FX_EXT
                                         player.pattern(i).note(row, chan).operand = _SHL(__MODPLAYER_FX_EXT_GLISSANDO_CONTROL, 4) OR (player.pattern(i).note(row, chan).operand AND &HF)
@@ -551,16 +571,20 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
                                         player.pattern(i).note(row, chan).effect = __MODPLAYER_FX_PATTERN_FINE_DELAY
                                         player.pattern(i).note(row, chan).operand = player.pattern(i).note(row, chan).operand AND &HF
 
+                                    CASE &H7 ' S7x instrument control (tracker-specific)
+                                        player.pattern(i).note(row, chan).effect = &H0
+                                        player.pattern(i).note(row, chan).operand = &H0
+
                                     CASE &H8 ' S8x Set Panning
                                         player.pattern(i).note(row, chan).effect = __MODPLAYER_FX_EXT
                                         player.pattern(i).note(row, chan).operand = _SHL(__MODPLAYER_FX_EXT_PANNING_4, 4) OR (player.pattern(i).note(row, chan).operand AND &HF)
 
-                                    CASE &H9 ' S9x Sound Control
+                                    CASE &H9 ' S9x Sound Control (tracker-specific)
                                         player.pattern(i).note(row, chan).effect = __MODPLAYER_FX_SOUND_CONTROL
                                         player.pattern(i).note(row, chan).operand = player.pattern(i).note(row, chan).operand AND &HF
 
-                                    CASE &HA ' SAx High Offset
-                                        player.pattern(i).note(row, chan).effect = __MODPLAYER_FX_HIGH_OFFSET
+                                    CASE &HA ' SAx Legacy stereo/panning control
+                                        player.pattern(i).note(row, chan).effect = __MODPLAYER_FX_STEREO_CONTROL
                                         player.pattern(i).note(row, chan).operand = player.pattern(i).note(row, chan).operand AND &HF
 
                                     CASE &HB ' SB0 Pattern Loop Start
@@ -579,9 +603,13 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
                                         player.pattern(i).note(row, chan).effect = __MODPLAYER_FX_EXT
                                         player.pattern(i).note(row, chan).operand = _SHL(__MODPLAYER_FX_EXT_PATTERN_DELAY, 4) OR (player.pattern(i).note(row, chan).operand AND &HF) ' SEx
 
-                                        'CASE ELSE
-                                        '    ' Trap for unhandled stuff
-                                        '    _ECHO "Uhandled special effect:" + STR$(player.pattern(i).note(row, chan).operand) + " |" + STR$(_SHR(player.pattern(i).note(row, chan).operand, 4))
+                                    CASE &HF ' SFx Funk repeat is not implemented by ST3
+                                        player.pattern(i).note(row, chan).effect = &H0
+                                        player.pattern(i).note(row, chan).operand = &H0
+
+                                    CASE ELSE
+                                        player.pattern(i).note(row, chan).effect = &H0
+                                        player.pattern(i).note(row, chan).operand = &H0
                                 END SELECT
 
                             CASE &H14 ' Txx Tempo
@@ -613,9 +641,10 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
                             CASE &H20 ' Zxx MIDI Macro
                                 player.pattern(i).note(row, chan).effect = __MODPLAYER_FX_MIDI_MACRO
 
-                                'CASE ELSE
-                                '    ' Trap for unhandled stuff
-                                '    _ECHO "Uhandled effect:" + STR$(player.pattern(i).note(row, chan).effect)
+                            CASE ELSE
+                                ' Ignore reserved S3M effect numbers instead of interpreting them as another internal effect
+                                player.pattern(i).note(row, chan).effect = &H0
+                                player.pattern(i).note(row, chan).operand = &H0
                         END SELECT
                     END IF
                 END IF
