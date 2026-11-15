@@ -30,6 +30,12 @@ Synthesizer / Sample Mixer, and Audio Spectrum Analyzer.
   - [Types](#audioanalyzer-types)
   - [Lifecycle and Calculation](#audioanalyzer-lifecycle-and-calculation)
   - [Metric Getters](#audioanalyzer-metric-getters)
+- [Opal OPL2/OPL3 Emulator API (`Opal.bi` & `Opal.bm`)](#opal-opl2opl3-emulator-api-opalbi--opalbm)
+  - [Constants](#opal-constants)
+  - [Types](#opal-types)
+  - [Lifecycle Management](#opal-lifecycle-management)
+  - [Register Programming and I/O](#opal-register-programming-and-io)
+  - [Audio Generation](#opal-audio-generation)
 
 ---
 
@@ -53,6 +59,7 @@ END TYPE
 TYPE MODPlayer
     song AS __MODPlayerSong
     synth AS SoftSynth
+    opl AS Opal
     order(0 TO 0) _DYNAMIC AS _UNSIGNED INTEGER
     pattern(0 TO 0) _DYNAMIC AS __MODPlayerPattern
     instrument(0 TO 0) _DYNAMIC AS __MODPlayerInstrument
@@ -482,15 +489,39 @@ SUB SoftSynth_StopVoice (ctx AS SoftSynth, voice AS _UNSIGNED LONG)
 
 - **Description**: Immediately stops and silences the specified voice.
 
-#### `SoftSynth_Update`
+#### `SoftSynth_Render`
 
 ```vb
-SUB SoftSynth_Update (ctx AS SoftSynth, frames AS _UNSIGNED LONG)
+SUB SoftSynth_Render (ctx AS SoftSynth, frames AS _UNSIGNED LONG)
 ```
 
-- **Description**: Renders the requested number of stereo audio frames from
-  all active voices, applies pan gains and master volume, and writes to
-  `_SNDRAW`.
+- **Description**: Renders PCM audio frames from all active voices into the
+  internal mix buffer without pushing to the QB64 hardware sound pipe.
+
+#### `SoftSynth_PushAudio`
+
+```vb
+SUB SoftSynth_PushAudio (ctx AS SoftSynth)
+```
+
+- **Description**: Streams the rendered audio samples currently in the internal
+  mix buffer to the QB64 raw sound pipe (`_SNDRAWBATCH`).
+
+#### `SoftSynth_MixInterleavedI16`
+
+<!-- markdownlint-disable MD013 -->
+```vb
+SUB SoftSynth_MixInterleavedI16 (ctx AS SoftSynth, samples() AS INTEGER, frames AS _UNSIGNED LONG)
+```
+<!-- markdownlint-enable MD013 -->
+
+- **Description**: Accumulates 16-bit interleaved stereo PCM frames (e.g. from
+  the Opal FM emulator) directly into the internal 32-bit floating-point mix
+  buffer with global volume scaling.
+- **Parameters**:
+  - `ctx`: Software synthesizer context.
+  - `samples()`: Interleaved 16-bit signed stereo PCM samples (`L, R, L, R...`).
+  - `frames`: Number of stereo frames to mix.
 
 #### `SoftSynth_GetBufferedSoundTime#`
 
@@ -665,3 +696,174 @@ FUNCTION AudioAnalyzer_GetPeakBin& (analyzer AS AudioAnalyzer)
 ```
 
 - **Returns**: Zero-based bin index containing the peak amplitude.
+
+---
+
+## Opal OPL2/OPL3 Emulator API (`Opal.bi` & `Opal.bm`)
+
+Include headers:
+
+```vb
+'$INCLUDE:'source/Opal.bi'
+'$INCLUDE:'source/Opal.bm'
+```
+
+### Opal Constants
+
+```vb
+CONST OPAL_OPL3_SAMPLE_RATE = 49716 ' Native OPL3 clock sample rate
+CONST OPAL_CHANNEL_COUNT = 18       ' 18 channels (OPL3) or 9 channels (OPL2)
+CONST OPAL_OPERATOR_COUNT = 36      ' 36 operators (OPL3) or 18 operators (OPL2)
+CONST OPAL_WRITEBUF_SIZE = 4096     ' Internal register write queue capacity
+CONST OPAL_WRITEBUF_DELAY = 2       ' Write queue delay in sample clocks
+```
+
+### Opal Types
+
+```vb
+TYPE Opal
+    sampleRate AS LONG
+    sampleAccum AS LONG
+    lastOutput(0 TO 1) _STATIC AS INTEGER
+    currOutput(0 TO 1) _STATIC AS INTEGER
+    chan(0 TO 17) _STATIC AS __OpalChannel
+    op(0 TO 35) _STATIC AS __OpalOperator
+    timer(0 TO 1) _STATIC AS _UNSIGNED _BYTE
+    timerControl AS _UNSIGNED _BYTE
+    timerCount(0 TO 1) _STATIC AS _UNSIGNED INTEGER
+    status AS _UNSIGNED _BYTE
+    newMode AS _UNSIGNED _BYTE
+    pairEnable AS _UNSIGNED _BYTE
+    rhythmMode AS _UNSIGNED _BYTE
+    noteSelect AS _UNSIGNED _BYTE
+    tremoloDepth AS _UNSIGNED _BYTE
+    vibratoDepth AS _UNSIGNED _BYTE
+    waveSelectEnable AS _UNSIGNED _BYTE
+    compositeSine AS _UNSIGNED _BYTE
+    tremoloPosition AS _UNSIGNED _BYTE
+    tremoloLevel AS _UNSIGNED _BYTE
+    sampleCounter AS _UNSIGNED INTEGER
+    hiHatPhase AS _UNSIGNED INTEGER
+    cymbalPhase AS _UNSIGNED INTEGER
+    noise AS _UNSIGNED LONG
+    pendingRight AS LONG
+    chipSamples AS _UNSIGNED _INTEGER64
+    lastDue AS _UNSIGNED _INTEGER64
+    queueHead AS _UNSIGNED INTEGER
+    queueCount AS _UNSIGNED INTEGER
+    queue(0 TO 4095) _STATIC AS __OpalQueuedWrite
+END TYPE
+```
+
+---
+
+### Opal Lifecycle Management
+
+#### `Opal_Initialize`
+
+```vb
+SUB Opal_Initialize (self AS Opal, sampleRate AS LONG)
+```
+
+- **Description**: Initializes an Opal emulator instance, resets all channel
+  and operator states, zeroes registers, and configures the target output sample
+  rate with internal linear resampling.
+- **Parameters**:
+  - `self`: Opal instance context.
+  - `sampleRate`: Target playback sample rate (e.g. 44100 or 48000 Hz).
+
+#### `Opal_SetSampleRate`
+
+```vb
+SUB Opal_SetSampleRate (self AS Opal, sampleRate AS LONG)
+```
+
+- **Description**: Updates the output sample rate and resets internal
+  resampling accumulators.
+- **Parameters**:
+  - `self`: Opal instance context.
+  - `sampleRate`: New output sample rate.
+
+---
+
+### Opal Register Programming and I/O
+
+#### `Opal_Write`
+
+<!-- markdownlint-disable MD013 -->
+```vb
+SUB Opal_Write (self AS Opal, regNum AS _UNSIGNED INTEGER, valByte AS _UNSIGNED _BYTE)
+```
+<!-- markdownlint-enable MD013 -->
+
+- **Description**: Writes directly to an OPL2/OPL3 register. Primary registers
+  use `&H00..&HFF`; secondary OPL3 bank registers use `&H100..&H1FF`.
+- **Parameters**:
+  - `self`: Opal instance context.
+  - `regNum`: 9-bit register index (`0x000` - `0x1FF`).
+  - `valByte`: 8-bit register data byte.
+
+#### `Opal_WriteBuffered`
+
+<!-- markdownlint-disable MD013 -->
+```vb
+SUB Opal_WriteBuffered (self AS Opal, regNum AS _UNSIGNED INTEGER, valByte AS _UNSIGNED _BYTE)
+```
+<!-- markdownlint-enable MD013 -->
+
+- **Description**: Enqueues a register write into the internal write buffer
+  with a slight sample clock delay, emulating ISA bus timing.
+- **Parameters**:
+  - `self`: Opal instance context.
+  - `regNum`: Register index.
+  - `valByte`: Register data byte.
+
+#### `Opal_FlushWriteBuffer`
+
+```vb
+SUB Opal_FlushWriteBuffer (self AS Opal)
+```
+
+- **Description**: Immediately executes all queued register writes without
+  waiting for clock delays.
+
+#### `Opal_ReadStatus~%%`
+
+```vb
+FUNCTION Opal_ReadStatus~%% (self AS Opal)
+```
+
+- **Returns**: Current 8-bit chip status byte (including timer flag bits 7, 6,
+  5).
+
+#### `Opal_SetPan`
+
+<!-- markdownlint-disable MD013 -->
+```vb
+SUB Opal_SetPan (self AS Opal, channel AS _UNSIGNED INTEGER, pan AS _UNSIGNED _BYTE)
+```
+<!-- markdownlint-enable MD013 -->
+
+- **Description**: Configures stereo panning attenuation for an OPL channel
+  (`0` = hard left, `64` = center, `127` = hard right).
+- **Parameters**:
+  - `self`: Opal instance context.
+  - `channel`: Zero-based channel index (`0` - `17`).
+  - `pan`: Pan position byte (`0` - `127`).
+
+---
+
+### Opal Audio Generation
+
+#### `Opal_GenerateSample`
+
+```vb
+SUB Opal_GenerateSample (self AS Opal, left AS INTEGER, right AS INTEGER)
+```
+
+- **Description**: Generates a single stereo 16-bit PCM output sample frame
+  resampled to the configured output sample rate.
+- **Parameters**:
+  - `self`: Opal instance context.
+  - `left`: Output variable receiving signed 16-bit left channel sample.
+  - `right`: Output variable receiving signed 16-bit right channel sample.

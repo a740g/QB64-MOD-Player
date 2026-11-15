@@ -179,11 +179,13 @@ SUB Test_SoftSynth
     DIM dummySnd AS STRING: dummySnd = STRING$(100, 0)
     SoftSynth_LoadSound synth2, 0, dummySnd, 1, 1
     SoftSynth_PlayVoice synth2, 0, 0, 0, SOFTSYNTH_VOICE_PLAY_FORWARD, 0, 100
-    SoftSynth_Update synth2, 10
+    SoftSynth_Render synth2, 10
+    SoftSynth_PushAudio synth2
     TEST_CHECK SoftSynth_GetActiveVoices(synth2) = 1, "Active voices should be 1 after play and update"
 
     SoftSynth_StopVoice synth2, 0
-    SoftSynth_Update synth2, 10
+    SoftSynth_Render synth2, 10
+    SoftSynth_PushAudio synth2
     TEST_CHECK SoftSynth_GetActiveVoices(synth2) = 0, "Active voices should be 0 after stop and update"
 
     SoftSynth_Finalize synth2
@@ -633,11 +635,11 @@ SUB Test_MODPlayer_PatternRows
     REDIM customPlayer.order(0 TO 1) AS _UNSIGNED INTEGER
     customPlayer.order(0) = 0
     customPlayer.order(1) = 1
-    REDIM customPlayer.pattern(0 TO 1) AS __MODPlayerPattern
+    REDIM customPlayer.pattern(0 TO 1) AS __MODPLAYERPATTERN
     customPlayer.pattern(0).rows = 32
-    REDIM customPlayer.pattern(0).note(0 TO 31, 0 TO 3) AS __MODPlayerNote
+    REDIM customPlayer.pattern(0).note(0 TO 31, 0 TO 3) AS __MODPLAYERNOTE
     customPlayer.pattern(1).rows = 16
-    REDIM customPlayer.pattern(1).note(0 TO 15, 0 TO 3) AS __MODPlayerNote
+    REDIM customPlayer.pattern(1).note(0 TO 15, 0 TO 3) AS __MODPLAYERNOTE
 
     TEST_CHECK MODPlayer_GetPatternRows(customPlayer, 0) = 32, "Custom pattern 0 has 32 rows"
     TEST_CHECK MODPlayer_GetPatternRows(customPlayer, 1) = 16, "Custom pattern 1 has 16 rows"
@@ -666,6 +668,190 @@ SUB Test_MODPlayer_Errors
     TEST_CASE_END
 END SUB
 
+''' @brief Tests for Opal emulator lifecycle and status.
+SUB Test_Opal_Lifecycle
+    TEST_CASE_BEGIN "Opal: Initialization and status"
+    DIM chip AS Opal
+    Opal_Initialize chip, 44100
+    TEST_CHECK Opal_ReadStatus(chip) = 0, "Initial status register is 0"
+
+    Opal_SetSampleRate chip, 48000
+    TEST_CHECK chip.sampleRate = 48000, "Sample rate changed to 48000"
+
+    ' Queue a write and verify flush
+    Opal_WriteBuffered chip, &H105, 1
+    TEST_CHECK chip.queueCount > 0, "Write is queued"
+    Opal_FlushWriteBuffer chip
+    TEST_CHECK chip.queueCount = 0, "Queue is empty after flush"
+    TEST_CHECK chip.newMode = 1, "NEW mode was applied"
+    TEST_CASE_END
+END SUB
+
+''' @brief Tests for Opal sound generation.
+SUB Test_Opal_SoundGeneration
+    TEST_CASE_BEGIN "Opal: 2-operator melodic note synthesis"
+    DIM chip AS Opal
+    Opal_Initialize chip, 49716
+
+    ' Configure channel 0: modulator (slot 0) and carrier (slot 3)
+    Opal_Write chip, &H20, &H01 ' Modulator MULT = 1
+    Opal_Write chip, &H40, 0 ' Modulator TL = 0
+    Opal_Write chip, &H60, &HF0 ' Modulator AR = 15, DR = 0
+    Opal_Write chip, &H80, &H00 ' Modulator SL = 0, RR = 0
+    Opal_Write chip, &H23, &H01 ' Carrier MULT = 1
+    Opal_Write chip, &H43, 0 ' Carrier TL = 0
+    Opal_Write chip, &H63, &HF0 ' Carrier AR = 15, DR = 0
+    Opal_Write chip, &H83, &H00 ' Carrier SL = 0, RR = 0
+    Opal_Write chip, &HA0, &H57 ' Frequency low
+    Opal_Write chip, &HB0, &H31 ' Key on, Octave 4, freq high
+
+    DIM AS INTEGER leftSample, rightSample
+    DIM hasNonZero AS _BYTE: hasNonZero = _FALSE
+    DIM i AS LONG
+    FOR i = 1 TO 200
+        Opal_GenerateSample chip, leftSample, rightSample
+        IF leftSample <> 0 OR rightSample <> 0 THEN hasNonZero = _TRUE
+        TEST_CHECK leftSample >= -32768 AND leftSample <= 32767, "Left sample within bounds"
+        TEST_CHECK rightSample >= -32768 AND rightSample <= 32767, "Right sample within bounds"
+    NEXT i
+    TEST_CHECK hasNonZero, "Synthesized non-zero audio samples"
+    TEST_CASE_END
+END SUB
+
+''' @brief Tests for Opal rhythm mode percussion.
+SUB Test_Opal_RhythmMode
+    TEST_CASE_BEGIN "Opal: Rhythm mode trigger"
+    DIM chip AS Opal
+    Opal_Initialize chip, 49716
+
+    ' Configure channel 6 operators for bass drum
+    Opal_Write chip, &H30, &H01 ' Mod MULT = 1
+    Opal_Write chip, &H50, 0 ' Mod TL = 0
+    Opal_Write chip, &H70, &HF0 ' Mod AR = 15, DR = 0
+    Opal_Write chip, &H90, &H00 ' Mod SL = 0, RR = 0
+
+    Opal_Write chip, &H33, &H01 ' Car MULT = 1
+    Opal_Write chip, &H53, 0 ' Car TL = 0
+    Opal_Write chip, &H73, &HF0 ' Car AR = 15, DR = 0
+    Opal_Write chip, &H93, &H00 ' Car SL = 0, RR = 0
+
+    ' Frequency for Channel 6
+    Opal_Write chip, &HA6, &H57
+    Opal_Write chip, &HB6, &H11
+
+    ' Enable rhythm mode and trigger bass drum (bit 4)
+    Opal_Write chip, &HBD, &H20
+    Opal_Write chip, &HBD, &H20 OR &H10
+
+    DIM AS INTEGER leftSample, rightSample
+    DIM hasSound AS _BYTE: hasSound = _FALSE
+    DIM i AS LONG
+    FOR i = 1 TO 200
+        Opal_GenerateSample chip, leftSample, rightSample
+        IF leftSample <> 0 OR rightSample <> 0 THEN hasSound = _TRUE
+    NEXT i
+    TEST_CHECK hasSound, "Rhythm mode generated sound output"
+    TEST_CASE_END
+END SUB
+
+''' @brief Tests for Scream Tracker 3 AdLib / FM modules.
+SUB Test_MODPlayer_S3M_AdLib
+    TEST_CASE_BEGIN "MODPlayer: S3M with AdLib instruments (adlibsp.s3m)"
+    DIM player1 AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(player1, "mods/adlibsp.s3m"), "Load adlibsp.s3m"
+    TEST_CHECK INSTR(MODPlayer_GetName(player1), "StarPort") > 0, "Song title matches"
+    TEST_CHECK MODPlayer_GetType(player1) = "SCRM", "Song subtype is SCRM"
+    TEST_CHECK player1.song.hasFMChannels, "adlibsp.s3m marked as hasFMChannels"
+    TEST_CHECK MODPlayer_GetOrders(player1) > 0, "Order count > 0"
+
+    MODPlayer_Play player1
+    TEST_CHECK MODPlayer_IsPlaying(player1), "Playing adlibsp.s3m"
+    MODPlayer_Update player1, 0.05
+    TEST_CHECK player1.channel(0).oplFNum = 856, "S3M E-3 note maps to the expected OPL F-number"
+    TEST_CHECK player1.channel(0).oplBlock = 2, "S3M E-3 note maps to the expected OPL block"
+
+    DIM hasFMOutput AS _BYTE: hasFMOutput = _FALSE
+    DIM sampleIndex AS _UNSIGNED LONG
+    IF player1.synth.soundBufferSamples > 0 THEN
+        FOR sampleIndex = 0 TO player1.synth.soundBufferSamples - 1
+            IF player1.synth.soundBuffer(sampleIndex) <> 0! THEN
+                hasFMOutput = _TRUE
+                EXIT FOR
+            END IF
+        NEXT sampleIndex
+    END IF
+    TEST_CHECK hasFMOutput, "FM-only S3M produces non-zero mixed audio"
+
+    MODPlayer_Stop player1
+    TEST_CHECK_FALSE MODPlayer_IsPlaying(player1), "Stopped adlibsp.s3m"
+    MODPlayer_Finalize player1
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MODPlayer: S3M with mixed PCM and AdLib (adlib.s3m)"
+    DIM player2 AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(player2, "mods/adlib.s3m"), "Load adlib.s3m"
+    TEST_CHECK INSTR(MODPlayer_GetName(player2), "First Adlib Attempt") > 0, "Song title matches"
+    TEST_CHECK MODPlayer_GetType(player2) = "SCRM", "Song subtype is SCRM"
+    TEST_CHECK player2.song.hasFMChannels, "adlib.s3m marked as hasFMChannels"
+    TEST_CHECK MODPlayer_GetOrders(player2) > 0, "Order count > 0"
+
+    MODPlayer_Play player2
+    TEST_CHECK MODPlayer_IsPlaying(player2), "Playing adlib.s3m"
+    MODPlayer_Update player2, 0.05
+    MODPlayer_Stop player2
+    TEST_CHECK_FALSE MODPlayer_IsPlaying(player2), "Stopped adlib.s3m"
+    MODPlayer_Finalize player2
+    TEST_CASE_END
+END SUB
+
+''' @brief Tests S3M OPL percussion pitch and independent drum key state.
+SUB Test_MODPlayer_S3M_FMDrums
+    TEST_CASE_BEGIN "MODPlayer: S3M FM percussion channel state"
+    DIM player AS MODPlayer
+    player.song.channels = 2
+    player.song.instruments = 1
+    REDIM player.channel(0 TO 1) AS __MODPLAYERCHANNEL
+    REDIM player.instrument(0 TO 0) AS __MODPLAYERINSTRUMENT
+
+    player.channel(0).subtype = __MODPLAYER_INSTRUMENT_FM_BASSDRUM
+    player.channel(0).oplChannel = 6
+    player.channel(1).subtype = __MODPLAYER_INSTRUMENT_FM_SNAREDRUM
+    player.channel(1).oplChannel = 7
+
+    player.instrument(0).subtype = __MODPLAYER_INSTRUMENT_FM_BASSDRUM
+    player.instrument(0).volume = __MODPLAYER_INSTRUMENT_VOLUME_MAX
+    player.instrument(0).c2Spd = 8363
+    player.instrument(0).adlib(0) = &H01
+    player.instrument(0).adlib(1) = &H01
+    player.instrument(0).adlib(2) = &H00
+    player.instrument(0).adlib(3) = &H00
+    player.instrument(0).adlib(4) = &HF0
+    player.instrument(0).adlib(5) = &HF0
+    player.instrument(0).adlib(6) = &H00
+    player.instrument(0).adlib(7) = &H00
+    player.instrument(0).adlib(8) = &H00
+    player.instrument(0).adlib(9) = &H00
+    player.instrument(0).adlib(10) = &H00
+    player.instrument(0).adlib(11) = &H00
+
+    Opal_Initialize player.opl, 49716
+    __MODPlayer_UpdateFMChannelRow player, 0, 48, 1, __MODPLAYER_NOTE_NO_VOLUME
+    TEST_CHECK player.channel(0).oplFNum = 686, "Bass drum note uses linear semitone pitch"
+    TEST_CHECK player.channel(0).oplBlock = 3, "Bass drum note sets the expected OPL block"
+    TEST_CHECK player.opl.rhythmMode <> 0, "FM drum channel enables OPL rhythm mode"
+    TEST_CHECK (player.opl.op(12).key AND 2) <> 0, "Bass drum key turns on"
+
+    __MODPlayer_UpdateFMChannelRow player, 1, 48, 1, __MODPLAYER_NOTE_NO_VOLUME
+    TEST_CHECK (player.opl.op(12).key AND 2) <> 0, "Snare trigger preserves the active bass drum"
+    TEST_CHECK (player.opl.op(16).key AND 2) <> 0, "Snare key turns on"
+
+    __MODPlayer_UpdateFMChannelRow player, 0, __MODPLAYER_NOTE_KEY_OFF, 0, __MODPLAYER_NOTE_NO_VOLUME
+    TEST_CHECK (player.opl.op(12).key AND 2) = 0, "Bass drum key-off releases only the bass drum"
+    TEST_CHECK (player.opl.op(16).key AND 2) <> 0, "Bass drum key-off preserves the active snare"
+
+    TEST_CASE_END
+END SUB
+
 ' Run all test suites
 TEST_BEGIN_ALL
 
@@ -673,10 +859,15 @@ Test_AudioConv
 Test_SoftSynth
 Test_StringFile
 Test_AudioAnalyzer
+Test_Opal_Lifecycle
+Test_Opal_SoundGeneration
+Test_Opal_RhythmMode
 Test_MODPlayer_Lifecycle
 Test_MODPlayer_MOD
 Test_MODPlayer_S3M
 Test_MODPlayer_S3M_Packed
+Test_MODPlayer_S3M_AdLib
+Test_MODPlayer_S3M_FMDrums
 Test_MODPlayer_MTM
 Test_MODPlayer_Memory
 Test_MODLoader

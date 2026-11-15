@@ -22,7 +22,8 @@ It supports the following classic module formats:
   - ProTracker MOD files with 1 to 99 channels, 15 or 31 samples, and Amiga
     period limits.
   - Scream Tracker 3 (S3M) files with multi-channel digital audio, custom sample
-    rates, and ST3 panning.
+    rates, ST3 panning, and Yamaha OPL2/OPL3 AdLib FM synthesis (melodic and
+    rhythm channels) with real-time software mixing.
   - MultiTracker (MTM) files with track sequencing and 8-bit PCM samples.
 - Modular Architecture:
   - Core Player engine (`MODPlayer.bi`, `MODPlayer.bm`, `MODPlayerShared.bm`)
@@ -145,6 +146,9 @@ and constants are documented in [docs/API.md](docs/API.md).
 - **[Software Synthesizer API](docs/API.md#software-synthesizer-api-softsynthbi)**:
   Multi-instance PCM voice mixing, buffer streaming, pan/volume attenuation,
   frequency control, and direct sample frame peeking/poking.
+- **[Opal OPL2/OPL3 FM Synthesizer Emulator API](docs/API.md#opal-opl2opl3-emulator-api-opalbi--opalbm)**:
+  Pure native emulation of Yamaha YM3812 (OPL2) and YMF262 (OPL3) sound chips,
+  supporting 2-op/4-op melodic patches, rhythm mode percussion, and stereo panning.
 - **[Audio Spectrum Analyzer API](docs/API.md#audio-spectrum-analyzer-api-audioanalyzerbi)**:
   Multi-instance Radix-2 FFT spectral analysis, average intensity, RMS energy
   calculation, and peak amplitude/bin detection.
@@ -202,6 +206,7 @@ submit a pull request with a fix.
 - [Digital Audio Mixing Techniques](docs/FSBDOC.TXT) by *jedi / oxygen*
 - [Writing Mixing Routines](docs/MIXING10.TXT) by *BYTERAVER/TNT*
 - [Audio Mixer Tutorial](docs/mixer_tutorial) by *benhenshaw*
+- [Opal OPL3 Emulator](https://github.com/RealBitdancer/opal) by *RealBitdancer*
 <!-- markdownlint-enable MD013 -->
 
 ## Assets and License

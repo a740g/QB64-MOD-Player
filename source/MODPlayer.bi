@@ -8,6 +8,7 @@ $INCLUDEONCE
 $UNSTABLE:TYPEFIELDS
 
 '$INCLUDE:'SoftSynth.bi'
+'$INCLUDE:'Opal.bi'
 
 CONST __MODPLAYER_NOTE_NONE~%% = 132~%% ' Note will be set to this when there is nothing
 CONST __MODPLAYER_NOTE_KEY_OFF~%% = 133~%% ' We'll use this in a future version
@@ -110,6 +111,7 @@ TYPE __MODPlayerInstrument
     playMode AS LONG ' the playack mode (supported by SoftSynth)
     bytesPerSample AS _UNSIGNED _BYTE ' 1 for 8-bit, 2 for 16-bit, 4 for 32-bit etc. (SoftSynth will convert sounds to 32-bit floating point)
     channels AS _UNSIGNED _BYTE ' number of channels per frame (SoftSynth will flatten sounds to mono)
+    adlib(0 TO 11) AS _UNSIGNED _BYTE ' 12 AdLib instrument parameter bytes (D00..D0B)
 END TYPE
 
 TYPE __MODPlayerChannel
@@ -142,6 +144,11 @@ TYPE __MODPlayerChannel
     tremorParameters AS _UNSIGNED _BYTE ' tremor parameters
     retriggerVolumeSlide AS _UNSIGNED _BYTE ' last retrigger volume slide
     retriggerTickCount AS _UNSIGNED _BYTE ' last retrigger tick count
+    oplChannel AS _UNSIGNED _BYTE ' mapped OPL2 channel (0-8 for melody, or drum channel index)
+    oplFNum AS _UNSIGNED INTEGER ' current F-Number sent to OPL
+    oplBlock AS _UNSIGNED _BYTE ' current octave block sent to OPL
+    oplKeyOn AS _BYTE ' whether key is active on OPL
+    oplCarrierTotalLevel AS _UNSIGNED _BYTE ' current carrier total level
 END TYPE
 
 TYPE __MODPlayerSong
@@ -178,11 +185,13 @@ TYPE __MODPlayerSong
     useFilterSFX AS _BYTE ' enable filter / sfx with SB
     useST300VolumeSlides AS _BYTE ' ST3.00 volume slides (automatically enabled if tracker version is <= 0x1300) - if enabled, all volume slides occur every tick
     hasSpecialCustomData AS _BYTE ' special custom data in file (uses "Special" field)
+    hasFMChannels AS _BYTE ' true if song contains AdLib FM channels
 END TYPE
 
 TYPE MODPlayer
     song AS __MODPlayerSong
     synth AS SoftSynth
+    opl AS Opal
     order(0 TO 0) _DYNAMIC AS _UNSIGNED INTEGER
     pattern(0 TO 0) _DYNAMIC AS __MODPlayerPattern
     instrument(0 TO 0) _DYNAMIC AS __MODPlayerInstrument

@@ -6,6 +6,7 @@
 $INCLUDEONCE
 
 '$INCLUDE:'Math.bi'
+'$INCLUDE:'Memory.bi'
 
 $UNSTABLE:TYPEFIELDS
 
@@ -534,16 +535,24 @@ FUNCTION SoftSynth_GetBufferedSoundTime# (ctx AS SoftSynth)
     SoftSynth_GetBufferedSoundTime = _SNDRAWLEN(ctx.soundHandle)
 END FUNCTION
 
-''' @brief Mixes all active voices into the provided stereo interleaved SINGLE buffer.
+''' @brief Mixes all active voices into the internal buffer without pushing to the sound pipe.
 ''' @param ctx Synthesizer context.
-''' @param buffer() Output stereo interleaved SINGLE buffer.
 ''' @param frames Number of sample frames to render.
-SUB __SoftSynth_Update (ctx AS SoftSynth, buffer() AS SINGLE, frames AS _UNSIGNED LONG)
-    IF NOT ctx.initialized THEN EXIT SUB
-    IF frames = 0 THEN EXIT SUB
-    IF ctx.totalVoices = 0 THEN EXIT SUB
+SUB SoftSynth_Render (ctx AS SoftSynth, frames AS _UNSIGNED LONG)
+    IF NOT ctx.initialized _ORELSE frames = 0 _ORELSE ctx.totalVoices = 0 THEN EXIT SUB
 
     DIM totalSamples AS _UNSIGNED LONG: totalSamples = frames * SOFTSYNTH_SOUND_BUFFER_CHANNELS
+
+    ' Resize buffer if frame count changed
+    IF ctx.soundBufferFrames <> frames THEN
+        ctx.soundBufferFrames = frames
+        ctx.soundBufferSamples = totalSamples
+        ctx.soundBufferBytes = ctx.soundBufferSamples * SOFTSYNTH_SOUND_BUFFER_SAMPLE_SIZE
+        REDIM ctx.soundBuffer(0 TO ctx.soundBufferSamples - 1) AS SINGLE
+    ELSE
+        ' Clear the buffer before rendering
+        Memory_Set _OFFSET(ctx.soundBuffer(0)), 0, ctx.soundBufferBytes
+    END IF
 
     ' Reset active voice counter
     ctx.activeVoices = 0
@@ -607,8 +616,8 @@ SUB __SoftSynth_Update (ctx AS SoftSynth, buffer() AS SINGLE, frames AS _UNSIGNE
 
             voicePos = voicePos + voicePitch
 
-            buffer(outIdx) = buffer(outIdx) + outFrame * voiceLGain
-            buffer(outIdx + 1) = buffer(outIdx + 1) + outFrame * voiceRGain
+            ctx.soundBuffer(outIdx) = ctx.soundBuffer(outIdx) + outFrame * voiceLGain
+            ctx.soundBuffer(outIdx + 1) = ctx.soundBuffer(outIdx + 1) + outFrame * voiceRGain
             outIdx = outIdx + 2
         NEXT
 
@@ -624,7 +633,7 @@ SUB __SoftSynth_Update (ctx AS SoftSynth, buffer() AS SINGLE, frames AS _UNSIGNE
         DIM gVol AS SINGLE: gVol = ctx.globalVolume
         DIM si AS _UNSIGNED LONG
         FOR si = 0 TO totalSamples - 1
-            buffer(si) = buffer(si) * gVol
+            ctx.soundBuffer(si) = ctx.soundBuffer(si) * gVol
         NEXT
     END IF
 END SUB
@@ -637,29 +646,9 @@ SUB __SoftSynth_BatchAudio (buffer() AS SINGLE, channels AS _UNSIGNED _BYTE, han
     _SNDRAWBATCH buffer(), channels, handle
 END SUB
 
-''' @brief Renders audio frames and streams them to the QB64 raw sound pipe.
+''' @brief Feeds the rendered samples in the internal buffer to the QB64 sound pipe.
 ''' @param ctx Synthesizer context.
-''' @param frames Number of frames to render and push.
-SUB SoftSynth_Update (ctx AS SoftSynth, frames AS _UNSIGNED LONG)
+SUB SoftSynth_PushAudio (ctx AS SoftSynth)
     IF NOT ctx.initialized THEN EXIT SUB
-
-    ' Resize buffer if frame count changed
-    IF ctx.soundBufferFrames <> frames THEN
-        ctx.soundBufferFrames = frames
-        ctx.soundBufferSamples = frames * SOFTSYNTH_SOUND_BUFFER_CHANNELS
-        ctx.soundBufferBytes = ctx.soundBufferSamples * SOFTSYNTH_SOUND_BUFFER_SAMPLE_SIZE
-        REDIM ctx.soundBuffer(0 TO ctx.soundBufferSamples - 1) AS SINGLE
-    ELSE
-        ' Zero the buffer before mixing
-        DIM i AS _UNSIGNED LONG
-        FOR i = 0 TO ctx.soundBufferSamples - 1
-            ctx.soundBuffer(i) = 0!
-        NEXT
-    END IF
-
-    ' Render samples into the buffer
-    __SoftSynth_Update ctx, ctx.soundBuffer(), frames
-
-    ' Feed the rendered samples to the QB64 sound pipe
     __SoftSynth_BatchAudio ctx.soundBuffer(), SOFTSYNTH_SOUND_BUFFER_CHANNELS, ctx.soundHandle
 END SUB

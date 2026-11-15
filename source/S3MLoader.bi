@@ -170,9 +170,33 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
             CASE 16 TO 24
                 player.channel(i).subtype = __MODPLAYER_INSTRUMENT_FM_MELODY ' FM melody channel
+                player.channel(i).oplChannel = channelInfo(i) - 16
+                player.song.hasFMChannels = _TRUE
 
-            CASE 25 TO 29
-                player.channel(i).subtype = __MODPLAYER_INSTRUMENT_FM_BASSDRUM ' FM drums channel
+            CASE 25
+                player.channel(i).subtype = __MODPLAYER_INSTRUMENT_FM_BASSDRUM
+                player.channel(i).oplChannel = 6
+                player.song.hasFMChannels = _TRUE
+
+            CASE 26
+                player.channel(i).subtype = __MODPLAYER_INSTRUMENT_FM_SNAREDRUM
+                player.channel(i).oplChannel = 7
+                player.song.hasFMChannels = _TRUE
+
+            CASE 27
+                player.channel(i).subtype = __MODPLAYER_INSTRUMENT_FM_TOMTOM
+                player.channel(i).oplChannel = 8
+                player.song.hasFMChannels = _TRUE
+
+            CASE 28
+                player.channel(i).subtype = __MODPLAYER_INSTRUMENT_FM_CYMBAL
+                player.channel(i).oplChannel = 8
+                player.song.hasFMChannels = _TRUE
+
+            CASE 29
+                player.channel(i).subtype = __MODPLAYER_INSTRUMENT_FM_HIHAT
+                player.channel(i).oplChannel = 7
+                player.song.hasFMChannels = _TRUE
         END SELECT
 
         '_ECHO "Channel " + STR$(i) + " enabled =" + STR$(NOT _READBIT(channelInfo(i), 7))
@@ -250,8 +274,38 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
         '_ECHO " File name = " + player.instrument(i).caption
 
         IF player.instrument(i).subtype > __MODPLAYER_INSTRUMENT_PCM THEN ' this is an FM instrument
-            'TODO: Implement FM instrument loading support
-            ERROR _ERR_FEATURE_UNAVAILABLE
+            ' Skip 3 reserved bytes (0Dh-0Fh) -> seek to offset 10h (16 bytes from instrument start)
+            StringFile_Seek memFile, instrumentPointer(i) + 16
+
+            ' Read 12 AdLib parameter bytes (D00-D0B)
+            DIM adlibIdx AS LONG
+            FOR adlibIdx = 0 TO 11
+                player.instrument(i).adlib(adlibIdx) = StringFile_ReadByte(memFile)
+            NEXT adlibIdx
+
+            ' Read volume (offset 1Ch)
+            player.instrument(i).volume = StringFile_ReadByte(memFile)
+            IF player.instrument(i).volume > __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN player.instrument(i).volume = __MODPLAYER_INSTRUMENT_VOLUME_MAX
+
+            ' Skip disk / reserved bytes (1Dh-1Fh) -> seek to offset 20h (32 bytes from instrument start)
+            StringFile_Seek memFile, instrumentPointer(i) + 32
+
+            ' Read C2SPD (offset 20h-23h, low 16-bits used)
+            player.instrument(i).c2Spd = StringFile_ReadLong(memFile) AND &HFFFF
+            IF player.instrument(i).c2Spd = 0 THEN player.instrument(i).c2Spd = 8363
+
+            ' Skip 12 unused bytes (24h-2Fh) -> seek to offset 30h (48 bytes from instrument start)
+            StringFile_Seek memFile, instrumentPointer(i) + 48
+
+            ' Read instrument name (28 bytes)
+            DIM fmInstName AS STRING: fmInstName = String_MakePrintable(StringFile_ReadString(memFile, 28))
+            IF LEN(_TRIM$(fmInstName)) <> 0 THEN player.instrument(i).caption = fmInstName
+
+            ' Read and verify the 'SCRI' label (offset 4Ch)
+            DIM fmSig AS STRING: fmSig = StringFile_ReadString(memFile, 4)
+            IF fmSig <> "SCRI" AND fmSig <> "SCRS" THEN
+                ' Non-fatal check: some files have trailing spaces or odd tags
+            END IF
         ELSE ' this is a standard PCM or blank instrument
             ' Read and convert the actual address to the PCM instrument sample data
             ' Convert this to a long. Eww! WTF!
@@ -392,7 +446,11 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
                                 player.pattern(i).note(row, chan).note = __MODPLAYER_NOTE_KEY_OFF
 
                             CASE ELSE
-                                player.pattern(i).note(row, chan).note = _SHR(word1, 4) * 12 + (word1 AND &HF)
+                                IF (word1 AND &HF) < 12 THEN
+                                    player.pattern(i).note(row, chan).note = _SHR(word1, 4) * 12 + (word1 AND &HF)
+                                ELSE
+                                    player.pattern(i).note(row, chan).note = __MODPLAYER_NOTE_NONE
+                                END IF
                         END SELECT
 
                         player.pattern(i).note(row, chan).instrument = StringFile_ReadByte(memFile)
@@ -570,8 +628,7 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     ' Read the PCM instrument sample data
     FOR i = 0 TO player.song.instruments - 1
         IF player.instrument(i).subtype > __MODPLAYER_INSTRUMENT_PCM THEN
-            ' TODO: Can this happen? Probably a corrupt file?
-            ERROR _ERR_FEATURE_UNAVAILABLE
+            _CONTINUE
         ELSE
             ' Seek to the correct position in the file to read the PCM instrument sample data
             StringFile_Seek memFile, instrumentPointer(i)
