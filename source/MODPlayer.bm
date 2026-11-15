@@ -9,7 +9,7 @@ $INCLUDEONCE
 '$INCLUDE:'S3MLoader.bi'
 '$INCLUDE:'MTMLoader.bi'
 '$INCLUDE:'MODLoader.bi'
-'$INCLUDE:'MODPlayerSupport.bm'
+'$INCLUDE:'MODPlayerShared.bm'
 
 ''' @brief Loads a tracker module from a memory buffer, auto-detecting the format across registered loaders.
 ''' @param player The MOD player instance.

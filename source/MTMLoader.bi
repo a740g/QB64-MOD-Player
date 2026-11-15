@@ -12,7 +12,7 @@ $INCLUDEONCE
 '$INCLUDE:'AudioConv.bi'
 '$INCLUDE:'StringFile.bi'
 '$INCLUDE:'File.bi'
-'$INCLUDE:'MODPlayerSupport.bm'
+'$INCLUDE:'MODPlayerShared.bm'
 
 ''' @brief Parses and loads a MultiTracker Module (MTM) from a memory buffer.
 ''' @param buffer Binary string containing the MTM module data.

@@ -12,7 +12,7 @@ $INCLUDEONCE
 '$INCLUDE:'AudioConv.bi'
 '$INCLUDE:'StringFile.bi'
 '$INCLUDE:'File.bi'
-'$INCLUDE:'MODPlayerSupport.bm'
+'$INCLUDE:'MODPlayerShared.bm'
 
 ''' @brief Parses and loads a Scream Tracker 3 (S3M) module from a memory buffer.
 ''' @param buffer Binary string containing the S3M module data.
