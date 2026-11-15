@@ -6,8 +6,6 @@
 
 $INCLUDEONCE
 
-$UNSTABLE:TYPEFIELDS
-
 CONST OPAL_VERSION_MAJOR = 3
 CONST OPAL_VERSION_MINOR = 0
 CONST OPAL_VERSION_PATCH = 0
@@ -106,9 +104,9 @@ TYPE __OpalOperator
 END TYPE
 
 TYPE __OpalChannel
-    opSlot(0 TO 3) _STATIC AS _UNSIGNED _BYTE
+    opSlot(0 TO 3) AS _UNSIGNED _BYTE
     pairIndex AS _UNSIGNED _BYTE
-    outSource(0 TO 3) _STATIC AS _UNSIGNED _BYTE
+    outSource(0 TO 3) AS _UNSIGNED _BYTE
     chanType AS LONG
     leftPan AS _UNSIGNED INTEGER
     rightPan AS _UNSIGNED INTEGER
@@ -154,13 +152,13 @@ END TYPE
 TYPE Opal
     sampleRate AS LONG
     sampleAccum AS LONG
-    lastOutput(0 TO 1) _STATIC AS INTEGER
-    currOutput(0 TO 1) _STATIC AS INTEGER
-    chan(0 TO 17) _STATIC AS __OpalChannel
-    op(0 TO 35) _STATIC AS __OpalOperator
-    timer(0 TO 1) _STATIC AS _UNSIGNED _BYTE
+    lastOutput(0 TO 1) AS INTEGER
+    currOutput(0 TO 1) AS INTEGER
+    chan(0 TO 17) AS __OpalChannel
+    op(0 TO 35) AS __OpalOperator
+    timer(0 TO 1) AS _UNSIGNED _BYTE
     timerControl AS _UNSIGNED _BYTE
-    timerCount(0 TO 1) _STATIC AS _UNSIGNED INTEGER
+    timerCount(0 TO 1) AS _UNSIGNED INTEGER
     status AS _UNSIGNED _BYTE
     newMode AS _UNSIGNED _BYTE
     pairEnable AS _UNSIGNED _BYTE
@@ -181,7 +179,7 @@ TYPE Opal
     lastDue AS _UNSIGNED _INTEGER64
     queueHead AS _UNSIGNED INTEGER
     queueCount AS _UNSIGNED INTEGER
-    queue(0 TO 4095) _STATIC AS __OpalQueuedWrite
+    queue(0 TO 4095) AS __OpalQueuedWrite
 END TYPE
 
 ' Module-level lookup tables (shared across instances)
