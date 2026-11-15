@@ -1,0 +1,155 @@
+'-----------------------------------------------------------------------------------------------------------------------
+' MOD Player Library
+' Copyright (c) 2026 Samuel Gomes
+'-----------------------------------------------------------------------------------------------------------------------
+
+$INCLUDEONCE
+
+'$INCLUDE:'MODPlayer.bi'
+
+''' @brief Loads the period, sine, and invert loop speed tables into memory for use by the MOD player.
+SUB __MODPlayer_LoadTables
+    SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
+    SHARED __MODPlayer_SineTable() AS _UNSIGNED _BYTE
+    SHARED __MODPlayer_InvertLoopSpeedTable() AS _UNSIGNED _BYTE
+    SHARED __MODPlayer_tablesInitialized AS _BYTE
+
+    IF __MODPlayer_tablesInitialized THEN EXIT SUB
+
+    ' Load the period table
+    RESTORE __MODPlayer_PeriodTab
+    DIM periodCount AS LONG: READ periodCount
+    REDIM __MODPlayer_PeriodTable(0 TO periodCount - 1) AS _UNSIGNED INTEGER ' allocate size elements
+    ' Now read size values
+    DIM i AS LONG: FOR i = 0 TO periodCount - 1
+        READ __MODPlayer_PeriodTable(i)
+    NEXT
+
+    ' Load the sine table
+    RESTORE __MODPlayer_SineTab
+    DIM s AS LONG: READ s
+    REDIM __MODPlayer_SineTable(0 TO s - 1) AS _UNSIGNED _BYTE
+    FOR i = 0 TO s - 1
+        READ __MODPlayer_SineTable(i)
+    NEXT
+
+    ' Load the invert loop table
+    RESTORE __MODPlayer_ILSpdTab
+    READ s
+    REDIM __MODPlayer_InvertLoopSpeedTable(0 TO s - 1) AS _UNSIGNED _BYTE
+    FOR i = 0 TO s - 1
+        READ __MODPlayer_InvertLoopSpeedTable(i)
+    NEXT
+
+    __MODPlayer_tablesInitialized = _TRUE
+    EXIT SUB
+
+    ' Amiga period table data for 11 octaves
+    __MODPlayer_PeriodTab:
+    DATA 134
+    DATA 27392,25856,24384,23040,21696,20480,19328,18240,17216,16256,15360,14496
+    DATA 13696,12928,12192,11520,10848,10240,9664,9120,8608,8128,7680,7248
+    DATA 6848,6464,6096,5760,5424,5120,4832,4560,4304,4064,3840,3624
+    DATA 3424,3232,3048,2880,2712,2560,2416,2280,2152,2032,1920,1812
+    DATA 1712,1616,1524,1440,1356,1280,1208,1140,1076,1016,960,906
+    DATA 856,808,762,720,678,640,604,570,538,508,480,453
+    DATA 428,404,381,360,339,320,302,285,269,254,240,226
+    DATA 214,202,190,180,170,160,151,143,135,127,120,113
+    DATA 107,101,95,90,85,80,75,71,67,63,60,56
+    DATA 53,50,47,45,42,40,37,35,33,31,30,28
+    DATA 26,25,23,22,21,20,18,17,16,15,15,14
+    DATA 0,0
+    DATA NaN
+
+    ' Sine table data for tremolo & vibrato
+    __MODPlayer_SineTab:
+    DATA 32
+    DATA 0,24,49,74,97,120,141,161,180,197,212,224,235,244,250,253
+    DATA 255,253,250,244,235,224,212,197,180,161,141,120,97,74,49,24
+    DATA NaN
+
+    ' Invert loop speed table data for EFx
+    __MODPlayer_ILSpdTab:
+    DATA 16
+    DATA 0,5,6,7,8,10,11,13,16,19,22,26,32,43,64,128
+    DATA NaN
+END SUB
+
+''' @brief Resets all song properties to default values for a clean load state.
+SUB __MODPlayer_InitializeSong (player AS MODPlayer)
+    player.song.caption = _STR_EMPTY
+    player.song.subtype = _STR_EMPTY
+    player.song.comment = _STR_EMPTY
+    player.song.channels = 0
+    player.song.instruments = 0
+    player.song.orders = 0
+    player.song.endJumpOrder = 0
+    player.song.patterns = 0
+    player.song.orderPosition = 0
+    player.song.patternRow = 0
+    player.song.tickPattern = 0
+    player.song.tickPatternRow = 0
+    player.song.isLooping = _FALSE
+    player.song.isPlaying = _FALSE
+    player.song.isPaused = _FALSE
+    player.song.patternDelay = 0
+    player.song.speed = 0
+    player.song.BPM = 0
+    player.song.defaultSpeed = __MODPLAYER_SONG_SPEED_DEFAULT ' set this to default MOD speed
+    player.song.defaultBPM = __MODPLAYER_SONG_BPM_DEFAULT ' set this to default MOD BPM
+    player.song.tick = 0
+    player.song.tempoTimerValue = 0
+    player.song.framesPerTick = 0
+    player.song.activeChannels = 0
+    player.song.useAmigaLPF = _FALSE
+    player.song.useST2Vibrato = _FALSE
+    player.song.useST2Tempo = _FALSE
+    player.song.useAmigaSlides = _FALSE
+    player.song.useVolumeOptimization = _FALSE
+    player.song.useAmigaLimits = _FALSE
+    player.song.useFilterSFX = _FALSE
+    player.song.useST300VolumeSlides = _FALSE
+    player.song.hasSpecialCustomData = _FALSE
+END SUB
+
+''' @brief Calculates middle-C playback speed in Hertz for a ProTracker finetune nibble.
+''' @param ft Signed finetune nibble (0-15).
+''' @return C2 playback speed in Hertz.
+FUNCTION __MODPlayer_GetC2Spd~% (ft AS _UNSIGNED _BYTE)
+    SELECT CASE ft
+        CASE 0
+            __MODPlayer_GetC2Spd = 8363
+        CASE 1
+            __MODPlayer_GetC2Spd = 8413
+        CASE 2
+            __MODPlayer_GetC2Spd = 8463
+        CASE 3
+            __MODPlayer_GetC2Spd = 8529
+        CASE 4
+            __MODPlayer_GetC2Spd = 8581
+        CASE 5
+            __MODPlayer_GetC2Spd = 8651
+        CASE 6
+            __MODPlayer_GetC2Spd = 8723
+        CASE 7
+            __MODPlayer_GetC2Spd = 8757
+        CASE 8
+            __MODPlayer_GetC2Spd = 7895
+        CASE 9
+            __MODPlayer_GetC2Spd = 7941
+        CASE 10
+            __MODPlayer_GetC2Spd = 7985
+        CASE 11
+            __MODPlayer_GetC2Spd = 8046
+        CASE 12
+            __MODPlayer_GetC2Spd = 8107
+        CASE 13
+            __MODPlayer_GetC2Spd = 8169
+        CASE 14
+            __MODPlayer_GetC2Spd = 8232
+        CASE 15
+            __MODPlayer_GetC2Spd = 8280
+        CASE ELSE
+            __MODPlayer_GetC2Spd = 8363
+    END SELECT
+END FUNCTION

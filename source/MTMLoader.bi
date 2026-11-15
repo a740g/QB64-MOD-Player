@@ -12,6 +12,7 @@ $INCLUDEONCE
 '$INCLUDE:'AudioConv.bi'
 '$INCLUDE:'StringFile.bi'
 '$INCLUDE:'File.bi'
+'$INCLUDE:'MODPlayerSupport.bm'
 
 ''' @brief Parses and loads a MultiTracker Module (MTM) from a memory buffer.
 ''' @param buffer Binary string containing the MTM module data.
@@ -71,7 +72,7 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     IF numTracks = 0 _ORELSE player.song.instruments = 0 _ORELSE numRows = 0 _ORELSE player.song.channels = 0 THEN EXIT FUNCTION
 
     ' Resize the channel array
-    REDIM player.channel(0 TO player.song.channels - 1) AS __MODPlayerChannel
+    REDIM player.channel(0 TO player.song.channels - 1) AS __MODPLAYERCHANNEL
 
     ' Allocate the number of softsynth voices we need
     SoftSynth_SetTotalVoices player.synth, player.song.channels
@@ -88,7 +89,7 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     NEXT i
 
     ' Resize the instruments array
-    REDIM player.instrument(0 TO player.song.instruments - 1) AS __MODPlayerInstrument
+    REDIM player.instrument(0 TO player.song.instruments - 1) AS __MODPLAYERINSTRUMENT
 
     ' Read the instruments information
     FOR i = 0 TO player.song.instruments - 1
@@ -180,10 +181,10 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     NEXT i
 
     ' Resize the pattern data array
-    REDIM player.pattern(0 TO player.song.patterns - 1) AS __MODPlayerPattern
+    REDIM player.pattern(0 TO player.song.patterns - 1) AS __MODPLAYERPATTERN
     FOR i = 0 TO player.song.patterns - 1
         player.pattern(i).rows = numRows
-        REDIM player.pattern(i).note(0 TO numRows - 1, 0 TO player.song.channels - 1) AS __MODPlayerNote
+        REDIM player.pattern(i).note(0 TO numRows - 1, 0 TO player.song.channels - 1) AS __MODPLAYERNOTE
     NEXT
 
     ' Read track sequencing data and assemble that to our pattern data

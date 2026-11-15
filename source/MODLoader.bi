@@ -12,6 +12,7 @@ $INCLUDEONCE
 '$INCLUDE:'AudioConv.bi'
 '$INCLUDE:'StringFile.bi'
 '$INCLUDE:'File.bi'
+'$INCLUDE:'MODPlayerSupport.bm'
 
 ''' @brief Parses and loads a standard ProTracker or compatible MOD module from a memory buffer.
 ''' @param buffer Binary string containing the MOD module data.
@@ -130,7 +131,7 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     IF player.song.instruments = 0 _ORELSE player.song.channels = 0 THEN EXIT FUNCTION
 
     ' Resize the instruments array
-    REDIM player.instrument(0 TO player.song.instruments - 1) AS __MODPlayerInstrument
+    REDIM player.instrument(0 TO player.song.instruments - 1) AS __MODPLAYERINSTRUMENT
     DIM AS _UNSIGNED _BYTE byte1, byte2
 
     ' Load the instruments headers
@@ -228,10 +229,10 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     player.song.patterns = player.song.patterns + 1 ' change to count
 
     ' Resize the pattern data array
-    REDIM player.pattern(0 TO player.song.patterns - 1) AS __MODPlayerPattern
+    REDIM player.pattern(0 TO player.song.patterns - 1) AS __MODPLAYERPATTERN
     FOR i = 0 TO player.song.patterns - 1
         player.pattern(i).rows = __MODPLAYER_MOD_S3M_ROWS
-        REDIM player.pattern(i).note(0 TO __MODPLAYER_MOD_S3M_ROWS - 1, 0 TO player.song.channels - 1) AS __MODPlayerNote
+        REDIM player.pattern(i).note(0 TO __MODPLAYER_MOD_S3M_ROWS - 1, 0 TO player.song.channels - 1) AS __MODPLAYERNOTE
     NEXT
 
     ' Skip past the 4 byte signature if this is a 31 sample mod
@@ -291,7 +292,7 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
     ' Setup the channel array
     ' __CHANNEL_PCM = 0 so all MOD channels are by default PCM
-    REDIM player.channel(0 TO player.song.channels - 1) AS __MODPlayerChannel
+    REDIM player.channel(0 TO player.song.channels - 1) AS __MODPLAYERCHANNEL
 
     ' Allocate the number of softsynth voices we need
     SoftSynth_SetTotalVoices player.synth, player.song.channels

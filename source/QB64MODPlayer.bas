@@ -32,6 +32,7 @@ $COLOR:0
 '$INCLUDE:'Vector3f.bi'
 '$INCLUDE:'Math.bi'
 '$INCLUDE:'MODPlayer.bi'
+'$INCLUDE:'MODPlayer.bm'
 
 CONST APP_NAME = "QB64 MOD Player" ' application name
 ' We'll use a window with 1152 x 720 px (144 x 90 chars @ 8 x 8 px font) client area

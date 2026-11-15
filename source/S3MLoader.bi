@@ -12,6 +12,7 @@ $INCLUDEONCE
 '$INCLUDE:'AudioConv.bi'
 '$INCLUDE:'StringFile.bi'
 '$INCLUDE:'File.bi'
+'$INCLUDE:'MODPlayerSupport.bm'
 
 ''' @brief Parses and loads a Scream Tracker 3 (S3M) module from a memory buffer.
 ''' @param buffer Binary string containing the S3M module data.
@@ -148,7 +149,7 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     '_ECHO "Channels =" + STR$(player.song.channels)
 
     ' Resize the channel array
-    REDIM player.channel(0 TO player.song.channels - 1) AS __MODPlayerChannel
+    REDIM player.channel(0 TO player.song.channels - 1) AS __MODPLAYERCHANNEL
 
     ' Allocate the number of SoftSynth voices we need
     SoftSynth_SetTotalVoices player.synth, player.song.channels
@@ -231,7 +232,7 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     END IF
 
     ' Resize the instruments array
-    REDIM player.instrument(0 TO player.song.instruments - 1) AS __MODPlayerInstrument
+    REDIM player.instrument(0 TO player.song.instruments - 1) AS __MODPLAYERINSTRUMENT
     DIM isSampleCompressed(0 TO player.song.instruments - 1) AS _BYTE ' flags that tells us if we need to decode ADPCM samples
 
     ' Go through the instrument data and load whatever we need
@@ -337,12 +338,12 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     NEXT i
 
     ' Resize the pattern data array
-    REDIM player.pattern(0 TO player.song.patterns - 1) AS __MODPlayerPattern
+    REDIM player.pattern(0 TO player.song.patterns - 1) AS __MODPLAYERPATTERN
 
     ' Load pattern data and convert it to MOD / MTM style
     FOR i = 0 TO player.song.patterns - 1
         player.pattern(i).rows = __MODPLAYER_MOD_S3M_ROWS
-        REDIM player.pattern(i).note(0 TO __MODPLAYER_MOD_S3M_ROWS - 1, 0 TO player.song.channels - 1) AS __MODPlayerNote
+        REDIM player.pattern(i).note(0 TO __MODPLAYER_MOD_S3M_ROWS - 1, 0 TO player.song.channels - 1) AS __MODPLAYERNOTE
 
         ' Set the entire pattern to defaults first
         DIM row AS LONG: FOR row = 0 TO __MODPLAYER_MOD_S3M_ROWS - 1
@@ -543,7 +544,7 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
                                     ' Ranges from 0 (left) to 128 (right)
                                     player.pattern(i).note(row, chan).effect = __MODPLAYER_FX_PANNING_8
                                     player.pattern(i).note(row, chan).operand = (player.pattern(i).note(row, chan).operand * 255&) \ 128&
-                                else
+                                ELSE
                                     ' If it is anything else, then we'll simply ignore the effect
                                     player.pattern(i).note(row, chan).effect = &H0
                                     player.pattern(i).note(row, chan).operand = &H0
