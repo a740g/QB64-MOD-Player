@@ -766,7 +766,7 @@ FUNCTION App_OnSelectedFiles%%
 
     ofdList = _OPENFILEDIALOG$(APP_NAME, , "*.mod|*.MOD|*.Mod|*.mtm|*.MTM|*.Mtm|*.s3m|*.S3M|*.S3m", "Music Tracker Files", _TRUE)
 
-    IF LEN(ofdList) = NULL THEN EXIT FUNCTION
+    IF LEN(ofdList) = 0 THEN EXIT FUNCTION
 
     REDIM fileNames(0 TO 0) AS STRING
 
@@ -839,7 +839,7 @@ SUB App_QuickSave (buffer AS STRING, url AS STRING)
         ' This is a file from the web
         IF NOT _DIREXISTS(savePath) _ORELSE NOT alwaysUseSamePath THEN ' only get the path if path does not exist or user wants to use a new path
             savePath = _SELECTFOLDERDIALOG$("Select a folder to save the file:", savePath)
-            IF LEN(savePath) = NULL THEN EXIT SUB ' exit if user cancelled
+            IF LEN(savePath) = 0 THEN EXIT SUB ' exit if user cancelled
 
             savePath = Pathname_AddDirectorySeparator(savePath)
         END IF

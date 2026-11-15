@@ -80,9 +80,9 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
                 ' 15 sample MODs must be at least 600 bytes
                 IF StringFile_GetSize(memFile) < 600 THEN EXIT FUNCTION
 
-                ' Caption must only contain printable ASCII or NULL
+                ' Caption must only contain printable ASCII or NUL
                 FOR i = 1 TO LEN(player.song.caption)
-                    IF ASC(player.song.caption, i) < _ASC_SPACE _ANDALSO ASC(player.song.caption, i) <> NULL THEN EXIT FUNCTION
+                    IF ASC(player.song.caption, i) < _ASC_SPACE _ANDALSO ASC(player.song.caption, i) <> _ASC_NUL THEN EXIT FUNCTION
                 NEXT
 
                 ' Validate all 15 sample headers (each 30 bytes starting at byte offset 20)
@@ -91,7 +91,7 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
                     ' Check sample name (22 bytes)
                     FOR charIdx = 1 TO 22
                         sampNameChar = ASC(buffer, 20 + sIdx * 30 + charIdx)
-                        IF sampNameChar < _ASC_SPACE _ANDALSO sampNameChar <> NULL THEN EXIT FUNCTION
+                        IF sampNameChar < _ASC_SPACE _ANDALSO sampNameChar <> _ASC_NUL THEN EXIT FUNCTION
                     NEXT charIdx
 
                     ' Check volume (byte 26 of 30-byte header, 1-based offset: 20 + sIdx * 30 + 26)

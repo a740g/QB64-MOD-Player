@@ -611,7 +611,7 @@ SUB Test_MODPlayer_PatternRows
     TEST_CHECK MODPlayer_GetPatternRows(player, 9999) = 0, "Out-of-range pattern returns 0 rows"
 
     ' Validate note matrix indexing
-    TEST_CHECK player.pattern(0).note(0, 0).note <= 108 _ORELSE player.pattern(0).note(0, 0).note = __NOTE_NONE, "Valid note value at (0, 0)"
+    TEST_CHECK player.pattern(0).note(0, 0).note <= 108 _ORELSE player.pattern(0).note(0, 0).note = __MODPLAYER_NOTE_NONE, "Valid note value at (0, 0)"
 
     ' Test S3M pattern rows
     DIM s3mPlayer AS MODPlayer

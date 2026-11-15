@@ -36,82 +36,60 @@ CONST __MODPLAYER_S3M_GLOBAL_VOLUME_MAX~%% = 64~%% ' S3M global volume maximum v
 CONST __MODPLAYER_SONG_SPEED_DEFAULT~%% = 6~%% ' This is the default speed for song where it is not specified
 CONST __MODPLAYER_SONG_BPM_DEFAULT~%% = 125~%% ' Default song BPM when it is not specified
 
-' Legacy aliases for backwards compatibility
-CONST __NOTE_NONE~%% = __MODPLAYER_NOTE_NONE~%%
-CONST __NOTE_KEY_OFF~%% = __MODPLAYER_NOTE_KEY_OFF~%%
-CONST __NOTE_NO_VOLUME~%% = __MODPLAYER_NOTE_NO_VOLUME~%%
-CONST __MOD_S3M_ROWS~%% = __MODPLAYER_MOD_S3M_ROWS~%%
-CONST __MOD_MTM_ORDER_MAX~%% = __MODPLAYER_MOD_MTM_ORDER_MAX~%%
-CONST __INSTRUMENT_VOLUME_MAX~%% = __MODPLAYER_INSTRUMENT_VOLUME_MAX~%%
-CONST __INSTRUMENT_NONE~%% = __MODPLAYER_INSTRUMENT_NONE~%%
-CONST __INSTRUMENT_PCM~%% = __MODPLAYER_INSTRUMENT_PCM~%%
-CONST __INSTRUMENT_FM_MELODY~%% = __MODPLAYER_INSTRUMENT_FM_MELODY~%%
-CONST __INSTRUMENT_FM_BASSDRUM~%% = __MODPLAYER_INSTRUMENT_FM_BASSDRUM~%%
-CONST __INSTRUMENT_FM_SNAREDRUM~%% = __MODPLAYER_INSTRUMENT_FM_SNAREDRUM~%%
-CONST __INSTRUMENT_FM_TOMTOM~%% = __MODPLAYER_INSTRUMENT_FM_TOMTOM~%%
-CONST __INSTRUMENT_FM_CYMBAL~%% = __MODPLAYER_INSTRUMENT_FM_CYMBAL~%%
-CONST __INSTRUMENT_FM_HIHAT~%% = __MODPLAYER_INSTRUMENT_FM_HIHAT~%%
-CONST __PATTERN_MARKER~%% = __MODPLAYER_PATTERN_MARKER~%%
-CONST __PATTERN_END~%% = __MODPLAYER_PATTERN_END~%%
-CONST __CHANNEL_STEREO_SEPARATION! = __MODPLAYER_STEREO_SEPARATION!
-CONST __MTM_S3M_CHANNEL_MAX~%% = __MODPLAYER_MTM_S3M_CHANNEL_MAX~%%
-CONST __S3M_GLOBAL_VOLUME_MAX~%% = __MODPLAYER_S3M_GLOBAL_VOLUME_MAX~%%
-CONST __SONG_SPEED_DEFAULT~%% = __MODPLAYER_SONG_SPEED_DEFAULT~%%
-CONST __SONG_BPM_DEFAULT~%% = __MODPLAYER_SONG_BPM_DEFAULT~%%
 ' These are the effects support by the player (basically these are Protracker effects + extras)
-CONST __MOD_FX_ARPEGGIO~%% = 0~%%
-CONST __MOD_FX_PORTAMENTO_UP~%% = 1~%%
-CONST __MOD_FX_PORTAMENTO_DOWN~%% = 2~%%
-CONST __MOD_FX_PORTAMENTO~%% = 3~%%
-CONST __MOD_FX_VIBRATO~%% = 4~%%
-CONST __MOD_FX_PORTAMENTO_VOLUME_SLIDE~%% = 5~%%
-CONST __MOD_FX_VIBRATO_VOLUME_SLIDE~%% = 6~%%
-CONST __MOD_FX_TREMOLO~%% = 7~%%
-CONST __MOD_FX_PANNING_8~%% = 8~%%
-CONST __MOD_FX_SAMPLE_OFFSET~%% = 9~%%
-CONST __MOD_FX_VOLUME_SLIDE~%% = 10~%%
-CONST __MOD_FX_POSITION_JUMP~%% = 11~%%
-CONST __MOD_FX_VOLUME~%% = 12~%%
-CONST __MOD_FX_PATTERN_BREAK~%% = 13~%%
-CONST __MOD_FX_EXTENDED~%% = 14~%%
-CONST __MOD_FX_EXTENDED_FILTER~%% = 0~%%
-CONST __MOD_FX_EXTENDED_PORTAMENTO_FINE_UP~%% = 1~%%
-CONST __MOD_FX_EXTENDED_PORTAMENTO_FINE_DOWN~%% = 2~%%
-CONST __MOD_FX_EXTENDED_GLISSANDO_CONTROL~%% = 3~%%
-CONST __MOD_FX_EXTENDED_VIBRATO_WAVEFORM~%% = 4~%%
-CONST __MOD_FX_EXTENDED_FINETUNE~%% = 5~%%
-CONST __MOD_FX_EXTENDED_PATTERN_LOOP~%% = 6~%%
-CONST __MOD_FX_EXTENDED_TREMOLO_WAVEFORM~%% = 7~%%
-CONST __MOD_FX_EXTENDED_PANNING_4~%% = 8~%%
-CONST __MOD_FX_EXTENDED_NOTE_RETRIGGER~%% = 9~%%
-CONST __MOD_FX_EXTENDED_VOLUME_FINE_SLIDE_UP~%% = 10~%%
-CONST __MOD_FX_EXTENDED_VOLUME_FINE_SLIDE_DOWN~%% = 11~%%
-CONST __MOD_FX_EXTENDED_NOTE_CUT~%% = 12~%%
-CONST __MOD_FX_EXTENDED_NOTE_DELAY~%% = 13~%%
-CONST __MOD_FX_EXTENDED_PATTERN_DELAY~%% = 14~%%
-CONST __MOD_FX_EXTENDED_INVERT_LOOP~%% = 15~%%
-CONST __MOD_FX_SPEED_TEMPO~%% = 15~%%
-CONST __MOD_FX_SPEED~%% = 16~%%
-CONST __MOD_FX_VOLUME_FINE_SLIDE~%% = 17~%%
-CONST __MOD_FX_PORTAMENTO_EXTRA_FINE_DOWN~%% = 18~%%
-CONST __MOD_FX_PORTAMENTO_EXTRA_FINE_UP~%% = 19~%%
-CONST __MOD_FX_TREMOR~%% = 20~%%
-CONST __MOD_FX_VIBRATO_VOLUME_FINE_SLIDE~%% = 21~%%
-CONST __MOD_FX_PORTAMENTO_VOLUME_FINE_SLIDE~%% = 22~%%
-CONST __MOD_FX_CHANNEL_VOLUME~%% = 23~%%
-CONST __MOD_FX_CHANNEL_VOLUME_SLIDE~%% = 24~%%
-CONST __MOD_FX_PANNING_FINE_SLIDE~%% = 25~%%
-CONST __MOD_FX_NOTE_RETRIGGER_VOLUME_SLIDE~%% = 26~%%
-CONST __MOD_FX_PANBRELLO_WAVEFORM~%% = 27~%%
-CONST __MOD_FX_PATTERN_FINE_DELAY~%% = 28~%%
-CONST __MOD_FX_SOUND_CONTROL~%% = 29~%%
-CONST __MOD_FX_HIGH_OFFSET~%% = 30~%%
-CONST __MOD_FX_TEMPO~%% = 31~%%
-CONST __MOD_FX_VIBRATO_FINE~%% = 32~%%
-CONST __MOD_FX_GLOBAL_VOLUME~%% = 33~%%
-CONST __MOD_FX_GLOBAL_VOLUME_SLIDE~%% = 34~%%
-CONST __MOD_FX_PANBRELLO~%% = 35~%%
-CONST __MOD_FX_MIDI_MACRO~%% = 36~%%
+CONST __MODPLAYER_FX_ARPEGGIO~%% = 0~%%
+CONST __MODPLAYER_FX_PORTAMENTO_UP~%% = 1~%%
+CONST __MODPLAYER_FX_PORTAMENTO_DOWN~%% = 2~%%
+CONST __MODPLAYER_FX_PORTAMENTO~%% = 3~%%
+CONST __MODPLAYER_FX_VIBRATO~%% = 4~%%
+CONST __MODPLAYER_FX_PORTAMENTO_VOLUME_SLIDE~%% = 5~%%
+CONST __MODPLAYER_FX_VIBRATO_VOLUME_SLIDE~%% = 6~%%
+CONST __MODPLAYER_FX_TREMOLO~%% = 7~%%
+CONST __MODPLAYER_FX_PANNING_8~%% = 8~%%
+CONST __MODPLAYER_FX_SAMPLE_OFFSET~%% = 9~%%
+CONST __MODPLAYER_FX_VOLUME_SLIDE~%% = 10~%%
+CONST __MODPLAYER_FX_POSITION_JUMP~%% = 11~%%
+CONST __MODPLAYER_FX_VOLUME~%% = 12~%%
+CONST __MODPLAYER_FX_PATTERN_BREAK~%% = 13~%%
+CONST __MODPLAYER_FX_EXT~%% = 14~%%
+CONST __MODPLAYER_FX_EXT_FILTER~%% = 0~%%
+CONST __MODPLAYER_FX_EXT_PORTAMENTO_FINE_UP~%% = 1~%%
+CONST __MODPLAYER_FX_EXT_PORTAMENTO_FINE_DOWN~%% = 2~%%
+CONST __MODPLAYER_FX_EXT_GLISSANDO_CONTROL~%% = 3~%%
+CONST __MODPLAYER_FX_EXT_VIBRATO_WAVEFORM~%% = 4~%%
+CONST __MODPLAYER_FX_EXT_FINETUNE~%% = 5~%%
+CONST __MODPLAYER_FX_EXT_PATTERN_LOOP~%% = 6~%%
+CONST __MODPLAYER_FX_EXT_TREMOLO_WAVEFORM~%% = 7~%%
+CONST __MODPLAYER_FX_EXT_PANNING_4~%% = 8~%%
+CONST __MODPLAYER_FX_EXT_NOTE_RETRIGGER~%% = 9~%%
+CONST __MODPLAYER_FX_EXT_VOL_FINE_SLIDE_UP~%% = 10~%%
+CONST __MODPLAYER_FX_EXT_VOL_FINE_SLIDE_DOWN~%% = 11~%%
+CONST __MODPLAYER_FX_EXT_NOTE_CUT~%% = 12~%%
+CONST __MODPLAYER_FX_EXT_NOTE_DELAY~%% = 13~%%
+CONST __MODPLAYER_FX_EXT_PATTERN_DELAY~%% = 14~%%
+CONST __MODPLAYER_FX_EXT_INVERT_LOOP~%% = 15~%%
+CONST __MODPLAYER_FX_SPEED_TEMPO~%% = 15~%%
+CONST __MODPLAYER_FX_SPEED~%% = 16~%%
+CONST __MODPLAYER_FX_VOLUME_FINE_SLIDE~%% = 17~%%
+CONST __MODPLAYER_FX_PORTA_EXTRA_FINE_DOWN~%% = 18~%%
+CONST __MODPLAYER_FX_PORTA_EXTRA_FINE_UP~%% = 19~%%
+CONST __MODPLAYER_FX_TREMOR~%% = 20~%%
+CONST __MODPLAYER_FX_VIBRATO_VOL_FINE_SLIDE~%% = 21~%%
+CONST __MODPLAYER_FX_PORTA_VOL_FINE_SLIDE~%% = 22~%%
+CONST __MODPLAYER_FX_CHANNEL_VOLUME~%% = 23~%%
+CONST __MODPLAYER_FX_CHANNEL_VOLUME_SLIDE~%% = 24~%%
+CONST __MODPLAYER_FX_PANNING_FINE_SLIDE~%% = 25~%%
+CONST __MODPLAYER_FX_NOTE_RETRIGGER_VOL_SLIDE~%% = 26~%%
+CONST __MODPLAYER_FX_PANBRELLO_WAVEFORM~%% = 27~%%
+CONST __MODPLAYER_FX_PATTERN_FINE_DELAY~%% = 28~%%
+CONST __MODPLAYER_FX_SOUND_CONTROL~%% = 29~%%
+CONST __MODPLAYER_FX_HIGH_OFFSET~%% = 30~%%
+CONST __MODPLAYER_FX_TEMPO~%% = 31~%%
+CONST __MODPLAYER_FX_VIBRATO_FINE~%% = 32~%%
+CONST __MODPLAYER_FX_GLOBAL_VOLUME~%% = 33~%%
+CONST __MODPLAYER_FX_GLOBAL_VOLUME_SLIDE~%% = 34~%%
+CONST __MODPLAYER_FX_PANBRELLO~%% = 35~%%
+CONST __MODPLAYER_FX_MIDI_MACRO~%% = 36~%%
 
 TYPE __MODPlayerNote
     note AS _UNSIGNED _BYTE ' contains info on 1 note
@@ -345,27 +323,27 @@ SUB __MODPlayer_InitializeSong (player AS MODPlayer)
     player.song.caption = _STR_EMPTY
     player.song.subtype = _STR_EMPTY
     player.song.comment = _STR_EMPTY
-    player.song.channels = NULL
-    player.song.instruments = NULL
-    player.song.orders = NULL
-    player.song.endJumpOrder = NULL
-    player.song.patterns = NULL
-    player.song.orderPosition = NULL
-    player.song.patternRow = NULL
-    player.song.tickPattern = NULL
-    player.song.tickPatternRow = NULL
+    player.song.channels = 0
+    player.song.instruments = 0
+    player.song.orders = 0
+    player.song.endJumpOrder = 0
+    player.song.patterns = 0
+    player.song.orderPosition = 0
+    player.song.patternRow = 0
+    player.song.tickPattern = 0
+    player.song.tickPatternRow = 0
     player.song.isLooping = _FALSE
     player.song.isPlaying = _FALSE
     player.song.isPaused = _FALSE
-    player.song.patternDelay = NULL
-    player.song.speed = NULL
-    player.song.BPM = NULL
+    player.song.patternDelay = 0
+    player.song.speed = 0
+    player.song.BPM = 0
     player.song.defaultSpeed = __MODPLAYER_SONG_SPEED_DEFAULT ' set this to default MOD speed
     player.song.defaultBPM = __MODPLAYER_SONG_BPM_DEFAULT ' set this to default MOD BPM
-    player.song.tick = NULL
-    player.song.tempoTimerValue = NULL
-    player.song.framesPerTick = NULL
-    player.song.activeChannels = NULL
+    player.song.tick = 0
+    player.song.tempoTimerValue = 0
+    player.song.framesPerTick = 0
+    player.song.activeChannels = 0
     player.song.useAmigaLPF = _FALSE
     player.song.useST2Vibrato = _FALSE
     player.song.useST2Tempo = _FALSE
@@ -385,8 +363,8 @@ SUB MODPlayer_Play (player AS MODPlayer)
 
     ' Initialize some important stuff
     player.song.tempoTimerValue = (SoftSynth_GetSampleRate(player.synth) * __MODPLAYER_SONG_BPM_DEFAULT) \ 50
-    player.song.orderPosition = NULL
-    player.song.patternRow = NULL
+    player.song.orderPosition = 0
+    player.song.patternRow = 0
     player.song.speed = player.song.defaultSpeed
     player.song.tick = player.song.speed
     player.song.isPaused = _FALSE
@@ -536,7 +514,7 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
             player.channel(nChannel).startPosition = 0 ' reset sample offset if sample changes
 
             ' Don't get the volume if delay note, set it when the delay note actually happens
-            IF nEffect <> __MOD_FX_EXTENDED _ORELSE nOpX <> __MOD_FX_EXTENDED_NOTE_DELAY THEN
+            IF nEffect <> __MODPLAYER_FX_EXT _ORELSE nOpX <> __MODPLAYER_FX_EXT_NOTE_DELAY THEN
                 player.channel(nChannel).volume = player.instrument(player.channel(nChannel).instrument).volume
             END IF
         END IF
@@ -552,7 +530,7 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
             IF _SHR(player.channel(nChannel).waveControl, 4) < 4 THEN player.channel(nChannel).tremoloPosition = 0
 
             ' ONLY RESET FREQUENCY IF THERE IS A NOTE VALUE AND PORTA NOT SET
-            IF nEffect <> __MOD_FX_PORTAMENTO _ANDALSO nEffect <> __MOD_FX_PORTAMENTO_VOLUME_SLIDE _ANDALSO nEffect <> __MOD_FX_PORTAMENTO_VOLUME_FINE_SLIDE THEN
+            IF nEffect <> __MODPLAYER_FX_PORTAMENTO _ANDALSO nEffect <> __MODPLAYER_FX_PORTAMENTO_VOLUME_SLIDE _ANDALSO nEffect <> __MODPLAYER_FX_PORTA_VOL_FINE_SLIDE THEN
                 player.channel(nChannel).period = player.channel(nChannel).lastPeriod
             END IF
         ELSE
@@ -564,44 +542,44 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
 
         ' Process tick 0 effects
         SELECT CASE nEffect
-            CASE __MOD_FX_PORTAMENTO
+            CASE __MODPLAYER_FX_PORTAMENTO
                 IF nOperand THEN player.channel(nChannel).portamentoSpeed = nOperand
                 player.channel(nChannel).portamentoTo = player.channel(nChannel).lastPeriod
                 player.channel(nChannel).restart = _FALSE
 
-            CASE __MOD_FX_PORTAMENTO_VOLUME_SLIDE
+            CASE __MODPLAYER_FX_PORTAMENTO_VOLUME_SLIDE
                 player.channel(nChannel).portamentoTo = player.channel(nChannel).lastPeriod
                 player.channel(nChannel).restart = _FALSE
 
-            CASE __MOD_FX_VIBRATO
+            CASE __MODPLAYER_FX_VIBRATO
                 IF nOpX THEN player.channel(nChannel).vibratoSpeed = nOpX
                 IF nOpY THEN player.channel(nChannel).vibratoDepth = nOpY
 
-            CASE __MOD_FX_TREMOLO
+            CASE __MODPLAYER_FX_TREMOLO
                 IF nOpX THEN player.channel(nChannel).tremoloSpeed = nOpX
                 IF nOpY THEN player.channel(nChannel).tremoloDepth = nOpY
 
-            CASE __MOD_FX_PANNING_8
+            CASE __MODPLAYER_FX_PANNING_8
                 ' Don't care about DMP panning BS. We are doing this Fasttracker style
                 SoftSynth_SetVoiceBalance player.synth, nChannel, (nOperand / 255!) * 2! - SOFTSYNTH_VOICE_PAN_RIGHT ' pan = ((x / 255) * 2) - 1
 
-            CASE __MOD_FX_SAMPLE_OFFSET
+            CASE __MODPLAYER_FX_SAMPLE_OFFSET
                 player.channel(nChannel).startPosition = _SHL(nOperand, 8)
                 IF player.channel(nChannel).startPosition > player.instrument(player.channel(nChannel).instrument).length THEN
                     player.channel(nChannel).startPosition = player.instrument(player.channel(nChannel).instrument).length
                 END IF
 
-            CASE __MOD_FX_POSITION_JUMP
+            CASE __MODPLAYER_FX_POSITION_JUMP
                 player.song.orderPosition = nOperand
                 IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
                 player.song.patternRow = -1 ' This will increment right after & we will start at 0
                 jumpEffectFlag = _TRUE
 
-            CASE __MOD_FX_VOLUME
+            CASE __MODPLAYER_FX_VOLUME
                 player.channel(nChannel).volume = nOperand ' Operand can never be -ve cause it is unsigned. So we only clip for max below
                 IF player.channel(nChannel).volume > __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN player.channel(nChannel).volume = __MODPLAYER_INSTRUMENT_VOLUME_MAX
 
-            CASE __MOD_FX_PATTERN_BREAK
+            CASE __MODPLAYER_FX_PATTERN_BREAK
                 player.song.patternRow = (nOpX * 10) + nOpY - 1
                 IF NOT breakEffectFlag _ANDALSO NOT jumpEffectFlag THEN
                     player.song.orderPosition = player.song.orderPosition + 1
@@ -615,28 +593,28 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
                 END IF
                 breakEffectFlag = _TRUE
 
-            CASE __MOD_FX_EXTENDED
+            CASE __MODPLAYER_FX_EXT
                 SELECT CASE nOpX
-                    CASE __MOD_FX_EXTENDED_FILTER
+                    CASE __MODPLAYER_FX_EXT_FILTER
                         player.song.useAmigaLPF = (nOpY <> _FALSE)
 
-                    CASE __MOD_FX_EXTENDED_PORTAMENTO_FINE_UP
+                    CASE __MODPLAYER_FX_EXT_PORTAMENTO_FINE_UP
                         player.channel(nChannel).period = player.channel(nChannel).period - _SHL(nOpY, 2)
 
-                    CASE __MOD_FX_EXTENDED_PORTAMENTO_FINE_DOWN
+                    CASE __MODPLAYER_FX_EXT_PORTAMENTO_FINE_DOWN
                         player.channel(nChannel).period = player.channel(nChannel).period + _SHL(nOpY, 2)
 
-                    CASE __MOD_FX_EXTENDED_GLISSANDO_CONTROL
+                    CASE __MODPLAYER_FX_EXT_GLISSANDO_CONTROL
                         player.channel(nChannel).useGlissando = (nOpY <> _FALSE)
 
-                    CASE __MOD_FX_EXTENDED_VIBRATO_WAVEFORM
+                    CASE __MODPLAYER_FX_EXT_VIBRATO_WAVEFORM
                         player.channel(nChannel).waveControl = player.channel(nChannel).waveControl AND &HF0
                         player.channel(nChannel).waveControl = player.channel(nChannel).waveControl OR nOpY
 
-                    CASE __MOD_FX_EXTENDED_FINETUNE
+                    CASE __MODPLAYER_FX_EXT_FINETUNE
                         player.instrument(player.channel(nChannel).instrument).c2Spd = __MODPlayer_GetC2Spd(nOpY)
 
-                    CASE __MOD_FX_EXTENDED_PATTERN_LOOP
+                    CASE __MODPLAYER_FX_EXT_PATTERN_LOOP
                         IF nOpY = 0 THEN
                             player.channel(nChannel).patternLoopRow = player.song.tickPatternRow
                         ELSE
@@ -650,44 +628,44 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
                             END IF
                         END IF
 
-                    CASE __MOD_FX_EXTENDED_TREMOLO_WAVEFORM
+                    CASE __MODPLAYER_FX_EXT_TREMOLO_WAVEFORM
                         player.channel(nChannel).waveControl = player.channel(nChannel).waveControl AND &HF
                         player.channel(nChannel).waveControl = player.channel(nChannel).waveControl OR _SHL(nOpY, 4)
 
-                    CASE __MOD_FX_EXTENDED_PANNING_4
+                    CASE __MODPLAYER_FX_EXT_PANNING_4
                         IF nOpY > 15 THEN nOpY = 15
                         SoftSynth_SetVoiceBalance player.synth, nChannel, (nOpY / 15!) * 2! - SOFTSYNTH_VOICE_PAN_RIGHT ' pan = (x / 15) * 2 - 1
 
-                    CASE __MOD_FX_EXTENDED_VOLUME_FINE_SLIDE_UP
+                    CASE __MODPLAYER_FX_EXT_VOL_FINE_SLIDE_UP
                         player.channel(nChannel).volume = player.channel(nChannel).volume + nOpY
                         IF player.channel(nChannel).volume > __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN player.channel(nChannel).volume = __MODPLAYER_INSTRUMENT_VOLUME_MAX
 
-                    CASE __MOD_FX_EXTENDED_VOLUME_FINE_SLIDE_DOWN
+                    CASE __MODPLAYER_FX_EXT_VOL_FINE_SLIDE_DOWN
                         player.channel(nChannel).volume = player.channel(nChannel).volume - nOpY
                         IF player.channel(nChannel).volume < 0 THEN player.channel(nChannel).volume = 0
 
-                    CASE __MOD_FX_EXTENDED_NOTE_DELAY
+                    CASE __MODPLAYER_FX_EXT_NOTE_DELAY
                         player.channel(nChannel).restart = _FALSE
                         noFrequency = _TRUE
 
-                    CASE __MOD_FX_EXTENDED_PATTERN_DELAY
+                    CASE __MODPLAYER_FX_EXT_PATTERN_DELAY
                         player.song.patternDelay = nOpY
 
-                    CASE __MOD_FX_EXTENDED_INVERT_LOOP
+                    CASE __MODPLAYER_FX_EXT_INVERT_LOOP
                         player.channel(nChannel).invertLoopSpeed = nOpY
                 END SELECT
 
-            CASE __MOD_FX_SPEED_TEMPO
+            CASE __MODPLAYER_FX_SPEED_TEMPO
                 IF nOperand < 32 THEN
                     player.song.speed = nOperand
                 ELSE
                     __MODPlayer_SetBPM player, nOperand
                 END IF
 
-            CASE __MOD_FX_SPEED
+            CASE __MODPLAYER_FX_SPEED
                 IF nOperand THEN player.song.speed = nOperand
 
-            CASE __MOD_FX_VOLUME_FINE_SLIDE
+            CASE __MODPLAYER_FX_VOLUME_FINE_SLIDE
                 IF nOperand THEN player.channel(nChannel).lastVolumeSlide = nOperand
                 ' DFF is classed as a slide up so it gets priority
                 IF nOpY = &HF THEN
@@ -703,7 +681,7 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
                 IF player.channel(nChannel).volume > __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN player.channel(nChannel).volume = __MODPLAYER_INSTRUMENT_VOLUME_MAX
                 IF player.channel(nChannel).volume < 0 THEN player.channel(nChannel).volume = 0
 
-            CASE __MOD_FX_PORTAMENTO_EXTRA_FINE_DOWN
+            CASE __MODPLAYER_FX_PORTA_EXTRA_FINE_DOWN
                 IF nOperand THEN player.channel(nChannel).lastPortamento = nOperand
                 IF nOpX = &HF THEN
                     player.channel(nChannel).period = player.channel(nChannel).period + _SHL(nOpY, 2)
@@ -711,7 +689,7 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
                     player.channel(nChannel).period = player.channel(nChannel).period + nOpY
                 END IF
 
-            CASE __MOD_FX_PORTAMENTO_EXTRA_FINE_UP
+            CASE __MODPLAYER_FX_PORTA_EXTRA_FINE_UP
                 IF nOperand THEN player.channel(nChannel).lastPortamento = nOperand
                 IF nOpX = &HF THEN
                     player.channel(nChannel).period = player.channel(nChannel).period - _SHL(nOpY, 2)
@@ -719,62 +697,62 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
                     player.channel(nChannel).period = player.channel(nChannel).period - nOpY
                 END IF
 
-            CASE __MOD_FX_TREMOR
+            CASE __MODPLAYER_FX_TREMOR
                 IF nOperand THEN player.channel(nChannel).tremorParameters = (_SHL(nOpX, 4) + 1) + (nOpY + 1)
                 __MODPlayer_DoS3MTremor player, nChannel
 
-            CASE __MOD_FX_VIBRATO_VOLUME_FINE_SLIDE
+            CASE __MODPLAYER_FX_VIBRATO_VOL_FINE_SLIDE
                 IF nOperand THEN player.channel(nChannel).lastVolumeSlide = nOperand
                 noFrequency = _TRUE
 
-            CASE __MOD_FX_PORTAMENTO_VOLUME_FINE_SLIDE
+            CASE __MODPLAYER_FX_PORTA_VOL_FINE_SLIDE
                 ERROR _ERR_FEATURE_UNAVAILABLE
 
-            CASE __MOD_FX_CHANNEL_VOLUME
+            CASE __MODPLAYER_FX_CHANNEL_VOLUME
                 IF nOperand <= __MODPLAYER_S3M_GLOBAL_VOLUME_MAX THEN player.channel(nChannel).volume = nOperand
 
-            CASE __MOD_FX_CHANNEL_VOLUME_SLIDE
+            CASE __MODPLAYER_FX_CHANNEL_VOLUME_SLIDE
                 ERROR _ERR_FEATURE_UNAVAILABLE
 
-            CASE __MOD_FX_PANNING_FINE_SLIDE
+            CASE __MODPLAYER_FX_PANNING_FINE_SLIDE
                 ERROR _ERR_FEATURE_UNAVAILABLE
 
-            CASE __MOD_FX_NOTE_RETRIGGER_VOLUME_SLIDE
+            CASE __MODPLAYER_FX_NOTE_RETRIGGER_VOL_SLIDE
                 IF nOperand THEN
                     player.channel(nChannel).retriggerVolumeSlide = nOpX
                     player.channel(nChannel).retriggerTickCount = nOpY
                 END IF
 
-            CASE __MOD_FX_PANBRELLO_WAVEFORM
+            CASE __MODPLAYER_FX_PANBRELLO_WAVEFORM
                 ERROR _ERR_FEATURE_UNAVAILABLE
 
-            CASE __MOD_FX_PATTERN_FINE_DELAY
+            CASE __MODPLAYER_FX_PATTERN_FINE_DELAY
                 ERROR _ERR_FEATURE_UNAVAILABLE
 
-            CASE __MOD_FX_SOUND_CONTROL
+            CASE __MODPLAYER_FX_SOUND_CONTROL
                 ERROR _ERR_FEATURE_UNAVAILABLE
 
-            CASE __MOD_FX_HIGH_OFFSET
+            CASE __MODPLAYER_FX_HIGH_OFFSET
                 ERROR _ERR_FEATURE_UNAVAILABLE
 
-            CASE __MOD_FX_TEMPO
+            CASE __MODPLAYER_FX_TEMPO
                 IF nOperand THEN __MODPlayer_SetBPM player, nOperand
 
-            CASE __MOD_FX_VIBRATO_FINE
+            CASE __MODPLAYER_FX_VIBRATO_FINE
                 IF nOpX THEN player.channel(nChannel).vibratoSpeed = nOpX
                 IF nOpY THEN player.channel(nChannel).vibratoDepth = nOpY
 
-            CASE __MOD_FX_GLOBAL_VOLUME
+            CASE __MODPLAYER_FX_GLOBAL_VOLUME
                 ' ST3 ignores out-of-range values
                 IF nOperand <= __MODPLAYER_S3M_GLOBAL_VOLUME_MAX THEN SoftSynth_SetGlobalVolume player.synth, nOperand / __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
 
-            CASE __MOD_FX_GLOBAL_VOLUME_SLIDE
+            CASE __MODPLAYER_FX_GLOBAL_VOLUME_SLIDE
                 ERROR _ERR_FEATURE_UNAVAILABLE
 
-            CASE __MOD_FX_PANBRELLO
+            CASE __MODPLAYER_FX_PANBRELLO
                 ERROR _ERR_FEATURE_UNAVAILABLE
 
-            CASE __MOD_FX_MIDI_MACRO
+            CASE __MODPLAYER_FX_MIDI_MACRO
                 ERROR _ERR_FEATURE_UNAVAILABLE
 
         END SELECT
@@ -782,7 +760,7 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
         __MODPlayer_DoInvertLoop player, nChannel ' called every row
 
         IF NOT noFrequency THEN
-            IF nEffect <> __MOD_FX_TREMOLO THEN
+            IF nEffect <> __MODPLAYER_FX_TREMOLO THEN
                 SoftSynth_SetVoiceVolume player.synth, nChannel, player.channel(nChannel).volume / __MODPLAYER_INSTRUMENT_VOLUME_MAX
             END IF
             IF player.channel(nChannel).period > 0 THEN
@@ -820,7 +798,7 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
             __MODPlayer_DoInvertLoop player, nChannel ' called every tick
 
             SELECT CASE nEffect
-                CASE __MOD_FX_ARPEGGIO
+                CASE __MODPLAYER_FX_ARPEGGIO
                     IF nOperand THEN
                         SELECT CASE player.song.tick MOD 3
                             CASE 0
@@ -832,51 +810,51 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
                         END SELECT
                     END IF
 
-                CASE __MOD_FX_PORTAMENTO_UP
+                CASE __MODPLAYER_FX_PORTAMENTO_UP
                     player.channel(nChannel).period = player.channel(nChannel).period - _SHL(nOperand, 2)
                     IF player.channel(nChannel).period < 1 THEN player.channel(nChannel).period = 1 ' clamp to avoid division by zero
                     SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(player.channel(nChannel).period)
 
-                CASE __MOD_FX_PORTAMENTO_DOWN
+                CASE __MODPLAYER_FX_PORTAMENTO_DOWN
                     player.channel(nChannel).period = player.channel(nChannel).period + _SHL(nOperand, 2)
                     SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(player.channel(nChannel).period)
 
-                CASE __MOD_FX_PORTAMENTO
+                CASE __MODPLAYER_FX_PORTAMENTO
                     __MODPlayer_DoPortamento player, nChannel
 
-                CASE __MOD_FX_VIBRATO
+                CASE __MODPLAYER_FX_VIBRATO
                     __MODPlayer_DoVibrato player, nChannel, _TRUE ' true here means not fine vibrato
 
-                CASE __MOD_FX_PORTAMENTO_VOLUME_SLIDE
+                CASE __MODPLAYER_FX_PORTAMENTO_VOLUME_SLIDE
                     __MODPlayer_DoPortamento player, nChannel
                     __MODPlayer_DoVolumeSlide player, nChannel, nOpX, nOpY, _TRUE ' true here means not fine volume slide
 
-                CASE __MOD_FX_VIBRATO_VOLUME_SLIDE
+                CASE __MODPLAYER_FX_VIBRATO_VOLUME_SLIDE
                     __MODPlayer_DoVibrato player, nChannel, _TRUE ' true here means not fine vibrato
                     __MODPlayer_DoVolumeSlide player, nChannel, nOpX, nOpY, _TRUE ' true here means not fine volume slide
 
-                CASE __MOD_FX_TREMOLO
+                CASE __MODPLAYER_FX_TREMOLO
                     __MODPlayer_DoTremolo player, nChannel
 
-                CASE __MOD_FX_VOLUME_SLIDE
+                CASE __MODPLAYER_FX_VOLUME_SLIDE
                     __MODPlayer_DoVolumeSlide player, nChannel, nOpX, nOpY, _TRUE ' true here means not fine volume slide
 
-                CASE __MOD_FX_EXTENDED
+                CASE __MODPLAYER_FX_EXT
                     SELECT CASE nOpX
-                        CASE __MOD_FX_EXTENDED_NOTE_RETRIGGER
+                        CASE __MODPLAYER_FX_EXT_NOTE_RETRIGGER
                             IF nOpY <> 0 THEN
                                 IF player.song.tick MOD nOpY = 0 THEN
                                     SoftSynth_PlayVoice player.synth, nChannel, player.channel(nChannel).instrument, SoftSynth_ConvertBytesToFrames(player.channel(nChannel).startPosition, player.instrument(player.channel(nChannel).instrument).bytesPerSample, player.instrument(player.channel(nChannel).instrument).channels), player.instrument(player.channel(nChannel).instrument).playMode, SoftSynth_ConvertBytesToFrames(player.instrument(player.channel(nChannel).instrument).loopStart, player.instrument(player.channel(nChannel).instrument).bytesPerSample, player.instrument(player.channel(nChannel).instrument).channels), SoftSynth_ConvertBytesToFrames(player.instrument(player.channel(nChannel).instrument).loopEnd, player.instrument(player.channel(nChannel).instrument).bytesPerSample, player.instrument(player.channel(nChannel).instrument).channels)
                                 END IF
                             END IF
 
-                        CASE __MOD_FX_EXTENDED_NOTE_CUT
+                        CASE __MODPLAYER_FX_EXT_NOTE_CUT
                             IF player.song.tick = nOpY THEN
                                 player.channel(nChannel).volume = 0
                                 SoftSynth_SetVoiceVolume player.synth, nChannel, player.channel(nChannel).volume / __MODPLAYER_INSTRUMENT_VOLUME_MAX
                             END IF
 
-                        CASE __MOD_FX_EXTENDED_NOTE_DELAY
+                        CASE __MODPLAYER_FX_EXT_NOTE_DELAY
                             IF player.song.tick = nOpY THEN
                                 player.channel(nChannel).volume = player.instrument(player.channel(nChannel).instrument).volume
                                 IF nVolume <= __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN player.channel(nChannel).volume = nVolume
@@ -886,28 +864,28 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
                             END IF
                     END SELECT
 
-                CASE __MOD_FX_VOLUME_FINE_SLIDE
+                CASE __MODPLAYER_FX_VOLUME_FINE_SLIDE
                     __MODPlayer_DoVolumeSlide player, nChannel, _SHR(player.channel(nChannel).lastVolumeSlide, 4), player.channel(nChannel).lastVolumeSlide AND &HF, _FALSE ' false here means fine volume slide
 
-                CASE __MOD_FX_PORTAMENTO_EXTRA_FINE_DOWN
+                CASE __MODPLAYER_FX_PORTA_EXTRA_FINE_DOWN
                     IF player.channel(nChannel).lastPortamento < &HE0 THEN player.channel(nChannel).period = player.channel(nChannel).period + _SHL(player.channel(nChannel).lastPortamento, 2)
                     SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(player.channel(nChannel).period)
 
-                CASE __MOD_FX_PORTAMENTO_EXTRA_FINE_UP
+                CASE __MODPLAYER_FX_PORTA_EXTRA_FINE_UP
                     IF player.channel(nChannel).lastPortamento < &HE0 THEN player.channel(nChannel).period = player.channel(nChannel).period - _SHL(player.channel(nChannel).lastPortamento, 2)
                     SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(player.channel(nChannel).period)
 
-                CASE __MOD_FX_TREMOR
+                CASE __MODPLAYER_FX_TREMOR
                     __MODPlayer_DoS3MTremor player, nChannel
 
-                CASE __MOD_FX_VIBRATO_VOLUME_FINE_SLIDE
+                CASE __MODPLAYER_FX_VIBRATO_VOL_FINE_SLIDE
                     __MODPlayer_DoVibrato player, nChannel, _TRUE ' true here means not fine vibrato
                     __MODPlayer_DoVolumeSlide player, nChannel, _SHR(player.channel(nChannel).lastVolumeSlide, 4), player.channel(nChannel).lastVolumeSlide AND &HF, _FALSE ' false here means fine volume slide
 
-                CASE __MOD_FX_PORTAMENTO_VOLUME_FINE_SLIDE
+                CASE __MODPLAYER_FX_PORTA_VOL_FINE_SLIDE
                     ERROR _ERR_FEATURE_UNAVAILABLE
 
-                CASE __MOD_FX_NOTE_RETRIGGER_VOLUME_SLIDE
+                CASE __MODPLAYER_FX_NOTE_RETRIGGER_VOL_SLIDE
                     IF player.channel(nChannel).retriggerTickCount THEN
                         IF player.song.tick MOD player.channel(nChannel).retriggerTickCount = 0 THEN
                             IF player.channel(nChannel).retriggerVolumeSlide THEN
@@ -974,7 +952,7 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
                         END IF
                     END IF
 
-                CASE __MOD_FX_VIBRATO_FINE
+                CASE __MODPLAYER_FX_VIBRATO_FINE
                     __MODPlayer_DoVibrato player, nChannel, _FALSE ' false here means fine vibrato
 
             END SELECT
