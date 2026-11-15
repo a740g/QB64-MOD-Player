@@ -8,7 +8,7 @@ Synthesizer / Sample Mixer, and Audio Spectrum Analyzer.
 
 ## Table of Contents
 
-- [Core Player API (`MODPlayer.bi`)](#core-player-api-modplayerbi)
+- [Core Player API (`MODPlayer.bi` & `MODPlayer.bm`)](#core-player-api-modplayerbi--modplayerbm)
   - [Types](#modplayer-types)
   - [Lifecycle Management](#modplayer-lifecycle-management)
   - [Module Loading (Unified Dispatcher)](#module-loading-unified-dispatcher)
@@ -33,12 +33,13 @@ Synthesizer / Sample Mixer, and Audio Spectrum Analyzer.
 
 ---
 
-## Core Player API (`MODPlayer.bi`)
+## Core Player API (`MODPlayer.bi` & `MODPlayer.bm`)
 
-Include header:
+Include headers:
 
 ```vb
 '$INCLUDE:'source/MODPlayer.bi'
+'$INCLUDE:'source/MODPlayer.bm'
 ```
 
 ### MODPlayer Types

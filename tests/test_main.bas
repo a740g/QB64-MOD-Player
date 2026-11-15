@@ -15,6 +15,7 @@ $LET TEST_CONSOLE_ONLY = TRUE
 '$INCLUDE:'../source/SoftSynth.bi'
 '$INCLUDE:'../source/AudioAnalyzer.bi'
 '$INCLUDE:'../source/MODPlayer.bi'
+'$INCLUDE:'../source/MODPlayer.bm'
 '$INCLUDE:'../source/MODLoader.bi'
 '$INCLUDE:'../source/S3MLoader.bi'
 '$INCLUDE:'../source/MTMLoader.bi'

@@ -24,8 +24,8 @@ PROJECT = QB64MODPlayer
 # Source files (only QB64MODPlayer.bas, others are .bi includes)
 SOURCES = source/QB64MODPlayer.bas
 
-# Include files (.bi files)
-INCLUDES = $(wildcard source/*.bi)
+# Include files (.bi and .bm files)
+INCLUDES = $(wildcard source/*.bi) $(wildcard source/*.bm)
 
 # Resource files
 RESOURCES = source/QB64MODPlayer.ico

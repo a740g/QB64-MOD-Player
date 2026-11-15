@@ -25,7 +25,8 @@ It supports the following classic module formats:
     rates, and ST3 panning.
   - MultiTracker (MTM) files with track sequencing and 8-bit PCM samples.
 - Modular Architecture:
-  - Core Player engine (`MODPlayer.bi`) decoupled from file parsers.
+  - Core Player engine (`MODPlayer.bi`, `MODPlayer.bm`, `MODPlayerShared.bm`)
+    decoupled from file parsers.
   - Dedicated format loaders (`MODLoader.bi`, `S3MLoader.bi`, `MTMLoader.bi`)
     that parse native tracker files into a unified internal representation.
   - Extensible design inspired by OpenMPT and MikMod: new tracker formats (e.g.
@@ -85,10 +86,11 @@ Then run the generated `QB64MODPlayer` executable.
 ## Using the Library in Your Project
 
 1. Copy the [`source`](source/) directory into your project.
-2. Include the library header in your source code:
+2. Include the library headers in your source code:
 
    ```vb
    '$INCLUDE:'source/MODPlayer.bi'
+   '$INCLUDE:'source/MODPlayer.bm'
    ```
 
 ### Quick Example
@@ -102,6 +104,7 @@ OPTION _EXPLICIT
 '$INCLUDE:'source/String.bi'
 '$INCLUDE:'source/AudioAnalyzer.bi'
 '$INCLUDE:'source/MODPlayer.bi'
+'$INCLUDE:'source/MODPlayer.bm'
 
 DIM Player AS MODPlayer
 
