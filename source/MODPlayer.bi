@@ -8,11 +8,6 @@ $INCLUDEONCE
 $UNSTABLE:TYPEFIELDS
 
 '$INCLUDE:'SoftSynth.bi'
-'$INCLUDE:'Math.bi'
-'$INCLUDE:'String.bi'
-'$INCLUDE:'AudioConv.bi'
-'$INCLUDE:'StringFile.bi'
-'$INCLUDE:'File.bi'
 
 CONST __MODPLAYER_NOTE_NONE~%% = 132~%% ' Note will be set to this when there is nothing
 CONST __MODPLAYER_NOTE_KEY_OFF~%% = 133~%% ' We'll use this in a future version

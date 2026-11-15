@@ -12,8 +12,8 @@ $VERSIONINFO:OriginalFilename='QB64MODPlayer.exe'
 $VERSIONINFO:ProductName='QB64 MOD Player'
 $VERSIONINFO:Web='https://github.com/a740g'
 $VERSIONINFO:Comments='https://github.com/a740g'
-$VERSIONINFO:FILEVERSION#=2,1,7,0
-$VERSIONINFO:PRODUCTVERSION#=2,1,7,0
+$VERSIONINFO:FILEVERSION#=2,2,0,0
+$VERSIONINFO:PRODUCTVERSION#=2,2,0,0
 $EXEICON:'./QB64MODPlayer.ico'
 
 _DEFINE A-Z AS LONG
@@ -25,12 +25,14 @@ $RESIZE:SMOOTH
 
 $COLOR:0
 
-'$INCLUDE:'File.bi'
+'$INCLUDE:'Asc.bi'
 '$INCLUDE:'String.bi'
-'$INCLUDE:'AudioAnalyzer.bi'
+'$INCLUDE:'Math.bi'
+'$INCLUDE:'Pathname.bi'
+'$INCLUDE:'File.bi'
 '$INCLUDE:'Vector2i.bi'
 '$INCLUDE:'Vector3f.bi'
-'$INCLUDE:'Math.bi'
+'$INCLUDE:'AudioAnalyzer.bi'
 '$INCLUDE:'MODPlayer.bi'
 '$INCLUDE:'MODPlayer.bm'
 

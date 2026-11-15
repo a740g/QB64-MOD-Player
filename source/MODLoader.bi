@@ -7,9 +7,7 @@ $INCLUDEONCE
 
 '$INCLUDE:'MODPlayer.bi'
 '$INCLUDE:'SoftSynth.bi'
-'$INCLUDE:'Math.bi'
 '$INCLUDE:'String.bi'
-'$INCLUDE:'AudioConv.bi'
 '$INCLUDE:'StringFile.bi'
 '$INCLUDE:'File.bi'
 '$INCLUDE:'MODPlayerShared.bm'

@@ -5,10 +5,11 @@
 
 $INCLUDEONCE
 
+'$INCLUDE:'File.bi'
 '$INCLUDE:'MODPlayer.bi'
-'$INCLUDE:'S3MLoader.bi'
-'$INCLUDE:'MTMLoader.bi'
 '$INCLUDE:'MODLoader.bi'
+'$INCLUDE:'MTMLoader.bi'
+'$INCLUDE:'S3MLoader.bi'
 '$INCLUDE:'MODPlayerShared.bm'
 
 ''' @brief Loads a tracker module from a memory buffer, auto-detecting the format across registered loaders.

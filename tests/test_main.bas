@@ -8,9 +8,7 @@ $LET TEST_CONSOLE_ONLY = TRUE
 
 '$INCLUDE:'../source/Catch.bi'
 '$INCLUDE:'../source/File.bi'
-'$INCLUDE:'../source/String.bi'
 '$INCLUDE:'../source/StringFile.bi'
-'$INCLUDE:'../source/Pathname.bi'
 '$INCLUDE:'../source/AudioConv.bi'
 '$INCLUDE:'../source/SoftSynth.bi'
 '$INCLUDE:'../source/AudioAnalyzer.bi'

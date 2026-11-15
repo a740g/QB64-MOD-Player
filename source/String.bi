@@ -7,8 +7,6 @@ $INCLUDEONCE
 
 OPTION _EXPLICIT
 
-'$INCLUDE:'Asc.bi'
-
 ''' @brief Converts a C-style string (null-terminated) to a BASIC string.
 ''' @param s The C-style string to convert.
 ''' @return The converted BASIC string.

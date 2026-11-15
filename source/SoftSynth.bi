@@ -229,9 +229,9 @@ SUB SoftSynth_LoadSound (ctx AS SoftSynth, snd AS LONG, buffer AS STRING, bytesP
         DIM newCount AS LONG
         newCount = snd + 1
         IF ctx.totalSounds = 0 THEN
-            REDIM ctx.sounds(0 TO newCount - 1) AS __SoftSynthSound
+            REDIM ctx.sounds(0 TO newCount - 1) AS __SOFTSYNTHSOUND
         ELSE
-            REDIM _PRESERVE ctx.sounds(0 TO newCount - 1) AS __SoftSynthSound
+            REDIM _PRESERVE ctx.sounds(0 TO newCount - 1) AS __SOFTSYNTHSOUND
         END IF
         ctx.totalSounds = newCount
     END IF
@@ -363,7 +363,7 @@ SUB SoftSynth_SetTotalVoices (ctx AS SoftSynth, voices AS _UNSIGNED LONG)
     IF NOT ctx.initialized THEN EXIT SUB
     IF voices < 1 THEN EXIT SUB
 
-    REDIM ctx.voices(0 TO voices - 1) AS __SoftSynthVoice
+    REDIM ctx.voices(0 TO voices - 1) AS __SOFTSYNTHVOICE
     ctx.totalVoices = voices
 
     ' Initialize all voices with defaults
