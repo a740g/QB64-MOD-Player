@@ -35,21 +35,21 @@ $COLOR:0
 
 CONST APP_NAME = "QB64 MOD Player" ' application name
 ' We'll use a window with 1152 x 720 px (144 x 90 chars @ 8 x 8 px font) client area
-CONST TEXT_WIDTH_MIN& = 144& ' minimum width we need
-CONST TEXT_LINE_MAX& = 90& ' this the number of lines we need
-CONST TEXT_WIDTH_HEADER& = 84& ' width of the main header on the vis screen
-CONST MAX_VISIBLE_INSTRUMENTS& = 64& ' maximum number of instruments visible at a time
-CONST ANALYZER_SCALE& = 9& ' this is used to scale the fft values
-CONST FRAME_RATE& = 60& ' update frame rate
-CONST VOLUME_STEP! = 0.01! ' the amount by which the audio volume is increased or decreased
+CONST UI_TEXT_WIDTH_MIN& = 144& ' minimum width we need
+CONST UI_TEXT_LINE_MAX& = 90& ' this the number of lines we need
+CONST UI_TEXT_WIDTH_HEADER& = 84& ' width of the main header on the vis screen
+CONST UI_MAX_VISIBLE_INSTRUMENTS& = 64& ' maximum number of instruments visible at a time
+CONST UI_ANALYZER_SCALE& = 9& ' this is used to scale the fft values
+CONST APP_FRAME_RATE& = 60& ' update frame rate
+CONST APP_VOLUME_STEP! = 0.01! ' the amount by which the audio volume is increased or decreased
 ' Program events
-CONST EVENT_NONE%% = 0%% ' idle
-CONST EVENT_QUIT%% = 1%% ' user wants to quit
-CONST EVENT_CMDS%% = 2%% ' process command line
-CONST EVENT_LOAD%% = 3%% ' user want to load files
-CONST EVENT_DROP%% = 4%% ' user dropped files
-CONST EVENT_PLAY%% = 5%% ' play next song
-CONST EVENT_HTTP%% = 6%% ' Downloads and plays random MODs from modarchive.org
+CONST APP_EVENT_NONE%% = 0%% ' idle
+CONST APP_EVENT_QUIT%% = 1%% ' user wants to quit
+CONST APP_EVENT_CMDS%% = 2%% ' process command line
+CONST APP_EVENT_LOAD%% = 3%% ' user want to load files
+CONST APP_EVENT_DROP%% = 4%% ' user dropped files
+CONST APP_EVENT_PLAY%% = 5%% ' play next song
+CONST APP_EVENT_HTTP%% = 6%% ' Downloads and plays random MODs from modarchive.org
 ' Background constants
 CONST STAR_COUNT& = 256& ' the maximum stars that we can show
 CONST SNAKE_COUNT& = 48& ' the maximum snakes we can draw on the screen
@@ -130,7 +130,7 @@ SUB Visualizer_Draw
 
     CLS , Black ' clear the framebuffer to black color
 
-    DIM x AS LONG: x = 1 + WindowWidth \ 2 - TEXT_WIDTH_HEADER \ 2 ' find x so that we can center everything
+    DIM x AS LONG: x = 1 + WindowWidth \ 2 - UI_TEXT_WIDTH_HEADER \ 2 ' find x so that we can center everything
 
     ' Print song type and name
     COLOR BrightWhite, Magenta
@@ -166,7 +166,7 @@ SUB Visualizer_Draw
 
         i = i + 1
 
-        IF i >= MAX_VISIBLE_INSTRUMENTS THEN EXIT WHILE ' FIXME: allow user to scroll and see the entire instrument list
+        IF i >= UI_MAX_VISIBLE_INSTRUMENTS THEN EXIT WHILE ' FIXME: allow user to scroll and see the entire instrument list
     WEND
 
     j = 5 + i ' we starting updating from this line next
@@ -186,7 +186,7 @@ SUB Visualizer_Draw
     j = j + 1 ' move to the current line number
 
     ' Find the pattern and row we need to print
-    startRow = Player.song.patternRow - (1 + TEXT_LINE_MAX - j) \ 2
+    startRow = Player.song.patternRow - (1 + UI_TEXT_LINE_MAX - j) \ 2
     IF startRow < 0 THEN
         IF startPat > 0 THEN
             startRow = Player.pattern(startPat - 1).rows + startRow
@@ -197,9 +197,9 @@ SUB Visualizer_Draw
     END IF
 
     ' Now just dump everything to the screen
-    DIM AS LONG p, cLine: cLine = j + (1 + TEXT_LINE_MAX - j) \ 2
+    DIM AS LONG p, cLine: cLine = j + (1 + UI_TEXT_LINE_MAX - j) \ 2
     i = j
-    WHILE i < TEXT_LINE_MAX
+    WHILE i < UI_TEXT_LINE_MAX
         COLOR BrightWhite, Black
 
         IF startPat >= 0 _ANDALSO startPat < Player.song.patterns THEN
@@ -222,10 +222,10 @@ SUB Visualizer_Draw
                 p = p + 5
 
                 nNote = Player.pattern(startPat).note(startRow, nChan).note
-                IF nNote = __NOTE_NONE THEN
+                IF nNote = __MODPLAYER_NOTE_NONE THEN
                     COLOR Gray
                     _PRINTSTRING (p, i), "  -  "
-                ELSEIF nNote = __NOTE_KEY_OFF THEN
+                ELSEIF nNote = __MODPLAYER_NOTE_KEY_OFF THEN
                     COLOR Green
                     _PRINTSTRING (p, i), " ^^^ "
                 ELSE
@@ -333,7 +333,7 @@ SUB Visualizer_Draw
         j = 1 + (i * FFT.size.y) \ FFT.halfFrames ' this is the y location where we need to draw the bar
 
         ' First calculate and draw a bar on the left
-        x = _SHR(SpectrumAnalyzerL(i), ANALYZER_SCALE)
+        x = _SHR(SpectrumAnalyzerL(i), UI_ANALYZER_SCALE)
         IF x > 0 THEN ' only do something if x has a value > 0
             IF x > FFT.size.x THEN x = FFT.size.x
             p = FFT.size.x ' this is starting x position of the bar
@@ -342,10 +342,10 @@ SUB Visualizer_Draw
         END IF
 
         ' Next calculate for the one on the right and draw
-        x = _SHR(SpectrumAnalyzerR(i), ANALYZER_SCALE)
+        x = _SHR(SpectrumAnalyzerR(i), UI_ANALYZER_SCALE)
         IF x > 0 THEN ' only do something if x has a value > 0
             IF x > FFT.size.x THEN x = FFT.size.x
-            p = FFT.size.x + TEXT_WIDTH_HEADER + 1 ' this is starting x position of the bar
+            p = FFT.size.x + UI_TEXT_WIDTH_HEADER + 1 ' this is starting x position of the bar
             COLOR LightGreen + x MOD Brown, Black
             UI_DrawHorizontalLine p, j, p + x - 1, 254
         END IF
@@ -532,13 +532,13 @@ FUNCTION App_OnWelcomeScreen%%
     SHARED Snakes() AS Snake
 
     ' Load the ANSI art data and render it to a text surface
-    DIM titlePage AS LONG: titlePage = _NEWIMAGE(TEXT_WIDTH_MIN, TEXT_LINE_MAX, 0)
+    DIM titlePage AS LONG: titlePage = _NEWIMAGE(UI_TEXT_WIDTH_MIN, UI_TEXT_LINE_MAX, 0)
     UI_RenderTitleScreen titlePage, _INFLATE$(_BASE64DECODE$(DATA_QB64MODPLAYER_ANS_15162), SIZE_QB64MODPLAYER_ANS_15162)
     _CLEARCOLOR _ASC_SPACE + _SHL(White, 8), titlePage ' Set all blank cells to be transparent
 
     DIM bgType AS LONG: bgType = Math_GetRandomBetween(0, 1)
 
-    DIM e AS _BYTE: e = EVENT_NONE
+    DIM e AS _BYTE: e = APP_EVENT_NONE
 
     DO
         CLS , Black ' Clear the framebuffer to black color
@@ -557,19 +557,19 @@ FUNCTION App_OnWelcomeScreen%%
         DIM k AS LONG: k = _KEYHIT
 
         IF k = _KEY_ESC THEN
-            e = EVENT_QUIT
+            e = APP_EVENT_QUIT
         ELSEIF _TOTALDROPPEDFILES > 0 THEN
-            e = EVENT_DROP
+            e = APP_EVENT_DROP
         ELSEIF k = _KEY_F1 THEN
-            e = EVENT_LOAD
+            e = APP_EVENT_LOAD
         ELSEIF k = _KEY_F2 THEN
-            e = EVENT_HTTP
+            e = APP_EVENT_HTTP
         END IF
 
         _DISPLAY ' Flip the framebuffer
 
-        _LIMIT FRAME_RATE
-    LOOP WHILE e = EVENT_NONE
+        _LIMIT APP_FRAME_RATE
+    LOOP WHILE e = APP_EVENT_NONE
 
     _FREEIMAGE titlePage
 
@@ -604,21 +604,21 @@ SUB App_AdjustWindowSize
     IF Player.song.isPlaying THEN
         PatternDisplayWidth = 8 + Player.song.channels * 19 ' find the actual width
         WindowWidth = PatternDisplayWidth
-        IF WindowWidth < TEXT_WIDTH_MIN THEN WindowWidth = TEXT_WIDTH_MIN ' we don't want the width to be too small
-        FFT.size.x = (WindowWidth - TEXT_WIDTH_HEADER) \ 2
-        IF PatternDisplayWidth <= TEXT_WIDTH_HEADER THEN
-            FFT.size.y = TEXT_LINE_MAX
+        IF WindowWidth < UI_TEXT_WIDTH_MIN THEN WindowWidth = UI_TEXT_WIDTH_MIN ' we don't want the width to be too small
+        FFT.size.x = (WindowWidth - UI_TEXT_WIDTH_HEADER) \ 2
+        IF PatternDisplayWidth <= UI_TEXT_WIDTH_HEADER THEN
+            FFT.size.y = UI_TEXT_LINE_MAX
         ELSE
-            FFT.size.y = 4 + _MIN(Player.song.instruments, MAX_VISIBLE_INSTRUMENTS)
+            FFT.size.y = 4 + _MIN(Player.song.instruments, UI_MAX_VISIBLE_INSTRUMENTS)
         END IF
     ELSE
         PatternDisplayWidth = 0
-        WindowWidth = TEXT_WIDTH_MIN ' we don't want the width to be too small
+        WindowWidth = UI_TEXT_WIDTH_MIN ' we don't want the width to be too small
         FFT.size.x = 0
         FFT.size.y = 0
     END IF
 
-    WIDTH WindowWidth, TEXT_LINE_MAX ' we need 75 lines for the vizualization stuff
+    WIDTH WindowWidth, UI_TEXT_LINE_MAX ' we need 75 lines for the vizualization stuff
     _CONTROLCHR OFF ' turn off control characters
     _FONT 8 ' force 8x8 pixel font
     _BLINK OFF ' we want high intensity colors
@@ -632,7 +632,7 @@ END SUB
 FUNCTION App_OnPlayTune%% (fileName AS STRING)
     SHARED Player AS MODPlayer
 
-    App_OnPlayTune = EVENT_PLAY ' default event is to play next song
+    App_OnPlayTune = APP_EVENT_PLAY ' default event is to play next song
 
     DIM buffer AS STRING: buffer = File_Load(fileName) ' load the whole file to memory
 
@@ -671,10 +671,10 @@ FUNCTION App_OnPlayTune%% (fileName AS STRING)
                 Player.song.isPaused = NOT Player.song.isPaused
 
             CASE KEY_PLUS, KEY_EQUAL
-                SoftSynth_SetMasterVolume Player.synth, SoftSynth_GetMasterVolume(Player.synth) + VOLUME_STEP
+                SoftSynth_SetMasterVolume Player.synth, SoftSynth_GetMasterVolume(Player.synth) + APP_VOLUME_STEP
 
             CASE KEY_MINUS, KEY_UNDERSCORE
-                SoftSynth_SetMasterVolume Player.synth, SoftSynth_GetMasterVolume(Player.synth) - VOLUME_STEP
+                SoftSynth_SetMasterVolume Player.synth, SoftSynth_GetMasterVolume(Player.synth) - APP_VOLUME_STEP
 
             CASE KEY_UPPER_L, KEY_LOWER_L
                 MODPlayer_Loop Player, NOT MODPlayer_IsLooping(Player)
@@ -686,7 +686,7 @@ FUNCTION App_OnPlayTune%% (fileName AS STRING)
                 MODPlayer_GoToNextPosition Player
 
             CASE _KEY_F1
-                App_OnPlayTune = EVENT_LOAD
+                App_OnPlayTune = APP_EVENT_LOAD
                 EXIT DO
 
             CASE _KEY_F6 ' quick save for files loaded from ModArchive
@@ -704,12 +704,12 @@ FUNCTION App_OnPlayTune%% (fileName AS STRING)
         END SELECT
 
         IF _TOTALDROPPEDFILES > 0 THEN
-            App_OnPlayTune = EVENT_DROP
+            App_OnPlayTune = APP_EVENT_DROP
 
             EXIT DO
         END IF
 
-        _LIMIT FRAME_RATE
+        _LIMIT APP_FRAME_RATE
     LOOP WHILE MODPlayer_IsPlaying(Player)
 
     MODPlayer_Stop Player
@@ -721,15 +721,15 @@ END FUNCTION
 ''' @brief Processes files passed via the application command-line arguments.
 ''' @return Next application event code.
 FUNCTION App_OnCommandLine%%
-    DIM e AS _BYTE: e = EVENT_NONE
+    DIM e AS _BYTE: e = APP_EVENT_NONE
 
     IF (COMMAND$(1) = "/?" _ORELSE COMMAND$(1) = "-?") THEN
         _MESSAGEBOX APP_NAME, APP_NAME + _STR_LF + "Syntax: " + Pathname_GetFileName(COMMAND$(0)) + " [modfile.mod]" + _STR_LF + "    /?: Shows this message" + _STR_LF + _STR_LF + "Copyright (c) 2024, Samuel Gomes" + _STR_LF + _STR_LF + "https://github.com/a740g/", "info"
-        e = EVENT_QUIT
+        e = APP_EVENT_QUIT
     ELSE
         DIM i AS LONG: FOR i = 1 TO _COMMANDCOUNT
             e = App_OnPlayTune(COMMAND$(i))
-            IF e <> EVENT_PLAY THEN EXIT FOR
+            IF e <> APP_EVENT_PLAY THEN EXIT FOR
         NEXT
     END IF
 
@@ -742,7 +742,7 @@ FUNCTION App_OnDroppedFiles%%
     ' Make a copy of the dropped file and clear the list
     REDIM fileNames(1 TO _TOTALDROPPEDFILES) AS STRING
 
-    DIM e AS _BYTE: e = EVENT_NONE
+    DIM e AS _BYTE: e = APP_EVENT_NONE
 
     DIM i AS LONG: FOR i = 1 TO _TOTALDROPPEDFILES
         fileNames(i) = _DROPPEDFILE$(i)
@@ -752,7 +752,7 @@ FUNCTION App_OnDroppedFiles%%
     ' Now play the dropped file one at a time
     FOR i = LBOUND(fileNames) TO UBOUND(fileNames)
         e = App_OnPlayTune(fileNames(i))
-        IF e <> EVENT_PLAY THEN EXIT FOR
+        IF e <> APP_EVENT_PLAY THEN EXIT FOR
     NEXT
 
     App_OnDroppedFiles = e
@@ -762,7 +762,7 @@ END FUNCTION
 ''' @return Next application event code.
 FUNCTION App_OnSelectedFiles%%
     DIM ofdList AS STRING
-    DIM e AS _BYTE: e = EVENT_NONE
+    DIM e AS _BYTE: e = APP_EVENT_NONE
 
     ofdList = _OPENFILEDIALOG$(APP_NAME, , "*.mod|*.MOD|*.Mod|*.mtm|*.MTM|*.Mtm|*.s3m|*.S3M|*.S3m", "Music Tracker Files", _TRUE)
 
@@ -774,7 +774,7 @@ FUNCTION App_OnSelectedFiles%%
 
     DIM i AS LONG: FOR i = 0 TO j - 1
         e = App_OnPlayTune(fileNames(i))
-        IF e <> EVENT_PLAY THEN EXIT FOR
+        IF e <> APP_EVENT_PLAY THEN EXIT FOR
     NEXT
 
     App_OnSelectedFiles = e
@@ -783,16 +783,16 @@ END FUNCTION
 ''' @brief Downloads and plays random tunes streamed from modarchive.org.
 ''' @return Next application event code.
 FUNCTION App_OnModArchiveFiles%%
-    DIM e AS _BYTE: e = EVENT_NONE
+    DIM e AS _BYTE: e = APP_EVENT_NONE
     DIM AS STRING modArchiveFileName, fileExtension
 
     DO
         DO
             IF _TOTALDROPPEDFILES > 0 THEN
-                e = EVENT_DROP
+                e = APP_EVENT_DROP
                 EXIT DO
             ELSEIF _KEYHIT = _KEY_F1 THEN
-                e = EVENT_LOAD
+                e = APP_EVENT_LOAD
                 EXIT DO
             END IF
 
@@ -803,7 +803,7 @@ FUNCTION App_OnModArchiveFiles%%
         LOOP UNTIL fileExtension = ".mod" _ORELSE fileExtension = ".mtm" _ORELSE fileExtension = ".s3m"
 
         e = App_OnPlayTune(modArchiveFileName)
-    LOOP WHILE e = EVENT_NONE _ORELSE e = EVENT_PLAY
+    LOOP WHILE e = APP_EVENT_NONE _ORELSE e = APP_EVENT_PLAY
 
     _TITLE APP_NAME + _CHR_SPACE + _OS$ ' Set app title to the way it was
 
@@ -1048,24 +1048,24 @@ RANDOMIZE TIMER
 Star_InitializeAll Stars()
 Snake_InitializeAll Snakes()
 
-DIM event AS _BYTE: event = EVENT_CMDS ' default to command line event first
+DIM event AS _BYTE: event = APP_EVENT_CMDS ' default to command line event first
 
 ' Main loop
 DO
     SELECT CASE event
-        CASE EVENT_QUIT
+        CASE APP_EVENT_QUIT
             EXIT DO
 
-        CASE EVENT_DROP
+        CASE APP_EVENT_DROP
             event = App_OnDroppedFiles
 
-        CASE EVENT_LOAD
+        CASE APP_EVENT_LOAD
             event = App_OnSelectedFiles
 
-        CASE EVENT_CMDS
+        CASE APP_EVENT_CMDS
             event = App_OnCommandLine
 
-        CASE EVENT_HTTP
+        CASE APP_EVENT_HTTP
             event = App_OnModArchiveFiles
 
         CASE ELSE

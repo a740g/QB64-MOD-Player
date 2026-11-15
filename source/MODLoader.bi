@@ -96,7 +96,7 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
                     ' Check volume (byte 26 of 30-byte header, 1-based offset: 20 + sIdx * 30 + 26)
                     ' In Amiga ProTracker/SoundTracker volume is strictly 0..64
-                    IF ASC(buffer, 20 + sIdx * 30 + 26) > __INSTRUMENT_VOLUME_MAX THEN EXIT FUNCTION
+                    IF ASC(buffer, 20 + sIdx * 30 + 26) > __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN EXIT FUNCTION
 
                     ' Check finetune (byte 25 of 30-byte header, 1-based offset: 20 + sIdx * 30 + 25)
                     ' Finetune must be <= 15
@@ -135,7 +135,7 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
     ' Load the instruments headers
     FOR i = 0 TO player.song.instruments - 1
-        player.instrument(i).subtype = __INSTRUMENT_PCM ' this format only uses PCM instruments
+        player.instrument(i).subtype = __MODPLAYER_INSTRUMENT_PCM ' this format only uses PCM instruments
 
         ' Read the sample name
         player.instrument(i).caption = String_MakePrintable(StringFile_ReadString(memFile, 22)) ' MOD sample names are 22 bytes long
@@ -150,7 +150,7 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
         ' Read volume
         player.instrument(i).volume = StringFile_ReadByte(memFile)
-        IF player.instrument(i).volume > __INSTRUMENT_VOLUME_MAX THEN player.instrument(i).volume = __INSTRUMENT_VOLUME_MAX ' Sanity check
+        IF player.instrument(i).volume > __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN player.instrument(i).volume = __MODPLAYER_INSTRUMENT_VOLUME_MAX ' Sanity check
 
         ' Read loop start
         byte1 = StringFile_ReadByte(memFile)
@@ -209,16 +209,16 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     NEXT
 
     player.song.orders = StringFile_ReadByte(memFile)
-    IF player.song.orders >= __MOD_MTM_ORDER_MAX THEN player.song.orders = __MOD_MTM_ORDER_MAX + 1 ' clamp to MOD specific max
+    IF player.song.orders >= __MODPLAYER_MOD_MTM_ORDER_MAX THEN player.song.orders = __MODPLAYER_MOD_MTM_ORDER_MAX + 1 ' clamp to MOD specific max
 
     player.song.endJumpOrder = StringFile_ReadByte(memFile)
     IF player.song.endJumpOrder >= player.song.orders THEN player.song.endJumpOrder = 0
 
     ' Resize the order array (MODs always have a 128 byte long order table)
-    REDIM player.order(0 TO __MOD_MTM_ORDER_MAX) AS _UNSIGNED INTEGER
+    REDIM player.order(0 TO __MODPLAYER_MOD_MTM_ORDER_MAX) AS _UNSIGNED INTEGER
 
     ' Load the pattern table, and find the highest pattern to load
-    FOR i = 0 TO __MOD_MTM_ORDER_MAX ' MODs always have a 128 byte long order table
+    FOR i = 0 TO __MODPLAYER_MOD_MTM_ORDER_MAX ' MODs always have a 128 byte long order table
         player.order(i) = StringFile_ReadByte(memFile)
 
         IF isFLT8 THEN player.order(i) = _SHR(player.order(i), 1) ' special FLT8 handling
@@ -230,8 +230,8 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     ' Resize the pattern data array
     REDIM player.pattern(0 TO player.song.patterns - 1) AS __MODPlayerPattern
     FOR i = 0 TO player.song.patterns - 1
-        player.pattern(i).rows = __MOD_S3M_ROWS
-        REDIM player.pattern(i).note(0 TO __MOD_S3M_ROWS - 1, 0 TO player.song.channels - 1) AS __MODPlayerNote
+        player.pattern(i).rows = __MODPLAYER_MOD_S3M_ROWS
+        REDIM player.pattern(i).note(0 TO __MODPLAYER_MOD_S3M_ROWS - 1, 0 TO player.song.channels - 1) AS __MODPlayerNote
     NEXT
 
     ' Skip past the 4 byte signature if this is a 31 sample mod
@@ -239,7 +239,7 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
     ' Check if the file has enough bytes for all pattern data
     DIM requiredPatternBytes AS _UNSIGNED _OFFSET
-    requiredPatternBytes = player.song.patterns * __MOD_S3M_ROWS * player.song.channels * 4
+    requiredPatternBytes = player.song.patterns * __MODPLAYER_MOD_S3M_ROWS * player.song.channels * 4
     IF StringFile_GetPosition(memFile) + requiredPatternBytes > StringFile_GetSize(memFile) THEN EXIT FUNCTION
 
     __MODPlayer_LoadTables ' load all needed LUTs
@@ -305,14 +305,14 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     ' We will also not do hard left or hard right. Some amount of sound from each channel is allowed to blend with the other
     IF player.song.channels > 1 _ANDALSO player.song.channels < 4 THEN
         ' Just setup channels 0 and 1. If we have a 3rd channel it will be handle by the SoftSynth
-        SoftSynth_SetVoiceBalance player.synth, 0, -__CHANNEL_STEREO_SEPARATION
-        SoftSynth_SetVoiceBalance player.synth, 1, __CHANNEL_STEREO_SEPARATION
+        SoftSynth_SetVoiceBalance player.synth, 0, -__MODPLAYER_STEREO_SEPARATION
+        SoftSynth_SetVoiceBalance player.synth, 1, __MODPLAYER_STEREO_SEPARATION
     ELSE
         FOR i = 0 TO player.song.channels - 1 - (player.song.channels MOD 4) STEP 4
-            SoftSynth_SetVoiceBalance player.synth, i + 0, -__CHANNEL_STEREO_SEPARATION
-            SoftSynth_SetVoiceBalance player.synth, i + 1, __CHANNEL_STEREO_SEPARATION
-            SoftSynth_SetVoiceBalance player.synth, i + 2, __CHANNEL_STEREO_SEPARATION
-            SoftSynth_SetVoiceBalance player.synth, i + 3, -__CHANNEL_STEREO_SEPARATION
+            SoftSynth_SetVoiceBalance player.synth, i + 0, -__MODPLAYER_STEREO_SEPARATION
+            SoftSynth_SetVoiceBalance player.synth, i + 1, __MODPLAYER_STEREO_SEPARATION
+            SoftSynth_SetVoiceBalance player.synth, i + 2, __MODPLAYER_STEREO_SEPARATION
+            SoftSynth_SetVoiceBalance player.synth, i + 3, -__MODPLAYER_STEREO_SEPARATION
         NEXT
     END IF
 
@@ -333,7 +333,7 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     period = _SHL(byte1 AND &HF, 8) OR byte2
 
     ' Do the look up in the table against what is read in and store note
-    player.pattern(i).note(a, b).note = __NOTE_NONE
+    player.pattern(i).note(a, b).note = __MODPLAYER_NOTE_NONE
     FOR c = 0 TO 107
         IF period >= __MODPlayer_PeriodTable(c + 24) THEN
             player.pattern(i).note(a, b).note = c
@@ -341,7 +341,7 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
         END IF
     NEXT
 
-    player.pattern(i).note(a, b).volume = __NOTE_NO_VOLUME ' MODs don't have any volume field in the pattern
+    player.pattern(i).note(a, b).volume = __MODPLAYER_NOTE_NO_VOLUME ' MODs don't have any volume field in the pattern
     player.pattern(i).note(a, b).effect = byte3 AND &HF
     player.pattern(i).note(a, b).operand = byte4
 

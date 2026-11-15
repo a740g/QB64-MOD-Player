@@ -14,27 +14,50 @@ $UNSTABLE:TYPEFIELDS
 '$INCLUDE:'StringFile.bi'
 '$INCLUDE:'File.bi'
 
-CONST __NOTE_NONE~%% = 132~%% ' Note will be set to this when there is nothing
-CONST __NOTE_KEY_OFF~%% = 133~%% ' We'll use this in a future version
-CONST __NOTE_NO_VOLUME~%% = 255~%% ' When a note has no volume, then it will be set to this
-CONST __MOD_S3M_ROWS~%% = 64~%% ' number of rows in a MOD / S3M pattern
-CONST __MOD_MTM_ORDER_MAX~%% = 127~%% ' maximum position in a MOD / MTM order table
-CONST __INSTRUMENT_VOLUME_MAX~%% = 64~%% ' this is the maximum volume of any MOD instrument
-CONST __INSTRUMENT_NONE~%% = 0~%% ' no instrument
-CONST __INSTRUMENT_PCM~%% = 1~%% ' good old digital PCM instrument
-CONST __INSTRUMENT_FM_MELODY~%% = 2~%% ' FM melody instrument
-CONST __INSTRUMENT_FM_BASSDRUM~%% = 3~%% ' FM bass drum instrument
-CONST __INSTRUMENT_FM_SNAREDRUM~%% = 4~%% ' FM snare instrument
-CONST __INSTRUMENT_FM_TOMTOM~%% = 5~%% ' FM tom-tom instrument
-CONST __INSTRUMENT_FM_CYMBAL~%% = 6~%% ' FM cymbal instrument
-CONST __INSTRUMENT_FM_HIHAT~%% = 7~%% ' FM hi-hat instrument
-CONST __PATTERN_MARKER~%% = 254~%% ' S3M marker pattern
-CONST __PATTERN_END~%% = 255~%% ' S3M end-of-song
-CONST __CHANNEL_STEREO_SEPARATION! = 0.5! ' 100% stereo separation sounds bad on headphones
-CONST __MTM_S3M_CHANNEL_MAX~%% = 31~%% ' maximum channel number supported by MTM / S3M
-CONST __S3M_GLOBAL_VOLUME_MAX~%% = 64~%% ' S3M global volume maximum value
-CONST __SONG_SPEED_DEFAULT~%% = 6~%% ' This is the default speed for song where it is not specified
-CONST __SONG_BPM_DEFAULT~%% = 125~%% ' Default song BPM when it is not specified
+CONST __MODPLAYER_NOTE_NONE~%% = 132~%% ' Note will be set to this when there is nothing
+CONST __MODPLAYER_NOTE_KEY_OFF~%% = 133~%% ' We'll use this in a future version
+CONST __MODPLAYER_NOTE_NO_VOLUME~%% = 255~%% ' When a note has no volume, then it will be set to this
+CONST __MODPLAYER_MOD_S3M_ROWS~%% = 64~%% ' number of rows in a MOD / S3M pattern
+CONST __MODPLAYER_MOD_MTM_ORDER_MAX~%% = 127~%% ' maximum position in a MOD / MTM order table
+CONST __MODPLAYER_INSTRUMENT_VOLUME_MAX~%% = 64~%% ' this is the maximum volume of any MOD instrument
+CONST __MODPLAYER_INSTRUMENT_NONE~%% = 0~%% ' no instrument
+CONST __MODPLAYER_INSTRUMENT_PCM~%% = 1~%% ' good old digital PCM instrument
+CONST __MODPLAYER_INSTRUMENT_FM_MELODY~%% = 2~%% ' FM melody instrument
+CONST __MODPLAYER_INSTRUMENT_FM_BASSDRUM~%% = 3~%% ' FM bass drum instrument
+CONST __MODPLAYER_INSTRUMENT_FM_SNAREDRUM~%% = 4~%% ' FM snare instrument
+CONST __MODPLAYER_INSTRUMENT_FM_TOMTOM~%% = 5~%% ' FM tom-tom instrument
+CONST __MODPLAYER_INSTRUMENT_FM_CYMBAL~%% = 6~%% ' FM cymbal instrument
+CONST __MODPLAYER_INSTRUMENT_FM_HIHAT~%% = 7~%% ' FM hi-hat instrument
+CONST __MODPLAYER_PATTERN_MARKER~%% = 254~%% ' S3M marker pattern
+CONST __MODPLAYER_PATTERN_END~%% = 255~%% ' S3M end-of-song
+CONST __MODPLAYER_STEREO_SEPARATION! = 0.5! ' 100% stereo separation sounds bad on headphones
+CONST __MODPLAYER_MTM_S3M_CHANNEL_MAX~%% = 31~%% ' maximum channel number supported by MTM / S3M
+CONST __MODPLAYER_S3M_GLOBAL_VOLUME_MAX~%% = 64~%% ' S3M global volume maximum value
+CONST __MODPLAYER_SONG_SPEED_DEFAULT~%% = 6~%% ' This is the default speed for song where it is not specified
+CONST __MODPLAYER_SONG_BPM_DEFAULT~%% = 125~%% ' Default song BPM when it is not specified
+
+' Legacy aliases for backwards compatibility
+CONST __NOTE_NONE~%% = __MODPLAYER_NOTE_NONE~%%
+CONST __NOTE_KEY_OFF~%% = __MODPLAYER_NOTE_KEY_OFF~%%
+CONST __NOTE_NO_VOLUME~%% = __MODPLAYER_NOTE_NO_VOLUME~%%
+CONST __MOD_S3M_ROWS~%% = __MODPLAYER_MOD_S3M_ROWS~%%
+CONST __MOD_MTM_ORDER_MAX~%% = __MODPLAYER_MOD_MTM_ORDER_MAX~%%
+CONST __INSTRUMENT_VOLUME_MAX~%% = __MODPLAYER_INSTRUMENT_VOLUME_MAX~%%
+CONST __INSTRUMENT_NONE~%% = __MODPLAYER_INSTRUMENT_NONE~%%
+CONST __INSTRUMENT_PCM~%% = __MODPLAYER_INSTRUMENT_PCM~%%
+CONST __INSTRUMENT_FM_MELODY~%% = __MODPLAYER_INSTRUMENT_FM_MELODY~%%
+CONST __INSTRUMENT_FM_BASSDRUM~%% = __MODPLAYER_INSTRUMENT_FM_BASSDRUM~%%
+CONST __INSTRUMENT_FM_SNAREDRUM~%% = __MODPLAYER_INSTRUMENT_FM_SNAREDRUM~%%
+CONST __INSTRUMENT_FM_TOMTOM~%% = __MODPLAYER_INSTRUMENT_FM_TOMTOM~%%
+CONST __INSTRUMENT_FM_CYMBAL~%% = __MODPLAYER_INSTRUMENT_FM_CYMBAL~%%
+CONST __INSTRUMENT_FM_HIHAT~%% = __MODPLAYER_INSTRUMENT_FM_HIHAT~%%
+CONST __PATTERN_MARKER~%% = __MODPLAYER_PATTERN_MARKER~%%
+CONST __PATTERN_END~%% = __MODPLAYER_PATTERN_END~%%
+CONST __CHANNEL_STEREO_SEPARATION! = __MODPLAYER_STEREO_SEPARATION!
+CONST __MTM_S3M_CHANNEL_MAX~%% = __MODPLAYER_MTM_S3M_CHANNEL_MAX~%%
+CONST __S3M_GLOBAL_VOLUME_MAX~%% = __MODPLAYER_S3M_GLOBAL_VOLUME_MAX~%%
+CONST __SONG_SPEED_DEFAULT~%% = __MODPLAYER_SONG_SPEED_DEFAULT~%%
+CONST __SONG_BPM_DEFAULT~%% = __MODPLAYER_SONG_BPM_DEFAULT~%%
 ' These are the effects support by the player (basically these are Protracker effects + extras)
 CONST __MOD_FX_ARPEGGIO~%% = 0~%%
 CONST __MOD_FX_PORTAMENTO_UP~%% = 1~%%
@@ -208,7 +231,7 @@ SUB __MODPlayer_LoadTables
     IF __MODPlayer_tablesInitialized THEN EXIT SUB
 
     ' Load the period table
-    RESTORE PeriodTab
+    RESTORE __MODPlayer_PeriodTab
     DIM periodCount AS LONG: READ periodCount
     REDIM __MODPlayer_PeriodTable(0 TO periodCount - 1) AS _UNSIGNED INTEGER ' allocate size elements
     ' Now read size values
@@ -217,7 +240,7 @@ SUB __MODPlayer_LoadTables
     NEXT
 
     ' Load the sine table
-    RESTORE SineTab
+    RESTORE __MODPlayer_SineTab
     DIM s AS LONG: READ s
     REDIM __MODPlayer_SineTable(0 TO s - 1) AS _UNSIGNED _BYTE
     FOR i = 0 TO s - 1
@@ -225,7 +248,7 @@ SUB __MODPlayer_LoadTables
     NEXT
 
     ' Load the invert loop table
-    RESTORE ILSpdTab
+    RESTORE __MODPlayer_ILSpdTab
     READ s
     REDIM __MODPlayer_InvertLoopSpeedTable(0 TO s - 1) AS _UNSIGNED _BYTE
     FOR i = 0 TO s - 1
@@ -236,7 +259,7 @@ SUB __MODPlayer_LoadTables
     EXIT SUB
 
     ' Amiga period table data for 11 octaves
-    PeriodTab:
+    __MODPlayer_PeriodTab:
     DATA 134
     DATA 27392,25856,24384,23040,21696,20480,19328,18240,17216,16256,15360,14496
     DATA 13696,12928,12192,11520,10848,10240,9664,9120,8608,8128,7680,7248
@@ -253,14 +276,14 @@ SUB __MODPlayer_LoadTables
     DATA NaN
 
     ' Sine table data for tremolo & vibrato
-    SineTab:
+    __MODPlayer_SineTab:
     DATA 32
     DATA 0,24,49,74,97,120,141,161,180,197,212,224,235,244,250,253
     DATA 255,253,250,244,235,224,212,197,180,161,141,120,97,74,49,24
     DATA NaN
 
     ' Invert loop speed table data for EFx
-    ILSpdTab:
+    __MODPlayer_ILSpdTab:
     DATA 16
     DATA 0,5,6,7,8,10,11,13,16,19,22,26,32,43,64,128
     DATA NaN
@@ -337,8 +360,8 @@ SUB __MODPlayer_InitializeSong (player AS MODPlayer)
     player.song.patternDelay = NULL
     player.song.speed = NULL
     player.song.BPM = NULL
-    player.song.defaultSpeed = __SONG_SPEED_DEFAULT ' set this to default MOD speed
-    player.song.defaultBPM = __SONG_BPM_DEFAULT ' set this to default MOD BPM
+    player.song.defaultSpeed = __MODPLAYER_SONG_SPEED_DEFAULT ' set this to default MOD speed
+    player.song.defaultBPM = __MODPLAYER_SONG_BPM_DEFAULT ' set this to default MOD BPM
     player.song.tick = NULL
     player.song.tempoTimerValue = NULL
     player.song.framesPerTick = NULL
@@ -361,7 +384,7 @@ SUB MODPlayer_Play (player AS MODPlayer)
     IF NOT player.initialized THEN EXIT SUB
 
     ' Initialize some important stuff
-    player.song.tempoTimerValue = (SoftSynth_GetSampleRate(player.synth) * __SONG_BPM_DEFAULT) \ 50
+    player.song.tempoTimerValue = (SoftSynth_GetSampleRate(player.synth) * __MODPLAYER_SONG_BPM_DEFAULT) \ 50
     player.song.orderPosition = NULL
     player.song.patternRow = NULL
     player.song.speed = player.song.defaultSpeed
@@ -405,7 +428,7 @@ SUB MODPlayer_Update (player AS MODPlayer, bufferTimeSecs AS SINGLE)
             ' Process pattern row if pattern delay is over
             IF player.song.patternDelay = 0 THEN
                 ' Skip marker pattern
-                WHILE __PATTERN_MARKER = player.order(player.song.orderPosition)
+                WHILE __MODPLAYER_PATTERN_MARKER = player.order(player.song.orderPosition)
                     player.song.orderPosition = player.song.orderPosition + 1
                     player.song.patternRow = 0
 
@@ -423,7 +446,7 @@ SUB MODPlayer_Update (player AS MODPlayer, bufferTimeSecs AS SINGLE)
                 WEND
 
                 ' Check for end of song marker
-                IF __PATTERN_END = player.order(player.song.orderPosition) THEN
+                IF __MODPLAYER_PATTERN_END = player.order(player.song.orderPosition) THEN
                     IF player.song.isLooping THEN
                         player.song.orderPosition = player.song.endJumpOrder
                         player.song.speed = player.song.defaultSpeed
@@ -452,7 +475,7 @@ SUB MODPlayer_Update (player AS MODPlayer, bufferTimeSecs AS SINGLE)
                 IF player.song.tickPattern < player.song.patterns THEN
                     currentPatternRows = player.pattern(player.song.tickPattern).rows
                 END IF
-                IF currentPatternRows = 0 THEN currentPatternRows = __MOD_S3M_ROWS ' fallback safe default
+                IF currentPatternRows = 0 THEN currentPatternRows = __MODPLAYER_MOD_S3M_ROWS ' fallback safe default
 
                 IF player.song.patternRow >= currentPatternRows THEN
                     player.song.orderPosition = player.song.orderPosition + 1
@@ -518,7 +541,7 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
             END IF
         END IF
 
-        IF nNote < __NOTE_NONE THEN
+        IF nNote < __MODPLAYER_NOTE_NONE THEN
             player.channel(nChannel).lastPeriod = (8363 * __MODPlayer_PeriodTable(nNote)) \ player.instrument(player.channel(nChannel).instrument).c2Spd
             player.channel(nChannel).note = nNote
             player.channel(nChannel).restart = _TRUE
@@ -536,8 +559,8 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
             player.channel(nChannel).restart = _FALSE
         END IF
 
-        IF nVolume <= __INSTRUMENT_VOLUME_MAX THEN player.channel(nChannel).volume = nVolume
-        IF nNote = __NOTE_KEY_OFF THEN player.channel(nChannel).volume = 0
+        IF nVolume <= __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN player.channel(nChannel).volume = nVolume
+        IF nNote = __MODPLAYER_NOTE_KEY_OFF THEN player.channel(nChannel).volume = 0
 
         ' Process tick 0 effects
         SELECT CASE nEffect
@@ -576,7 +599,7 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
 
             CASE __MOD_FX_VOLUME
                 player.channel(nChannel).volume = nOperand ' Operand can never be -ve cause it is unsigned. So we only clip for max below
-                IF player.channel(nChannel).volume > __INSTRUMENT_VOLUME_MAX THEN player.channel(nChannel).volume = __INSTRUMENT_VOLUME_MAX
+                IF player.channel(nChannel).volume > __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN player.channel(nChannel).volume = __MODPLAYER_INSTRUMENT_VOLUME_MAX
 
             CASE __MOD_FX_PATTERN_BREAK
                 player.song.patternRow = (nOpX * 10) + nOpY - 1
@@ -637,7 +660,7 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
 
                     CASE __MOD_FX_EXTENDED_VOLUME_FINE_SLIDE_UP
                         player.channel(nChannel).volume = player.channel(nChannel).volume + nOpY
-                        IF player.channel(nChannel).volume > __INSTRUMENT_VOLUME_MAX THEN player.channel(nChannel).volume = __INSTRUMENT_VOLUME_MAX
+                        IF player.channel(nChannel).volume > __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN player.channel(nChannel).volume = __MODPLAYER_INSTRUMENT_VOLUME_MAX
 
                     CASE __MOD_FX_EXTENDED_VOLUME_FINE_SLIDE_DOWN
                         player.channel(nChannel).volume = player.channel(nChannel).volume - nOpY
@@ -677,7 +700,7 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
                     IF nOpY = 0 THEN player.channel(nChannel).volume = player.channel(nChannel).volume + nOpX
                     IF nOpX = 0 THEN player.channel(nChannel).volume = player.channel(nChannel).volume - nOpY
                 END IF
-                IF player.channel(nChannel).volume > __INSTRUMENT_VOLUME_MAX THEN player.channel(nChannel).volume = __INSTRUMENT_VOLUME_MAX
+                IF player.channel(nChannel).volume > __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN player.channel(nChannel).volume = __MODPLAYER_INSTRUMENT_VOLUME_MAX
                 IF player.channel(nChannel).volume < 0 THEN player.channel(nChannel).volume = 0
 
             CASE __MOD_FX_PORTAMENTO_EXTRA_FINE_DOWN
@@ -708,7 +731,7 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
                 ERROR _ERR_FEATURE_UNAVAILABLE
 
             CASE __MOD_FX_CHANNEL_VOLUME
-                IF nOperand <= __S3M_GLOBAL_VOLUME_MAX THEN player.channel(nChannel).volume = nOperand
+                IF nOperand <= __MODPLAYER_S3M_GLOBAL_VOLUME_MAX THEN player.channel(nChannel).volume = nOperand
 
             CASE __MOD_FX_CHANNEL_VOLUME_SLIDE
                 ERROR _ERR_FEATURE_UNAVAILABLE
@@ -743,7 +766,7 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
 
             CASE __MOD_FX_GLOBAL_VOLUME
                 ' ST3 ignores out-of-range values
-                IF nOperand <= __S3M_GLOBAL_VOLUME_MAX THEN SoftSynth_SetGlobalVolume player.synth, nOperand / __S3M_GLOBAL_VOLUME_MAX
+                IF nOperand <= __MODPLAYER_S3M_GLOBAL_VOLUME_MAX THEN SoftSynth_SetGlobalVolume player.synth, nOperand / __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
 
             CASE __MOD_FX_GLOBAL_VOLUME_SLIDE
                 ERROR _ERR_FEATURE_UNAVAILABLE
@@ -760,7 +783,7 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
 
         IF NOT noFrequency THEN
             IF nEffect <> __MOD_FX_TREMOLO THEN
-                SoftSynth_SetVoiceVolume player.synth, nChannel, player.channel(nChannel).volume / __INSTRUMENT_VOLUME_MAX
+                SoftSynth_SetVoiceVolume player.synth, nChannel, player.channel(nChannel).volume / __MODPLAYER_INSTRUMENT_VOLUME_MAX
             END IF
             IF player.channel(nChannel).period > 0 THEN
                 SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(player.channel(nChannel).period)
@@ -850,15 +873,15 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
                         CASE __MOD_FX_EXTENDED_NOTE_CUT
                             IF player.song.tick = nOpY THEN
                                 player.channel(nChannel).volume = 0
-                                SoftSynth_SetVoiceVolume player.synth, nChannel, player.channel(nChannel).volume / __INSTRUMENT_VOLUME_MAX
+                                SoftSynth_SetVoiceVolume player.synth, nChannel, player.channel(nChannel).volume / __MODPLAYER_INSTRUMENT_VOLUME_MAX
                             END IF
 
                         CASE __MOD_FX_EXTENDED_NOTE_DELAY
                             IF player.song.tick = nOpY THEN
                                 player.channel(nChannel).volume = player.instrument(player.channel(nChannel).instrument).volume
-                                IF nVolume <= __INSTRUMENT_VOLUME_MAX THEN player.channel(nChannel).volume = nVolume
+                                IF nVolume <= __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN player.channel(nChannel).volume = nVolume
                                 SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(player.channel(nChannel).period)
-                                SoftSynth_SetVoiceVolume player.synth, nChannel, player.channel(nChannel).volume / __INSTRUMENT_VOLUME_MAX
+                                SoftSynth_SetVoiceVolume player.synth, nChannel, player.channel(nChannel).volume / __MODPLAYER_INSTRUMENT_VOLUME_MAX
                                 SoftSynth_PlayVoice player.synth, nChannel, player.channel(nChannel).instrument, SoftSynth_ConvertBytesToFrames(player.channel(nChannel).startPosition, player.instrument(player.channel(nChannel).instrument).bytesPerSample, player.instrument(player.channel(nChannel).instrument).channels), player.instrument(player.channel(nChannel).instrument).playMode, SoftSynth_ConvertBytesToFrames(player.instrument(player.channel(nChannel).instrument).loopStart, player.instrument(player.channel(nChannel).instrument).bytesPerSample, player.instrument(player.channel(nChannel).instrument).channels), SoftSynth_ConvertBytesToFrames(player.instrument(player.channel(nChannel).instrument).loopEnd, player.instrument(player.channel(nChannel).instrument).bytesPerSample, player.instrument(player.channel(nChannel).instrument).channels)
                             END IF
                     END SELECT
@@ -942,9 +965,9 @@ SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
 
                                 END SELECT
 
-                                player.channel(nChannel).volume = _CLAMP(player.channel(nChannel).volume, 0, __INSTRUMENT_VOLUME_MAX)
+                                player.channel(nChannel).volume = _CLAMP(player.channel(nChannel).volume, 0, __MODPLAYER_INSTRUMENT_VOLUME_MAX)
 
-                                SoftSynth_SetVoiceVolume player.synth, nChannel, player.channel(nChannel).volume / __INSTRUMENT_VOLUME_MAX
+                                SoftSynth_SetVoiceVolume player.synth, nChannel, player.channel(nChannel).volume / __MODPLAYER_INSTRUMENT_VOLUME_MAX
                             END IF
 
                             SoftSynth_PlayVoice player.synth, nChannel, player.channel(nChannel).instrument, SoftSynth_ConvertBytesToFrames(player.channel(nChannel).startPosition, player.instrument(player.channel(nChannel).instrument).bytesPerSample, player.instrument(player.channel(nChannel).instrument).channels), player.instrument(player.channel(nChannel).instrument).playMode, SoftSynth_ConvertBytesToFrames(player.instrument(player.channel(nChannel).instrument).loopStart, player.instrument(player.channel(nChannel).instrument).bytesPerSample, player.instrument(player.channel(nChannel).instrument).channels), SoftSynth_ConvertBytesToFrames(player.instrument(player.channel(nChannel).instrument).loopEnd, player.instrument(player.channel(nChannel).instrument).bytesPerSample, player.instrument(player.channel(nChannel).instrument).channels)
@@ -969,7 +992,7 @@ SUB __MODPlayer_SetBPM (player AS MODPlayer, nBPM AS _UNSIGNED _BYTE)
     player.song.BPM = nBPM
 
     IF player.song.tempoTimerValue = 0 THEN
-        player.song.tempoTimerValue = (SoftSynth_GetSampleRate(player.synth) * __SONG_BPM_DEFAULT) \ 50
+        player.song.tempoTimerValue = (SoftSynth_GetSampleRate(player.synth) * __MODPLAYER_SONG_BPM_DEFAULT) \ 50
     END IF
 
     ' Calculate the number of samples we have to mix per tick
@@ -1052,10 +1075,10 @@ IF isNotFine THEN
         IF x = 0 THEN player.channel(chan).volume = player.channel(chan).volume - y
     END IF
 
-    IF player.channel(chan).volume > __INSTRUMENT_VOLUME_MAX THEN player.channel(chan).volume = __INSTRUMENT_VOLUME_MAX
+    IF player.channel(chan).volume > __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN player.channel(chan).volume = __MODPLAYER_INSTRUMENT_VOLUME_MAX
     IF player.channel(chan).volume < 0 THEN player.channel(chan).volume = 0
 
-    SoftSynth_SetVoiceVolume player.synth, chan, player.channel(chan).volume / __INSTRUMENT_VOLUME_MAX
+    SoftSynth_SetVoiceVolume player.synth, chan, player.channel(chan).volume / __MODPLAYER_INSTRUMENT_VOLUME_MAX
 END SUB
 
 
@@ -1065,7 +1088,7 @@ SUB __MODPlayer_DoS3MTremor (player AS MODPlayer, chan AS _UNSIGNED _BYTE)
 player.channel(chan).tremorPosition = player.channel(chan).tremorPosition MOD (_SHR(player.channel(chan).tremorParameters, 4) + (player.channel(chan).tremorParameters AND &HF))
 
     IF player.channel(chan).tremorPosition < _SHR(player.channel(chan).tremorParameters, 4) THEN
-        SoftSynth_SetVoiceVolume player.synth, chan, player.channel(chan).volume / __INSTRUMENT_VOLUME_MAX
+        SoftSynth_SetVoiceVolume player.synth, chan, player.channel(chan).volume / __MODPLAYER_INSTRUMENT_VOLUME_MAX
     ELSE
         SoftSynth_SetVoiceVolume player.synth, chan, 0
     END IF
@@ -1144,11 +1167,11 @@ SHARED __MODPlayer_SineTable() AS _UNSIGNED _BYTE
     delta = _SHR(delta * player.channel(chan).tremoloDepth, 6)
 
     IF player.channel(chan).tremoloPosition >= 0 THEN
-        IF player.channel(chan).volume + delta > __INSTRUMENT_VOLUME_MAX THEN delta = __INSTRUMENT_VOLUME_MAX - player.channel(chan).volume
-        SoftSynth_SetVoiceVolume player.synth, chan, (player.channel(chan).volume + delta) / __INSTRUMENT_VOLUME_MAX
+        IF player.channel(chan).volume + delta > __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN delta = __MODPLAYER_INSTRUMENT_VOLUME_MAX - player.channel(chan).volume
+        SoftSynth_SetVoiceVolume player.synth, chan, (player.channel(chan).volume + delta) / __MODPLAYER_INSTRUMENT_VOLUME_MAX
     ELSE
         IF player.channel(chan).volume - delta < 0 THEN delta = player.channel(chan).volume
-        SoftSynth_SetVoiceVolume player.synth, chan, (player.channel(chan).volume - delta) / __INSTRUMENT_VOLUME_MAX
+        SoftSynth_SetVoiceVolume player.synth, chan, (player.channel(chan).volume - delta) / __MODPLAYER_INSTRUMENT_VOLUME_MAX
     END IF
 
     player.channel(chan).tremoloPosition = player.channel(chan).tremoloPosition + player.channel(chan).tremoloSpeed

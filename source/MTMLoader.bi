@@ -77,7 +77,7 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     SoftSynth_SetTotalVoices player.synth, player.song.channels
 
     ' Read the panning positions
-    DIM i AS LONG: FOR i = 0 TO __MTM_S3M_CHANNEL_MAX
+    DIM i AS LONG: FOR i = 0 TO __MODPLAYER_MTM_S3M_CHANNEL_MAX
         byte1 = StringFile_ReadByte(memFile) ' read the raw value
 
         ' Adjust and save the values per our mixer requirements
@@ -92,7 +92,7 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
     ' Read the instruments information
     FOR i = 0 TO player.song.instruments - 1
-        player.instrument(i).subtype = __INSTRUMENT_PCM ' this format only uses PCM instruments
+        player.instrument(i).subtype = __MODPLAYER_INSTRUMENT_PCM ' this format only uses PCM instruments
 
         ' Read the sample name
         player.instrument(i).caption = String_MakePrintable(StringFile_ReadString(memFile, 22)) ' MTM sample names are 22 bytes long
@@ -124,7 +124,7 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
         ' Read volume
         player.instrument(i).volume = StringFile_ReadByte(memFile)
-        IF player.instrument(i).volume > __INSTRUMENT_VOLUME_MAX THEN player.instrument(i).volume = __INSTRUMENT_VOLUME_MAX ' MTM uses MOD volume specs.
+        IF player.instrument(i).volume > __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN player.instrument(i).volume = __MODPLAYER_INSTRUMENT_VOLUME_MAX ' MTM uses MOD volume specs.
 
         ' Read attribute
         byte1 = StringFile_ReadByte(memFile)
@@ -133,10 +133,10 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     NEXT i
 
     ' Resize the order array (MTMs like MODs always have a 128 byte long order table)
-    REDIM player.order(0 TO __MOD_MTM_ORDER_MAX) AS _UNSIGNED INTEGER
+    REDIM player.order(0 TO __MODPLAYER_MOD_MTM_ORDER_MAX) AS _UNSIGNED INTEGER
 
     ' Read order list
-    FOR i = 0 TO __MOD_MTM_ORDER_MAX ' MTMs like MODs always have a 128 byte long order table
+    FOR i = 0 TO __MODPLAYER_MOD_MTM_ORDER_MAX ' MTMs like MODs always have a 128 byte long order table
         player.order(i) = StringFile_ReadByte(memFile)
     NEXT
 
@@ -160,7 +160,7 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
             ' a = effect argument
             mtmTrack(i, j).note = _SHR(byte1, 2)
             IF mtmTrack(i, j).note = 0 THEN
-                mtmTrack(i, j).note = __NOTE_NONE
+                mtmTrack(i, j).note = __MODPLAYER_NOTE_NONE
             ELSE
                 mtmTrack(i, j).note = mtmTrack(i, j).note + 24
             END IF
@@ -170,7 +170,7 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
             mtmTrack(i, j).effect = byte2 AND &HF
             mtmTrack(i, j).operand = byte3
-            mtmTrack(i, j).volume = __NOTE_NO_VOLUME
+            mtmTrack(i, j).volume = __MODPLAYER_NOTE_NO_VOLUME
 
             ' MTM fix: when the effect is volume-slide, slide-up always overrides slide-down
             IF mtmTrack(i, j).effect = &HA _ANDALSO (mtmTrack(i, j).operand AND &HF0) <> 0 THEN
@@ -189,7 +189,7 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     ' Read track sequencing data and assemble that to our pattern data
     DIM k AS LONG, w AS _UNSIGNED INTEGER
     FOR i = 0 TO player.song.patterns - 1
-        FOR j = 0 TO __MTM_S3M_CHANNEL_MAX ' MTM files stores data for 32 channels irrespective of the actual channels used
+        FOR j = 0 TO __MODPLAYER_MTM_S3M_CHANNEL_MAX ' MTM files stores data for 32 channels irrespective of the actual channels used
             ' Read the data
             w = StringFile_ReadInteger(memFile)
 
@@ -202,11 +202,11 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
             ELSE
                 ' Populate empty channel
                 FOR k = 0 TO numRows - 1
-                    player.pattern(i).note(k, j).note = __NOTE_NONE
+                    player.pattern(i).note(k, j).note = __MODPLAYER_NOTE_NONE
                     player.pattern(i).note(k, j).instrument = 0
                     player.pattern(i).note(k, j).effect = 0
                     player.pattern(i).note(k, j).operand = 0
-                    player.pattern(i).note(k, j).volume = __NOTE_NO_VOLUME
+                    player.pattern(i).note(k, j).volume = __MODPLAYER_NOTE_NO_VOLUME
                 NEXT k
             END IF
         NEXT j

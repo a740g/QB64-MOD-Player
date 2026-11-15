@@ -97,8 +97,8 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     ' Read and set the global volume
     DIM byte1 AS _UNSIGNED _BYTE: byte1 = StringFile_ReadByte(memFile)
     '_ECHO "Global volume =" + STR$(byte1)
-    IF byte1 > __S3M_GLOBAL_VOLUME_MAX THEN byte1 = __S3M_GLOBAL_VOLUME_MAX
-    SoftSynth_SetGlobalVolume player.synth, byte1 / __S3M_GLOBAL_VOLUME_MAX
+    IF byte1 > __MODPLAYER_S3M_GLOBAL_VOLUME_MAX THEN byte1 = __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
+    SoftSynth_SetGlobalVolume player.synth, byte1 / __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
     '_ECHO "SoftSynth global volume =" + STR$(SoftSynth_GetGlobalVolume)
 
     ' Read the initial speed value
@@ -108,7 +108,7 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     ' Read the initial BPM
     player.song.defaultBPM = StringFile_ReadByte(memFile)
     '_ECHO "Initial BPM =" + STR$(player.song.defaultBPM)
-    IF player.song.defaultBPM = 0 THEN player.song.defaultBPM = __SONG_BPM_DEFAULT ' avoid division by zero
+    IF player.song.defaultBPM = 0 THEN player.song.defaultBPM = __MODPLAYER_SONG_BPM_DEFAULT ' avoid division by zero
 
     ' Read SoundBlaster master volume crap and check if the stereo frag is set
     byte1 = StringFile_ReadByte(memFile)
@@ -129,9 +129,9 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     StringFile_Seek memFile, StringFile_GetPosition(memFile) + 10
 
     ' Load channel info and count total channels
-    DIM channelInfo(0 TO __MTM_S3M_CHANNEL_MAX) AS _UNSIGNED _BYTE ' channel info that we'll use later
+    DIM channelInfo(0 TO __MODPLAYER_MTM_S3M_CHANNEL_MAX) AS _UNSIGNED _BYTE ' channel info that we'll use later
 
-    DIM i AS LONG: FOR i = 0 TO __MTM_S3M_CHANNEL_MAX
+    DIM i AS LONG: FOR i = 0 TO __MODPLAYER_MTM_S3M_CHANNEL_MAX
         channelInfo(i) = StringFile_ReadByte(memFile)
 
         ' Check if the channel is enabled
@@ -161,18 +161,18 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
         ' 25 <= x <= 29: Adlib/OPL2 #1 drums (Ax)
         SELECT CASE channelInfo(i)
             CASE 0 TO 7
-                SoftSynth_SetVoiceBalance player.synth, i, -__CHANNEL_STEREO_SEPARATION ' pan to the left
-                player.channel(i).subtype = __INSTRUMENT_PCM
+                SoftSynth_SetVoiceBalance player.synth, i, -__MODPLAYER_STEREO_SEPARATION ' pan to the left
+                player.channel(i).subtype = __MODPLAYER_INSTRUMENT_PCM
 
             CASE 8 TO 15
-                SoftSynth_SetVoiceBalance player.synth, i, __CHANNEL_STEREO_SEPARATION ' pan it to the right
-                player.channel(i).subtype = __INSTRUMENT_PCM
+                SoftSynth_SetVoiceBalance player.synth, i, __MODPLAYER_STEREO_SEPARATION ' pan it to the right
+                player.channel(i).subtype = __MODPLAYER_INSTRUMENT_PCM
 
             CASE 16 TO 24
-                player.channel(i).subtype = __INSTRUMENT_FM_MELODY ' FM melody channel
+                player.channel(i).subtype = __MODPLAYER_INSTRUMENT_FM_MELODY ' FM melody channel
 
             CASE 25 TO 29
-                player.channel(i).subtype = __INSTRUMENT_FM_BASSDRUM ' FM drums channel
+                player.channel(i).subtype = __MODPLAYER_INSTRUMENT_FM_BASSDRUM ' FM drums channel
         END SELECT
 
         '_ECHO "Channel " + STR$(i) + " enabled =" + STR$(NOT _READBIT(channelInfo(i), 7))
@@ -208,7 +208,7 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     ' Load the panning table if it is present
     IF useDefaultPanning THEN
         ' We have a total of 32 pan positions in the file
-        FOR i = 0 TO __MTM_S3M_CHANNEL_MAX
+        FOR i = 0 TO __MODPLAYER_MTM_S3M_CHANNEL_MAX
             byte1 = StringFile_ReadByte(memFile)
 
             ' Only set the pan position if the channel is there
@@ -249,7 +249,7 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
         player.instrument(i).caption = String_MakePrintable(String_ConvertToBStr(StringFile_ReadString(memFile, 12)))
         '_ECHO " File name = " + player.instrument(i).caption
 
-        IF player.instrument(i).subtype > __INSTRUMENT_PCM THEN ' this is an FM instrument
+        IF player.instrument(i).subtype > __MODPLAYER_INSTRUMENT_PCM THEN ' this is an FM instrument
             'TODO: Implement FM instrument loading support
             ERROR _ERR_FEATURE_UNAVAILABLE
         ELSE ' this is a standard PCM or blank instrument
@@ -275,7 +275,7 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
             ' Read volume
             player.instrument(i).volume = StringFile_ReadByte(memFile)
-            IF player.instrument(i).volume > __INSTRUMENT_VOLUME_MAX THEN player.instrument(i).volume = __INSTRUMENT_VOLUME_MAX
+            IF player.instrument(i).volume > __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN player.instrument(i).volume = __MODPLAYER_INSTRUMENT_VOLUME_MAX
             '_ECHO " Volume =" + STR$(player.instrument(i).volume)
 
             ' Skip 1 reserved byte
@@ -323,7 +323,7 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
             '_ECHO " Instrument name = " + player.instrument(i).caption
 
             ' Read and verify the 'SCRS' label. This will ensure we are reading the file correctly somewhat until this point
-            IF StringFile_ReadString(memFile, 4) <> "SCRS" _ANDALSO __INSTRUMENT_PCM = player.instrument(i).subtype THEN EXIT FUNCTION
+            IF StringFile_ReadString(memFile, 4) <> "SCRS" _ANDALSO __MODPLAYER_INSTRUMENT_PCM = player.instrument(i).subtype THEN EXIT FUNCTION
 
             ' Validate a few things
             IF player.instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP _ANDALSO player.instrument(i).loopEnd > 2 THEN
@@ -341,17 +341,17 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
     ' Load pattern data and convert it to MOD / MTM style
     FOR i = 0 TO player.song.patterns - 1
-        player.pattern(i).rows = __MOD_S3M_ROWS
-        REDIM player.pattern(i).note(0 TO __MOD_S3M_ROWS - 1, 0 TO player.song.channels - 1) AS __MODPlayerNote
+        player.pattern(i).rows = __MODPLAYER_MOD_S3M_ROWS
+        REDIM player.pattern(i).note(0 TO __MODPLAYER_MOD_S3M_ROWS - 1, 0 TO player.song.channels - 1) AS __MODPlayerNote
 
         ' Set the entire pattern to defaults first
-        DIM row AS LONG: FOR row = 0 TO __MOD_S3M_ROWS - 1
+        DIM row AS LONG: FOR row = 0 TO __MODPLAYER_MOD_S3M_ROWS - 1
             DIM chan AS LONG: FOR chan = 0 TO player.song.channels - 1
-                player.pattern(i).note(row, chan).note = __NOTE_NONE
+                player.pattern(i).note(row, chan).note = __MODPLAYER_NOTE_NONE
                 player.pattern(i).note(row, chan).instrument = 0
                 player.pattern(i).note(row, chan).effect = 0
                 player.pattern(i).note(row, chan).operand = 0
-                player.pattern(i).note(row, chan).volume = __NOTE_NO_VOLUME
+                player.pattern(i).note(row, chan).volume = __MODPLAYER_NOTE_NO_VOLUME
             NEXT chan
         NEXT row
 
@@ -361,7 +361,7 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
         StringFile_Seek memFile, patternPointer(i) + 2 ' + 2 here is for the packed data size that we'll conveniently ignore
 
         row = 0
-        WHILE row < __MOD_S3M_ROWS
+        WHILE row < __MODPLAYER_MOD_S3M_ROWS
             DIM flags AS _UNSIGNED _BYTE: flags = StringFile_ReadByte(memFile)
 
             IF flags THEN ' we have some data; unpack it
@@ -386,10 +386,10 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
                         SELECT CASE word1
                             CASE 255
-                                player.pattern(i).note(row, chan).note = __NOTE_NONE
+                                player.pattern(i).note(row, chan).note = __MODPLAYER_NOTE_NONE
 
                             CASE 254
-                                player.pattern(i).note(row, chan).note = __NOTE_KEY_OFF
+                                player.pattern(i).note(row, chan).note = __MODPLAYER_NOTE_KEY_OFF
 
                             CASE ELSE
                                 player.pattern(i).note(row, chan).note = _SHR(word1, 4) * 12 + (word1 AND &HF)
@@ -569,7 +569,7 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
     ' Read the PCM instrument sample data
     FOR i = 0 TO player.song.instruments - 1
-        IF player.instrument(i).subtype > __INSTRUMENT_PCM THEN
+        IF player.instrument(i).subtype > __MODPLAYER_INSTRUMENT_PCM THEN
             ' TODO: Can this happen? Probably a corrupt file?
             ERROR _ERR_FEATURE_UNAVAILABLE
         ELSE
