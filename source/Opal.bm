@@ -1343,7 +1343,7 @@ SUB Opal_MixSamples (opl AS Opal, buffer() AS SINGLE, frames AS _UNSIGNED LONG, 
 
     DIM AS SINGLE l, r
     DIM samples AS _UNSIGNED LONG: samples = frames * 2
-    DIM scale AS SINGLE: scale = __OPAL_MULTIPLIER_16_TO_32 * volume
+    DIM scale AS SINGLE: scale = __OPAL_MULTIPLIER_16_TO_32 * OPAL_DEFAULT_GAIN * volume
 
     DIM i AS _UNSIGNED LONG
     WHILE i < samples

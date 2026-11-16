@@ -836,7 +836,7 @@ SUB __MODPlayer_UpdateFMVolume (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE
         DIM d02HH AS _UNSIGNED _BYTE
         d02HH = player.instrument(instIdx).adlib(2)
         DIM modVolHH AS LONG
-        modVolHH = 63 - (((63 - CLNG(d02HH AND 63)) * vol) \ 64)
+        modVolHH = 63 - (((63 - CLNG(d02HH AND 63)) * vol + 32) \ 64)
         IF modVolHH < 0 THEN modVolHH = 0
         IF modVolHH > 63 THEN modVolHH = 63
         Opal_Write player.opl, &H40 + modOffsetHH, (d02HH AND &HC0) OR (modVolHH AND 63)
@@ -847,7 +847,7 @@ SUB __MODPlayer_UpdateFMVolume (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE
         DIM d03SC AS _UNSIGNED _BYTE
         d03SC = player.instrument(instIdx).adlib(3)
         DIM carVolSC AS LONG
-        carVolSC = 63 - (((63 - CLNG(d03SC AND 63)) * vol) \ 64)
+        carVolSC = 63 - (((63 - CLNG(d03SC AND 63)) * vol + 32) \ 64)
         IF carVolSC < 0 THEN carVolSC = 0
         IF carVolSC > 63 THEN carVolSC = 63
         DIM carTLSC AS _UNSIGNED _BYTE
@@ -861,7 +861,7 @@ SUB __MODPlayer_UpdateFMVolume (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE
         DIM d03 AS _UNSIGNED _BYTE
         d03 = player.instrument(instIdx).adlib(3)
         DIM carVol AS LONG
-        carVol = 63 - (((63 - CLNG(d03 AND 63)) * vol) \ 64)
+        carVol = 63 - (((63 - CLNG(d03 AND 63)) * vol + 32) \ 64)
         IF carVol < 0 THEN carVol = 0
         IF carVol > 63 THEN carVol = 63
         DIM carTL AS _UNSIGNED _BYTE
@@ -878,7 +878,7 @@ SUB __MODPlayer_UpdateFMVolume (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE
             DIM d02 AS _UNSIGNED _BYTE
             d02 = player.instrument(instIdx).adlib(2)
             DIM modVol AS LONG
-            modVol = 63 - (((63 - CLNG(d02 AND 63)) * vol) \ 64)
+            modVol = 63 - (((63 - CLNG(d02 AND 63)) * vol + 32) \ 64)
             IF modVol < 0 THEN modVol = 0
             IF modVol > 63 THEN modVol = 63
             Opal_Write player.opl, &H40 + modOffset, (d02 AND &HC0) OR (modVol AND 63)
