@@ -115,6 +115,8 @@ SUB __MODPlayer_InitializeSong (player AS MODPlayer)
     player.song.useFilterSFX = _FALSE
     player.song.useST300VolumeSlides = _FALSE
     player.song.hasSpecialCustomData = _FALSE
+    player.song.hasFMChannels = _FALSE
+    player.song.isStereo = _FALSE
 END SUB
 
 ''' @brief Calculates middle-C playback speed in Hertz for a ProTracker finetune nibble.

@@ -249,6 +249,7 @@ TYPE __MODPlayerSong
     useST300VolumeSlides AS _BYTE ' ST3.00 volume slides (automatically enabled if tracker version is <= 0x1300) - if enabled, all volume slides occur every tick
     hasSpecialCustomData AS _BYTE ' special custom data in file (uses "Special" field)
     hasFMChannels AS _BYTE ' true if song contains AdLib FM channels
+    isStereo AS _BYTE ' true if song uses stereo panning, false for mono
 END TYPE
 
 TYPE MODPlayer

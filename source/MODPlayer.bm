@@ -118,6 +118,10 @@ SUB MODPlayer_Play (player AS MODPlayer)
     ' Initialize some important stuff
     player.song.tempoTimerValue = (SoftSynth_GetSampleRate(player.synth) * __MODPLAYER_SONG_BPM_DEFAULT) \ 50
     player.song.orderPosition = 0
+    WHILE player.song.orderPosition < player.song.orders _ANDALSO player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_MARKER
+        player.song.orderPosition = player.song.orderPosition + 1
+    WEND
+    IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
     player.song.patternRow = 0
     player.song.speed = player.song.defaultSpeed
     player.song.tick = player.song.speed
@@ -191,9 +195,16 @@ SUB MODPlayer_Play (player AS MODPlayer)
                 player.channel(channelIndex).patternLoopRow = 0
                 player.channel(channelIndex).patternLoopRowCounter = 0
                 player.channel(channelIndex).c2Spd = 0
-                SoftSynth_SetVoiceBalance player.synth, channelIndex, player.channel(channelIndex).panning / 255! * 2! - SOFTSYNTH_VOICE_PAN_RIGHT
-                IF player.channel(channelIndex).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY THEN
-                    Opal_SetPan player.opl, player.channel(channelIndex).oplChannel, player.channel(channelIndex).panning \ 2
+                IF player.song.isStereo THEN
+                    SoftSynth_SetVoiceBalance player.synth, channelIndex, player.channel(channelIndex).panning / 255! * 2! - SOFTSYNTH_VOICE_PAN_RIGHT
+                    IF player.channel(channelIndex).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY THEN
+                        Opal_SetPan player.opl, player.channel(channelIndex).oplChannel, player.channel(channelIndex).panning \ 2
+                    END IF
+                ELSE
+                    SoftSynth_SetVoiceBalance player.synth, channelIndex, SOFTSYNTH_VOICE_PAN_CENTER
+                    IF player.channel(channelIndex).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY THEN
+                        Opal_SetPan player.opl, player.channel(channelIndex).oplChannel, 64
+                    END IF
                 END IF
             END IF
         NEXT channelIndex
@@ -243,30 +254,28 @@ SUB MODPlayer_Update (player AS MODPlayer, bufferTimeSecs AS SINGLE)
 
             ' Process pattern row if pattern delay is over
             IF player.song.patternDelay = 0 THEN
-                ' Skip marker pattern
-                WHILE __MODPLAYER_PATTERN_MARKER = player.order(player.song.orderPosition)
+                ' Skip marker pattern (254) and handle end of song (255)
+                DIM markerLoopCount AS _UNSIGNED INTEGER: markerLoopCount = 0
+                DO WHILE player.song.orderPosition < player.song.orders _ANDALSO player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_MARKER
                     player.song.orderPosition = player.song.orderPosition + 1
                     player.song.patternRow = 0
+                    markerLoopCount = markerLoopCount + 1
+                    IF markerLoopCount >= player.song.orders THEN EXIT DO
+                LOOP
 
-                    ' Check if we need to loop or stop
-                    IF player.song.orderPosition >= player.song.orders THEN
-                        IF player.song.isLooping THEN
-                            player.song.orderPosition = player.song.endJumpOrder
-                            player.song.speed = player.song.defaultSpeed
-                            player.song.tick = player.song.speed
-                        ELSE
-                            player.song.isPlaying = _FALSE
-                            EXIT SUB ' bail
-                        END IF
-                    END IF
-                WEND
-
-                ' Check for end of song marker
-                IF __MODPLAYER_PATTERN_END = player.order(player.song.orderPosition) THEN
+                ' Check if we ran off the order list or hit end of song marker
+                IF player.song.orderPosition >= player.song.orders _ORELSE player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_END THEN
                     IF player.song.isLooping THEN
                         player.song.orderPosition = player.song.endJumpOrder
                         player.song.speed = player.song.defaultSpeed
                         player.song.tick = player.song.speed
+                        WHILE player.song.orderPosition < player.song.orders _ANDALSO player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_MARKER
+                            player.song.orderPosition = player.song.orderPosition + 1
+                        WEND
+                        IF player.song.orderPosition >= player.song.orders _ORELSE player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_END THEN
+                            player.song.isPlaying = _FALSE
+                            EXIT SUB
+                        END IF
                     ELSE
                         player.song.isPlaying = _FALSE
                         EXIT SUB ' bail
@@ -442,9 +451,16 @@ SUB __MODPlayer_SetChannelPanning (player AS MODPlayer, nChannel AS _UNSIGNED _B
     player.channel(nChannel).panning = safePan
     IF NOT player.channel(nChannel).panbrelloActive THEN player.channel(nChannel).panbrelloBasePanning = safePan
     SoftSynth_SetVoiceSurround player.synth, nChannel, _FALSE
-    SoftSynth_SetVoiceBalance player.synth, nChannel, safePan / 255! * 2! - SOFTSYNTH_VOICE_PAN_RIGHT
-    IF player.channel(nChannel).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY THEN
-        Opal_SetPan player.opl, player.channel(nChannel).oplChannel, safePan \ 2
+    IF player.song.isStereo THEN
+        SoftSynth_SetVoiceBalance player.synth, nChannel, safePan / 255! * 2! - SOFTSYNTH_VOICE_PAN_RIGHT
+        IF player.channel(nChannel).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY THEN
+            Opal_SetPan player.opl, player.channel(nChannel).oplChannel, safePan \ 2
+        END IF
+    ELSE
+        SoftSynth_SetVoiceBalance player.synth, nChannel, SOFTSYNTH_VOICE_PAN_CENTER
+        IF player.channel(nChannel).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY THEN
+            Opal_SetPan player.opl, player.channel(nChannel).oplChannel, 64
+        END IF
     END IF
 END SUB
 
@@ -535,7 +551,10 @@ SUB __MODPlayer_PlayPCMChannelVoice (player AS MODPlayer, nChannel AS _UNSIGNED 
     SoftSynth_PlayVoice player.synth, nChannel, inst, SoftSynth_ConvertBytesToFrames(player.channel(nChannel).startPosition, player.instrument(inst).bytesPerSample, player.instrument(inst).channels), player.instrument(inst).playMode, SoftSynth_ConvertBytesToFrames(player.instrument(inst).loopStart, player.instrument(inst).bytesPerSample, player.instrument(inst).channels), SoftSynth_ConvertBytesToFrames(player.instrument(inst).loopEnd, player.instrument(inst).bytesPerSample, player.instrument(inst).channels)
 
     IF player.instrument(inst).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
+        player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH
         __MODPlayer_TriggerAMInstrument player, nChannel, inst
+    ELSEIF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
+        player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_PCM
     END IF
 END SUB
 
@@ -1121,6 +1140,10 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                     CASE __MODPLAYER_FX_POSITION_JUMP
                         player.song.orderPosition = nOperand
                         IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
+                        WHILE player.song.orderPosition < player.song.orders _ANDALSO player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_MARKER
+                            player.song.orderPosition = player.song.orderPosition + 1
+                        WEND
+                        IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
                         player.song.patternRow = -1
                         jumpEffectFlag = _TRUE
 
@@ -1129,6 +1152,10 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                         IF NOT breakEffectFlag _ANDALSO NOT jumpEffectFlag THEN
                             IF NOT player.song.isS3M _ORELSE (nOpX = 0 _ANDALSO nOpY = 0) THEN
                                 player.song.orderPosition = player.song.orderPosition + 1
+                                IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
+                                WHILE player.song.orderPosition < player.song.orders _ANDALSO player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_MARKER
+                                    player.song.orderPosition = player.song.orderPosition + 1
+                                WEND
                                 IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
                             END IF
                         END IF
@@ -1379,6 +1406,10 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
             CASE __MODPLAYER_FX_POSITION_JUMP
                 player.song.orderPosition = nOperand
                 IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
+                WHILE player.song.orderPosition < player.song.orders _ANDALSO player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_MARKER
+                    player.song.orderPosition = player.song.orderPosition + 1
+                WEND
+                IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
                 player.song.patternRow = -1 ' This will increment right after & we will start at 0
                 jumpEffectFlag = _TRUE
 
@@ -1391,6 +1422,10 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                 IF NOT breakEffectFlag _ANDALSO NOT jumpEffectFlag THEN
                     IF NOT player.song.isS3M _ORELSE (nOpX = 0 _ANDALSO nOpY = 0) THEN
                         player.song.orderPosition = player.song.orderPosition + 1
+                        IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
+                        WHILE player.song.orderPosition < player.song.orders _ANDALSO player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_MARKER
+                            player.song.orderPosition = player.song.orderPosition + 1
+                        WEND
                         IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
                     END IF
                 END IF
@@ -2201,6 +2236,13 @@ FUNCTION MODPlayer_GetType$ (player AS MODPlayer)
     MODPlayer_GetType = player.song.subtype
 END FUNCTION
 
+''' @brief Checks whether the loaded song uses stereo channel panning.
+''' @param player The MOD player instance.
+''' @return _TRUE if stereo, _FALSE if mono.
+FUNCTION MODPlayer_IsStereo%% (player AS MODPlayer)
+    MODPlayer_IsStereo = player.song.isStereo
+END FUNCTION
+
 ''' @brief Checks whether a song is actively playing.
 ''' @param player The MOD player instance.
 ''' @return _TRUE if playing, _FALSE otherwise.
@@ -2239,27 +2281,41 @@ END FUNCTION
 ''' @brief Advances playback position to the next pattern order, wrapping at song end if looping.
 ''' @param player The MOD player instance.
 SUB MODPlayer_GoToNextPosition (player AS MODPlayer)
-    IF player.song.isLooping THEN ' if we are looping
-        player.song.orderPosition = player.song.orderPosition + 1 ' move to the next order
-        IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = 0 ' wrap to first order if we have reached the end
-        player.song.patternRow = 0 ' reset row position
-    ELSEIF player.song.orderPosition < player.song.orders - 1 THEN ' else only if have not reached the last order
-        player.song.orderPosition = player.song.orderPosition + 1
-        player.song.patternRow = 0 ' reset row position
-    END IF
+    IF player.song.orders = 0 THEN EXIT SUB
+
+    DIM startPos AS LONG: startPos = player.song.orderPosition
+    DO
+        IF player.song.isLooping THEN
+            player.song.orderPosition = player.song.orderPosition + 1
+            IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = 0
+        ELSEIF player.song.orderPosition < player.song.orders - 1 THEN
+            player.song.orderPosition = player.song.orderPosition + 1
+        ELSE
+            EXIT DO
+        END IF
+    LOOP WHILE player.song.orderPosition <> startPos _ANDALSO (player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_MARKER _ORELSE player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_END)
+
+    player.song.patternRow = 0
 END SUB
 
 ''' @brief Rewinds playback position to the previous pattern order, wrapping if looping.
 ''' @param player The MOD player instance.
 SUB MODPlayer_GoToPreviousPosition (player AS MODPlayer)
-    IF player.song.isLooping THEN ' if we are looping
-        player.song.orderPosition = player.song.orderPosition - 1 ' move to the previous order
-        IF player.song.orderPosition < 0 THEN player.song.orderPosition = player.song.orders - 1 ' wrap to the last order if we have crossed the beginning
-        player.song.patternRow = 0 ' reset row position
-    ELSEIF player.song.orderPosition > 0 THEN ' else only if have not reached the first order
-        player.song.orderPosition = player.song.orderPosition - 1 ' move to the previous order
-        player.song.patternRow = 0 ' reset row position
-    END IF
+    IF player.song.orders = 0 THEN EXIT SUB
+
+    DIM startPos AS LONG: startPos = player.song.orderPosition
+    DO
+        IF player.song.isLooping THEN
+            player.song.orderPosition = player.song.orderPosition - 1
+            IF player.song.orderPosition < 0 THEN player.song.orderPosition = player.song.orders - 1
+        ELSEIF player.song.orderPosition > 0 THEN
+            player.song.orderPosition = player.song.orderPosition - 1
+        ELSE
+            EXIT DO
+        END IF
+    LOOP WHILE player.song.orderPosition <> startPos _ANDALSO (player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_MARKER _ORELSE player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_END)
+
+    player.song.patternRow = 0
 END SUB
 
 ''' @brief Sets the current pattern order playback position.
@@ -2267,8 +2323,14 @@ END SUB
 ''' @param position Target order position index (0-based).
 SUB MODPlayer_SetPosition (player AS MODPlayer, position AS _UNSIGNED INTEGER)
     IF position < player.song.orders THEN
-        player.song.orderPosition = position
-        player.song.patternRow = 0
+        DIM targetPos AS LONG: targetPos = position
+        WHILE targetPos < player.song.orders _ANDALSO player.order(targetPos) = __MODPLAYER_PATTERN_MARKER
+            targetPos = targetPos + 1
+        WEND
+        IF targetPos < player.song.orders _ANDALSO player.order(targetPos) <> __MODPLAYER_PATTERN_END THEN
+            player.song.orderPosition = targetPos
+            player.song.patternRow = 0
+        END IF
     END IF
 END SUB
 
@@ -2294,4 +2356,23 @@ FUNCTION MODPlayer_GetPatternRows~% (player AS MODPlayer, patternIndex AS _UNSIG
     IF patternIndex < player.song.patterns THEN
         MODPlayer_GetPatternRows = player.pattern(patternIndex).rows
     END IF
+END FUNCTION
+
+''' @brief Gets the synthesis mode badge caption for a channel.
+''' @param player The MOD player instance.
+''' @param nChannel Channel index (0-based).
+''' @return Badge string: "[PCM]", "[AM ]", "[FMm]", or "[FMd]".
+FUNCTION MODPlayer_GetChannelSubtypeCaption$ (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE)
+    IF nChannel >= player.song.channels THEN EXIT FUNCTION
+
+    SELECT CASE player.channel(nChannel).subtype
+        CASE __MODPLAYER_INSTRUMENT_AM_SYNTH
+            MODPlayer_GetChannelSubtypeCaption = "[AM ]"
+        CASE __MODPLAYER_INSTRUMENT_FM_MELODY
+            MODPlayer_GetChannelSubtypeCaption = "[FMm]"
+        CASE __MODPLAYER_INSTRUMENT_FM_BASSDRUM TO __MODPLAYER_INSTRUMENT_FM_HIHAT
+            MODPlayer_GetChannelSubtypeCaption = "[FMd]"
+        CASE ELSE
+            MODPlayer_GetChannelSubtypeCaption = "[PCM]"
+    END SELECT
 END FUNCTION

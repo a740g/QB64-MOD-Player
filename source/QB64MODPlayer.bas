@@ -180,7 +180,22 @@ SUB Visualizer_Draw
     _PRINTSTRING (x, j), " PAT RW "
     i = 0
     WHILE i < Player.song.channels
-        _PRINTSTRING (x + 8 + i * 19, j), " CHAN NOT S# FX OP "
+        DIM chanBadge AS STRING: chanBadge = MODPlayer_GetChannelSubtypeCaption(Player, i)
+        COLOR Blink, Cyan
+        _PRINTSTRING (x + 8 + i * 19, j), " "
+        SELECT CASE chanBadge
+            CASE "[AM ]"
+                COLOR Blink, Yellow
+            CASE "[FMm]"
+                COLOR Blink, LightMagenta
+            CASE "[FMd]"
+                COLOR Blink, LightRed
+            CASE ELSE
+                COLOR Blink, LightCyan
+        END SELECT
+        _PRINTSTRING (x + 8 + i * 19 + 1, j), chanBadge
+        COLOR Blink, Cyan
+        _PRINTSTRING (x + 8 + i * 19 + 6, j), " NOT S# FX OP "
         i = i + 1
     WEND
 

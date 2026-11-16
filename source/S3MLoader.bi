@@ -118,6 +118,7 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     '_ECHO "SoundBlaster master volume =" + STR$(byte1)
     DIM isStereo AS _BYTE: isStereo = _READBIT(byte1, 7)
     '_ECHO "isStereo =" + STR$(isStereo)
+    player.song.isStereo = isStereo
 
     ' Skip Ultrasound ultra-click removal crap
     StringFile_Seek memFile, StringFile_GetPosition(memFile) + 1 ' 1 byte
@@ -236,11 +237,17 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     REDIM player.order(0 TO player.song.orders - 1) AS _UNSIGNED INTEGER
 
     ' Read order list
-    ' Note: We'll need to handle 254 & 255 marker orders correctly in the player
     FOR i = 0 TO player.song.orders - 1
         player.order(i) = StringFile_ReadByte(memFile)
         '_ECHO "Order" + STR$(i) + " =" + STR$(player.order(i))
     NEXT i
+
+    ' Trim trailing end-of-song markers (255) so orders matches actual song length
+    DO WHILE player.song.orders > 0 _ANDALSO player.order(player.song.orders - 1) = __MODPLAYER_PATTERN_END
+        player.song.orders = player.song.orders - 1
+    LOOP
+    IF player.song.orders = 0 THEN EXIT FUNCTION
+    REDIM _PRESERVE player.order(0 TO player.song.orders - 1) AS _UNSIGNED INTEGER
 
     ' Load and convert instrument parapointers
     DIM instrumentPointer(0 TO player.song.instruments - 1) AS _UNSIGNED LONG
@@ -266,8 +273,7 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
             ' Only set the pan position if the channel is there
             IF i < player.song.channels THEN
-                ' WTF! Ewww!
-                IF _READBIT(byte1, 4) THEN ' if bit 4 is set - byte1 AND &H10
+                IF _READBIT(byte1, 5) THEN ' if bit 5 is set (&H20) - custom pan position specified
                     player.channel(i).panning = (byte1 AND 15) * 17
                     player.channel(i).defaultPanning = player.channel(i).panning
                     SoftSynth_SetVoiceBalance player.synth, i, player.channel(i).panning / 255! * 2! - SOFTSYNTH_VOICE_PAN_RIGHT

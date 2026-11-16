@@ -449,7 +449,7 @@ SUB Test_MODPlayer_S3M
     TEST_REQUIRE MODPlayer_LoadFromDisk(playerS3MBack, "mods/BACKWARD.S3M"), "Load BACKWARD.S3M"
     TEST_CHECK INSTR(MODPlayer_GetName(playerS3MBack), "Backwards") > 0, "Song caption matches"
     TEST_CHECK MODPlayer_GetType(playerS3MBack) = "SCRM", "Song subtype is SCRM"
-    TEST_CHECK MODPlayer_GetOrders(playerS3MBack) = 14, "Song has 14 orders"
+    TEST_CHECK MODPlayer_GetOrders(playerS3MBack) = 13, "Song has 13 orders (trailing 255 trimmed)"
     TEST_CHECK playerS3MBack.song.patterns = 13, "Song has 13 patterns"
 
     ' Step 0 -> row 0 has C63 which should break to row 63 in same pattern
@@ -871,6 +871,7 @@ SUB Test_MODPlayer_S3M_FMDrums
     player.song.instruments = 1
     REDIM player.channel(0 TO 1) AS __MODPLAYERCHANNEL
     REDIM player.instrument(0 TO 0) AS __MODPLAYERINSTRUMENT
+    player.song.isStereo = _TRUE
 
     player.channel(0).subtype = __MODPLAYER_INSTRUMENT_FM_BASSDRUM
     player.channel(0).oplChannel = 6
@@ -1042,6 +1043,148 @@ SUB Test_MODPlayer_Startrekker_AM
     TEST_CASE_END
 END SUB
 
+''' @brief Tests for S3M order list marker filtering (254 skip markers and 255 end-of-song markers).
+SUB Test_S3M_Markers
+    TEST_CASE_BEGIN "S3M Markers: Trailing 255 trimming"
+    DIM pBack AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pBack, "mods/BACKWARD.S3M"), "Load BACKWARD.S3M"
+    TEST_CHECK MODPlayer_GetOrders(pBack) = 13, "BACKWARD.S3M trimmed to 13 orders"
+    TEST_CHECK pBack.order(12) = 12, "Last order is pattern 12"
+    MODPlayer_Finalize pBack
+
+    DIM pAryx AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pAryx, "mods/aryx.s3m"), "Load aryx.s3m"
+    TEST_CHECK MODPlayer_GetOrders(pAryx) = 42, "aryx.s3m trimmed to 42 orders (from 44)"
+    MODPlayer_Finalize pAryx
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "S3M Markers: 254 marker skipping during navigation (A94FINAL.S3M)"
+    DIM pA94 AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pA94, "mods/A94FINAL.S3M"), "Load A94FINAL.S3M"
+    ' Verify marker is preserved in order array for Bxx jump targeting
+    TEST_CHECK pA94.order(2) = 2, "Order 2 is pattern 2"
+    TEST_CHECK pA94.order(3) = __MODPLAYER_PATTERN_MARKER, "Order 3 is marker 254"
+    TEST_CHECK pA94.order(4) = 4, "Order 4 is pattern 4"
+
+    MODPlayer_Play pA94
+    TEST_CHECK MODPlayer_GetPosition(pA94) = 0, "Initial position is 0"
+
+    ' Navigate to order 2
+    MODPlayer_SetPosition pA94, 2
+    TEST_CHECK MODPlayer_GetPosition(pA94) = 2, "Position set to 2"
+
+    ' GoToNextPosition should step over order 3 (254) directly to order 4
+    MODPlayer_GoToNextPosition pA94
+    TEST_CHECK MODPlayer_GetPosition(pA94) = 4, "GoToNextPosition stepped over 254 marker to order 4"
+
+    ' GoToPreviousPosition should step back over order 3 (254) directly to order 2
+    MODPlayer_GoToPreviousPosition pA94
+    TEST_CHECK MODPlayer_GetPosition(pA94) = 2, "GoToPreviousPosition stepped back over 254 marker to order 2"
+
+    ' SetPosition directly targeting order 3 should advance past marker to order 4
+    MODPlayer_SetPosition pA94, 3
+    TEST_CHECK MODPlayer_GetPosition(pA94) = 4, "SetPosition on marker 254 advances to order 4"
+
+    ' Test Bxx position jump targeting marker order 3
+    pA94.song.orderPosition = 0
+    pA94.song.patternRow = 0
+    pA94.song.tickPattern = pA94.order(pA94.song.orderPosition)
+    pA94.song.tickPatternRow = 0
+    ' Simulate B 03 effect in pattern note
+    pA94.pattern(pA94.song.tickPattern).note(0, 0).effect = __MODPLAYER_FX_POSITION_JUMP
+    pA94.pattern(pA94.song.tickPattern).note(0, 0).operand = 3
+    __MODPlayer_UpdateRow pA94
+    ' Bxx with target 3 should skip marker 3 and advance orderPosition to 4
+    TEST_CHECK pA94.song.orderPosition = 4, "Bxx position jump to marker 3 advances to order 4"
+
+    MODPlayer_Stop pA94
+    MODPlayer_Finalize pA94
+    TEST_CASE_END
+END SUB
+
+''' @brief Tests for S3M master stereo flag detection and mono centering.
+SUB Test_MODPlayer_Stereo
+    TEST_CASE_BEGIN "Stereo Flag: S3M Mono vs Stereo detection"
+    DIM pMono AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pMono, "mods/adlib.s3m"), "Load adlib.s3m (mono)"
+    TEST_CHECK_FALSE MODPlayer_IsStereo(pMono), "adlib.s3m is mono"
+    DIM c AS LONG
+    FOR c = 0 TO pMono.song.channels - 1
+        TEST_CHECK pMono.channel(c).panning = 128, "Mono channel has center panning (128)"
+    NEXT c
+    MODPlayer_Finalize pMono
+
+    DIM pStereo AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pStereo, "mods/A Touch of Spring.s3m"), "Load A Touch of Spring.s3m (stereo)"
+    TEST_CHECK MODPlayer_IsStereo(pStereo), "A Touch of Spring.s3m is stereo"
+    MODPlayer_Finalize pStereo
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Stereo Flag: MOD and MTM default to stereo"
+    DIM pMod AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pMod, "mods/Enigma.mod"), "Load Enigma.mod"
+    TEST_CHECK MODPlayer_IsStereo(pMod), "MOD is stereo"
+    MODPlayer_Finalize pMod
+
+    DIM pMtm AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pMtm, "mods/cougarstory-ii.mtm"), "Load cougarstory-ii.mtm"
+    TEST_CHECK MODPlayer_IsStereo(pMtm), "MTM is stereo"
+    MODPlayer_Finalize pMtm
+    TEST_CASE_END
+END SUB
+
+''' @brief Tests for channel synthesis mode badges ([PCM], [AM ], [FMm], [FMd]).
+SUB Test_MODPlayer_ChannelBadges
+    TEST_CASE_BEGIN "Channel Badges: PCM channels in MOD"
+    DIM pMod AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pMod, "mods/Enigma.mod"), "Load Enigma.mod"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pMod, 0) = "[PCM]", "Channel 0 is [PCM]"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pMod, 1) = "[PCM]", "Channel 1 is [PCM]"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pMod, 2) = "[PCM]", "Channel 2 is [PCM]"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pMod, 3) = "[PCM]", "Channel 3 is [PCM]"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pMod, 4) = "", "Channel out of bounds is empty string"
+    MODPlayer_Finalize pMod
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Channel Badges: FM Melody channels in adlib.s3m"
+    DIM pFM AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pFM, "mods/adlib.s3m"), "Load adlib.s3m"
+    ' adlib.s3m has channels 0..3 as PCM and 4..12 as AdLib FM Melody
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pFM, 0) = "[PCM]", "Channel 0 is [PCM]"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pFM, 4) = "[FMm]", "Channel 4 is [FMm]"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pFM, 12) = "[FMm]", "Channel 12 is [FMm]"
+    MODPlayer_Finalize pFM
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Channel Badges: FM Drum channels"
+    DIM pDrum AS MODPlayer
+    pDrum.song.channels = 5
+    REDIM pDrum.channel(0 TO 4) AS __MODPLAYERCHANNEL
+    pDrum.channel(0).subtype = __MODPLAYER_INSTRUMENT_FM_BASSDRUM
+    pDrum.channel(1).subtype = __MODPLAYER_INSTRUMENT_FM_SNAREDRUM
+    pDrum.channel(2).subtype = __MODPLAYER_INSTRUMENT_FM_TOMTOM
+    pDrum.channel(3).subtype = __MODPLAYER_INSTRUMENT_FM_CYMBAL
+    pDrum.channel(4).subtype = __MODPLAYER_INSTRUMENT_FM_HIHAT
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pDrum, 0) = "[FMd]", "Bass drum is [FMd]"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pDrum, 1) = "[FMd]", "Snare drum is [FMd]"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pDrum, 2) = "[FMd]", "Tom-tom is [FMd]"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pDrum, 3) = "[FMd]", "Cymbal is [FMd]"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pDrum, 4) = "[FMd]", "Hi-hat is [FMd]"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Channel Badges: AM Synth dynamic badge"
+    DIM pAM AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pAM, "mods/amsyntdemo.mod"), "Load AM demo"
+    ' Initially all channels are PCM before triggering
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pAM, 0) = "[PCM]", "Initial channel 0 is [PCM]"
+    ' Simulate channel 0 playing an AM instrument
+    pAM.channel(0).instrument = 0 ' inst 0 is AM synth
+    __MODPlayer_PlayPCMChannelVoice pAM, 0
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pAM, 0) = "[AM ]", "After triggering AM instrument, badge is [AM ]"
+    MODPlayer_Finalize pAM
+    TEST_CASE_END
+END SUB
+
 ' Run all test suites
 TEST_BEGIN_ALL
 
@@ -1059,6 +1202,9 @@ Test_MODPlayer_S3M
 Test_MODPlayer_S3M_Packed
 Test_MODPlayer_S3M_AdLib
 Test_MODPlayer_S3M_FMDrums
+Test_S3M_Markers
+Test_MODPlayer_Stereo
+Test_MODPlayer_ChannelBadges
 Test_MODPlayer_MTM
 Test_MODPlayer_Memory
 Test_MODLoader

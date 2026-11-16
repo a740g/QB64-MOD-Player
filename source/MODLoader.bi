@@ -122,6 +122,7 @@ FUNCTION MODLoader_LoadWithCompanion%% (player AS MODPlayer, buffer AS STRING, c
     ' Also, seek to the beginning of the file and get the song title
     StringFile_Seek memFile, 0
     player.song.caption = String_MakePrintable(StringFile_ReadString(memFile, 20)) ' MOD song title is 20 bytes long
+    player.song.isStereo = _TRUE
 
     DIM isFLT8 AS _BYTE ' this will we set to true if we are dealing with a FLT8 MOD
 
@@ -401,8 +402,10 @@ FUNCTION MODLoader_LoadWithCompanion%% (player AS MODPlayer, buffer AS STRING, c
     END IF
 
     ' Setup the channel array
-    ' __CHANNEL_PCM = 0 so all MOD channels are by default PCM
     REDIM player.channel(0 TO player.song.channels - 1) AS __MODPLAYERCHANNEL
+    FOR i = 0 TO player.song.channels - 1
+        player.channel(i).subtype = __MODPLAYER_INSTRUMENT_PCM
+    NEXT
 
     ' Allocate the number of softsynth voices we need
     SoftSynth_SetTotalVoices player.synth, player.song.channels

@@ -40,6 +40,7 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
     ' Read the MTM song title (20 bytes)
     player.song.caption = String_MakePrintable(StringFile_ReadString(memFile, 20)) ' MTM song name is 20 bytes
+    player.song.isStereo = _TRUE
 
     ' Read the number of tracks saved
     DIM numTracks AS _UNSIGNED INTEGER: numTracks = StringFile_ReadInteger(memFile)
@@ -70,6 +71,9 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
     ' Resize the channel array
     REDIM player.channel(0 TO player.song.channels - 1) AS __MODPLAYERCHANNEL
+    DIM cIdx AS LONG: FOR cIdx = 0 TO player.song.channels - 1
+        player.channel(cIdx).subtype = __MODPLAYER_INSTRUMENT_PCM
+    NEXT cIdx
 
     ' Allocate the number of softsynth voices we need
     SoftSynth_SetTotalVoices player.synth, player.song.channels
