@@ -24,7 +24,7 @@ FUNCTION __MODPlayer_GenerateAMWaveform$ (waveform AS _UNSIGNED _BYTE)
             FOR k = 0 TO 31
                 DIM sVal AS INTEGER
                 sVal = _CLAMP(CINT(_ROUND(SIN(k * 6.283185307179586# / 32!) * 127!)), -128, 127)
-                MID$(sineWave, k + 1, 1) = CHR$(sVal AND &HFF)
+                ASC(sineWave, k + 1) = sVal AND &HFF
             NEXT k
             __MODPlayer_GenerateAMWaveform = sineWave
 
@@ -32,7 +32,7 @@ FUNCTION __MODPlayer_GenerateAMWaveform$ (waveform AS _UNSIGNED _BYTE)
             DIM sawWave AS STRING * 32
             FOR k = 0 TO 31
                 DIM sawVal AS INTEGER: sawVal = -128 + k * 8
-                MID$(sawWave, k + 1, 1) = CHR$(sawVal AND &HFF)
+                ASC(sawWave, k + 1) = sawVal AND &HFF
             NEXT k
             __MODPlayer_GenerateAMWaveform = sawWave
 
@@ -40,9 +40,9 @@ FUNCTION __MODPlayer_GenerateAMWaveform$ (waveform AS _UNSIGNED _BYTE)
             DIM sqWave AS STRING * 32
             FOR k = 0 TO 31
                 IF k < 16 THEN
-                    MID$(sqWave, k + 1, 1) = CHR$(&H80)
+                    ASC(sqWave, k + 1) = &H80
                 ELSE
-                    MID$(sqWave, k + 1, 1) = CHR$(&H7F)
+                    ASC(sqWave, k + 1) = &H7F
                 END IF
             NEXT k
             __MODPlayer_GenerateAMWaveform = sqWave
@@ -53,7 +53,7 @@ FUNCTION __MODPlayer_GenerateAMWaveform$ (waveform AS _UNSIGNED _BYTE)
             FOR k = 0 TO 1023
                 seed = (seed * 1103515245 + 12345) AND &H7FFFFFFF
                 DIM nVal AS _UNSIGNED _BYTE: nVal = _SHR(seed, 16) AND &HFF
-                MID$(noiseWave, k + 1, 1) = CHR$(nVal)
+                ASC(noiseWave, k + 1) = nVal
             NEXT k
             __MODPlayer_GenerateAMWaveform = noiseWave
 
@@ -481,48 +481,8 @@ FUNCTION MODLoader_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
     IF LEN(modBuf) = 0 THEN EXIT FUNCTION
 
     DIM compBuf AS STRING: compBuf = _STR_EMPTY
-    DIM candPath AS STRING
-
-    candPath = fileName + ".nt"
-    IF _FILEEXISTS(candPath) THEN
-        compBuf = File_Load(candPath)
-    ELSE
-        candPath = fileName + ".NT"
-        IF _FILEEXISTS(candPath) THEN
-            compBuf = File_Load(candPath)
-        ELSE
-            candPath = fileName + ".as"
-            IF _FILEEXISTS(candPath) THEN
-                compBuf = File_Load(candPath)
-            ELSE
-                candPath = fileName + ".AS"
-                IF _FILEEXISTS(candPath) THEN compBuf = File_Load(candPath)
-            END IF
-        END IF
-    END IF
-
-    IF LEN(compBuf) = 0 AND LEN(fileName) > 4 THEN
-        IF LCASE$(RIGHT$(fileName, 4)) = ".mod" THEN
-            DIM baseName AS STRING: baseName = LEFT$(fileName, LEN(fileName) - 4)
-            candPath = baseName + ".nt"
-            IF _FILEEXISTS(candPath) THEN
-                compBuf = File_Load(candPath)
-            ELSE
-                candPath = baseName + ".NT"
-                IF _FILEEXISTS(candPath) THEN
-                    compBuf = File_Load(candPath)
-                ELSE
-                    candPath = baseName + ".as"
-                    IF _FILEEXISTS(candPath) THEN
-                        compBuf = File_Load(candPath)
-                    ELSE
-                        candPath = baseName + ".AS"
-                        IF _FILEEXISTS(candPath) THEN compBuf = File_Load(candPath)
-                    END IF
-                END IF
-            END IF
-        END IF
-    END IF
+    DIM compPath AS STRING: compPath = __MODPlayer_FindCompanionFile(fileName)
+    IF LEN(compPath) > 0 THEN compBuf = File_Load(compPath)
 
     MODLoader_LoadFromDisk = MODLoader_LoadWithCompanion(player, modBuf, compBuf)
 END FUNCTION

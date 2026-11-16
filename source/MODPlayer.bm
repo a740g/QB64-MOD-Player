@@ -56,48 +56,8 @@ FUNCTION MODPlayer_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
     IF LEN(buffer) = 0 THEN EXIT FUNCTION
 
     DIM compBuf AS STRING: compBuf = _STR_EMPTY
-    DIM candPath AS STRING
-
-    candPath = fileName + ".nt"
-    IF _FILEEXISTS(candPath) THEN
-        compBuf = File_LoadFromDisk(candPath)
-    ELSE
-        candPath = fileName + ".NT"
-        IF _FILEEXISTS(candPath) THEN
-            compBuf = File_LoadFromDisk(candPath)
-        ELSE
-            candPath = fileName + ".as"
-            IF _FILEEXISTS(candPath) THEN
-                compBuf = File_LoadFromDisk(candPath)
-            ELSE
-                candPath = fileName + ".AS"
-                IF _FILEEXISTS(candPath) THEN compBuf = File_LoadFromDisk(candPath)
-            END IF
-        END IF
-    END IF
-
-    IF LEN(compBuf) = 0 AND LEN(fileName) > 4 THEN
-        IF LCASE$(RIGHT$(fileName, 4)) = ".mod" THEN
-            DIM baseName AS STRING: baseName = LEFT$(fileName, LEN(fileName) - 4)
-            candPath = baseName + ".nt"
-            IF _FILEEXISTS(candPath) THEN
-                compBuf = File_LoadFromDisk(candPath)
-            ELSE
-                candPath = baseName + ".NT"
-                IF _FILEEXISTS(candPath) THEN
-                    compBuf = File_LoadFromDisk(candPath)
-                ELSE
-                    candPath = baseName + ".as"
-                    IF _FILEEXISTS(candPath) THEN
-                        compBuf = File_LoadFromDisk(candPath)
-                    ELSE
-                        candPath = baseName + ".AS"
-                        IF _FILEEXISTS(candPath) THEN compBuf = File_LoadFromDisk(candPath)
-                    END IF
-                END IF
-            END IF
-        END IF
-    END IF
+    DIM compPath AS STRING: compPath = __MODPlayer_FindCompanionFile(fileName)
+    IF LEN(compPath) > 0 THEN compBuf = File_LoadFromDisk(compPath)
 
     MODPlayer_LoadFromDisk = MODPlayer_LoadWithCompanion(player, buffer, compBuf)
 END FUNCTION

@@ -6,6 +6,7 @@
 $INCLUDEONCE
 
 '$INCLUDE:'MODPlayer.bi'
+'$INCLUDE:'Pathname.bi'
 
 ''' @brief Loads the period, sine, and invert loop speed tables into memory for use by the MOD player.
 SUB __MODPlayer_LoadTables
@@ -180,4 +181,65 @@ FUNCTION __MODPlayer_GetS3MC2Spd~% (ft AS _UNSIGNED _BYTE)
         CASE 14: __MODPlayer_GetS3MC2Spd = 8723
         CASE 15: __MODPlayer_GetS3MC2Spd = 8757
     END SELECT
+END FUNCTION
+
+''' @brief Resolves a companion instrument file path (.nt / .as) for a module path if one exists.
+''' @param fileName Path to the module file.
+''' @return Path to the companion file, or empty string if none exists.
+FUNCTION __MODPlayer_FindCompanionFile$ (fileName AS STRING)
+    DIM candPath AS STRING
+
+    candPath = fileName + ".nt"
+    IF _FILEEXISTS(candPath) THEN
+        __MODPlayer_FindCompanionFile = candPath
+        EXIT FUNCTION
+    END IF
+
+    candPath = fileName + ".NT"
+    IF _FILEEXISTS(candPath) THEN
+        __MODPlayer_FindCompanionFile = candPath
+        EXIT FUNCTION
+    END IF
+
+    candPath = fileName + ".as"
+    IF _FILEEXISTS(candPath) THEN
+        __MODPlayer_FindCompanionFile = candPath
+        EXIT FUNCTION
+    END IF
+
+    candPath = fileName + ".AS"
+    IF _FILEEXISTS(candPath) THEN
+        __MODPlayer_FindCompanionFile = candPath
+        EXIT FUNCTION
+    END IF
+
+    IF LCASE$(Pathname_GetFileExtension(fileName)) = ".mod" THEN
+        DIM baseName AS STRING: baseName = Pathname_RemoveFileExtension(fileName)
+
+        candPath = baseName + ".nt"
+        IF _FILEEXISTS(candPath) THEN
+            __MODPlayer_FindCompanionFile = candPath
+            EXIT FUNCTION
+        END IF
+
+        candPath = baseName + ".NT"
+        IF _FILEEXISTS(candPath) THEN
+            __MODPlayer_FindCompanionFile = candPath
+            EXIT FUNCTION
+        END IF
+
+        candPath = baseName + ".as"
+        IF _FILEEXISTS(candPath) THEN
+            __MODPlayer_FindCompanionFile = candPath
+            EXIT FUNCTION
+        END IF
+
+        candPath = baseName + ".AS"
+        IF _FILEEXISTS(candPath) THEN
+            __MODPlayer_FindCompanionFile = candPath
+            EXIT FUNCTION
+        END IF
+    END IF
+
+    __MODPlayer_FindCompanionFile = _STR_EMPTY
 END FUNCTION
