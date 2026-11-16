@@ -860,6 +860,78 @@ SUB Test_MODPlayer_S3M_FMDrums
     TEST_CASE_END
 END SUB
 
+''' @brief Tests for StarTrekker AM synthesizer instruments and companion file loading.
+SUB Test_MODPlayer_Startrekker_AM
+    TEST_CASE_BEGIN "MODPlayer: StarTrekker AM synth (amsyntdemo.mod)"
+    DIM player1 AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(player1, "mods/amsyntdemo.mod"), "Load amsyntdemo.mod with companion"
+    TEST_CHECK MODPlayer_GetType(player1) = "EXO4", "Subtype is EXO4"
+    TEST_CHECK player1.song.channels = 4, "Channel count is 4"
+    TEST_CHECK player1.song.instruments = 31, "Instrument count is 31"
+    TEST_CHECK player1.instrument(0).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH, "Inst 1 is AM synth"
+    TEST_CHECK player1.instrument(0).am.isAM, "Inst 1 isAM flag is true"
+    TEST_CHECK player1.instrument(0).length = 32, "Inst 1 waveform length is 32"
+    TEST_CHECK player1.instrument(0).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, "Inst 1 loops forward"
+    TEST_CHECK player1.instrument(0).volume = 64, "Inst 1 volume forced to 64"
+
+    MODPlayer_Play player1
+    TEST_CHECK MODPlayer_IsPlaying(player1), "Playing amsyntdemo.mod"
+    MODPlayer_Update player1, 0.05
+
+    DIM hasAudioOutput AS _BYTE: hasAudioOutput = _FALSE
+    DIM sIdx AS _UNSIGNED LONG
+    IF player1.synth.soundBufferSamples > 0 THEN
+        FOR sIdx = 0 TO player1.synth.soundBufferSamples - 1
+            IF player1.synth.soundBuffer(sIdx) <> 0! THEN
+                hasAudioOutput = _TRUE
+                EXIT FOR
+            END IF
+        NEXT sIdx
+    END IF
+    TEST_CHECK hasAudioOutput, "Synthesized non-zero audio output"
+
+    MODPlayer_Stop player1
+    TEST_CHECK_FALSE MODPlayer_IsPlaying(player1), "Stopped amsyntdemo.mod"
+    MODPlayer_Finalize player1
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MODPlayer: Mixed PCM and AM synth (angel-station.mod)"
+    DIM player2 AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(player2, "mods/angel-station.mod"), "Load angel-station.mod with companion"
+    TEST_CHECK MODPlayer_GetType(player2) = "FLT4", "Subtype is FLT4"
+    TEST_CHECK player2.instrument(0).subtype = __MODPLAYER_INSTRUMENT_PCM, "Inst 1 is PCM sample"
+    TEST_CHECK player2.instrument(0).length = 818, "Inst 1 PCM length is 818"
+    TEST_CHECK player2.instrument(4).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH, "Inst 5 is AM synth"
+    TEST_CHECK player2.instrument(4).am.isAM, "Inst 5 isAM is true"
+    TEST_CHECK player2.instrument(4).length = 32, "Inst 5 wave length is 32"
+
+    MODPlayer_Play player2
+    TEST_CHECK MODPlayer_IsPlaying(player2), "Playing angel-station.mod"
+    MODPlayer_Update player2, 0.05
+    MODPlayer_Stop player2
+    TEST_CHECK_FALSE MODPlayer_IsPlaying(player2), "Stopped angel-station.mod"
+    MODPlayer_Finalize player2
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MODLoader: In-memory companion loading"
+    DIM player3 AS MODPlayer
+    DIM modData AS STRING: modData = File_Load("mods/amsyntdemo.mod")
+    DIM compData AS STRING: compData = File_Load("mods/amsyntdemo.mod.nt")
+    TEST_REQUIRE LEN(modData) > 0, "Read amsyntdemo.mod data"
+    TEST_REQUIRE LEN(compData) > 0, "Read amsyntdemo.mod.nt data"
+
+    ' Load without companion: instruments should not be AM
+    TEST_CHECK MODLoader_LoadFromMemory(player3, modData), "Load without companion"
+    TEST_CHECK player3.instrument(0).subtype = __MODPLAYER_INSTRUMENT_PCM, "Without companion inst 1 is PCM"
+    MODPlayer_Finalize player3
+
+    ' Load with companion: instruments should be AM synth
+    TEST_CHECK MODLoader_LoadWithCompanion(player3, modData, compData), "Load with companion"
+    TEST_CHECK player3.instrument(0).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH, "With companion inst 1 is AM"
+    MODPlayer_Finalize player3
+    TEST_CASE_END
+END SUB
+
 ' Run all test suites
 TEST_BEGIN_ALL
 
@@ -872,6 +944,7 @@ Test_Opal_SoundGeneration
 Test_Opal_RhythmMode
 Test_MODPlayer_Lifecycle
 Test_MODPlayer_MOD
+Test_MODPlayer_Startrekker_AM
 Test_MODPlayer_S3M
 Test_MODPlayer_S3M_Packed
 Test_MODPlayer_S3M_AdLib

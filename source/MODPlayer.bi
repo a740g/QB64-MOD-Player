@@ -24,6 +24,13 @@ CONST __MODPLAYER_INSTRUMENT_FM_SNAREDRUM~%% = 4~%% ' FM snare instrument
 CONST __MODPLAYER_INSTRUMENT_FM_TOMTOM~%% = 5~%% ' FM tom-tom instrument
 CONST __MODPLAYER_INSTRUMENT_FM_CYMBAL~%% = 6~%% ' FM cymbal instrument
 CONST __MODPLAYER_INSTRUMENT_FM_HIHAT~%% = 7~%% ' FM hi-hat instrument
+CONST __MODPLAYER_INSTRUMENT_AM_SYNTH~%% = 8~%% ' StarTrekker synthesized AM instrument
+CONST __MODPLAYER_AM_STAGE_IDLE~%% = 0~%% ' AM envelope idle
+CONST __MODPLAYER_AM_STAGE_ATTACK1~%% = 1~%% ' AM envelope attack stage 1
+CONST __MODPLAYER_AM_STAGE_ATTACK2~%% = 2~%% ' AM envelope attack stage 2
+CONST __MODPLAYER_AM_STAGE_DECAY~%% = 3~%% ' AM envelope decay stage
+CONST __MODPLAYER_AM_STAGE_SUSTAIN~%% = 4~%% ' AM envelope sustain hold stage
+CONST __MODPLAYER_AM_STAGE_RELEASE~%% = 5~%% ' AM envelope release stage
 CONST __MODPLAYER_PATTERN_MARKER~%% = 254~%% ' S3M marker pattern
 CONST __MODPLAYER_PATTERN_END~%% = 255~%% ' S3M end-of-song
 CONST __MODPLAYER_STEREO_SEPARATION! = 0.5! ' 100% stereo separation sounds bad on headphones
@@ -101,6 +108,24 @@ TYPE __MODPlayerPattern
     note(0 TO 0, 0 TO 0) _DYNAMIC AS __MODPlayerNote ' note matrix: (0 TO rows - 1, 0 TO channels - 1)
 END TYPE
 
+TYPE __MODPlayerAMInfo
+    isAM AS _BYTE ' whether this instrument has synthesized AM parameters
+    startLevel AS _UNSIGNED INTEGER ' start envelope level (0-256)
+    attack1Level AS _UNSIGNED INTEGER ' attack 1 level (0-256)
+    attack1Speed AS _UNSIGNED INTEGER ' attack 1 transition speed
+    attack2Level AS _UNSIGNED INTEGER ' attack 2 level (0-256)
+    attack2Speed AS _UNSIGNED INTEGER ' attack 2 transition speed
+    sustainLevel AS _UNSIGNED INTEGER ' sustain level (0-256)
+    decaySpeed AS _UNSIGNED INTEGER ' decay transition speed
+    sustainTime AS _UNSIGNED INTEGER ' sustain hold time in ticks
+    releaseSpeed AS _UNSIGNED INTEGER ' release transition speed
+    waveform AS _UNSIGNED _BYTE ' 0=sine, 1=saw, 2=square, 3=noise
+    pitchFall AS INTEGER ' signed pitch fall rate per tick
+    vibAmp AS _UNSIGNED _BYTE ' vibrato depth
+    vibSpeed AS _UNSIGNED _BYTE ' vibrato rate
+    octave AS _UNSIGNED _BYTE ' octave transpose (0=high, 5=low)
+END TYPE
+
 TYPE __MODPlayerInstrument
     caption AS STRING ' instrument name or message
     subtype AS _UNSIGNED _BYTE ' what kind of instrument is this? (PCM, FM melody, FM drum, etc.)
@@ -113,6 +138,7 @@ TYPE __MODPlayerInstrument
     bytesPerSample AS _UNSIGNED _BYTE ' 1 for 8-bit, 2 for 16-bit, 4 for 32-bit etc. (SoftSynth will convert sounds to 32-bit floating point)
     channels AS _UNSIGNED _BYTE ' number of channels per frame (SoftSynth will flatten sounds to mono)
     adlib(0 TO 11) AS _UNSIGNED _BYTE ' 12 AdLib instrument parameter bytes (D00..D0B)
+    am AS __MODPlayerAMInfo ' StarTrekker AM synthesizer parameters
 END TYPE
 
 TYPE __MODPlayerChannel
@@ -176,6 +202,12 @@ TYPE __MODPlayerChannel
     oplBlock AS _UNSIGNED _BYTE ' current octave block sent to OPL
     oplKeyOn AS _BYTE ' whether key is active on OPL
     oplCarrierTotalLevel AS _UNSIGNED _BYTE ' current carrier total level
+    amStage AS _UNSIGNED _BYTE ' current AM envelope stage (0-5)
+    amLevel AS LONG ' current AM envelope level (0-256)
+    amSustainCounter AS LONG ' remaining ticks in sustain stage
+    amVibratoPos AS LONG ' AM vibrato phase position
+    amPitchDelta AS LONG ' cumulative pitch fall offset
+    amBasePeriod AS LONG ' base note period including octave transpose
 END TYPE
 
 TYPE __MODPlayerSong

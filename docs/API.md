@@ -115,8 +115,9 @@ FUNCTION MODPlayer_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
 ```
 
 - **Description**: Loads and parses a tracker module file from disk.
-  Automatically identifies the file format (S3M, MTM, or MOD) and delegates
-  parsing to the appropriate format loader.
+  Automatically identifies the file format (S3M, MTM, or MOD), auto-detects
+  any StarTrekker companion instrument files (`.mod.nt`, `.nt`, `.as`), and
+  delegates parsing to the appropriate format loader.
 - **Parameters**:
   - `player`: Target MOD player instance.
   - `fileName`: Path to the module file.
@@ -133,6 +134,20 @@ FUNCTION MODPlayer_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 - **Parameters**:
   - `player`: Target MOD player instance.
   - `buffer`: In-memory binary representation of the module file.
+- **Returns**: `_TRUE` (-1) on success; `_FALSE` (0) on failure.
+
+#### `MODPlayer_LoadWithCompanion%%`
+
+```vb
+FUNCTION MODPlayer_LoadWithCompanion%% (player AS MODPlayer, buffer AS STRING, companionBuffer AS STRING)
+```
+
+- **Description**: Parses a tracker module from an in-memory binary string with
+  optional companion data (such as StarTrekker `.mod.nt` / `.as` AM synth files).
+- **Parameters**:
+  - `player`: Target MOD player instance.
+  - `buffer`: In-memory binary representation of the module file.
+  - `companionBuffer`: In-memory companion file data, or empty string.
 - **Returns**: `_TRUE` (-1) on success; `_FALSE` (0) on failure.
 
 ---
@@ -330,12 +345,17 @@ when building custom loader dispatch pipelines.
 ```vb
 FUNCTION MODLoader_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
 FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
+FUNCTION MODLoader_LoadWithCompanion%% (player AS MODPlayer, buffer AS STRING, companionBuffer AS STRING)
 ```
 
 - **Supported Formats**: ProTracker, SoundTracker, NoiseTracker, StarTrekker,
-  FastTracker MOD variants (1 to 99 channels, 15 or 31 samples, FLT8, etc.).
+  FastTracker MOD variants (1 to 99 channels, 15 or 31 samples, FLT8, EXO4, EXO8, etc.)
+  with StarTrekker 1.2/1.3 and AudioSculpture synthesized AM instrument companion files.
 - **Parameters**:
   - `player`: Target MOD player instance.
+  - `fileName`: Path to the module file (companion files automatically detected on disk).
+  - `buffer`: In-memory binary representation of the module file.
+  - `companionBuffer`: In-memory companion file data, or empty string.
 - **Returns**: `_TRUE` on successful parse; `_FALSE` if incompatible or invalid.
 
 ### Scream Tracker 3 Loader (`S3MLoader.bi`)

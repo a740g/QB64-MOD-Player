@@ -19,8 +19,9 @@ It supports the following classic module formats:
   runtime DLL requirements.
 - Fully supported on Windows, Linux, and macOS.
 - Format Support:
-  - ProTracker MOD files with 1 to 99 channels, 15 or 31 samples, and Amiga
-    period limits.
+  - ProTracker MOD files with 1 to 99 channels, 15 or 31 samples, Amiga period
+    limits, and StarTrekker 1.2/1.3 AM synthesized instruments (auto-loading
+    companion `.mod.nt`, `.nt`, and `.as` files).
   - Scream Tracker 3 (S3M) files with multi-channel digital audio, custom sample
     rates, ST3 panning, and Yamaha OPL2/OPL3 AdLib FM synthesis (melodic and
     rhythm channels) with real-time software mixing.

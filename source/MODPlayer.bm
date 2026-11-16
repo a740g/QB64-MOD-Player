@@ -13,39 +13,93 @@ $INCLUDEONCE
 '$INCLUDE:'S3MLoader.bi'
 '$INCLUDE:'MODPlayerShared.bm'
 
-''' @brief Loads a tracker module from a memory buffer, auto-detecting the format across registered loaders.
+''' @brief Loads a tracker module with optional companion data (e.g. StarTrekker .mod.nt).
 ''' @param player The MOD player instance.
 ''' @param buffer In-memory binary representation of the module file.
+''' @param companionBuffer In-memory binary representation of companion data, or empty string.
 ''' @return _TRUE on success, _FALSE on failure.
-FUNCTION MODPlayer_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
+FUNCTION MODPlayer_LoadWithCompanion%% (player AS MODPlayer, buffer AS STRING, companionBuffer AS STRING)
     IF NOT MODPlayer_IsInitialized(player) THEN
         IF NOT MODPlayer_Initialize(player) THEN EXIT FUNCTION
     END IF
 
     IF S3MLoader_LoadFromMemory(player, buffer) THEN
-        MODPlayer_LoadFromMemory = _TRUE
+        MODPlayer_LoadWithCompanion = _TRUE
         EXIT FUNCTION
     END IF
 
     IF MTMLoader_LoadFromMemory(player, buffer) THEN
-        MODPlayer_LoadFromMemory = _TRUE
+        MODPlayer_LoadWithCompanion = _TRUE
         EXIT FUNCTION
     END IF
 
-    IF MODLoader_LoadFromMemory(player, buffer) THEN
-        MODPlayer_LoadFromMemory = _TRUE
+    IF MODLoader_LoadWithCompanion(player, buffer, companionBuffer) THEN
+        MODPlayer_LoadWithCompanion = _TRUE
         EXIT FUNCTION
     END IF
 END FUNCTION
 
-''' @brief Loads a tracker module from a disk file, auto-detecting the format across registered loaders.
+''' @brief Loads a tracker module from a memory buffer, auto-detecting the format across registered loaders.
+''' @param player The MOD player instance.
+''' @param buffer In-memory binary representation of the module file.
+''' @return _TRUE on success, _FALSE on failure.
+FUNCTION MODPlayer_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
+    MODPlayer_LoadFromMemory = MODPlayer_LoadWithCompanion(player, buffer, _STR_EMPTY)
+END FUNCTION
+
+''' @brief Loads a tracker module from a disk file, auto-detecting format and companion files.
 ''' @param player The MOD player instance.
 ''' @param fileName Path to the module file.
 ''' @return _TRUE on success, _FALSE on failure.
 FUNCTION MODPlayer_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
     DIM buffer AS STRING: buffer = File_LoadFromDisk(fileName)
     IF LEN(buffer) = 0 THEN EXIT FUNCTION
-    MODPlayer_LoadFromDisk = MODPlayer_LoadFromMemory(player, buffer)
+
+    DIM compBuf AS STRING: compBuf = _STR_EMPTY
+    DIM candPath AS STRING
+
+    candPath = fileName + ".nt"
+    IF _FILEEXISTS(candPath) THEN
+        compBuf = File_LoadFromDisk(candPath)
+    ELSE
+        candPath = fileName + ".NT"
+        IF _FILEEXISTS(candPath) THEN
+            compBuf = File_LoadFromDisk(candPath)
+        ELSE
+            candPath = fileName + ".as"
+            IF _FILEEXISTS(candPath) THEN
+                compBuf = File_LoadFromDisk(candPath)
+            ELSE
+                candPath = fileName + ".AS"
+                IF _FILEEXISTS(candPath) THEN compBuf = File_LoadFromDisk(candPath)
+            END IF
+        END IF
+    END IF
+
+    IF LEN(compBuf) = 0 AND LEN(fileName) > 4 THEN
+        IF LCASE$(RIGHT$(fileName, 4)) = ".mod" THEN
+            DIM baseName AS STRING: baseName = LEFT$(fileName, LEN(fileName) - 4)
+            candPath = baseName + ".nt"
+            IF _FILEEXISTS(candPath) THEN
+                compBuf = File_LoadFromDisk(candPath)
+            ELSE
+                candPath = baseName + ".NT"
+                IF _FILEEXISTS(candPath) THEN
+                    compBuf = File_LoadFromDisk(candPath)
+                ELSE
+                    candPath = baseName + ".as"
+                    IF _FILEEXISTS(candPath) THEN
+                        compBuf = File_LoadFromDisk(candPath)
+                    ELSE
+                        candPath = baseName + ".AS"
+                        IF _FILEEXISTS(candPath) THEN compBuf = File_LoadFromDisk(candPath)
+                    END IF
+                END IF
+            END IF
+        END IF
+    END IF
+
+    MODPlayer_LoadFromDisk = MODPlayer_LoadWithCompanion(player, buffer, compBuf)
 END FUNCTION
 
 ''' @brief Resets all song properties to default values for a clean load state.
@@ -127,6 +181,12 @@ SUB MODPlayer_Play (player AS MODPlayer)
             player.channel(channelIndex).oplFNum = 0
             player.channel(channelIndex).oplBlock = 0
             player.channel(channelIndex).oplKeyOn = _FALSE
+            player.channel(channelIndex).amStage = __MODPLAYER_AM_STAGE_IDLE
+            player.channel(channelIndex).amLevel = 0
+            player.channel(channelIndex).amSustainCounter = 0
+            player.channel(channelIndex).amVibratoPos = 0
+            player.channel(channelIndex).amPitchDelta = 0
+            player.channel(channelIndex).amBasePeriod = 0
             IF player.song.isS3M THEN
                 player.channel(channelIndex).channelVolume = __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
                 player.channel(channelIndex).panning = player.channel(channelIndex).defaultPanning
@@ -194,19 +254,19 @@ END SUB
 SUB MODPlayer_Update (player AS MODPlayer, bufferTimeSecs AS SINGLE)
     IF NOT player.initialized THEN EXIT SUB
 
-    'DIM maxTicks AS LONG
-    'IF player.song.framesPerTick > 0 THEN
-    '    DIM sampleRate AS _UNSIGNED LONG: sampleRate = SoftSynth_GetSampleRate(player.synth)
-    '    IF sampleRate > 0 THEN
-    '        DIM tickDuration AS SINGLE: tickDuration = CSNG(player.song.framesPerTick) / CSNG(sampleRate)
-    '        IF tickDuration > 0! THEN maxTicks = INT(bufferTimeSecs / tickDuration) + 2
-    '    END IF
-    'END IF
-    'IF maxTicks < 4 THEN maxTicks = 4
+    DIM maxTicks AS LONG
+    IF player.song.framesPerTick > 0 THEN
+        DIM sampleRate AS _UNSIGNED LONG: sampleRate = SoftSynth_GetSampleRate(player.synth)
+        IF sampleRate > 0 THEN
+            DIM tickDuration AS SINGLE: tickDuration = CSNG(player.song.framesPerTick) / CSNG(sampleRate)
+            IF tickDuration > 0! THEN maxTicks = INT(bufferTimeSecs / tickDuration) + 2
+        END IF
+    END IF
+    IF maxTicks < 4 THEN maxTicks = 4
 
     ' Keep feeding the buffer until it is filled to our specified upper limit
-    DO WHILE SoftSynth_GetBufferedSoundTime(player.synth) < bufferTimeSecs' AND maxTicks > 0
-        'maxTicks = maxTicks - 1
+    DO WHILE SoftSynth_GetBufferedSoundTime(player.synth) < bufferTimeSecs AND maxTicks > 0
+        maxTicks = maxTicks - 1
 
         ' Check conditions for which we should just exit and not process anything
         ' 1. Song is done and we are not looping
@@ -507,6 +567,200 @@ SUB __MODPlayer_PlayPCMChannelVoice (player AS MODPlayer, nChannel AS _UNSIGNED 
     IF inst < 0 _ORELSE inst >= player.song.instruments THEN EXIT SUB
 
     SoftSynth_PlayVoice player.synth, nChannel, inst, SoftSynth_ConvertBytesToFrames(player.channel(nChannel).startPosition, player.instrument(inst).bytesPerSample, player.instrument(inst).channels), player.instrument(inst).playMode, SoftSynth_ConvertBytesToFrames(player.instrument(inst).loopStart, player.instrument(inst).bytesPerSample, player.instrument(inst).channels), SoftSynth_ConvertBytesToFrames(player.instrument(inst).loopEnd, player.instrument(inst).bytesPerSample, player.instrument(inst).channels)
+
+    IF player.instrument(inst).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
+        __MODPlayer_TriggerAMInstrument player, nChannel, inst
+    END IF
+END SUB
+
+SUB __MODPlayer_TriggerAMInstrument (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, inst AS LONG)
+    player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_ATTACK1
+    player.channel(nChannel).amLevel = player.instrument(inst).am.startLevel
+    player.channel(nChannel).amSustainCounter = 0
+    player.channel(nChannel).amVibratoPos = 0
+    player.channel(nChannel).amPitchDelta = 0
+
+    DIM oct AS _UNSIGNED _BYTE: oct = player.instrument(inst).am.octave
+    IF oct > 5 THEN oct = 5
+    DIM basePeriod AS LONG: basePeriod = player.channel(nChannel).period
+    IF oct > 0 AND basePeriod > 0 THEN
+        basePeriod = _SHL(basePeriod, oct)
+    END IF
+    player.channel(nChannel).amBasePeriod = basePeriod
+
+    __MODPlayer_UpdateAMChannel player, nChannel
+END SUB
+
+SUB __MODPlayer_UpdateAMChannel (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE)
+    DIM inst AS LONG: inst = player.channel(nChannel).instrument
+    IF inst < 0 _ORELSE inst >= player.song.instruments THEN EXIT SUB
+    IF player.instrument(inst).subtype <> __MODPLAYER_INSTRUMENT_AM_SYNTH THEN EXIT SUB
+
+    DIM vol AS LONG
+    vol = (CLNG(player.channel(nChannel).volume) * player.channel(nChannel).amLevel) \ 256
+    IF vol < 0 THEN vol = 0
+    IF vol > __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN vol = __MODPLAYER_INSTRUMENT_VOLUME_MAX
+    DIM finalVol AS SINGLE
+    finalVol = (CSNG(vol) / CSNG(__MODPLAYER_INSTRUMENT_VOLUME_MAX)) * (CSNG(player.song.globalVolume) / CSNG(__MODPLAYER_S3M_GLOBAL_VOLUME_MAX))
+    SoftSynth_SetVoiceVolume player.synth, nChannel, finalVol
+
+    DIM vibDelta AS LONG: vibDelta = 0
+    IF player.instrument(inst).am.vibAmp > 0 THEN
+        DIM vPhase AS LONG: vPhase = player.channel(nChannel).amVibratoPos AND 63
+        DIM sVal AS LONG
+        sVal = CINT(_ROUND(SIN(vPhase * 6.283185307179586# / 64!) * 127!))
+        vibDelta = (sVal * CLNG(player.instrument(inst).am.vibAmp) * 2) \ 128
+    END IF
+
+    DIM netPeriod AS LONG
+    netPeriod = player.channel(nChannel).amBasePeriod + player.channel(nChannel).amPitchDelta + vibDelta
+    IF netPeriod < 113 THEN netPeriod = 113
+    IF netPeriod > 27392 THEN netPeriod = 27392
+
+    IF netPeriod > 0 THEN
+        SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(netPeriod)
+    END IF
+END SUB
+
+SUB __MODPlayer_ProcessAMChannelTick (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE)
+    DIM inst AS LONG: inst = player.channel(nChannel).instrument
+    IF inst < 0 _ORELSE inst >= player.song.instruments THEN EXIT SUB
+    IF player.instrument(inst).subtype <> __MODPLAYER_INSTRUMENT_AM_SYNTH THEN EXIT SUB
+    IF player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE THEN EXIT SUB
+
+    DIM oct AS _UNSIGNED _BYTE: oct = player.instrument(inst).am.octave
+    IF oct > 5 THEN oct = 5
+    DIM basePeriod AS LONG: basePeriod = player.channel(nChannel).period
+    IF oct > 0 AND basePeriod > 0 THEN
+        basePeriod = _SHL(basePeriod, oct)
+    END IF
+    player.channel(nChannel).amBasePeriod = basePeriod
+
+    IF player.instrument(inst).am.pitchFall <> 0 THEN
+        player.channel(nChannel).amPitchDelta = player.channel(nChannel).amPitchDelta + player.instrument(inst).am.pitchFall
+    END IF
+
+    IF player.instrument(inst).am.vibAmp > 0 THEN
+        player.channel(nChannel).amVibratoPos = (player.channel(nChannel).amVibratoPos + player.instrument(inst).am.vibSpeed) AND 63
+    END IF
+
+    DIM curLevel AS LONG: curLevel = player.channel(nChannel).amLevel
+    DIM targetLevel AS LONG, speed AS LONG, stepVal AS LONG
+
+    SELECT CASE player.channel(nChannel).amStage
+        CASE __MODPLAYER_AM_STAGE_ATTACK1
+            targetLevel = player.instrument(inst).am.attack1Level
+            speed = player.instrument(inst).am.attack1Speed
+            IF speed = 0 THEN
+                ' Speed 0 holds level indefinitely (sustain)
+            ELSE
+                IF targetLevel > curLevel THEN
+                    stepVal = (speed * (256 - curLevel)) \ 256
+                    IF stepVal < 1 THEN stepVal = 1
+                    curLevel = curLevel + stepVal
+                    IF curLevel >= targetLevel THEN
+                        curLevel = targetLevel
+                        player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_ATTACK2
+                    END IF
+                ELSEIF targetLevel < curLevel THEN
+                    stepVal = (speed * curLevel) \ 256
+                    IF stepVal < 1 THEN stepVal = 1
+                    curLevel = curLevel - stepVal
+                    IF curLevel <= targetLevel THEN
+                        curLevel = targetLevel
+                        player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_ATTACK2
+                    END IF
+                ELSE
+                    player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_ATTACK2
+                END IF
+            END IF
+
+        CASE __MODPLAYER_AM_STAGE_ATTACK2
+            targetLevel = player.instrument(inst).am.attack2Level
+            speed = player.instrument(inst).am.attack2Speed
+            IF speed = 0 THEN
+                ' Speed 0 holds level indefinitely
+            ELSE
+                IF targetLevel > curLevel THEN
+                    stepVal = (speed * (256 - curLevel)) \ 256
+                    IF stepVal < 1 THEN stepVal = 1
+                    curLevel = curLevel + stepVal
+                    IF curLevel >= targetLevel THEN
+                        curLevel = targetLevel
+                        player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_DECAY
+                    END IF
+                ELSEIF targetLevel < curLevel THEN
+                    stepVal = (speed * curLevel) \ 256
+                    IF stepVal < 1 THEN stepVal = 1
+                    curLevel = curLevel - stepVal
+                    IF curLevel <= targetLevel THEN
+                        curLevel = targetLevel
+                        player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_DECAY
+                    END IF
+                ELSE
+                    player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_DECAY
+                END IF
+            END IF
+
+        CASE __MODPLAYER_AM_STAGE_DECAY
+            targetLevel = player.instrument(inst).am.sustainLevel
+            speed = player.instrument(inst).am.decaySpeed
+            IF speed = 0 THEN
+                ' Speed 0 holds level indefinitely
+            ELSE
+                IF targetLevel > curLevel THEN
+                    stepVal = (speed * (256 - curLevel)) \ 256
+                    IF stepVal < 1 THEN stepVal = 1
+                    curLevel = curLevel + stepVal
+                    IF curLevel >= targetLevel THEN
+                        curLevel = targetLevel
+                        player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_SUSTAIN
+                        player.channel(nChannel).amSustainCounter = player.instrument(inst).am.sustainTime
+                    END IF
+                ELSEIF targetLevel < curLevel THEN
+                    stepVal = (speed * curLevel) \ 256
+                    IF stepVal < 1 THEN stepVal = 1
+                    curLevel = curLevel - stepVal
+                    IF curLevel <= targetLevel THEN
+                        curLevel = targetLevel
+                        player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_SUSTAIN
+                        player.channel(nChannel).amSustainCounter = player.instrument(inst).am.sustainTime
+                    END IF
+                ELSE
+                    player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_SUSTAIN
+                    player.channel(nChannel).amSustainCounter = player.instrument(inst).am.sustainTime
+                END IF
+            END IF
+
+        CASE __MODPLAYER_AM_STAGE_SUSTAIN
+            curLevel = player.instrument(inst).am.sustainLevel
+            IF player.channel(nChannel).amSustainCounter > 0 THEN
+                player.channel(nChannel).amSustainCounter = player.channel(nChannel).amSustainCounter - 1
+                IF player.channel(nChannel).amSustainCounter = 0 THEN
+                    player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_RELEASE
+                END IF
+            ELSE
+                player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_RELEASE
+            END IF
+
+        CASE __MODPLAYER_AM_STAGE_RELEASE
+            speed = player.instrument(inst).am.releaseSpeed
+            IF speed = 0 THEN
+                ' Speed 0 holds level indefinitely
+            ELSE
+                stepVal = speed
+                IF stepVal < 1 THEN stepVal = 1
+                curLevel = curLevel - stepVal
+                IF curLevel <= 0 THEN
+                    curLevel = 0
+                    player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
+                END IF
+            END IF
+    END SELECT
+
+    player.channel(nChannel).amLevel = curLevel
+
+    __MODPlayer_UpdateAMChannel player, nChannel
 END SUB
 
 SUB __MODPlayer_TriggerDelayedNote (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE)
@@ -1600,6 +1854,13 @@ SUB __MODPlayer_UpdateTick (player AS MODPlayer)
                     CASE 126
                         IF player.channel(nChannel).period > 0 THEN __MODPlayer_DoVibrato player, nChannel, _TRUE
                 END SELECT
+            END IF
+        END IF
+
+        DIM amInstIdx AS LONG: amInstIdx = player.channel(nChannel).instrument
+        IF amInstIdx >= 0 _ANDALSO amInstIdx < player.song.instruments THEN
+            IF player.instrument(amInstIdx).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
+                __MODPlayer_ProcessAMChannelTick player, nChannel
             END IF
         END IF
     NEXT

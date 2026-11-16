@@ -12,10 +12,91 @@ $INCLUDEONCE
 '$INCLUDE:'File.bi'
 '$INCLUDE:'MODPlayerShared.bm'
 
-''' @brief Parses and loads a standard ProTracker or compatible MOD module from a memory buffer.
+''' @brief Generates looped audio waveform samples for a StarTrekker AM instrument.
+''' @param waveform Waveform type (0 = Sine, 1 = Sawtooth, 2 = Square, 3 = Noise).
+''' @return Waveform audio sample data string.
+FUNCTION __MODPlayer_GenerateAMWaveform$ (waveform AS _UNSIGNED _BYTE)
+    DIM k AS LONG
+
+    SELECT CASE waveform
+        CASE 0 ' Sine (32 bytes)
+            DIM sineWave AS STRING * 32
+            FOR k = 0 TO 31
+                DIM sVal AS INTEGER
+                sVal = _CLAMP(CINT(_ROUND(SIN(k * 6.283185307179586# / 32!) * 127!)), -128, 127)
+                MID$(sineWave, k + 1, 1) = CHR$(sVal AND &HFF)
+            NEXT k
+            __MODPlayer_GenerateAMWaveform = sineWave
+
+        CASE 1 ' Sawtooth (32 bytes)
+            DIM sawWave AS STRING * 32
+            FOR k = 0 TO 31
+                DIM sawVal AS INTEGER: sawVal = -128 + k * 8
+                MID$(sawWave, k + 1, 1) = CHR$(sawVal AND &HFF)
+            NEXT k
+            __MODPlayer_GenerateAMWaveform = sawWave
+
+        CASE 2 ' Square / Pulse (32 bytes)
+            DIM sqWave AS STRING * 32
+            FOR k = 0 TO 31
+                IF k < 16 THEN
+                    MID$(sqWave, k + 1, 1) = CHR$(&H80)
+                ELSE
+                    MID$(sqWave, k + 1, 1) = CHR$(&H7F)
+                END IF
+            NEXT k
+            __MODPlayer_GenerateAMWaveform = sqWave
+
+        CASE 3 ' Noise (1024 bytes)
+            DIM noiseWave AS STRING * 1024
+            DIM seed AS _UNSIGNED LONG: seed = 22265
+            FOR k = 0 TO 1023
+                seed = (seed * 1103515245 + 12345) AND &H7FFFFFFF
+                DIM nVal AS _UNSIGNED _BYTE: nVal = _SHR(seed, 16) AND &HFF
+                MID$(noiseWave, k + 1, 1) = CHR$(nVal)
+            NEXT k
+            __MODPlayer_GenerateAMWaveform = noiseWave
+
+        CASE ELSE
+            __MODPlayer_GenerateAMWaveform = _STR_EMPTY
+    END SELECT
+END FUNCTION
+
+''' @brief Parses a 120-byte StarTrekker synthesized AM instrument structure from a companion file.
+''' @param chunk 120-byte instrument block string.
+''' @param inst Target instrument structure to populate.
+SUB __MODPlayer_ParseAMInstrument (chunk AS STRING, inst AS __MODPlayerInstrument)
+    IF LEN(chunk) < 36 THEN EXIT SUB
+    IF LEFT$(chunk, 2) <> "AM" THEN EXIT SUB
+
+    inst.am.isAM = _TRUE
+    inst.am.startLevel = _SHL(ASC(chunk, 7), 8) OR ASC(chunk, 8)
+    inst.am.attack1Level = _SHL(ASC(chunk, 9), 8) OR ASC(chunk, 10)
+    inst.am.attack1Speed = _SHL(ASC(chunk, 11), 8) OR ASC(chunk, 12)
+    inst.am.attack2Level = _SHL(ASC(chunk, 13), 8) OR ASC(chunk, 14)
+    inst.am.attack2Speed = _SHL(ASC(chunk, 15), 8) OR ASC(chunk, 16)
+    inst.am.sustainLevel = _SHL(ASC(chunk, 17), 8) OR ASC(chunk, 18)
+    inst.am.decaySpeed = _SHL(ASC(chunk, 19), 8) OR ASC(chunk, 20)
+    inst.am.sustainTime = _SHL(ASC(chunk, 21), 8) OR ASC(chunk, 22)
+    inst.am.releaseSpeed = _SHL(ASC(chunk, 25), 8) OR ASC(chunk, 26)
+    inst.am.waveform = _SHL(ASC(chunk, 27), 8) OR ASC(chunk, 28)
+
+    DIM rawPF AS LONG
+    rawPF = _SHL(ASC(chunk, 29), 8) OR ASC(chunk, 30)
+    IF rawPF >= 32768 THEN rawPF = rawPF - 65536
+    inst.am.pitchFall = rawPF
+
+    inst.am.vibAmp = _SHL(ASC(chunk, 31), 8) OR ASC(chunk, 32)
+    inst.am.vibSpeed = _SHL(ASC(chunk, 33), 8) OR ASC(chunk, 34)
+    inst.am.octave = _SHL(ASC(chunk, 35), 8) OR ASC(chunk, 36)
+END SUB
+
+''' @brief Parses and loads a ProTracker or compatible MOD module with optional companion AM synth data.
+''' @param player The MOD player instance.
 ''' @param buffer Binary string containing the MOD module data.
+''' @param companionBuffer Binary string containing companion data (.mod.nt / .as) or empty string.
 ''' @return _TRUE if the module was successfully parsed, _FALSE otherwise.
-FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
+FUNCTION MODLoader_LoadWithCompanion%% (player AS MODPlayer, buffer AS STRING, companionBuffer AS STRING)
     SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
 
     ' Attempt to open the file
@@ -65,7 +146,7 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
                 ' Check for FLTx, TDZx & EXOx types
                 player.song.channels = VAL(RIGHT$(player.song.subtype, 1))
                 player.song.instruments = 31
-                isFLT8 = (player.song.subtype = "FLT8")
+                isFLT8 = (player.song.subtype = "FLT8" _ORELSE player.song.subtype = "EXO8")
             ELSEIF LEFT$(player.song.subtype, 2) = "CD" _ANDALSO RIGHT$(player.song.subtype, 1) = "1" THEN
                 ' Check for CDx1 types
                 player.song.channels = VAL(MID$(player.song.subtype, 3, 1))
@@ -288,6 +369,37 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
         SoftSynth_LoadSound player.synth, i, sampBuf, player.instrument(i).bytesPerSample, player.instrument(i).channels
     NEXT
 
+    ' Check for StarTrekker / AudioSculpture AM companion instruments
+    IF LEN(companionBuffer) >= 144 THEN
+        DIM compMagic AS STRING: compMagic = LEFT$(companionBuffer, 16)
+        IF compMagic = "ST1.2 ModuleINFO" _ORELSE compMagic = "ST1.3 ModuleINFO" _ORELSE compMagic = "AudioSculpture10" THEN
+            FOR sIdx = 0 TO player.song.instruments - 1
+                DIM chunkOffset AS LONG: chunkOffset = 144 + sIdx * 120 + 1
+                IF chunkOffset + 119 <= LEN(companionBuffer) THEN
+                    DIM instChunk AS STRING: instChunk = MID$(companionBuffer, chunkOffset, 120)
+                    IF LEFT$(instChunk, 2) = "AM" THEN
+                        __MODPlayer_ParseAMInstrument instChunk, player.instrument(sIdx)
+                        IF player.instrument(sIdx).am.waveform < 4 THEN
+                            DIM waveData AS STRING
+                            waveData = __MODPlayer_GenerateAMWaveform(player.instrument(sIdx).am.waveform)
+                            IF LEN(waveData) > 0 THEN
+                                player.instrument(sIdx).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH
+                                player.instrument(sIdx).length = LEN(waveData)
+                                player.instrument(sIdx).loopStart = 0
+                                player.instrument(sIdx).loopEnd = LEN(waveData)
+                                player.instrument(sIdx).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP
+                                player.instrument(sIdx).volume = __MODPLAYER_INSTRUMENT_VOLUME_MAX
+                                player.instrument(sIdx).bytesPerSample = _SIZE_OF_BYTE
+                                player.instrument(sIdx).channels = 1
+                                SoftSynth_LoadSound player.synth, sIdx, waveData, player.instrument(sIdx).bytesPerSample, player.instrument(sIdx).channels
+                            END IF
+                        END IF
+                    END IF
+                END IF
+            NEXT sIdx
+        END IF
+    END IF
+
     ' Setup the channel array
     ' __CHANNEL_PCM = 0 so all MOD channels are by default PCM
     REDIM player.channel(0 TO player.song.channels - 1) AS __MODPLAYERCHANNEL
@@ -315,7 +427,7 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
         NEXT
     END IF
 
-    MODLoader_LoadFromMemory = _TRUE
+    MODLoader_LoadWithCompanion = _TRUE
     EXIT FUNCTION
 
     ' This part loads a single channel worth of pattern data
@@ -350,10 +462,67 @@ FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     RETURN
 END FUNCTION
 
-''' @brief Loads a ProTracker or compatible MOD module from a file on disk or URL.
+''' @brief Parses and loads a standard ProTracker or compatible MOD module from a memory buffer.
+''' @param player The MOD player instance.
+''' @param buffer Binary string containing the MOD module data.
+''' @return _TRUE if the module was successfully parsed, _FALSE otherwise.
+FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
+    MODLoader_LoadFromMemory = MODLoader_LoadWithCompanion(player, buffer, _STR_EMPTY)
+END FUNCTION
+
+''' @brief Loads a ProTracker or compatible MOD module from a file on disk or URL, auto-detecting companion AM files.
+''' @param player The MOD player instance.
 ''' @param fileName File path or URL to load.
 ''' @return _TRUE if the module was loaded, _FALSE otherwise.
 FUNCTION MODLoader_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
     IF NOT _FILEEXISTS(fileName) THEN EXIT FUNCTION
-    MODLoader_LoadFromDisk = MODLoader_LoadFromMemory(player, File_Load(fileName))
+
+    DIM modBuf AS STRING: modBuf = File_Load(fileName)
+    IF LEN(modBuf) = 0 THEN EXIT FUNCTION
+
+    DIM compBuf AS STRING: compBuf = _STR_EMPTY
+    DIM candPath AS STRING
+
+    candPath = fileName + ".nt"
+    IF _FILEEXISTS(candPath) THEN
+        compBuf = File_Load(candPath)
+    ELSE
+        candPath = fileName + ".NT"
+        IF _FILEEXISTS(candPath) THEN
+            compBuf = File_Load(candPath)
+        ELSE
+            candPath = fileName + ".as"
+            IF _FILEEXISTS(candPath) THEN
+                compBuf = File_Load(candPath)
+            ELSE
+                candPath = fileName + ".AS"
+                IF _FILEEXISTS(candPath) THEN compBuf = File_Load(candPath)
+            END IF
+        END IF
+    END IF
+
+    IF LEN(compBuf) = 0 AND LEN(fileName) > 4 THEN
+        IF LCASE$(RIGHT$(fileName, 4)) = ".mod" THEN
+            DIM baseName AS STRING: baseName = LEFT$(fileName, LEN(fileName) - 4)
+            candPath = baseName + ".nt"
+            IF _FILEEXISTS(candPath) THEN
+                compBuf = File_Load(candPath)
+            ELSE
+                candPath = baseName + ".NT"
+                IF _FILEEXISTS(candPath) THEN
+                    compBuf = File_Load(candPath)
+                ELSE
+                    candPath = baseName + ".as"
+                    IF _FILEEXISTS(candPath) THEN
+                        compBuf = File_Load(candPath)
+                    ELSE
+                        candPath = baseName + ".AS"
+                        IF _FILEEXISTS(candPath) THEN compBuf = File_Load(candPath)
+                    END IF
+                END IF
+            END IF
+        END IF
+    END IF
+
+    MODLoader_LoadFromDisk = MODLoader_LoadWithCompanion(player, modBuf, compBuf)
 END FUNCTION
