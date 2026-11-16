@@ -1502,17 +1502,25 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
 
         __MODPlayer_DoInvertLoop player, nChannel ' called every row
 
-        IF NOT noFrequency THEN
-            IF nEffect <> __MODPLAYER_FX_TREMOLO THEN
-                __MODPlayer_ApplyChannelVolume player, nChannel
-            ELSEIF player.song.isS3M THEN
+        DIM isAMInst AS _BYTE: isAMInst = _FALSE
+        DIM amCheckIdx AS LONG: amCheckIdx = player.channel(nChannel).instrument
+        IF amCheckIdx >= 0 _ANDALSO amCheckIdx < player.song.instruments THEN
+            IF player.instrument(amCheckIdx).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN isAMInst = _TRUE
+        END IF
+
+        IF NOT isAMInst THEN
+            IF NOT noFrequency THEN
+                IF nEffect <> __MODPLAYER_FX_TREMOLO THEN
+                    __MODPlayer_ApplyChannelVolume player, nChannel
+                ELSEIF player.song.isS3M THEN
+                    __MODPlayer_ApplyChannelVolume player, nChannel
+                END IF
+                IF player.channel(nChannel).period > 0 THEN
+                    SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(player.channel(nChannel).period)
+                END IF
+            ELSEIF delayedNoteRow THEN
                 __MODPlayer_ApplyChannelVolume player, nChannel
             END IF
-            IF player.channel(nChannel).period > 0 THEN
-                SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(player.channel(nChannel).period)
-            END IF
-        ELSEIF delayedNoteRow THEN
-            __MODPlayer_ApplyChannelVolume player, nChannel
         END IF
     NEXT
 
@@ -1520,6 +1528,13 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
     FOR nChannel = 0 TO player.song.activeChannels
         IF player.channel(nChannel).restart THEN
             __MODPlayer_PlayPCMChannelVoice player, nChannel
+        ELSE
+            DIM amSustainIdx AS LONG: amSustainIdx = player.channel(nChannel).instrument
+            IF amSustainIdx >= 0 _ANDALSO amSustainIdx < player.song.instruments THEN
+                IF player.instrument(amSustainIdx).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
+                    __MODPlayer_ProcessAMChannelTick player, nChannel
+                END IF
+            END IF
         END IF
     NEXT
 END SUB

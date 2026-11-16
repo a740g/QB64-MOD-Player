@@ -637,9 +637,17 @@ FUNCTION App_OnPlayTune%% (fileName AS STRING)
 
     App_OnPlayTune = APP_EVENT_PLAY ' default event is to play next song
 
-    DIM buffer AS STRING: buffer = File_Load(fileName) ' load the whole file to memory
+    DIM buffer AS STRING
+    DIM success AS _BYTE
 
-    IF NOT MODPlayer_LoadFromMemory(Player, buffer) THEN
+    IF _FILEEXISTS(fileName) THEN
+        success = MODPlayer_LoadFromDisk(Player, fileName)
+    ELSE
+        buffer = File_Load(fileName)
+        success = MODPlayer_LoadFromMemory(Player, buffer)
+    END IF
+
+    IF NOT success THEN
         _MESSAGEBOX APP_NAME, "Failed to load: " + fileName, "error"
 
         EXIT FUNCTION
@@ -693,6 +701,7 @@ FUNCTION App_OnPlayTune%% (fileName AS STRING)
                 EXIT DO
 
             CASE _KEY_F6 ' quick save for files loaded from ModArchive
+                IF LEN(buffer) = 0 THEN buffer = File_Load(fileName)
                 App_QuickSave buffer, fileName
 
             CASE 21248 ' Shift + Delete - you known what it does

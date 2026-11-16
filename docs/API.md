@@ -139,7 +139,8 @@ FUNCTION MODPlayer_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 #### `MODPlayer_LoadWithCompanion%%`
 
 ```vb
-FUNCTION MODPlayer_LoadWithCompanion%% (player AS MODPlayer, buffer AS STRING, companionBuffer AS STRING)
+FUNCTION MODPlayer_LoadWithCompanion%% (player AS MODPlayer, _
+    buffer AS STRING, companionBuffer AS STRING)
 ```
 
 - **Description**: Parses a tracker module from an in-memory binary string with
@@ -345,15 +346,17 @@ when building custom loader dispatch pipelines.
 ```vb
 FUNCTION MODLoader_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
 FUNCTION MODLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
-FUNCTION MODLoader_LoadWithCompanion%% (player AS MODPlayer, buffer AS STRING, companionBuffer AS STRING)
+FUNCTION MODLoader_LoadWithCompanion%% (player AS MODPlayer, _
+    buffer AS STRING, companionBuffer AS STRING)
 ```
 
 - **Supported Formats**: ProTracker, SoundTracker, NoiseTracker, StarTrekker,
-  FastTracker MOD variants (1 to 99 channels, 15 or 31 samples, FLT8, EXO4, EXO8, etc.)
-  with StarTrekker 1.2/1.3 and AudioSculpture synthesized AM instrument companion files.
+  FastTracker MOD variants (1 to 99 channels, 15 or 31 samples, FLT8, EXO4,
+  EXO8, etc.) with StarTrekker 1.2/1.3 and AudioSculpture synthesized AM
+  instrument companion files.
 - **Parameters**:
   - `player`: Target MOD player instance.
-  - `fileName`: Path to the module file (companion files automatically detected on disk).
+  - `fileName`: Path to the module file (companion files automatically detected).
   - `buffer`: In-memory binary representation of the module file.
   - `companionBuffer`: In-memory companion file data, or empty string.
 - **Returns**: `_TRUE` on successful parse; `_FALSE` if incompatible or invalid.
