@@ -411,6 +411,20 @@ SUB Test_MODPlayer_MOD
     TEST_CHECK_FALSE MODPlayer_IsPlaying(player), "Player stopped"
     MODPlayer_Finalize player
     TEST_CASE_END
+
+    TEST_CASE_BEGIN "MODPlayer: ProTracker backwards rows (backwards.mod)"
+    DIM playerBack AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(playerBack, "mods/backwards.mod"), "Load backwards.mod"
+    TEST_CHECK INSTR(MODPlayer_GetName(playerBack), "backwards") > 0, "Song caption matches"
+    TEST_CHECK MODPlayer_GetType(playerBack) = "M.K.", "Song subtype is M.K."
+    TEST_CHECK MODPlayer_GetOrders(playerBack) = 1, "Song has 1 order"
+    MODPlayer_Play playerBack
+    TEST_CHECK MODPlayer_IsPlaying(playerBack), "Playing backwards.mod"
+    MODPlayer_Update playerBack, 0.05
+    TEST_CHECK MODPlayer_IsPlaying(playerBack), "Still playing after update"
+    MODPlayer_Stop playerBack
+    MODPlayer_Finalize playerBack
+    TEST_CASE_END
 END SUB
 
 ''' @brief Tests for Scream Tracker 3 S3M loading and playback.
@@ -428,6 +442,43 @@ SUB Test_MODPlayer_S3M
     MODPlayer_Stop player
     TEST_CHECK_FALSE MODPlayer_IsPlaying(player), "Stopped S3M"
     MODPlayer_Finalize player
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MODPlayer: Scream Tracker 3 backwards pattern breaks (BACKWARD.S3M)"
+    DIM playerS3MBack AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(playerS3MBack, "mods/BACKWARD.S3M"), "Load BACKWARD.S3M"
+    TEST_CHECK INSTR(MODPlayer_GetName(playerS3MBack), "Backwards") > 0, "Song caption matches"
+    TEST_CHECK MODPlayer_GetType(playerS3MBack) = "SCRM", "Song subtype is SCRM"
+    TEST_CHECK MODPlayer_GetOrders(playerS3MBack) = 14, "Song has 14 orders"
+    TEST_CHECK playerS3MBack.song.patterns = 13, "Song has 13 patterns"
+
+    ' Step 0 -> row 0 has C63 which should break to row 63 in same pattern
+    MODPlayer_Play playerS3MBack
+    TEST_CHECK MODPlayer_IsPlaying(playerS3MBack), "Playing BACKWARD.S3M"
+    playerS3MBack.song.tickPattern = playerS3MBack.order(playerS3MBack.song.orderPosition)
+    playerS3MBack.song.tickPatternRow = playerS3MBack.song.patternRow
+    __MODPlayer_UpdateRow playerS3MBack
+    playerS3MBack.song.patternRow = playerS3MBack.song.patternRow + 1
+    TEST_CHECK playerS3MBack.song.orderPosition = 0, "Order remains 0 on C63 (not skipping to next pattern)"
+    TEST_CHECK playerS3MBack.song.patternRow = 63, "Target row is 63"
+
+    ' Step row 63 -> has C62 which breaks to row 62 in same pattern
+    playerS3MBack.song.tickPatternRow = playerS3MBack.song.patternRow
+    __MODPlayer_UpdateRow playerS3MBack
+    playerS3MBack.song.patternRow = playerS3MBack.song.patternRow + 1
+    TEST_CHECK playerS3MBack.song.orderPosition = 0, "Order remains 0 on C62"
+    TEST_CHECK playerS3MBack.song.patternRow = 62, "Target row is 62"
+
+    ' Step row 1 -> has C00 which should break to row 0 in next pattern
+    playerS3MBack.song.patternRow = 1
+    playerS3MBack.song.tickPatternRow = 1
+    __MODPlayer_UpdateRow playerS3MBack
+    playerS3MBack.song.patternRow = playerS3MBack.song.patternRow + 1
+    TEST_CHECK playerS3MBack.song.orderPosition = 1, "Order advances to 1 on C00"
+    TEST_CHECK playerS3MBack.song.patternRow = 0, "Target row is 0"
+
+    MODPlayer_Stop playerS3MBack
+    MODPlayer_Finalize playerS3MBack
     TEST_CASE_END
 END SUB
 
