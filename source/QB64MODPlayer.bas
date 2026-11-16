@@ -137,15 +137,15 @@ SUB Visualizer_Draw
 
     ' Print song type and name
     COLOR BrightWhite, Magenta
-    LOCATE 1, x: PRINT USING "  \  \: \                                                                        \  "; Player.song.subtype; Player.song.caption;
+    LOCATE 1, x: PRINT USING " \  \: \                                                                          \ "; Player.song.subtype; Player.song.caption;
 
     ' Print the header
     COLOR Blink, BrightWhite
     DIM curPatRows AS LONG
     IF startPat < Player.song.patterns THEN curPatRows = Player.pattern(startPat).rows ELSE curPatRows = 64
-    LOCATE 2, x: PRINT USING "  ORD: ### / ### | PAT: ### / ### | ROW: ### / ### | CHN: ### / ### | VOC: ### / ###  "; Player.song.orderPosition; Player.song.orders - 1; startPat; Player.song.patterns - 1; Player.song.patternRow; curPatRows - 1; Player.song.activeChannels; Player.song.channels; SoftSynth_GetActiveVoices(Player.synth); SoftSynth_GetTotalVoices(Player.synth);
+    LOCATE 2, x: PRINT USING " ORD: ### / ### | PAT: ### / ### | ROW: ### / ### | CHN: ### / ### | VOC: ### / ### "; Player.song.orderPosition; Player.song.orders - 1; startPat; Player.song.patterns - 1; Player.song.patternRow; curPatRows - 1; Player.song.activeChannels; Player.song.channels; SoftSynth_GetActiveVoices(Player.synth); SoftSynth_GetTotalVoices(Player.synth);
 
-    LOCATE 3, x: PRINT USING "  BPM: ###       | SPD: ###       | VOL: ###%    | BUF: #######ms | REP: \       \  "; Player.song.BPM; Player.song.speed; SoftSynth_GetMasterVolume(Player.synth) * 100!; SoftSynth_GetBufferedSoundTime(Player.synth) * 1000#; _IIF(Player.song.isLooping, "Enabled", "Disabled");
+    LOCATE 3, x: PRINT USING " BPM: ###       | SPD: ###       | VOL: ###%      | BUF: #######ms | REP: \       \ "; Player.song.BPM; Player.song.speed; SoftSynth_GetMasterVolume(Player.synth) * 100!; SoftSynth_GetBufferedSoundTime(Player.synth) * 1000#; _IIF(Player.song.isLooping, "Enabled", "Disabled");
 
     ' Print the sample list header
     COLOR Blink, Cyan
