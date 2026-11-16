@@ -7,11 +7,15 @@ else
     EXE =
 endif
 
-# QB64-PE compiler (relative path or in PATH)
-ifeq ($(wildcard ../QB64pe/qb64pe$(EXE)),)
-    QB64PE ?= qb64pe$(EXE)
+# Search paths for QB64-PE compiler (supports QB64PE_PATH from environment / CI)
+SEARCH_PATHS := $(QB64PE_PATH) . ../qb64pe ../QB64pe ../QB64PE
+
+QB64PE_PATH_FOUND = $(firstword $(foreach dir,$(SEARCH_PATHS),$(if $(wildcard $(dir)/qb64pe$(EXE)),$(dir),)))
+
+ifneq ($(QB64PE_PATH_FOUND),)
+    QB64PE ?= $(QB64PE_PATH_FOUND)/qb64pe$(EXE)
 else
-    QB64PE ?= ../QB64pe/qb64pe$(EXE)
+    QB64PE ?= qb64pe$(EXE)
 endif
 
 # Compiler flags
@@ -55,8 +59,8 @@ endef
 all: $(EXECUTABLE)
 
 # Release target with C++ optimizations
-release: CFLAGS += -f:OptimizeCppProgram=true
-release: $(EXECUTABLE)
+release: clean
+	$(MAKE) all CFLAGS="$(CFLAGS) -f:OptimizeCppProgram=true"
 
 # Compile main executable
 $(EXECUTABLE): $(SOURCES) $(INCLUDES) $(RESOURCES)
