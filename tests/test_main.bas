@@ -908,6 +908,65 @@ SUB Test_MODPlayer_S3M_FMDrums
     TEST_CHECK (player.opl.op(12).key AND 2) = 0, "Bass drum key-off releases only the bass drum"
     TEST_CHECK (player.opl.op(16).key AND 2) <> 0, "Bass drum key-off preserves the active snare"
 
+    ' Test Drum operator isolation (Hi-Hat on mod vs Snare on car)
+    player.song.channels = 3
+    player.song.instruments = 2
+    REDIM _PRESERVE player.channel(0 TO 2) AS __MODPLAYERCHANNEL
+    REDIM _PRESERVE player.instrument(0 TO 1) AS __MODPLAYERINSTRUMENT
+
+    player.channel(1).subtype = __MODPLAYER_INSTRUMENT_FM_SNAREDRUM
+    player.channel(1).oplChannel = 7
+    player.channel(1).instrument = 0
+    player.channel(1).volume = 64
+    player.channel(2).subtype = __MODPLAYER_INSTRUMENT_FM_HIHAT
+    player.channel(2).oplChannel = 7
+    player.channel(2).instrument = 1
+    player.channel(2).volume = 64
+
+    player.instrument(0).subtype = __MODPLAYER_INSTRUMENT_FM_SNAREDRUM
+    player.instrument(0).volume = 64
+    player.instrument(0).adlib(3) = 15 ' Snare carrier TL = 15
+
+    player.instrument(1).subtype = __MODPLAYER_INSTRUMENT_FM_HIHAT
+    player.instrument(1).volume = 64
+    player.instrument(1).adlib(2) = 25 ' Hi-Hat mod TL = 25
+
+    __MODPlayer_TriggerFMPatch player, 1, 0
+    __MODPlayer_TriggerFMPatch player, 2, 1
+
+    ' Slot 13 is channel 7 mod (Hi-Hat), slot 16 is channel 7 car (Snare)
+    TEST_CHECK player.opl.op(13).totalLevel = 25, "Hi-Hat patch sets modulator totalLevel"
+    TEST_CHECK player.opl.op(16).totalLevel = 15, "Snare patch sets carrier totalLevel"
+
+    ' Test FM Portamento Octave Crossing
+    player.channel(0).subtype = __MODPLAYER_INSTRUMENT_FM_MELODY
+    player.channel(0).oplChannel = 0
+    player.channel(0).oplFNum = 1020
+    player.channel(0).oplBlock = 3
+    player.channel(0).oplKeyOn = -1
+    __MODPlayer_FMDoPortamentoUp player, 0, 10
+    TEST_CHECK player.channel(0).oplBlock = 4, "Portamento up crossed octave 3 to 4"
+    TEST_CHECK player.channel(0).oplFNum = 515, "Portamento up recalculated FNum"
+
+    player.channel(0).oplFNum = 514
+    player.channel(0).oplBlock = 4
+    __MODPlayer_FMDoPortamentoDown player, 0, 10
+    TEST_CHECK player.channel(0).oplBlock = 3, "Portamento down crossed octave 4 to 3"
+    TEST_CHECK player.channel(0).oplFNum = 1008, "Portamento down recalculated FNum"
+
+    ' Test FM Panning
+    __MODPlayer_SetChannelPanning player, 0, 0
+    TEST_CHECK player.opl.chan(0).leftPan = 256, "Left pan full left"
+    TEST_CHECK player.opl.chan(0).rightPan = 0, "Right pan zero on left"
+
+    __MODPlayer_SetChannelPanning player, 0, 255
+    TEST_CHECK player.opl.chan(0).leftPan = 0, "Left pan zero on right"
+    TEST_CHECK player.opl.chan(0).rightPan = 256, "Right pan full right"
+
+    __MODPlayer_SetChannelPanning player, 0, 128
+    TEST_CHECK player.opl.chan(0).leftPan = 256, "Center pan left"
+    TEST_CHECK player.opl.chan(0).rightPan = 256, "Center pan right"
+
     TEST_CASE_END
 END SUB
 

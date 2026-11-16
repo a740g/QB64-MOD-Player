@@ -192,6 +192,9 @@ SUB MODPlayer_Play (player AS MODPlayer)
                 player.channel(channelIndex).patternLoopRowCounter = 0
                 player.channel(channelIndex).c2Spd = 0
                 SoftSynth_SetVoiceBalance player.synth, channelIndex, player.channel(channelIndex).panning / 255! * 2! - SOFTSYNTH_VOICE_PAN_RIGHT
+                IF player.channel(channelIndex).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY THEN
+                    Opal_SetPan player.opl, player.channel(channelIndex).oplChannel, player.channel(channelIndex).panning \ 2
+                END IF
             END IF
         NEXT channelIndex
     END IF
@@ -440,6 +443,9 @@ SUB __MODPlayer_SetChannelPanning (player AS MODPlayer, nChannel AS _UNSIGNED _B
     IF NOT player.channel(nChannel).panbrelloActive THEN player.channel(nChannel).panbrelloBasePanning = safePan
     SoftSynth_SetVoiceSurround player.synth, nChannel, _FALSE
     SoftSynth_SetVoiceBalance player.synth, nChannel, safePan / 255! * 2! - SOFTSYNTH_VOICE_PAN_RIGHT
+    IF player.channel(nChannel).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY THEN
+        Opal_SetPan player.opl, player.channel(nChannel).oplChannel, safePan \ 2
+    END IF
 END SUB
 
 SUB __MODPlayer_SetGlobalVolume (player AS MODPlayer, volume AS LONG)
@@ -811,8 +817,8 @@ END SUB
 SUB __MODPlayer_UpdateFMVolume (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE)
     DIM oplChan AS _UNSIGNED _BYTE
     oplChan = player.channel(nChannel).oplChannel
-    DIM carOffset AS _UNSIGNED INTEGER
-    carOffset = __MODPlayer_GetOPLCarOffset(oplChan)
+    DIM subtype AS _UNSIGNED _BYTE
+    subtype = player.channel(nChannel).subtype
     DIM instIdx AS LONG
     instIdx = player.channel(nChannel).instrument
 
@@ -823,62 +829,100 @@ SUB __MODPlayer_UpdateFMVolume (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE
     IF vol < 0 THEN vol = 0
     IF vol > __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN vol = __MODPLAYER_INSTRUMENT_VOLUME_MAX
 
-    DIM d03 AS _UNSIGNED _BYTE
-    d03 = player.instrument(instIdx).adlib(3)
-    DIM carVol AS LONG
-    carVol = 63 - (((63 - CLNG(d03 AND 63)) * vol) \ 64)
-    IF carVol < 0 THEN carVol = 0
-    IF carVol > 63 THEN carVol = 63
-    DIM carTL AS _UNSIGNED _BYTE
-    carTL = (d03 AND &HC0) OR (carVol AND 63)
-    player.channel(nChannel).oplCarrierTotalLevel = carTL
-    Opal_Write player.opl, &H40 + carOffset, carTL
+    IF subtype = __MODPLAYER_INSTRUMENT_FM_HIHAT OR subtype = __MODPLAYER_INSTRUMENT_FM_TOMTOM THEN
+        ' Hi-Hat and Tom-Tom are 1-op rhythm sounds using the MODULATOR
+        DIM modOffsetHH AS _UNSIGNED INTEGER
+        modOffsetHH = __MODPlayer_GetOPLModOffset(oplChan)
+        DIM d02HH AS _UNSIGNED _BYTE
+        d02HH = player.instrument(instIdx).adlib(2)
+        DIM modVolHH AS LONG
+        modVolHH = 63 - (((63 - CLNG(d02HH AND 63)) * vol) \ 64)
+        IF modVolHH < 0 THEN modVolHH = 0
+        IF modVolHH > 63 THEN modVolHH = 63
+        Opal_Write player.opl, &H40 + modOffsetHH, (d02HH AND &HC0) OR (modVolHH AND 63)
+    ELSEIF subtype = __MODPLAYER_INSTRUMENT_FM_SNAREDRUM OR subtype = __MODPLAYER_INSTRUMENT_FM_CYMBAL THEN
+        ' Snare Drum and Cymbal are 1-op rhythm sounds using the CARRIER
+        DIM carOffsetSC AS _UNSIGNED INTEGER
+        carOffsetSC = __MODPlayer_GetOPLCarOffset(oplChan)
+        DIM d03SC AS _UNSIGNED _BYTE
+        d03SC = player.instrument(instIdx).adlib(3)
+        DIM carVolSC AS LONG
+        carVolSC = 63 - (((63 - CLNG(d03SC AND 63)) * vol) \ 64)
+        IF carVolSC < 0 THEN carVolSC = 0
+        IF carVolSC > 63 THEN carVolSC = 63
+        DIM carTLSC AS _UNSIGNED _BYTE
+        carTLSC = (d03SC AND &HC0) OR (carVolSC AND 63)
+        player.channel(nChannel).oplCarrierTotalLevel = carTLSC
+        Opal_Write player.opl, &H40 + carOffsetSC, carTLSC
+    ELSE
+        ' Melody or Bass Drum: update carrier
+        DIM carOffset AS _UNSIGNED INTEGER
+        carOffset = __MODPlayer_GetOPLCarOffset(oplChan)
+        DIM d03 AS _UNSIGNED _BYTE
+        d03 = player.instrument(instIdx).adlib(3)
+        DIM carVol AS LONG
+        carVol = 63 - (((63 - CLNG(d03 AND 63)) * vol) \ 64)
+        IF carVol < 0 THEN carVol = 0
+        IF carVol > 63 THEN carVol = 63
+        DIM carTL AS _UNSIGNED _BYTE
+        carTL = (d03 AND &HC0) OR (carVol AND 63)
+        player.channel(nChannel).oplCarrierTotalLevel = carTL
+        Opal_Write player.opl, &H40 + carOffset, carTL
 
-    ' If additive synthesis, modulator is also a voice output
-    DIM d0a AS _UNSIGNED _BYTE
-    d0a = player.instrument(instIdx).adlib(10)
-    IF (d0a AND 1) <> 0 THEN
-        DIM modOffset AS _UNSIGNED INTEGER
-        modOffset = __MODPlayer_GetOPLModOffset(oplChan)
-        DIM d02 AS _UNSIGNED _BYTE
-        d02 = player.instrument(instIdx).adlib(2)
-        DIM modVol AS LONG
-        modVol = 63 - (((63 - CLNG(d02 AND 63)) * vol) \ 64)
-        IF modVol < 0 THEN modVol = 0
-        IF modVol > 63 THEN modVol = 63
-        Opal_Write player.opl, &H40 + modOffset, (d02 AND &HC0) OR (modVol AND 63)
+        ' If additive synthesis, modulator is also a voice output
+        DIM d0a AS _UNSIGNED _BYTE
+        d0a = player.instrument(instIdx).adlib(10)
+        IF (d0a AND 1) <> 0 THEN
+            DIM modOffset AS _UNSIGNED INTEGER
+            modOffset = __MODPlayer_GetOPLModOffset(oplChan)
+            DIM d02 AS _UNSIGNED _BYTE
+            d02 = player.instrument(instIdx).adlib(2)
+            DIM modVol AS LONG
+            modVol = 63 - (((63 - CLNG(d02 AND 63)) * vol) \ 64)
+            IF modVol < 0 THEN modVol = 0
+            IF modVol > 63 THEN modVol = 63
+            Opal_Write player.opl, &H40 + modOffset, (d02 AND &HC0) OR (modVol AND 63)
+        END IF
     END IF
 END SUB
 
 SUB __MODPlayer_TriggerFMPatch (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, instIdx AS LONG)
     DIM oplChan AS _UNSIGNED _BYTE
     oplChan = player.channel(nChannel).oplChannel
+    DIM subtype AS _UNSIGNED _BYTE
+    subtype = player.channel(nChannel).subtype
     DIM modOffset AS _UNSIGNED INTEGER
     modOffset = __MODPlayer_GetOPLModOffset(oplChan)
     DIM carOffset AS _UNSIGNED INTEGER
     carOffset = __MODPlayer_GetOPLCarOffset(oplChan)
 
-    ' Modulator / Carrier Char (Tremolo, Vibrato, Sustain, KSR, Multiple)
-    Opal_Write player.opl, &H20 + modOffset, player.instrument(instIdx).adlib(0)
-    Opal_Write player.opl, &H20 + carOffset, player.instrument(instIdx).adlib(1)
-
-    ' Modulator Total Level
-    Opal_Write player.opl, &H40 + modOffset, player.instrument(instIdx).adlib(2)
-
-    ' Modulator / Carrier Attack / Decay
-    Opal_Write player.opl, &H60 + modOffset, player.instrument(instIdx).adlib(4)
-    Opal_Write player.opl, &H60 + carOffset, player.instrument(instIdx).adlib(5)
-
-    ' Modulator / Carrier Sustain / Release
-    Opal_Write player.opl, &H80 + modOffset, player.instrument(instIdx).adlib(6)
-    Opal_Write player.opl, &H80 + carOffset, player.instrument(instIdx).adlib(7)
-
-    ' Modulator / Carrier Waveform
-    Opal_Write player.opl, &HE0 + modOffset, player.instrument(instIdx).adlib(8)
-    Opal_Write player.opl, &HE0 + carOffset, player.instrument(instIdx).adlib(9)
-
-    ' Feedback / Connection
-    Opal_Write player.opl, &HC0 + oplChan, player.instrument(instIdx).adlib(10)
+    IF subtype = __MODPLAYER_INSTRUMENT_FM_HIHAT OR subtype = __MODPLAYER_INSTRUMENT_FM_TOMTOM THEN
+        ' 1-op rhythm sounds using MODULATOR only
+        Opal_Write player.opl, &H20 + modOffset, player.instrument(instIdx).adlib(0)
+        Opal_Write player.opl, &H40 + modOffset, player.instrument(instIdx).adlib(2)
+        Opal_Write player.opl, &H60 + modOffset, player.instrument(instIdx).adlib(4)
+        Opal_Write player.opl, &H80 + modOffset, player.instrument(instIdx).adlib(6)
+        Opal_Write player.opl, &HE0 + modOffset, player.instrument(instIdx).adlib(8)
+    ELSEIF subtype = __MODPLAYER_INSTRUMENT_FM_SNAREDRUM OR subtype = __MODPLAYER_INSTRUMENT_FM_CYMBAL THEN
+        ' 1-op rhythm sounds using CARRIER only
+        Opal_Write player.opl, &H20 + carOffset, player.instrument(instIdx).adlib(1)
+        Opal_Write player.opl, &H40 + carOffset, player.instrument(instIdx).adlib(3)
+        Opal_Write player.opl, &H60 + carOffset, player.instrument(instIdx).adlib(5)
+        Opal_Write player.opl, &H80 + carOffset, player.instrument(instIdx).adlib(7)
+        Opal_Write player.opl, &HE0 + carOffset, player.instrument(instIdx).adlib(9)
+    ELSE
+        ' Melody or Bass Drum: 2-op sounds using BOTH modulator and carrier
+        Opal_Write player.opl, &H20 + modOffset, player.instrument(instIdx).adlib(0)
+        Opal_Write player.opl, &H20 + carOffset, player.instrument(instIdx).adlib(1)
+        Opal_Write player.opl, &H40 + modOffset, player.instrument(instIdx).adlib(2)
+        Opal_Write player.opl, &H60 + modOffset, player.instrument(instIdx).adlib(4)
+        Opal_Write player.opl, &H60 + carOffset, player.instrument(instIdx).adlib(5)
+        Opal_Write player.opl, &H80 + modOffset, player.instrument(instIdx).adlib(6)
+        Opal_Write player.opl, &H80 + carOffset, player.instrument(instIdx).adlib(7)
+        Opal_Write player.opl, &HE0 + modOffset, player.instrument(instIdx).adlib(8)
+        Opal_Write player.opl, &HE0 + carOffset, player.instrument(instIdx).adlib(9)
+        Opal_Write player.opl, &HC0 + oplChan, player.instrument(instIdx).adlib(10)
+    END IF
 
     ' Update Carrier (and additive Modulator) Volume
     __MODPlayer_UpdateFMVolume player, nChannel
@@ -951,6 +995,44 @@ SUB __MODPlayer_UpdateFMChannelRow (player AS MODPlayer, nChannel AS _UNSIGNED _
     END IF
 END SUB
 
+SUB __MODPlayer_FMDoPortamentoUp (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, amount AS LONG)
+    DIM oplChan AS _UNSIGNED _BYTE
+    oplChan = player.channel(nChannel).oplChannel
+    DIM fUp AS LONG
+    fUp = CLNG(player.channel(nChannel).oplFNum) + amount
+    IF fUp >= 1024 AND player.channel(nChannel).oplBlock < 7 THEN
+        fUp = fUp \ 2
+        player.channel(nChannel).oplBlock = player.channel(nChannel).oplBlock + 1
+    ELSEIF fUp > 1023 THEN
+        fUp = 1023
+    END IF
+    player.channel(nChannel).oplFNum = fUp
+    Opal_Write player.opl, &HA0 + oplChan, fUp AND &HFF
+    DIM regB0Up AS _UNSIGNED _BYTE
+    regB0Up = _SHL(player.channel(nChannel).oplBlock AND 7, 2) OR (_SHR(fUp, 8) AND 3)
+    IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_FM_MELODY _ANDALSO player.channel(nChannel).oplKeyOn THEN regB0Up = regB0Up OR &H20
+    Opal_Write player.opl, &HB0 + oplChan, regB0Up
+END SUB
+
+SUB __MODPlayer_FMDoPortamentoDown (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, amount AS LONG)
+    DIM oplChan AS _UNSIGNED _BYTE
+    oplChan = player.channel(nChannel).oplChannel
+    DIM fDown AS LONG
+    fDown = CLNG(player.channel(nChannel).oplFNum) - amount
+    IF fDown < 512 AND player.channel(nChannel).oplBlock > 0 THEN
+        fDown = fDown * 2
+        player.channel(nChannel).oplBlock = player.channel(nChannel).oplBlock - 1
+    ELSEIF fDown < 0 THEN
+        fDown = 0
+    END IF
+    player.channel(nChannel).oplFNum = fDown
+    Opal_Write player.opl, &HA0 + oplChan, fDown AND &HFF
+    DIM regB0Down AS _UNSIGNED _BYTE
+    regB0Down = _SHL(player.channel(nChannel).oplBlock AND 7, 2) OR (_SHR(fDown, 8) AND 3)
+    IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_FM_MELODY _ANDALSO player.channel(nChannel).oplKeyOn THEN regB0Down = regB0Down OR &H20
+    Opal_Write player.opl, &HB0 + oplChan, regB0Down
+END SUB
+
 SUB __MODPlayer_UpdateFMChannelTick (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, nEffect AS _UNSIGNED _BYTE, nOperand AS _UNSIGNED _BYTE)
     DIM oplChan AS _UNSIGNED _BYTE
     oplChan = player.channel(nChannel).oplChannel
@@ -958,37 +1040,49 @@ SUB __MODPlayer_UpdateFMChannelTick (player AS MODPlayer, nChannel AS _UNSIGNED 
     DIM nOpY AS _UNSIGNED _BYTE: nOpY = nOperand AND &HF
 
     SELECT CASE nEffect
-        CASE __MODPLAYER_FX_PORTAMENTO_UP
-            DIM fUp AS LONG
-            fUp = CLNG(player.channel(nChannel).oplFNum) + nOperand
-            IF fUp > 1023 THEN fUp = 1023
-            player.channel(nChannel).oplFNum = fUp
-            Opal_Write player.opl, &HA0 + oplChan, fUp AND &HFF
-            DIM regB0Up AS _UNSIGNED _BYTE
-            regB0Up = _SHL(player.channel(nChannel).oplBlock AND 7, 2) OR (_SHR(fUp, 8) AND 3)
-            IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_FM_MELODY _ANDALSO player.channel(nChannel).oplKeyOn THEN regB0Up = regB0Up OR &H20
-            Opal_Write player.opl, &HB0 + oplChan, regB0Up
-
-        CASE __MODPLAYER_FX_PORTAMENTO_DOWN
-            DIM fDown AS LONG
-            fDown = CLNG(player.channel(nChannel).oplFNum) - nOperand
-            IF fDown < 0 THEN fDown = 0
-            player.channel(nChannel).oplFNum = fDown
-            Opal_Write player.opl, &HA0 + oplChan, fDown AND &HFF
-            DIM regB0Down AS _UNSIGNED _BYTE
-            regB0Down = _SHL(player.channel(nChannel).oplBlock AND 7, 2) OR (_SHR(fDown, 8) AND 3)
-            IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_FM_MELODY _ANDALSO player.channel(nChannel).oplKeyOn THEN regB0Down = regB0Down OR &H20
-            Opal_Write player.opl, &HB0 + oplChan, regB0Down
-
-        CASE __MODPLAYER_FX_VOLUME_SLIDE
-            IF nOpX > 0 AND nOpY = 0 THEN
-                player.channel(nChannel).volume = player.channel(nChannel).volume + nOpX
-            ELSEIF nOpY > 0 AND nOpX = 0 THEN
-                player.channel(nChannel).volume = player.channel(nChannel).volume - nOpY
+        CASE __MODPLAYER_FX_PORTAMENTO_UP, __MODPLAYER_FX_PORTA_EXTRA_FINE_UP
+            IF nOperand THEN player.channel(nChannel).lastPortamento = nOperand
+            IF player.channel(nChannel).lastPortamento < &HE0 THEN
+                __MODPlayer_FMDoPortamentoUp player, nChannel, player.channel(nChannel).lastPortamento
             END IF
-            IF player.channel(nChannel).volume > __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN player.channel(nChannel).volume = __MODPLAYER_INSTRUMENT_VOLUME_MAX
-            IF player.channel(nChannel).volume < 0 THEN player.channel(nChannel).volume = 0
-            __MODPlayer_UpdateFMVolume player, nChannel
+
+        CASE __MODPLAYER_FX_PORTAMENTO_DOWN, __MODPLAYER_FX_PORTA_EXTRA_FINE_DOWN
+            IF nOperand THEN player.channel(nChannel).lastPortamento = nOperand
+            IF player.channel(nChannel).lastPortamento < &HE0 THEN
+                __MODPlayer_FMDoPortamentoDown player, nChannel, player.channel(nChannel).lastPortamento
+            END IF
+
+        CASE __MODPLAYER_FX_PORTAMENTO, __MODPLAYER_FX_PORTA_VOL_FINE_SLIDE
+            IF player.channel(nChannel).portamentoTo > 0 THEN
+                DIM curPitch AS LONG
+                curPitch = _SHL(CLNG(player.channel(nChannel).oplFNum), player.channel(nChannel).oplBlock)
+                DIM targetPitch AS LONG
+                targetPitch = player.channel(nChannel).portamentoTo
+                DIM portaSpeed AS LONG
+                portaSpeed = _SHL(CLNG(player.channel(nChannel).portamentoSpeed), player.channel(nChannel).oplBlock)
+                IF portaSpeed < 1 THEN portaSpeed = 1
+                IF curPitch < targetPitch THEN
+                    curPitch = curPitch + portaSpeed
+                    IF curPitch > targetPitch THEN curPitch = targetPitch
+                ELSEIF curPitch > targetPitch THEN
+                    curPitch = curPitch - portaSpeed
+                    IF curPitch < targetPitch THEN curPitch = targetPitch
+                END IF
+                DIM newBlock AS LONG: newBlock = 0
+                DIM tempPitch AS LONG: tempPitch = curPitch
+                DO WHILE tempPitch >= 1024 AND newBlock < 7
+                    tempPitch = tempPitch \ 2
+                    newBlock = newBlock + 1
+                LOOP
+                IF tempPitch > 1023 THEN tempPitch = 1023
+                player.channel(nChannel).oplFNum = tempPitch
+                player.channel(nChannel).oplBlock = newBlock
+                Opal_Write player.opl, &HA0 + oplChan, tempPitch AND &HFF
+                DIM regB0Porta AS _UNSIGNED _BYTE
+                regB0Porta = _SHL(newBlock AND 7, 2) OR (_SHR(tempPitch, 8) AND 3)
+                IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_FM_MELODY _ANDALSO player.channel(nChannel).oplKeyOn THEN regB0Porta = regB0Porta OR &H20
+                Opal_Write player.opl, &HB0 + oplChan, regB0Porta
+            END IF
     END SELECT
 END SUB
 
@@ -1018,7 +1112,18 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
         noFrequency = _FALSE
 
         IF player.channel(nChannel).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY THEN
-            __MODPlayer_UpdateFMChannelRow player, nChannel, nNote, nInstrument, nVolume
+            DIM isTonePortaFM AS _BYTE
+            isTonePortaFM = (nEffect = __MODPLAYER_FX_PORTAMENTO OR nEffect = __MODPLAYER_FX_PORTA_VOL_FINE_SLIDE)
+
+            IF isTonePortaFM AND player.channel(nChannel).oplKeyOn AND nNote < __MODPLAYER_NOTE_NONE THEN
+                DIM targetFNum AS _UNSIGNED INTEGER, targetBlock AS _UNSIGNED _BYTE
+                __MODPlayer_GetOPLNotePitch player, nChannel, nNote, targetFNum, targetBlock
+                IF targetFNum > 0 THEN player.channel(nChannel).portamentoTo = _SHL(CLNG(targetFNum), targetBlock)
+                IF nOperand THEN player.channel(nChannel).portamentoSpeed = nOperand
+                __MODPlayer_UpdateFMChannelRow player, nChannel, __MODPLAYER_NOTE_NONE, nInstrument, nVolume
+            ELSE
+                __MODPlayer_UpdateFMChannelRow player, nChannel, nNote, nInstrument, nVolume
+            END IF
 
             ' S3M song and channel-volume effects remain meaningful on OPL rows.
             IF player.song.isS3M THEN
@@ -1047,6 +1152,34 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                             END IF
                         END IF
                         breakEffectFlag = _TRUE
+
+                    CASE __MODPLAYER_FX_PORTA_EXTRA_FINE_DOWN
+                        IF nOperand THEN player.channel(nChannel).lastPortamento = nOperand
+                        IF nOpX = &HF THEN
+                            __MODPlayer_FMDoPortamentoDown player, nChannel, nOpY
+                        ELSEIF nOpX = &HE THEN
+                            __MODPlayer_FMDoPortamentoDown player, nChannel, _SHL(nOpY, 2)
+                        END IF
+
+                    CASE __MODPLAYER_FX_PORTA_EXTRA_FINE_UP
+                        IF nOperand THEN player.channel(nChannel).lastPortamento = nOperand
+                        IF nOpX = &HF THEN
+                            __MODPlayer_FMDoPortamentoUp player, nChannel, nOpY
+                        ELSEIF nOpX = &HE THEN
+                            __MODPlayer_FMDoPortamentoUp player, nChannel, _SHL(nOpY, 2)
+                        END IF
+
+                    CASE __MODPLAYER_FX_PORTAMENTO
+                        IF nOperand THEN player.channel(nChannel).portamentoSpeed = nOperand
+
+                    CASE __MODPLAYER_FX_PORTA_VOL_FINE_SLIDE
+                        IF nOperand THEN player.channel(nChannel).lastVolumeSlide = nOperand
+
+                    CASE __MODPLAYER_FX_PANNING_8
+                        __MODPlayer_SetChannelPanning player, nChannel, nOperand
+
+                    CASE __MODPLAYER_FX_STEREO_CONTROL
+                        __MODPlayer_SetChannelPanning player, nChannel, nOperand * 17
 
                     CASE __MODPLAYER_FX_VOLUME_FINE_SLIDE
                         IF nOperand THEN player.channel(nChannel).lastVolumeSlide = nOperand ELSE nOperand = player.channel(nChannel).lastVolumeSlide

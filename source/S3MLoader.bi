@@ -181,34 +181,52 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
                 player.channel(i).subtype = __MODPLAYER_INSTRUMENT_PCM
 
             CASE 16 TO 24
+                player.channel(i).panning = 128
+                player.channel(i).defaultPanning = 128
                 player.channel(i).subtype = __MODPLAYER_INSTRUMENT_FM_MELODY ' FM melody channel
                 player.channel(i).oplChannel = channelInfo(i) - 16
                 player.song.hasFMChannels = _TRUE
+                Opal_SetPan player.opl, player.channel(i).oplChannel, 64
 
             CASE 25
+                player.channel(i).panning = 128
+                player.channel(i).defaultPanning = 128
                 player.channel(i).subtype = __MODPLAYER_INSTRUMENT_FM_BASSDRUM
                 player.channel(i).oplChannel = 6
                 player.song.hasFMChannels = _TRUE
+                Opal_SetPan player.opl, player.channel(i).oplChannel, 64
 
             CASE 26
+                player.channel(i).panning = 128
+                player.channel(i).defaultPanning = 128
                 player.channel(i).subtype = __MODPLAYER_INSTRUMENT_FM_SNAREDRUM
                 player.channel(i).oplChannel = 7
                 player.song.hasFMChannels = _TRUE
+                Opal_SetPan player.opl, player.channel(i).oplChannel, 64
 
             CASE 27
+                player.channel(i).panning = 128
+                player.channel(i).defaultPanning = 128
                 player.channel(i).subtype = __MODPLAYER_INSTRUMENT_FM_TOMTOM
                 player.channel(i).oplChannel = 8
                 player.song.hasFMChannels = _TRUE
+                Opal_SetPan player.opl, player.channel(i).oplChannel, 64
 
             CASE 28
+                player.channel(i).panning = 128
+                player.channel(i).defaultPanning = 128
                 player.channel(i).subtype = __MODPLAYER_INSTRUMENT_FM_CYMBAL
                 player.channel(i).oplChannel = 8
                 player.song.hasFMChannels = _TRUE
+                Opal_SetPan player.opl, player.channel(i).oplChannel, 64
 
             CASE 29
+                player.channel(i).panning = 128
+                player.channel(i).defaultPanning = 128
                 player.channel(i).subtype = __MODPLAYER_INSTRUMENT_FM_HIHAT
                 player.channel(i).oplChannel = 7
                 player.song.hasFMChannels = _TRUE
+                Opal_SetPan player.opl, player.channel(i).oplChannel, 64
         END SELECT
 
         '_ECHO "Channel " + STR$(i) + " enabled =" + STR$(NOT _READBIT(channelInfo(i), 7))
@@ -254,6 +272,9 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
                     player.channel(i).panning = (byte1 AND 15) * 17
                     player.channel(i).defaultPanning = player.channel(i).panning
                     SoftSynth_SetVoiceBalance player.synth, i, player.channel(i).panning / 255! * 2! - SOFTSYNTH_VOICE_PAN_RIGHT
+                    IF player.channel(i).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY THEN
+                        Opal_SetPan player.opl, player.channel(i).oplChannel, player.channel(i).panning \ 2
+                    END IF
                     '_ECHO "Channel " + STR$(i) + " panning =" + STR$(SoftSynth_GetVoiceBalance(i))
                 END IF
             END IF
@@ -266,6 +287,9 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
             player.channel(i).panning = 128
             player.channel(i).defaultPanning = 128
             SoftSynth_SetVoiceBalance player.synth, i, 0!
+            IF player.channel(i).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY THEN
+                Opal_SetPan player.opl, player.channel(i).oplChannel, 64
+            END IF
             '_ECHO "Channel " + STR$(i) + " panning =" + STR$(SoftSynth_GetVoiceBalance(i))
         NEXT i
     END IF
