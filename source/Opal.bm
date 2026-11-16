@@ -138,13 +138,7 @@ SUB __Opal_InitTables
 END SUB
 
 FUNCTION __Opal_Saturate% (sum AS LONG)
-    IF sum > 32767 THEN
-        __Opal_Saturate = 32767
-    ELSEIF sum < -32768 THEN
-        __Opal_Saturate = -32768
-    ELSE
-        __Opal_Saturate = sum
-    END IF
+    __Opal_Saturate = _CLAMP(sum, -32768, 32767)
 END FUNCTION
 
 FUNCTION __Opal_Interpolate% (last AS INTEGER, curr AS INTEGER, fract AS LONG)
@@ -190,11 +184,11 @@ FUNCTION __Opal_ChannelIsPaired% (opl AS Opal, ch AS _UNSIGNED LONG)
 END FUNCTION
 
 FUNCTION __Opal_ChannelBorrowsPitch% (opl AS Opal, ch AS _UNSIGNED LONG)
-    __Opal_ChannelBorrowsPitch = (__Opal_ChannelIsPairTail(ch) AND __Opal_ChannelIsPaired(opl, ch))
+    __Opal_ChannelBorrowsPitch = (__Opal_ChannelIsPairTail(ch) _ANDALSO __Opal_ChannelIsPaired(opl, ch))
 END FUNCTION
 
 FUNCTION __Opal_ChannelIsRhythm% (opl AS Opal, ch AS _UNSIGNED LONG)
-    __Opal_ChannelIsRhythm = (opl.rhythmMode <> 0 AND ch >= __OPAL_BASS_DRUM_CHANNEL AND ch < __OPAL_CHANNELS_PER_BANK)
+    __Opal_ChannelIsRhythm = (opl.rhythmMode <> 0 _ANDALSO ch >= __OPAL_BASS_DRUM_CHANNEL _ANDALSO ch < __OPAL_CHANNELS_PER_BANK)
 END FUNCTION
 
 FUNCTION __Opal_ChannelPickAlgorithm~& (opl AS Opal, ch AS _UNSIGNED LONG)
@@ -243,7 +237,7 @@ FUNCTION __Opal_ChannelCarriesVoice% (opl AS Opal, ch AS _UNSIGNED LONG)
 END FUNCTION
 
 FUNCTION __Opal_ChannelVoiceBase~& (opl AS Opal, ch AS _UNSIGNED LONG)
-    IF __Opal_ChannelSpansPair(opl, ch) AND __Opal_ChannelIsPairTail(ch) THEN
+    IF __Opal_ChannelSpansPair(opl, ch) _ANDALSO __Opal_ChannelIsPairTail(ch) THEN
         __Opal_ChannelVoiceBase = opl.chan(opl.chan(ch).pairIndex).opSlot(0)
     ELSE
         __Opal_ChannelVoiceBase = opl.chan(ch).opSlot(0)
@@ -260,7 +254,7 @@ FUNCTION __Opal_OperatorVoicePosition~& (opl AS Opal, slot AS _UNSIGNED LONG)
     ELSE
         position = 1
     END IF
-    IF __Opal_ChannelSpansPair(opl, ch) AND __Opal_ChannelIsPairTail(ch) THEN
+    IF __Opal_ChannelSpansPair(opl, ch) _ANDALSO __Opal_ChannelIsPairTail(ch) THEN
         position = position + 2
     END IF
     __Opal_OperatorVoicePosition = position
@@ -291,7 +285,7 @@ SUB __Opal_PublishRouting (opl AS Opal)
         position = __Opal_OperatorVoicePosition(opl, slot)
         DIM source AS _UNSIGNED _BYTE
         source = OPAL_OP_NONE
-        IF position = 0 AND __Opal_Algorithms(algoIdx).selfFeedback <> 0 THEN
+        IF position = 0 _ANDALSO __Opal_Algorithms(algoIdx).selfFeedback <> 0 THEN
             source = OPAL_MOD_OWN_FB
         ELSEIF (_SHR(__Opal_Algorithms(algoIdx).chainMask, position) AND 1) <> 0 THEN
             source = slot - __OPAL_VOICE_STRIDE
@@ -347,7 +341,7 @@ SUB __Opal_ChannelKey (opl AS Opal, ch AS _UNSIGNED LONG, slotCount AS _UNSIGNED
             DIM prevKey AS _UNSIGNED _BYTE
             prevKey = opl.op(slot).key
             opl.op(slot).key = (prevKey AND 2) OR (keyState AND 1)
-            IF (prevKey AND 1) <> 0 AND (keyState AND 1) = 0 THEN
+            IF (prevKey AND 1) <> 0 _ANDALSO (keyState AND 1) = 0 THEN
                 opl.op(slot).envelopeStage = OPAL_ENVELOPE_STAGE_RELEASE
             END IF
         END IF
@@ -402,7 +396,7 @@ SUB __Opal_WritePairing (opl AS Opal, valByte AS _UNSIGNED _BYTE)
     opl.pairEnable = enabled
     DIM ch AS _UNSIGNED LONG
     FOR ch = 0 TO OPAL_CHANNEL_COUNT - 1
-        IF __Opal_ChannelIsPairTail(ch) AND ((_SHR(released, __Opal_ChannelPairBit(ch)) AND 1) <> 0) THEN
+        IF __Opal_ChannelIsPairTail(ch) _ANDALSO ((_SHR(released, __Opal_ChannelPairBit(ch)) AND 1) <> 0) THEN
             __Opal_ChannelLatchKeyScale opl, ch
         END IF
     NEXT ch
@@ -452,7 +446,7 @@ SUB __Opal_WriteRhythm (opl AS Opal, valByte AS _UNSIGNED _BYTE)
         DIM prevKey AS _UNSIGNED _BYTE
         prevKey = opl.op(slot).key
         opl.op(slot).key = (prevKey AND 1) OR _SHL(keyBit, 1)
-        IF (prevKey AND 2) <> 0 AND keyBit = 0 THEN
+        IF (prevKey AND 2) <> 0 _ANDALSO keyBit = 0 THEN
             opl.op(slot).envelopeStage = OPAL_ENVELOPE_STAGE_RELEASE
         END IF
     NEXT i
@@ -503,7 +497,7 @@ END SUB
 SUB __Opal_Write (opl AS Opal, regNum AS _UNSIGNED INTEGER, valByte AS _UNSIGNED _BYTE)
     DIM reg AS _UNSIGNED LONG
     reg = regNum AND &H1FF~%
-    IF opl.newMode = 0 AND reg <> __OPAL_NEW_REGISTER THEN
+    IF opl.newMode = 0 _ANDALSO reg <> __OPAL_NEW_REGISTER THEN
         reg = reg AND &HFF~%
     END IF
 
@@ -514,19 +508,19 @@ SUB __Opal_Write (opl AS Opal, regNum AS _UNSIGNED INTEGER, valByte AS _UNSIGNED
 
     IF addr < &H20 THEN
         __Opal_WriteControl opl, reg, valByte
-    ELSEIF addr < &HA0 OR addr >= &HE0 THEN
+    ELSEIF addr < &HA0 _ORELSE addr >= &HE0 THEN
         DIM row AS _UNSIGNED LONG
         row = _SHR(addr AND &H1F, 3)
         DIM column AS _UNSIGNED LONG
         column = addr AND 7
-        IF row < 3 AND column < 6 THEN
+        IF row < 3 _ANDALSO column < 6 THEN
             DIM slot AS _UNSIGNED LONG
             slot = bank * __OPAL_OPERATORS_PER_BANK + row * 6 + column
             __Opal_OperatorWrite opl, slot, addr AND &HE0, valByte
         END IF
     ELSEIF reg = __OPAL_RHYTHM_REGISTER THEN
         __Opal_WriteRhythm opl, valByte
-    ELSEIF addr < &HD0 AND (addr AND &H0F) < __OPAL_CHANNELS_PER_BANK THEN
+    ELSEIF addr < &HD0 _ANDALSO (addr AND &H0F) < __OPAL_CHANNELS_PER_BANK THEN
         DIM ch AS _UNSIGNED LONG
         ch = bank * __OPAL_CHANNELS_PER_BANK + (addr AND &H0F)
         DIM group AS _UNSIGNED LONG
@@ -665,17 +659,17 @@ FUNCTION __Opal_OperatorEnvelope% (opl AS Opal, slot AS _UNSIGNED LONG, pitchCh 
     DIM stage AS LONG
     stage = opl.op(slot).envelopeStage
     DIM keyOn AS _BYTE
-    keyOn = (keyActive AND (stage = OPAL_ENVELOPE_STAGE_RELEASE))
+    keyOn = (keyActive _ANDALSO (stage = OPAL_ENVELOPE_STAGE_RELEASE))
     DIM level AS _UNSIGNED LONG
     level = opl.op(slot).envelope
     DIM rate AS _UNSIGNED LONG
     rate = opl.op(slot).releaseRate
 
-    IF keyOn OR stage = OPAL_ENVELOPE_STAGE_ATTACK THEN
+    IF keyOn _ORELSE stage = OPAL_ENVELOPE_STAGE_ATTACK THEN
         rate = opl.op(slot).attackRate
     ELSEIF stage = OPAL_ENVELOPE_STAGE_DECAY THEN
         rate = opl.op(slot).decayRate
-    ELSEIF stage = OPAL_ENVELOPE_STAGE_SUSTAIN AND opl.op(slot).sustainHold <> 0 THEN
+    ELSEIF stage = OPAL_ENVELOPE_STAGE_SUSTAIN _ANDALSO opl.op(slot).sustainHold <> 0 THEN
         rate = 0
     END IF
 
@@ -710,7 +704,7 @@ FUNCTION __Opal_OperatorEnvelope% (opl AS Opal, slot AS _UNSIGNED LONG, pitchCh 
     ELSEIF stage = OPAL_ENVELOPE_STAGE_ATTACK THEN
         IF level = 0 THEN
             stage = OPAL_ENVELOPE_STAGE_DECAY
-        ELSEIF keyActive AND (NOT instant) THEN
+        ELSEIF keyActive _ANDALSO (NOT instant) THEN
             DIM decr AS _UNSIGNED LONG
             decr = _SHR(speed * (level + 1) + 7, 3)
             IF decr > level THEN
@@ -719,7 +713,7 @@ FUNCTION __Opal_OperatorEnvelope% (opl AS Opal, slot AS _UNSIGNED LONG, pitchCh 
                 level = level - decr
             END IF
         END IF
-    ELSEIF stage = OPAL_ENVELOPE_STAGE_DECAY AND (_SHR(level, 4) = sustainBand) THEN
+    ELSEIF stage = OPAL_ENVELOPE_STAGE_DECAY _ANDALSO (_SHR(level, 4) = sustainBand) THEN
         IF offZone THEN
             level = __OPAL_ENVELOPE_SILENT
         END IF
@@ -845,7 +839,7 @@ SUB __Opal_OperatorWave (phase AS _UNSIGNED LONG, waveform AS _UNSIGNED LONG, wa
             wave.silent = secondQuarter
         CASE 4
             wave.attenuation = fastSine
-            wave.negative = ((NOT secondHalf) AND secondQuarter)
+            wave.negative = ((NOT secondHalf) _ANDALSO secondQuarter)
             wave.silent = secondHalf
         CASE 5
             wave.attenuation = fastSine
@@ -895,7 +889,7 @@ FUNCTION __Opal_OperatorModulation& (opl AS Opal, slot AS _UNSIGNED LONG)
     DIM position AS _UNSIGNED LONG
     position = __Opal_OperatorVoicePosition(opl, slot)
 
-    IF position = 0 AND __Opal_Algorithms(algoIdx).selfFeedback <> 0 THEN
+    IF position = 0 _ANDALSO __Opal_Algorithms(algoIdx).selfFeedback <> 0 THEN
         IF opl.chan(chOwner).feedback = 0 THEN
             __Opal_OperatorModulation = 0
             EXIT FUNCTION
@@ -1025,7 +1019,7 @@ SUB __Opal_CloseSample (opl AS Opal)
         __Opal_TickTimer opl, 1
     END IF
 
-    DO WHILE opl.queueCount > 0 AND opl.queue(opl.queueHead).due <= opl.chipSamples
+    DO WHILE opl.queueCount > 0 _ANDALSO opl.queue(opl.queueHead).due <= opl.chipSamples
         __Opal_ApplyQueuedWrite opl
     LOOP
     opl.chipSamples = opl.chipSamples + 1
@@ -1060,7 +1054,7 @@ SUB __Opal_Output (opl AS Opal, left AS INTEGER, right AS INTEGER)
         DIM level AS _UNSIGNED LONG: level = opl.op(slot).envelope
 
         ' Fast path: inactive silent operator
-        IF (NOT keyActive) AND (stage = OPAL_ENVELOPE_STAGE_RELEASE) AND (level >= __OPAL_ENVELOPE_SILENT) THEN
+        IF (NOT keyActive) _ANDALSO (stage = OPAL_ENVELOPE_STAGE_RELEASE) _ANDALSO (level >= __OPAL_ENVELOPE_SILENT) THEN
             opl.op(slot).out = 0
             opl.op(slot).prevOut = 0
             GOTO __Opal_SkipSlot
@@ -1092,14 +1086,14 @@ SUB __Opal_Output (opl AS Opal, left AS INTEGER, right AS INTEGER)
         opl.op(slot).egOut = attenuation AND &HFFFF~%
 
         ' Operator envelope inlined
-        DIM keyOn AS _BYTE: keyOn = (keyActive AND (stage = OPAL_ENVELOPE_STAGE_RELEASE))
+        DIM keyOn AS _BYTE: keyOn = (keyActive _ANDALSO (stage = OPAL_ENVELOPE_STAGE_RELEASE))
         DIM rate AS _UNSIGNED LONG: rate = opl.op(slot).releaseRate
 
-        IF keyOn OR stage = OPAL_ENVELOPE_STAGE_ATTACK THEN
+        IF keyOn _ORELSE stage = OPAL_ENVELOPE_STAGE_ATTACK THEN
             rate = opl.op(slot).attackRate
         ELSEIF stage = OPAL_ENVELOPE_STAGE_DECAY THEN
             rate = opl.op(slot).decayRate
-        ELSEIF stage = OPAL_ENVELOPE_STAGE_SUSTAIN AND opl.op(slot).sustainHold <> 0 THEN
+        ELSEIF stage = OPAL_ENVELOPE_STAGE_SUSTAIN _ANDALSO opl.op(slot).sustainHold <> 0 THEN
             rate = 0
         END IF
 
@@ -1130,9 +1124,9 @@ SUB __Opal_Output (opl AS Opal, left AS INTEGER, right AS INTEGER)
                 DIM due AS _BYTE: due = 0
                 IF (time_count MOD period) = (period \ 2) THEN
                     due = -1
-                ELSEIF (frac AND 2) <> 0 AND (time_count MOD (2 * period)) = period THEN
+                ELSEIF (frac AND 2) <> 0 _ANDALSO (time_count MOD (2 * period)) = period THEN
                     due = -1
-                ELSEIF (frac AND 1) <> 0 AND (time_count MOD (4 * period)) = (2 * period) THEN
+                ELSEIF (frac AND 1) <> 0 _ANDALSO (time_count MOD (4 * period)) = (2 * period) THEN
                     due = -1
                 END IF
                 IF due THEN speed = 1
@@ -1149,11 +1143,11 @@ SUB __Opal_Output (opl AS Opal, left AS INTEGER, right AS INTEGER)
         ELSEIF stage = OPAL_ENVELOPE_STAGE_ATTACK THEN
             IF level = 0 THEN
                 stage = OPAL_ENVELOPE_STAGE_DECAY
-            ELSEIF keyActive AND (NOT instant) THEN
+            ELSEIF keyActive _ANDALSO (NOT instant) THEN
                 DIM decr AS _UNSIGNED LONG: decr = _SHR(speed * (level + 1) + 7, 3)
                 IF decr > level THEN level = 0 ELSE level = level - decr
             END IF
-        ELSEIF stage = OPAL_ENVELOPE_STAGE_DECAY AND (_SHR(level, 4) >= sustainBand) THEN
+        ELSEIF stage = OPAL_ENVELOPE_STAGE_DECAY _ANDALSO (_SHR(level, 4) >= sustainBand) THEN
             IF offZone THEN level = __OPAL_ENVELOPE_SILENT
             stage = OPAL_ENVELOPE_STAGE_SUSTAIN
         ELSEIF offZone THEN
@@ -1249,7 +1243,7 @@ SUB __Opal_Output (opl AS Opal, left AS INTEGER, right AS INTEGER)
                 waveSilent = secondQuarter
             CASE 4
                 waveAtten = fastSine
-                waveNegative = ((NOT secondHalf) AND secondQuarter)
+                waveNegative = ((NOT secondHalf) _ANDALSO secondQuarter)
                 waveSilent = secondHalf
             CASE 5
                 waveAtten = fastSine
@@ -1314,20 +1308,8 @@ SUB __Opal_Output (opl AS Opal, left AS INTEGER, right AS INTEGER)
         END IF
     NEXT slot
 
-    IF leftSum > 32767 THEN
-        left = 32767
-    ELSEIF leftSum < -32768 THEN
-        left = -32768
-    ELSE
-        left = leftSum
-    END IF
-    IF opl.pendingRight > 32767 THEN
-        right = 32767
-    ELSEIF opl.pendingRight < -32768 THEN
-        right = -32768
-    ELSE
-        right = opl.pendingRight
-    END IF
+    left = _CLAMP(leftSum, -32768, 32767)
+    right = _CLAMP(opl.pendingRight, -32768, 32767)
     opl.pendingRight = rightSum
 
     __Opal_CloseSample opl

@@ -765,9 +765,9 @@ SUB Test_Opal_SoundGeneration
     FOR i = 0 TO 199
         leftSample = samples(i * 2)
         rightSample = samples(i * 2 + 1)
-        IF leftSample <> 0 OR rightSample <> 0 THEN hasNonZero = _TRUE
-        TEST_CHECK leftSample >= -1! AND leftSample <= 1!, "Left sample within bounds"
-        TEST_CHECK rightSample >= -1! AND rightSample <= 1!, "Right sample within bounds"
+        IF leftSample <> 0 _ORELSE rightSample <> 0 THEN hasNonZero = _TRUE
+        TEST_CHECK leftSample >= -1! _ANDALSO leftSample <= 1!, "Left sample within bounds"
+        TEST_CHECK rightSample >= -1! _ANDALSO rightSample <= 1!, "Right sample within bounds"
     NEXT i
     TEST_CHECK hasNonZero, "Synthesized non-zero audio samples"
     TEST_CASE_END
@@ -807,7 +807,7 @@ SUB Test_Opal_RhythmMode
     FOR i = 0 TO 199
         leftSample = samples(i * 2)
         rightSample = samples(i * 2 + 1)
-        IF leftSample <> 0 OR rightSample <> 0 THEN hasSound = _TRUE
+        IF leftSample <> 0 _ORELSE rightSample <> 0 THEN hasSound = _TRUE
     NEXT i
     TEST_CHECK hasSound, "Rhythm mode generated sound output"
     TEST_CASE_END

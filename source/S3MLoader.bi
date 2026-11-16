@@ -342,7 +342,7 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
             ' Read and verify the 'SCRI' label (offset 4Ch)
             DIM fmSig AS STRING: fmSig = StringFile_ReadString(memFile, 4)
-            IF fmSig <> "SCRI" AND fmSig <> "SCRS" THEN
+            IF fmSig <> "SCRI" _ANDALSO fmSig <> "SCRS" THEN
                 ' Non-fatal check: some files have trailing spaces or odd tags
             END IF
         ELSE ' this is a standard PCM or blank instrument
