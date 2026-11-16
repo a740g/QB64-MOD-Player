@@ -17,6 +17,7 @@ $LET TEST_CONSOLE_ONLY = TRUE
 '$INCLUDE:'../source/MODLoader.bi'
 '$INCLUDE:'../source/S3MLoader.bi'
 '$INCLUDE:'../source/MTMLoader.bi'
+'$INCLUDE:'../source/FARLoader.bi'
 
 ''' @brief Tests for AudioConv.bi audio conversion functions.
 SUB Test_AudioConv
@@ -551,6 +552,7 @@ SUB Test_MODLoader
     TEST_CASE_BEGIN "MODLoader: Reject incompatible formats"
     TEST_CHECK_FALSE MODLoader_LoadFromDisk(player, "mods/A Touch of Spring.s3m"), "MODLoader rejects S3M"
     TEST_CHECK_FALSE MODLoader_LoadFromDisk(player, "mods/cougarstory-ii.mtm"), "MODLoader rejects MTM"
+    TEST_CHECK_FALSE MODLoader_LoadFromDisk(player, "mods/M31.far"), "MODLoader rejects FAR"
     MODPlayer_Finalize player
     TEST_CASE_END
 END SUB
@@ -578,6 +580,7 @@ SUB Test_S3MLoader
     TEST_CASE_BEGIN "S3MLoader: Reject incompatible formats"
     TEST_CHECK_FALSE S3MLoader_LoadFromDisk(player, "mods/Enigma.mod"), "S3MLoader rejects MOD"
     TEST_CHECK_FALSE S3MLoader_LoadFromDisk(player, "mods/cougarstory-ii.mtm"), "S3MLoader rejects MTM"
+    TEST_CHECK_FALSE S3MLoader_LoadFromDisk(player, "mods/M31.far"), "S3MLoader rejects FAR"
     MODPlayer_Finalize player
     TEST_CASE_END
 END SUB
@@ -600,6 +603,73 @@ SUB Test_MTMLoader
     TEST_CASE_BEGIN "MTMLoader: Reject incompatible formats"
     TEST_CHECK_FALSE MTMLoader_LoadFromDisk(player, "mods/Enigma.mod"), "MTMLoader rejects MOD"
     TEST_CHECK_FALSE MTMLoader_LoadFromDisk(player, "mods/A Touch of Spring.s3m"), "MTMLoader rejects S3M"
+    TEST_CHECK_FALSE MTMLoader_LoadFromDisk(player, "mods/M31.far"), "MTMLoader rejects FAR"
+    MODPlayer_Finalize player
+    TEST_CASE_END
+END SUB
+
+''' @brief Tests for dedicated FARLoader.
+SUB Test_FARLoader
+    TEST_CASE_BEGIN "FARLoader: Load Farandole Composer directly"
+    DIM player AS MODPlayer
+    TEST_REQUIRE FARLoader_LoadFromDisk(player, "mods/M31.far"), "FARLoader loads M31.far"
+    TEST_CHECK INSTR(MODPlayer_GetName(player), "M31") > 0, "Song caption matches"
+    TEST_CHECK MODPlayer_GetType(player) = "FAR", "Song subtype is FAR"
+    TEST_CHECK player.song.channels = 16, "FAR has 16 channels"
+    TEST_CHECK MODPlayer_IsStereo(player), "FAR is stereo"
+    TEST_CHECK MODPlayer_GetOrders(player) = 12, "Order count is 12"
+    TEST_CHECK MODPlayer_GetPatternRows(player, 0) = 64, "Pattern 0 has 64 rows"
+    TEST_CHECK MODPlayer_GetPatternRows(player, 11) = 72, "Pattern 11 has 72 rows (variable rows!)"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "FARLoader: Load from memory"
+    DIM farBuf AS STRING: farBuf = File_LoadFromDisk("mods/M31.far")
+    TEST_REQUIRE FARLoader_LoadFromMemory(player, farBuf), "FARLoader loads from memory"
+    TEST_CHECK MODPlayer_GetType(player) = "FAR", "Subtype is FAR"
+    TEST_CHECK MODPlayer_GetPatternRows(player, 11) = 72, "Pattern 11 has 72 rows from memory"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "FARLoader: Variable pattern rows across modules"
+    DIM pAmazon AS MODPlayer
+    TEST_REQUIRE FARLoader_LoadFromDisk(pAmazon, "mods/Amazon Dawn.far"), "Load Amazon Dawn.far"
+    TEST_CHECK MODPlayer_GetPatternRows(pAmazon, 0) = 64, "Amazon Dawn pattern 0 has 64 rows"
+    TEST_CHECK MODPlayer_GetPatternRows(pAmazon, 1) = 14, "Amazon Dawn pattern 1 has 14 rows"
+    MODPlayer_Finalize pAmazon
+
+    DIM pJourney AS MODPlayer
+    TEST_REQUIRE FARLoader_LoadFromDisk(pJourney, "mods/A Journey Into Sound.far"), "Load A Journey Into Sound.far"
+    TEST_CHECK MODPlayer_GetPatternRows(pJourney, 0) = 99, "A Journey Into Sound pattern 0 has 99 rows"
+    TEST_CHECK MODPlayer_GetPatternRows(pJourney, 1) = 60, "A Journey Into Sound pattern 1 has 60 rows"
+    TEST_CHECK MODPlayer_GetPatternRows(pJourney, 2) = 16, "A Journey Into Sound pattern 2 has 16 rows"
+    TEST_CHECK MODPlayer_GetPatternRows(pJourney, 5) = 10, "A Journey Into Sound pattern 5 has 10 rows"
+    TEST_CHECK MODPlayer_GetPatternRows(pJourney, 7) = 64, "A Journey Into Sound pattern 7 has 64 rows"
+    MODPlayer_Finalize pJourney
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "FARLoader: Channel on/off mute map"
+    DIM pAurora AS MODPlayer
+    TEST_REQUIRE FARLoader_LoadFromDisk(pAurora, "mods/Aurora.far"), "Load Aurora.far"
+    TEST_CHECK pAurora.channel(0).channelVolume = 64, "Channel 0 active"
+    TEST_CHECK pAurora.channel(13).channelVolume = 0, "Channel 13 muted"
+    TEST_CHECK pAurora.channel(14).channelVolume = 0, "Channel 14 muted"
+    TEST_CHECK pAurora.channel(15).channelVolume = 0, "Channel 15 muted"
+    MODPlayer_Finalize pAurora
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "FARLoader: Playback and teardown"
+    MODPlayer_Play player
+    TEST_CHECK MODPlayer_IsPlaying(player), "FAR is playing"
+    MODPlayer_Update player, 0.05
+    TEST_CHECK MODPlayer_IsPlaying(player), "FAR continues playing after update"
+    MODPlayer_Stop player
+    TEST_CHECK_FALSE MODPlayer_IsPlaying(player), "FAR stopped"
+    MODPlayer_Finalize player
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "FARLoader: Reject incompatible formats"
+    TEST_CHECK_FALSE FARLoader_LoadFromDisk(player, "mods/Enigma.mod"), "FARLoader rejects MOD"
+    TEST_CHECK_FALSE FARLoader_LoadFromDisk(player, "mods/A Touch of Spring.s3m"), "FARLoader rejects S3M"
+    TEST_CHECK_FALSE FARLoader_LoadFromDisk(player, "mods/cougarstory-ii.mtm"), "FARLoader rejects MTM"
     MODPlayer_Finalize player
     TEST_CASE_END
 END SUB
@@ -676,6 +746,14 @@ SUB Test_MODPlayer_PatternRows
     TEST_REQUIRE MODPlayer_LoadFromDisk(mtmPlayer, "mods/cougarstory-ii.mtm"), "Load cougarstory-ii.mtm"
     TEST_CHECK MODPlayer_GetPatternRows(mtmPlayer, 0) = 64, "MTM pattern 0 has 64 rows"
     TEST_CHECK mtmPlayer.pattern(0).rows = 64, "MTM pattern 0 direct rows is 64"
+
+    ' Test real FAR variable pattern rows loaded via auto-detection
+    DIM farPlayer AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(farPlayer, "mods/M31.far"), "Load M31.far via auto-detection"
+    TEST_CHECK MODPlayer_GetType(farPlayer) = "FAR", "Auto-detected FAR format"
+    TEST_CHECK MODPlayer_GetPatternRows(farPlayer, 0) = 64, "M31 pattern 0 has 64 rows"
+    TEST_CHECK MODPlayer_GetPatternRows(farPlayer, 11) = 72, "M31 pattern 11 has 72 rows"
+    MODPlayer_Finalize farPlayer
 
     ' Test variable row support on custom pattern matrix
     DIM customPlayer AS MODPlayer
@@ -1120,7 +1198,7 @@ SUB Test_MODPlayer_Stereo
     MODPlayer_Finalize pStereo
     TEST_CASE_END
 
-    TEST_CASE_BEGIN "Stereo Flag: MOD and MTM default to stereo"
+    TEST_CASE_BEGIN "Stereo Flag: MOD, MTM, and FAR default to stereo"
     DIM pMod AS MODPlayer
     TEST_REQUIRE MODPlayer_LoadFromDisk(pMod, "mods/Enigma.mod"), "Load Enigma.mod"
     TEST_CHECK MODPlayer_IsStereo(pMod), "MOD is stereo"
@@ -1130,6 +1208,11 @@ SUB Test_MODPlayer_Stereo
     TEST_REQUIRE MODPlayer_LoadFromDisk(pMtm, "mods/cougarstory-ii.mtm"), "Load cougarstory-ii.mtm"
     TEST_CHECK MODPlayer_IsStereo(pMtm), "MTM is stereo"
     MODPlayer_Finalize pMtm
+
+    DIM pFar AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pFar, "mods/M31.far"), "Load M31.far"
+    TEST_CHECK MODPlayer_IsStereo(pFar), "FAR is stereo"
+    MODPlayer_Finalize pFar
     TEST_CASE_END
 END SUB
 
@@ -1210,6 +1293,7 @@ Test_MODPlayer_Memory
 Test_MODLoader
 Test_S3MLoader
 Test_MTMLoader
+Test_FARLoader
 Test_MODPlayer_MultiInstance
 Test_MODPlayer_PatternRows
 Test_MODPlayer_Errors

@@ -8,6 +8,7 @@ $INCLUDEONCE
 '$INCLUDE:'File.bi'
 '$INCLUDE:'MODPlayer.bi'
 '$INCLUDE:'Opal.bm'
+'$INCLUDE:'FARLoader.bi'
 '$INCLUDE:'MODLoader.bi'
 '$INCLUDE:'MTMLoader.bi'
 '$INCLUDE:'S3MLoader.bi'
@@ -21,6 +22,11 @@ $INCLUDEONCE
 FUNCTION MODPlayer_LoadWithCompanion%% (player AS MODPlayer, buffer AS STRING, companionBuffer AS STRING)
     IF NOT MODPlayer_IsInitialized(player) THEN
         IF NOT MODPlayer_Initialize(player) THEN EXIT FUNCTION
+    END IF
+
+    IF FARLoader_LoadFromMemory(player, buffer) THEN
+        MODPlayer_LoadWithCompanion = _TRUE
+        EXIT FUNCTION
     END IF
 
     IF S3MLoader_LoadFromMemory(player, buffer) THEN
@@ -206,6 +212,15 @@ SUB MODPlayer_Play (player AS MODPlayer)
                         Opal_SetPan player.opl, player.channel(channelIndex).oplChannel, 64
                     END IF
                 END IF
+            ELSEIF player.song.subtype = "FAR" THEN
+                player.channel(channelIndex).panning = player.channel(channelIndex).defaultPanning
+                SoftSynth_SetVoiceSurround player.synth, channelIndex, _FALSE
+                player.channel(channelIndex).portamentoSpeed = 0
+                player.channel(channelIndex).portamentoTo = 0
+                player.channel(channelIndex).vibratoPosition = 0
+                player.channel(channelIndex).vibratoSpeed = 0
+                player.channel(channelIndex).vibratoDepth = 0
+                SoftSynth_SetVoiceBalance player.synth, channelIndex, (CSNG(player.channel(channelIndex).panning) / 255!) * 2! - 1!
             END IF
         NEXT channelIndex
     END IF
@@ -2233,7 +2248,7 @@ END FUNCTION
 ''' @param player The MOD player instance.
 ''' @return Format string (e.g. "M.K.", "SCRM", "MTM1").
 FUNCTION MODPlayer_GetType$ (player AS MODPlayer)
-    MODPlayer_GetType = player.song.subtype
+    MODPlayer_GetType = _TRIM$(player.song.subtype)
 END FUNCTION
 
 ''' @brief Checks whether the loaded song uses stereo channel panning.
