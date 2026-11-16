@@ -8,58 +8,7 @@ $INCLUDEONCE
 
 '$INCLUDE:'Opal.bi'
 
-SUB __Opal_InitTables
-    IF __Opal_TablesReady THEN EXIT SUB
-
-    DIM i AS LONG
-
-    RESTORE __Opal_LogSinData
-    FOR i = 0 TO 255
-        READ __Opal_LogSinTable(i)
-    NEXT i
-
-    RESTORE __Opal_ExponentData
-    FOR i = 0 TO 255
-        READ __Opal_ExponentRom(i)
-    NEXT i
-
-    RESTORE __Opal_MulData
-    FOR i = 0 TO 15
-        READ __Opal_MulTimes2(i)
-    NEXT i
-
-    RESTORE __Opal_OwnerData
-    FOR i = 0 TO 35
-        READ __Opal_OperatorOwner(i)
-    NEXT i
-
-    RESTORE __Opal_RhythmKeyData
-    FOR i = 0 TO 5
-        READ __Opal_RhythmKeyBit(i)
-    NEXT i
-
-    RESTORE __Opal_VibratoData
-    FOR i = 0 TO 7
-        READ __Opal_VibratoSteps(i).halves
-        READ __Opal_VibratoSteps(i).negative
-    NEXT i
-
-    RESTORE __Opal_AlgorithmData
-    FOR i = 0 TO 8
-        READ __Opal_Algorithms(i).operatorCount
-        READ __Opal_Algorithms(i).chainMask
-        READ __Opal_Algorithms(i).carrierMask
-        READ __Opal_Algorithms(i).gain
-        READ __Opal_Algorithms(i).selfFeedback
-    NEXT i
-
-    RESTORE __Opal_KslData
-    FOR i = 0 TO 15
-        READ __Opal_KslRom(i)
-    NEXT i
-
-    __Opal_TablesReady = -1
-END SUB
+$CHECKING:OFF
 
 FUNCTION __Opal_Saturate% (sum AS LONG)
     IF sum > 32767 THEN
@@ -265,7 +214,12 @@ SUB __Opal_ChannelKey (self AS Opal, ch AS _UNSIGNED LONG, slotCount AS _UNSIGNE
         DIM slot AS _UNSIGNED _BYTE
         slot = self.chan(ch).opSlot(i)
         IF slot <> OPAL_OP_NONE THEN
-            self.op(slot).key = (self.op(slot).key AND 2) OR (keyState AND 1)
+            DIM prevKey AS _UNSIGNED _BYTE
+            prevKey = self.op(slot).key
+            self.op(slot).key = (prevKey AND 2) OR (keyState AND 1)
+            IF (prevKey AND 1) <> 0 AND (keyState AND 1) = 0 THEN
+                self.op(slot).envelopeStage = OPAL_ENVELOPE_STAGE_RELEASE
+            END IF
         END IF
     NEXT i
 END SUB
@@ -364,7 +318,12 @@ SUB __Opal_WriteRhythm (self AS Opal, valByte AS _UNSIGNED _BYTE)
         ELSE
             keyBit = 0
         END IF
-        self.op(slot).key = (self.op(slot).key AND 1) OR _SHL(keyBit, 1)
+        DIM prevKey AS _UNSIGNED _BYTE
+        prevKey = self.op(slot).key
+        self.op(slot).key = (prevKey AND 1) OR _SHL(keyBit, 1)
+        IF (prevKey AND 2) <> 0 AND keyBit = 0 THEN
+            self.op(slot).envelopeStage = OPAL_ENVELOPE_STAGE_RELEASE
+        END IF
     NEXT i
     __Opal_RefreshRouting self
 END SUB
@@ -933,26 +892,297 @@ SUB __Opal_CloseSample (self AS Opal)
 END SUB
 
 SUB __Opal_Output (self AS Opal, left AS INTEGER, right AS INTEGER)
-    DIM time AS __OpalEnvelopeTime
-    __Opal_EnvelopeTime self, time
-    DIM leftSum AS LONG
-    DIM rightSum AS LONG
-    leftSum = 0
-    rightSum = 0
+    DIM time_odd AS _BYTE
+    DIM time_count AS _UNSIGNED _INTEGER64
+    DIM pairs AS _UNSIGNED _INTEGER64
+    pairs = _SHR(self.chipSamples, 1)
+    time_odd = (self.chipSamples AND 1) <> 0
+    IF pairs < 2 THEN
+        time_count = 0
+    ELSE
+        time_count = ((pairs - 2) MOD __OPAL_ENVELOPE_PERIOD) + 1
+    END IF
 
-    DIM slot AS _UNSIGNED LONG
+    DIM leftSum AS LONG: leftSum = 0
+    DIM rightSum AS LONG: rightSum = 0
+
+    DIM slot AS LONG
     FOR slot = 0 TO OPAL_OPERATOR_COUNT - 1
-        __Opal_OperatorTurn self, slot, time
+        DIM keyActive AS _BYTE: keyActive = (self.op(slot).key <> 0)
+        DIM stage AS LONG: stage = self.op(slot).envelopeStage
+        DIM level AS _UNSIGNED LONG: level = self.op(slot).envelope
+
+        ' Fast path: inactive silent operator
+        IF (NOT keyActive) AND (stage = OPAL_ENVELOPE_STAGE_RELEASE) AND (level >= __OPAL_ENVELOPE_SILENT) THEN
+            self.op(slot).out = 0
+            self.op(slot).prevOut = 0
+            GOTO __Opal_SkipSlot
+        END IF
+
+        DIM chOwner AS LONG: chOwner = __Opal_OperatorOwner(slot)
+        DIM pitchCh AS LONG
+        IF __Opal_ChannelBorrowsPitch(self, chOwner) THEN
+            pitchCh = self.chan(chOwner).pairIndex
+        ELSE
+            pitchCh = chOwner
+        END IF
+
+        ' Key scale level inlined
+        DIM kslAtten AS LONG
+        kslAtten = 4 * CLNG(__Opal_KslRom(_SHR(self.chan(pitchCh).fNumber, 6))) - 32 * (8 - self.chan(pitchCh).block)
+        IF kslAtten < 0 THEN kslAtten = 0
+        DIM kslLevel AS LONG
+        SELECT CASE self.op(slot).keyScaleLevel
+            CASE 1: kslLevel = kslAtten \ 2
+            CASE 2: kslLevel = kslAtten \ 4
+            CASE 3: kslLevel = kslAtten
+            CASE ELSE: kslLevel = 0
+        END SELECT
+
+        DIM attenuation AS _UNSIGNED LONG
+        attenuation = level + 4 * CLNG(self.op(slot).totalLevel) + kslLevel
+        IF self.op(slot).tremolo <> 0 THEN attenuation = attenuation + self.tremoloLevel
+        self.op(slot).egOut = attenuation AND &HFFFF~%
+
+        ' Operator envelope inlined
+        DIM keyOn AS _BYTE: keyOn = (keyActive AND (stage = OPAL_ENVELOPE_STAGE_RELEASE))
+        DIM rate AS _UNSIGNED LONG: rate = self.op(slot).releaseRate
+
+        IF keyOn OR stage = OPAL_ENVELOPE_STAGE_ATTACK THEN
+            rate = self.op(slot).attackRate
+        ELSEIF stage = OPAL_ENVELOPE_STAGE_DECAY THEN
+            rate = self.op(slot).decayRate
+        ELSEIF stage = OPAL_ENVELOPE_STAGE_SUSTAIN AND self.op(slot).sustainHold <> 0 THEN
+            rate = 0
+        END IF
+
+        DIM keyScale AS _UNSIGNED LONG: keyScale = self.chan(pitchCh).latchedKeyScaleNumber
+        DIM rateOffset AS _UNSIGNED LONG
+        IF self.op(slot).keyScaleRate <> 0 THEN rateOffset = keyScale ELSE rateOffset = _SHR(keyScale, 2)
+        DIM actualRate AS _UNSIGNED LONG: actualRate = 4 * rate + rateOffset
+        DIM instant AS _BYTE: instant = (actualRate >= __OPAL_RATE_INSTANT)
+
+        ' Envelope speed inlined
+        DIM speed AS _UNSIGNED LONG: speed = 0
+        IF rate > 0 THEN
+            IF actualRate >= __OPAL_RATE_INSTANT THEN
+                speed = 4
+            ELSEIF actualRate >= __OPAL_RATE_FAST THEN
+                DIM pairPos AS _UNSIGNED LONG: pairPos = time_count AND 3
+                DIM spread AS _UNSIGNED LONG: spread = _SHL(pairPos AND 1, 1) OR _SHR(pairPos, 1)
+                DIM baseUnit AS _UNSIGNED LONG
+                IF spread < (actualRate AND 3) THEN baseUnit = 2 ELSE baseUnit = 1
+                DIM pairUnits AS _UNSIGNED LONG: pairUnits = _SHL(baseUnit, _SHR(actualRate - __OPAL_RATE_FAST, 2))
+                DIM oddBit AS _UNSIGNED LONG
+                IF time_odd <> 0 THEN oddBit = pairUnits AND 1 ELSE oddBit = 0
+                speed = _SHR(pairUnits, 1) OR oddBit
+            ELSEIF time_odd <> 0 THEN
+                DIM grp AS LONG: grp = _SHR(actualRate, 2)
+                DIM frac AS LONG: frac = actualRate AND 3
+                DIM period AS _UNSIGNED _INTEGER64: period = _SHL(1~&&, 12 - grp)
+                DIM due AS _BYTE: due = 0
+                IF (time_count MOD period) = (period \ 2) THEN
+                    due = -1
+                ELSEIF (frac AND 2) <> 0 AND (time_count MOD (2 * period)) = period THEN
+                    due = -1
+                ELSEIF (frac AND 1) <> 0 AND (time_count MOD (4 * period)) = (2 * period) THEN
+                    due = -1
+                END IF
+                IF due THEN speed = 1
+            END IF
+        END IF
+
+        DIM sustainBand AS _UNSIGNED LONG
+        IF self.op(slot).sustainLevel = 15 THEN sustainBand = 31 ELSE sustainBand = self.op(slot).sustainLevel
+        DIM offZone AS _BYTE: offZone = (level >= __OPAL_ENVELOPE_OFF_ZONE)
+
+        IF keyOn THEN
+            IF instant THEN level = 0
+            stage = OPAL_ENVELOPE_STAGE_ATTACK
+        ELSEIF stage = OPAL_ENVELOPE_STAGE_ATTACK THEN
+            IF level = 0 THEN
+                stage = OPAL_ENVELOPE_STAGE_DECAY
+            ELSEIF keyActive AND (NOT instant) THEN
+                DIM decr AS _UNSIGNED LONG: decr = _SHR(speed * (level + 1) + 7, 3)
+                IF decr > level THEN level = 0 ELSE level = level - decr
+            END IF
+        ELSEIF stage = OPAL_ENVELOPE_STAGE_DECAY AND (_SHR(level, 4) >= sustainBand) THEN
+            IF offZone THEN level = __OPAL_ENVELOPE_SILENT
+            stage = OPAL_ENVELOPE_STAGE_SUSTAIN
+        ELSEIF offZone THEN
+            level = __OPAL_ENVELOPE_SILENT
+        ELSE
+            level = level + speed
+            IF level > __OPAL_ENVELOPE_SILENT THEN level = __OPAL_ENVELOPE_SILENT
+        END IF
+
+        IF NOT keyActive THEN stage = OPAL_ENVELOPE_STAGE_RELEASE
+        self.op(slot).envelope = level
+        self.op(slot).envelopeStage = stage
+
+        ' Operator increment inlined
+        DIM fNum AS LONG: fNum = self.chan(pitchCh).fNumber
+        IF self.op(slot).vibrato <> 0 THEN
+            DIM fNumHigh AS LONG: fNumHigh = _SHR(fNum, 7)
+            DIM depthShift AS LONG: IF self.vibratoDepth <> 0 THEN depthShift = 0 ELSE depthShift = 1
+            DIM vibPosIdx AS _UNSIGNED LONG: vibPosIdx = _SHR(self.sampleCounter, 10) AND 7
+            DIM magnitude AS LONG: magnitude = _SHR(_SHR(fNumHigh * CLNG(__Opal_VibratoSteps(vibPosIdx).halves), 1), depthShift)
+            IF __Opal_VibratoSteps(vibPosIdx).negative <> 0 THEN fNum = fNum - magnitude ELSE fNum = fNum + magnitude
+        END IF
+        DIM baseVal AS _UNSIGNED LONG: baseVal = _SHR(_SHL(fNum, self.chan(pitchCh).block), 1)
+        DIM incr AS _UNSIGNED LONG: incr = _SHR(baseVal * __Opal_MulTimes2(self.op(slot).multiple), 1)
+
+        DIM phase AS _UNSIGNED LONG: phase = _SHR(self.op(slot).phase, 9) AND &HFFFF~%
+        IF keyOn THEN self.op(slot).phase = incr ELSE self.op(slot).phase = self.op(slot).phase + incr
+
+        DIM noiseBit AS _UNSIGNED LONG: noiseBit = self.noise AND 1
+        DIM feedbackBit AS _UNSIGNED LONG: feedbackBit = (self.noise XOR _SHR(self.noise, 14)) AND 1
+        self.noise = _SHR(self.noise, 1) OR _SHL(feedbackBit, 22)
+
+        IF slot = __OPAL_HI_HAT_SLOT THEN self.hiHatPhase = phase AND &HFFFF~%
+
+        IF self.rhythmMode <> 0 THEN
+            IF slot = __OPAL_HI_HAT_SLOT THEN
+                DIM cymBit AS _UNSIGNED LONG: cymBit = __Opal_CymbalBit(self)
+                DIM hiHatConst AS _UNSIGNED LONG
+                IF (cymBit XOR noiseBit) <> 0 THEN hiHatConst = __OPAL_HI_HAT_PHASE_NOISY ELSE hiHatConst = __OPAL_HI_HAT_PHASE_QUIET
+                phase = _SHL(cymBit, 9) OR hiHatConst
+            ELSEIF slot = __OPAL_SNARE_SLOT THEN
+                DIM hatBit AS _UNSIGNED LONG: hatBit = _SHR(self.hiHatPhase, 8) AND 1
+                phase = _SHL(hatBit, 9) OR _SHL(hatBit XOR noiseBit, 8)
+            ELSEIF slot = __OPAL_CYMBAL_SLOT THEN
+                self.cymbalPhase = phase AND &HFFFF~%
+                phase = _SHL(__Opal_CymbalBit(self), 9) OR __OPAL_CYMBAL_PHASE
+            END IF
+        END IF
+
+        ' Operator modulation inlined
+        DIM modulation AS LONG: modulation = 0
+        DIM modSrc AS _UNSIGNED _BYTE: modSrc = self.op(slot).modSource
+        IF modSrc = OPAL_MOD_OWN_FB THEN
+            IF self.chan(chOwner).feedback <> 0 THEN
+                DIM sumOut AS LONG: sumOut = CLNG(self.op(slot).out) + self.op(slot).prevOut
+                DIM fbShift AS LONG: fbShift = 9 - self.chan(chOwner).feedback
+                IF sumOut >= 0 THEN modulation = _SHR(sumOut, fbShift) ELSE modulation = NOT _SHR(NOT sumOut, fbShift)
+            END IF
+        ELSEIF modSrc <> OPAL_OP_NONE THEN
+            modulation = self.op(modSrc).out
+        END IF
+
+        DIM finalPhase AS _UNSIGNED LONG: finalPhase = (CLNG(phase) + modulation) AND &H3FF
+
+        ' Operator wave and output inlined
+        DIM secondHalf AS _BYTE: secondHalf = ((finalPhase AND &H200) <> 0)
+        DIM secondQuarter AS _BYTE: secondQuarter = ((finalPhase AND &H100) <> 0)
+        DIM halfPos AS _UNSIGNED LONG: halfPos = finalPhase AND &H1FF
+        DIM quarterPos AS _UNSIGNED LONG: quarterPos = finalPhase AND &HFF
+        DIM sineIndex AS _UNSIGNED LONG
+        IF secondQuarter THEN sineIndex = &HFF - quarterPos ELSE sineIndex = quarterPos
+        DIM sine AS _UNSIGNED INTEGER: sine = __Opal_LogSinTable(sineIndex)
+        DIM eighthPos AS _UNSIGNED LONG: eighthPos = 2 * (finalPhase AND &H7F)
+        DIM fastSineIndex AS _UNSIGNED LONG
+        IF (finalPhase AND &H80) <> 0 THEN fastSineIndex = 254 - eighthPos ELSE fastSineIndex = eighthPos
+        DIM fastSine AS _UNSIGNED INTEGER: fastSine = __Opal_LogSinTable(fastSineIndex)
+
+        DIM waveAtten AS _UNSIGNED INTEGER: waveAtten = 0
+        DIM waveNegative AS _BYTE: waveNegative = 0
+        DIM waveSilent AS _BYTE: waveSilent = 0
+
+        SELECT CASE self.op(slot).waveform
+            CASE 0
+                waveAtten = sine
+                waveNegative = secondHalf
+            CASE 1
+                waveAtten = sine
+                waveSilent = secondHalf
+            CASE 2
+                waveAtten = sine
+            CASE 3
+                waveAtten = __Opal_LogSinTable(quarterPos)
+                waveSilent = secondQuarter
+            CASE 4
+                waveAtten = fastSine
+                waveNegative = ((NOT secondHalf) AND secondQuarter)
+                waveSilent = secondHalf
+            CASE 5
+                waveAtten = fastSine
+                waveSilent = secondHalf
+            CASE 6
+                waveNegative = secondHalf
+            CASE ELSE
+                IF secondHalf THEN waveAtten = 8 * (&H1FF - halfPos) ELSE waveAtten = 8 * halfPos
+                waveNegative = secondHalf
+        END SELECT
+
+        self.op(slot).prevOut = self.op(slot).out
+        IF waveSilent <> 0 THEN
+            self.op(slot).out = 0
+        ELSE
+            DIM outLevel AS _UNSIGNED LONG: outLevel = waveAtten + 8 * attenuation
+            DIM mag AS LONG: mag = 0
+            IF outLevel < __OPAL_AUDIBLE_LEVEL_LIMIT THEN
+                DIM mantissa AS _UNSIGNED LONG
+                mantissa = __OPAL_EXPONENT_IMPLICIT_ONE + __Opal_ExponentRom(&HFF - (outLevel AND &HFF))
+                mag = _SHR(2 * mantissa, _SHR(outLevel, 8))
+            END IF
+            IF waveNegative <> 0 THEN self.op(slot).out = -mag - 1 ELSE self.op(slot).out = mag
+        END IF
+
+        __Opal_SkipSlot:
+        ' Channel mixing inlined at designated slots
         IF slot = __OPAL_LEFT_SUM_SLOT THEN
-            leftSum = __Opal_Mix(self, 0)
+            DIM chL AS LONG
+            FOR chL = 0 TO OPAL_CHANNEL_COUNT - 1
+                IF (self.chan(chL).outputEnable AND 1) <> 0 THEN
+                    DIM vSumL AS LONG: vSumL = 0
+                    DIM algoIdxL AS LONG: algoIdxL = self.chan(chL).algorithm
+                    DIM kL AS LONG
+                    FOR kL = 0 TO 3
+                        DIM srcL AS _UNSIGNED _BYTE: srcL = self.chan(chL).outSource(kL)
+                        IF srcL = OPAL_OP_NONE THEN EXIT FOR
+                        vSumL = vSumL + self.op(srcL).out
+                    NEXT kL
+                    vSumL = vSumL * __Opal_Algorithms(algoIdxL).gain
+                    DIM prodL AS LONG: prodL = vSumL * self.chan(chL).leftPan
+                    IF prodL >= 0 THEN leftSum = leftSum + _SHR(prodL, 8) ELSE leftSum = leftSum + (NOT _SHR(NOT prodL, 8))
+                END IF
+            NEXT chL
         ELSEIF slot = __OPAL_RIGHT_SUM_SLOT THEN
-            rightSum = __Opal_Mix(self, 1)
+            DIM chR AS LONG
+            FOR chR = 0 TO OPAL_CHANNEL_COUNT - 1
+                IF (self.chan(chR).outputEnable AND 2) <> 0 THEN
+                    DIM vSumR AS LONG: vSumR = 0
+                    DIM algoIdxR AS LONG: algoIdxR = self.chan(chR).algorithm
+                    DIM kR AS LONG
+                    FOR kR = 0 TO 3
+                        DIM srcR AS _UNSIGNED _BYTE: srcR = self.chan(chR).outSource(kR)
+                        IF srcR = OPAL_OP_NONE THEN EXIT FOR
+                        vSumR = vSumR + self.op(srcR).out
+                    NEXT kR
+                    vSumR = vSumR * __Opal_Algorithms(algoIdxR).gain
+                    DIM prodR AS LONG: prodR = vSumR * self.chan(chR).rightPan
+                    IF prodR >= 0 THEN rightSum = rightSum + _SHR(prodR, 8) ELSE rightSum = rightSum + (NOT _SHR(NOT prodR, 8))
+                END IF
+            NEXT chR
         END IF
     NEXT slot
 
-    left = __Opal_Saturate(leftSum)
-    right = __Opal_Saturate(self.pendingRight)
+    IF leftSum > 32767 THEN
+        left = 32767
+    ELSEIF leftSum < -32768 THEN
+        left = -32768
+    ELSE
+        left = leftSum
+    END IF
+    IF self.pendingRight > 32767 THEN
+        right = 32767
+    ELSEIF self.pendingRight < -32768 THEN
+        right = -32768
+    ELSE
+        right = self.pendingRight
+    END IF
     self.pendingRight = rightSum
+
     __Opal_CloseSample self
 END SUB
 
@@ -974,8 +1204,10 @@ SUB Opal_MixSamples (self AS Opal, buffer() AS SINGLE, frames AS _UNSIGNED LONG,
 
         DIM numer AS _INTEGER64: numer = self.sampleAccum * 65536~&& + (self.sampleRate \ 2)
         DIM fract AS LONG: fract = numer \ self.sampleRate
-        l = __Opal_Interpolate(self.lastOutput(0), self.currOutput(0), fract)
-        r = __Opal_Interpolate(self.lastOutput(1), self.currOutput(1), fract)
+        DIM diff0 AS _INTEGER64: diff0 = self.currOutput(0) - self.lastOutput(0)
+        DIM diff1 AS _INTEGER64: diff1 = self.currOutput(1) - self.lastOutput(1)
+        l = self.lastOutput(0) + (diff0 * fract) \ 65536
+        r = self.lastOutput(1) + (diff1 * fract) \ 65536
 
         self.sampleAccum = self.sampleAccum + OPAL_OPL3_SAMPLE_RATE
 
@@ -1105,69 +1337,124 @@ SUB Opal_WriteBuffered (self AS Opal, regNum AS _UNSIGNED INTEGER, valByte AS _U
     self.lastDue = due
 END SUB
 
-' ============================================================================================================
-' DATA STATEMENTS FOR LOOKUP TABLES
-' ============================================================================================================
+$CHECKING:ON
 
-__Opal_LogSinData:
-DATA 2137,1731,1543,1419,1326,1252,1190,1137,1091,1050,1013,979,949,920,894,869
-DATA 846,825,804,785,767,749,732,717,701,687,672,659,646,633,621,609
-DATA 598,587,576,566,556,546,536,527,518,509,501,492,484,476,468,461
-DATA 453,446,439,432,425,418,411,405,399,392,386,380,375,369,363,358
-DATA 352,347,341,336,331,326,321,316,311,307,302,297,293,289,284,280
-DATA 276,271,267,263,259,255,251,248,244,240,236,233,229,226,222,219
-DATA 215,212,209,205,202,199,196,193,190,187,184,181,178,175,172,169
-DATA 167,164,161,159,156,153,151,148,146,143,141,138,136,134,131,129
-DATA 127,125,122,120,118,116,114,112,110,108,106,104,102,100,98,96
-DATA 94,92,91,89,87,85,83,82,80,78,77,75,74,72,70,69
-DATA 67,66,64,63,62,60,59,57,56,55,53,52,51,49,48,47
-DATA 46,45,43,42,41,40,39,38,37,36,35,34,33,32,31,30
-DATA 29,28,27,26,25,24,23,23,22,21,20,20,19,18,17,17
-DATA 16,15,15,14,13,13,12,12,11,10,10,9,9,8,8,7
-DATA 7,7,6,6,5,5,5,4,4,4,3,3,3,2,2,2
-DATA 2,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0
+SUB __Opal_InitTables
+    IF __Opal_TablesReady THEN EXIT SUB
 
-__Opal_ExponentData:
-DATA 0,3,6,8,11,14,17,20,22,25,28,31,34,37,40,42
-DATA 45,48,51,54,57,60,63,66,69,72,75,78,81,84,87,90
-DATA 93,96,99,102,105,108,111,114,117,120,123,126,130,133,136,139
-DATA 142,145,148,152,155,158,161,164,168,171,174,177,181,184,187,190
-DATA 194,197,200,204,207,210,214,217,220,224,227,231,234,237,241,244
-DATA 248,251,255,258,262,265,268,272,276,279,283,286,290,293,297,300
-DATA 304,308,311,315,318,322,326,329,333,337,340,344,348,352,355,359
-DATA 363,367,370,374,378,382,385,389,393,397,401,405,409,412,416,420
-DATA 424,428,432,436,440,444,448,452,456,460,464,468,472,476,480,484
-DATA 488,492,496,501,505,509,513,517,521,526,530,534,538,542,547,551
-DATA 555,560,564,568,572,577,581,585,590,594,599,603,607,612,616,621
-DATA 625,630,634,639,643,648,652,657,661,666,670,675,680,684,689,693
-DATA 698,703,708,712,717,722,726,731,736,741,745,750,755,760,765,770
-DATA 774,779,784,789,794,799,804,809,814,819,824,829,834,839,844,849
-DATA 854,859,864,869,874,880,885,890,895,900,906,911,916,921,927,932
-DATA 937,942,948,953,958,964,969,974,980,985,991,996,1002,1007,1013,1018
+    DIM i AS LONG
 
-__Opal_MulData:
-DATA 1,2,4,6,8,10,12,14,16,18,20,20,24,24,30,30
+    RESTORE __Opal_LogSinData
+    FOR i = 0 TO 255
+        READ __Opal_LogSinTable(i)
+    NEXT i
 
-__Opal_OwnerData:
-DATA 0,1,2,0,1,2,3,4,5,3,4,5,6,7,8,6,7,8
-DATA 9,10,11,9,10,11,12,13,14,12,13,14,15,16,17,15,16,17
+    RESTORE __Opal_ExponentData
+    FOR i = 0 TO 255
+        READ __Opal_ExponentRom(i)
+    NEXT i
 
-__Opal_RhythmKeyData:
-DATA 4,0,2,4,3,1
+    RESTORE __Opal_MulData
+    FOR i = 0 TO 15
+        READ __Opal_MulTimes2(i)
+    NEXT i
 
-__Opal_VibratoData:
-DATA 0,0,1,0,2,0,1,0,0,0,1,-1,2,-1,1,-1
+    RESTORE __Opal_OwnerData
+    FOR i = 0 TO 35
+        READ __Opal_OperatorOwner(i)
+    NEXT i
 
-__Opal_AlgorithmData:
-DATA 2,2,2,1,-1
-DATA 2,0,3,1,-1
-DATA 4,14,8,1,-1
-DATA 4,10,10,1,-1
-DATA 4,12,9,1,-1
-DATA 4,4,13,1,-1
-DATA 2,2,2,2,-1
-DATA 2,0,2,2,-1
-DATA 2,0,3,2,0
+    RESTORE __Opal_RhythmKeyData
+    FOR i = 0 TO 5
+        READ __Opal_RhythmKeyBit(i)
+    NEXT i
 
-__Opal_KslData:
-DATA 0,32,40,45,48,51,53,55,56,58,59,60,61,62,63,64
+    RESTORE __Opal_VibratoData
+    FOR i = 0 TO 7
+        READ __Opal_VibratoSteps(i).halves
+        READ __Opal_VibratoSteps(i).negative
+    NEXT i
+
+    RESTORE __Opal_AlgorithmData
+    FOR i = 0 TO 8
+        READ __Opal_Algorithms(i).operatorCount
+        READ __Opal_Algorithms(i).chainMask
+        READ __Opal_Algorithms(i).carrierMask
+        READ __Opal_Algorithms(i).gain
+        READ __Opal_Algorithms(i).selfFeedback
+    NEXT i
+
+    RESTORE __Opal_KslData
+    FOR i = 0 TO 15
+        READ __Opal_KslRom(i)
+    NEXT i
+
+    __Opal_TablesReady = -1
+
+    ' ============================================================================================================
+    ' DATA STATEMENTS FOR LOOKUP TABLES
+    ' ============================================================================================================
+
+    __Opal_LogSinData:
+    DATA 2137,1731,1543,1419,1326,1252,1190,1137,1091,1050,1013,979,949,920,894,869
+    DATA 846,825,804,785,767,749,732,717,701,687,672,659,646,633,621,609
+    DATA 598,587,576,566,556,546,536,527,518,509,501,492,484,476,468,461
+    DATA 453,446,439,432,425,418,411,405,399,392,386,380,375,369,363,358
+    DATA 352,347,341,336,331,326,321,316,311,307,302,297,293,289,284,280
+    DATA 276,271,267,263,259,255,251,248,244,240,236,233,229,226,222,219
+    DATA 215,212,209,205,202,199,196,193,190,187,184,181,178,175,172,169
+    DATA 167,164,161,159,156,153,151,148,146,143,141,138,136,134,131,129
+    DATA 127,125,122,120,118,116,114,112,110,108,106,104,102,100,98,96
+    DATA 94,92,91,89,87,85,83,82,80,78,77,75,74,72,70,69
+    DATA 67,66,64,63,62,60,59,57,56,55,53,52,51,49,48,47
+    DATA 46,45,43,42,41,40,39,38,37,36,35,34,33,32,31,30
+    DATA 29,28,27,26,25,24,23,23,22,21,20,20,19,18,17,17
+    DATA 16,15,15,14,13,13,12,12,11,10,10,9,9,8,8,7
+    DATA 7,7,6,6,5,5,5,4,4,4,3,3,3,2,2,2
+    DATA 2,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0
+
+    __Opal_ExponentData:
+    DATA 0,3,6,8,11,14,17,20,22,25,28,31,34,37,40,42
+    DATA 45,48,51,54,57,60,63,66,69,72,75,78,81,84,87,90
+    DATA 93,96,99,102,105,108,111,114,117,120,123,126,130,133,136,139
+    DATA 142,145,148,152,155,158,161,164,168,171,174,177,181,184,187,190
+    DATA 194,197,200,204,207,210,214,217,220,224,227,231,234,237,241,244
+    DATA 248,251,255,258,262,265,268,272,276,279,283,286,290,293,297,300
+    DATA 304,308,311,315,318,322,326,329,333,337,340,344,348,352,355,359
+    DATA 363,367,370,374,378,382,385,389,393,397,401,405,409,412,416,420
+    DATA 424,428,432,436,440,444,448,452,456,460,464,468,472,476,480,484
+    DATA 488,492,496,501,505,509,513,517,521,526,530,534,538,542,547,551
+    DATA 555,560,564,568,572,577,581,585,590,594,599,603,607,612,616,621
+    DATA 625,630,634,639,643,648,652,657,661,666,670,675,680,684,689,693
+    DATA 698,703,708,712,717,722,726,731,736,741,745,750,755,760,765,770
+    DATA 774,779,784,789,794,799,804,809,814,819,824,829,834,839,844,849
+    DATA 854,859,864,869,874,880,885,890,895,900,906,911,916,921,927,932
+    DATA 937,942,948,953,958,964,969,974,980,985,991,996,1002,1007,1013,1018
+
+    __Opal_MulData:
+    DATA 1,2,4,6,8,10,12,14,16,18,20,20,24,24,30,30
+
+    __Opal_OwnerData:
+    DATA 0,1,2,0,1,2,3,4,5,3,4,5,6,7,8,6,7,8
+    DATA 9,10,11,9,10,11,12,13,14,12,13,14,15,16,17,15,16,17
+
+    __Opal_RhythmKeyData:
+    DATA 4,0,2,4,3,1
+
+    __Opal_VibratoData:
+    DATA 0,0,1,0,2,0,1,0,0,0,1,-1,2,-1,1,-1
+
+    __Opal_AlgorithmData:
+    DATA 2,2,2,1,-1
+    DATA 2,0,3,1,-1
+    DATA 4,14,8,1,-1
+    DATA 4,10,10,1,-1
+    DATA 4,12,9,1,-1
+    DATA 4,4,13,1,-1
+    DATA 2,2,2,2,-1
+    DATA 2,0,2,2,-1
+    DATA 2,0,3,2,0
+
+    __Opal_KslData:
+    DATA 0,32,40,45,48,51,53,55,56,58,59,60,61,62,63,64
+END SUB
