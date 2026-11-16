@@ -265,4 +265,4 @@ END TYPE
 REDIM __MODPlayer_PeriodTable(0 TO 0) AS _UNSIGNED INTEGER ' Amiga period table
 REDIM __MODPlayer_SineTable(0 TO 0) AS _UNSIGNED _BYTE ' sine table used for effects
 REDIM __MODPlayer_InvertLoopSpeedTable(0 TO 0) AS _UNSIGNED _BYTE ' invert loop speed table for EFx
-DIM __MODPlayer_tablesInitialized AS _BYTE
+DIM __MODPlayer_TablesInitialized AS _BYTE

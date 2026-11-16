@@ -12,13 +12,12 @@ $INCLUDEONCE
 '$INCLUDE:'StringFile.bi'
 '$INCLUDE:'File.bi'
 '$INCLUDE:'MODPlayerShared.bm'
+'$INCLUDE:'Opal.bm'
 
 ''' @brief Parses and loads a Scream Tracker 3 (S3M) module from a memory buffer.
 ''' @param buffer Binary string containing the S3M module data.
 ''' @return _TRUE if the module was successfully parsed, _FALSE otherwise.
 FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
-
-
     ' Open the buffer as a StringFile
     DIM memFile AS StringFile
     StringFile_Create memFile, buffer

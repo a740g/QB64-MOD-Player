@@ -1,14 +1,12 @@
 '-----------------------------------------------------------------------------------------------------------------------
 ' Opal OPL2/OPL3 FM Synthesizer Emulator
-' Ported from public-domain / MIT Opal C11 implementation by RealBitdancer (github.com/RealBitdancer/opal)
-' Adapted for QB64-PE and multi-instance usage
+' Copyright (c) 2026 Samuel Gomes
+'
+' Ported from Opal C11 implementation by RealBitdancer:
+' https://github.com/RealBitdancer/opal
 '-----------------------------------------------------------------------------------------------------------------------
 
 $INCLUDEONCE
-
-CONST OPAL_VERSION_MAJOR = 3
-CONST OPAL_VERSION_MINOR = 0
-CONST OPAL_VERSION_PATCH = 0
 
 CONST OPAL_OPL3_SAMPLE_RATE = 49716
 CONST OPAL_CHANNEL_COUNT = 18
@@ -183,12 +181,12 @@ TYPE Opal
 END TYPE
 
 ' Module-level lookup tables (shared across instances)
-DIM SHARED __Opal_TablesReady AS _BYTE
-DIM SHARED __Opal_LogSinTable(0 TO 255) AS _UNSIGNED INTEGER
-DIM SHARED __Opal_ExponentRom(0 TO 255) AS _UNSIGNED INTEGER
-DIM SHARED __Opal_MulTimes2(0 TO 15) AS _UNSIGNED INTEGER
-DIM SHARED __Opal_OperatorOwner(0 TO 35) AS _UNSIGNED _BYTE
-DIM SHARED __Opal_RhythmKeyBit(0 TO 5) AS _UNSIGNED _BYTE
-DIM SHARED __Opal_VibratoSteps(0 TO 7) AS __OpalVibratoStep
-DIM SHARED __Opal_Algorithms(0 TO 8) AS __OpalAlgorithm
-DIM SHARED __Opal_KslRom(0 TO 15) AS _UNSIGNED _BYTE
+DIM __Opal_LogSinTable(0 TO 255) AS _UNSIGNED INTEGER
+DIM __Opal_ExponentRom(0 TO 255) AS _UNSIGNED INTEGER
+DIM __Opal_MulTimes2(0 TO 15) AS _UNSIGNED INTEGER
+DIM __Opal_OperatorOwner(0 TO 35) AS _UNSIGNED _BYTE
+DIM __Opal_RhythmKeyBit(0 TO 5) AS _UNSIGNED _BYTE
+DIM __Opal_VibratoSteps(0 TO 7) AS __OpalVibratoStep
+DIM __Opal_Algorithms(0 TO 8) AS __OpalAlgorithm
+DIM __Opal_KslRom(0 TO 15) AS _UNSIGNED _BYTE
+DIM __Opal_TablesInitialized AS _BYTE

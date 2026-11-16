@@ -476,7 +476,7 @@ SUB __MODPlayer_DoS3MChannelVolumeSlide (player AS MODPlayer, nChannel AS _UNSIG
         END IF
     END IF
 
-    player.channel(nChannel).channelVolume = _CLAMP(CLng(player.channel(nChannel).channelVolume) + delta, 0, __MODPLAYER_S3M_GLOBAL_VOLUME_MAX)
+    player.channel(nChannel).channelVolume = _CLAMP(CLNG(player.channel(nChannel).channelVolume) + delta, 0, __MODPLAYER_S3M_GLOBAL_VOLUME_MAX)
     __MODPlayer_ApplyChannelVolume player, nChannel
 END SUB
 
@@ -501,7 +501,7 @@ SUB __MODPlayer_DoS3MGlobalVolumeSlide (player AS MODPlayer, nChannel AS _UNSIGN
         END IF
     END IF
 
-    __MODPlayer_SetGlobalVolume player, CLng(player.song.globalVolume) + delta
+    __MODPlayer_SetGlobalVolume player, CLNG(player.song.globalVolume) + delta
 END SUB
 
 SUB __MODPlayer_DoS3MPanningSlide (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, nOperand AS _UNSIGNED _BYTE, isRowTick AS _BYTE)
@@ -513,19 +513,19 @@ SUB __MODPlayer_DoS3MPanningSlide (player AS MODPlayer, nChannel AS _UNSIGNED _B
 
     IF isRowTick THEN
         IF slideRight = &HF AND slideLeft > 0 THEN
-            delta = -CLng(slideLeft) * 4
+            delta = -CLNG(slideLeft) * 4
         ELSEIF slideLeft = &HF AND slideRight > 0 THEN
-            delta = CLng(slideRight) * 4
+            delta = CLNG(slideRight) * 4
         END IF
     ELSE
         IF slideRight > 0 THEN
-            delta = CLng(slideRight) * 4
+            delta = CLNG(slideRight) * 4
         ELSEIF slideLeft > 0 THEN
-            delta = -CLng(slideLeft) * 4
+            delta = -CLNG(slideLeft) * 4
         END IF
     END IF
 
-    __MODPlayer_SetChannelPanning player, nChannel, CLng(player.channel(nChannel).panning) + delta
+    __MODPlayer_SetChannelPanning player, nChannel, CLNG(player.channel(nChannel).panning) + delta
 END SUB
 
 SUB __MODPlayer_PlayPCMChannelVoice (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE)
@@ -809,7 +809,7 @@ SUB __MODPlayer_DoPanbrello (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE)
 
     DIM delta AS LONG
     delta = ((waveValue - 128) * player.channel(nChannel).panbrelloDepth) \ 32
-    __MODPlayer_SetChannelPanning player, nChannel, CLng(player.channel(nChannel).panbrelloBasePanning) + delta
+    __MODPlayer_SetChannelPanning player, nChannel, CLNG(player.channel(nChannel).panbrelloBasePanning) + delta
 
     player.channel(nChannel).panbrelloPosition = (player.channel(nChannel).panbrelloPosition + player.channel(nChannel).panbrelloSpeed) AND 31
 END SUB
@@ -1249,11 +1249,11 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                                 ELSE
                                     player.channel(loopChannelFM).patternLoopRowCounter = player.channel(loopChannelFM).patternLoopRowCounter - 1
                                 END IF
-                                    IF player.channel(loopChannelFM).patternLoopRowCounter THEN
-                                        player.song.patternRow = player.channel(loopChannelFM).patternLoopRow - 1
-                                    ELSEIF player.song.isS3M THEN
-                                        player.channel(loopChannelFM).patternLoopRow = player.song.tickPatternRow + 1
-                                    END IF
+                                IF player.channel(loopChannelFM).patternLoopRowCounter THEN
+                                    player.song.patternRow = player.channel(loopChannelFM).patternLoopRow - 1
+                                ELSEIF player.song.isS3M THEN
+                                    player.channel(loopChannelFM).patternLoopRow = player.song.tickPatternRow + 1
+                                END IF
                             END IF
                         END IF
                 END SELECT

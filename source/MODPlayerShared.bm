@@ -13,9 +13,9 @@ SUB __MODPlayer_LoadTables
     SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
     SHARED __MODPlayer_SineTable() AS _UNSIGNED _BYTE
     SHARED __MODPlayer_InvertLoopSpeedTable() AS _UNSIGNED _BYTE
-    SHARED __MODPlayer_tablesInitialized AS _BYTE
+    SHARED __MODPlayer_TablesInitialized AS _BYTE
 
-    IF __MODPlayer_tablesInitialized THEN EXIT SUB
+    IF __MODPlayer_TablesInitialized THEN EXIT SUB
 
     ' Load the period table
     RESTORE __MODPlayer_PeriodTab
@@ -42,7 +42,7 @@ SUB __MODPlayer_LoadTables
         READ __MODPlayer_InvertLoopSpeedTable(i)
     NEXT
 
-    __MODPlayer_tablesInitialized = _TRUE
+    __MODPlayer_TablesInitialized = _TRUE
     EXIT SUB
 
     ' Amiga period table data for 11 octaves

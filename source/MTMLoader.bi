@@ -17,8 +17,6 @@ $INCLUDEONCE
 ''' @param buffer Binary string containing the MTM module data.
 ''' @return _TRUE if the module was successfully parsed, _FALSE otherwise.
 FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
-
-
     ' Open the buffer as a StringFile
     DIM memFile AS StringFile
     StringFile_Create memFile, buffer
