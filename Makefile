@@ -1,5 +1,4 @@
 # Makefile for QB64 MOD Player
-# Requires QB64-PE to be installed
 
 # Detect OS and executable extension
 ifeq ($(OS),Windows_NT)
@@ -76,8 +75,9 @@ ifeq ($(OS),Windows_NT)
 	@if exist "$(EXECUTABLE)" del /q /f "$(EXECUTABLE)"
 	@if exist "source\$(EXECUTABLE)" del /q /f "source\$(EXECUTABLE)"
 	@if exist "$(TEST_EXECUTABLE)" del /q /f "$(TEST_EXECUTABLE)"
+	@if exist "tests\$(TEST_EXECUTABLE)" del /q /f "tests\$(TEST_EXECUTABLE)"
 else
-	rm -f $(EXECUTABLE) source/$(EXECUTABLE) $(TEST_EXECUTABLE)
+	rm -f $(EXECUTABLE) source/$(EXECUTABLE) $(TEST_EXECUTABLE) tests/$(TEST_EXECUTABLE)
 endif
 
 # Help
