@@ -63,7 +63,7 @@ FUNCTION File_LoadFromURL$ (url AS STRING)
             content = content + buffer
             IF __File.updatesPerSecond > 0 THEN _LIMIT __File.updatesPerSecond
             IF __File.timeoutTicks > 0 _ANDALSO (Time_GetTicks - startTick) > __File.timeoutTicks THEN EXIT WHILE
-            __File.percentCompleted = (LEN(content) / LOF(h)) * 100!
+            IF LOF(h) > 0 THEN __File.percentCompleted = (LEN(content) / LOF(h)) * 100!
         WEND
 
         CLOSE h
