@@ -1147,7 +1147,7 @@ SUB __Opal_Output (opl AS Opal, left AS INTEGER, right AS INTEGER)
                 DIM decr AS _UNSIGNED LONG: decr = _SHR(speed * (level + 1) + 7, 3)
                 IF decr > level THEN level = 0 ELSE level = level - decr
             END IF
-        ELSEIF stage = OPAL_ENVELOPE_STAGE_DECAY _ANDALSO (_SHR(level, 4) >= sustainBand) THEN
+        ELSEIF stage = OPAL_ENVELOPE_STAGE_DECAY _ANDALSO (_SHR(level, 4) = sustainBand) THEN
             IF offZone THEN level = __OPAL_ENVELOPE_SILENT
             stage = OPAL_ENVELOPE_STAGE_SUSTAIN
         ELSEIF offZone THEN
