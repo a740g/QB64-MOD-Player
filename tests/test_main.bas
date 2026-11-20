@@ -18,6 +18,8 @@ $LET TEST_CONSOLE_ONLY = TRUE
 '$INCLUDE:'../source/S3MLoader.bi'
 '$INCLUDE:'../source/MTMLoader.bi'
 '$INCLUDE:'../source/FARLoader.bi'
+'$INCLUDE:'../source/Vector2f.bi'
+'$INCLUDE:'../source/Vector3f.bi'
 
 ''' @brief Tests for AudioConv.bi audio conversion functions.
 SUB Test_AudioConv
@@ -1941,11 +1943,159 @@ SUB Test_FAR_Effects
     TEST_CASE_END
 END SUB
 
+''' @brief Tests for Vector2f 2D floating-point vector math functions.
+SUB Test_Vector2f
+    TEST_CASE_BEGIN "Vector2f: Initialize, Set, IsNull, IsEqual"
+    DIM a AS Vector2f, b AS Vector2f, c AS Vector2f
+    Vector2f_Initialize 3.5!, -2.5!, a
+    TEST_CHECK a.x = 3.5! _ANDALSO a.y = -2.5!, "Vector2f_Initialize sets components correctly"
+    TEST_CHECK Vector2f_IsNull(a) = _FALSE, "a is not null"
+    Vector2f_Set 0!, 0!, b
+    TEST_CHECK Vector2f_IsNull(b) = _TRUE, "b is null"
+    Vector2f_Set 3.5!, -2.5!, c
+    TEST_CHECK Vector2f_IsEqual(a, c) = _TRUE, "a equals c"
+    TEST_CHECK Vector2f_IsEqual(a, b) = _FALSE, "a does not equal b"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Vector2f: Arithmetic operations"
+    Vector2f_Set 10!, 20!, a
+    Vector2f_Set 3!, 5!, b
+    Vector2f_Add a, b, c
+    TEST_CHECK c.x = 13! _ANDALSO c.y = 25!, "Add: (10,20) + (3,5) = (13,25)"
+    Vector2f_AddXY a, -2!, 4!, c
+    TEST_CHECK c.x = 8! _ANDALSO c.y = 24!, "AddXY: (10,20) + (-2,4) = (8,24)"
+    Vector2f_Subtract a, b, c
+    TEST_CHECK c.x = 7! _ANDALSO c.y = 15!, "Subtract: (10,20) - (3,5) = (7,15)"
+    Vector2f_Multiply a, b, c
+    TEST_CHECK c.x = 30! _ANDALSO c.y = 100!, "Multiply: (10,20) * (3,5) = (30,100)"
+    Vector2f_Scale a, 2.5!, c
+    TEST_CHECK c.x = 25! _ANDALSO c.y = 50!, "Scale: (10,20) * 2.5 = (25,50)"
+    Vector2f_Divide a, 2!, c
+    TEST_CHECK c.x = 5! _ANDALSO c.y = 10!, "Divide: (10,20) / 2 = (5,10)"
+    Vector2f_Divide a, 0!, c
+    TEST_CHECK c.x = 0! _ANDALSO c.y = 0!, "Divide by zero yields zero"
+    Vector2f_Negate a, c
+    TEST_CHECK c.x = -10! _ANDALSO c.y = -20!, "Negate: -(10,20) = (-10,-20)"
+    Vector2f_FlipHorizontal a, c
+    TEST_CHECK c.x = -10! _ANDALSO c.y = 20!, "FlipHorizontal: (-10,20)"
+    Vector2f_FlipVertical a, c
+    TEST_CHECK c.x = 10! _ANDALSO c.y = -20!, "FlipVertical: (10,-20)"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Vector2f: Geometry and Trig"
+    Vector2f_Set 3!, 4!, a
+    TEST_CHECK Vector2f_LengthSquared(a) = 25!, "LengthSquared: 3^2 + 4^2 = 25"
+    TEST_CHECK ABS(Vector2f_Length(a) - 5!) < 0.0001!, "Length: 5"
+    Vector2f_Set 6!, 8!, b
+    TEST_CHECK Vector2f_DistanceSquared(a, b) = 25!, "DistanceSquared: (3-6)^2 + (4-8)^2 = 25"
+    TEST_CHECK ABS(Vector2f_Distance(a, b) - 5!) < 0.0001!, "Distance: 5"
+    Vector2f_Set 2!, 3!, a
+    Vector2f_Set 4!, 5!, b
+    TEST_CHECK Vector2f_DotProduct(a, b) = 23!, "DotProduct: 2*4 + 3*5 = 23"
+    TEST_CHECK Vector2f_CrossProduct(a, b) = -2!, "CrossProduct: 2*5 - 3*4 = -2"
+    Vector2f_Set 0!, 10!, a
+    Vector2f_Normalize a, c
+    TEST_CHECK c.x = 0! _ANDALSO ABS(c.y - 1!) < 0.0001!, "Normalize (0,10) -> (0,1)"
+    Vector2f_Set 0!, 0!, a
+    Vector2f_Normalize a, c
+    TEST_CHECK Vector2f_IsNull(c) = _TRUE, "Normalize (0,0) -> (0,0)"
+    Vector2f_Set 0!, 0!, a
+    Vector2f_Set 10!, 20!, b
+    Vector2f_Lerp a, b, 0.5!, c
+    TEST_CHECK ABS(c.x - 5!) < 0.0001! _ANDALSO ABS(c.y - 10!) < 0.0001!, "Lerp at t=0.5"
+    Vector2f_Set 1!, 0!, a
+    Vector2f_Rotate a, _PI / 2!, c
+    TEST_CHECK ABS(c.x) < 0.0001! _ANDALSO ABS(c.y - 1!) < 0.0001!, "Rotate (1,0) by 90 deg -> (0,1)"
+    Vector2f_Set 1!, -1!, a
+    Vector2f_Set 0!, 1!, b
+    Vector2f_Reflect a, b, c
+    TEST_CHECK ABS(c.x - 1!) < 0.0001! _ANDALSO ABS(c.y - 1!) < 0.0001!, "Reflect (1,-1) off normal (0,1) -> (1,1)"
+    Vector2f_FromAngle 0!, 5!, c
+    TEST_CHECK ABS(c.x - 5!) < 0.0001! _ANDALSO ABS(c.y) < 0.0001!, "FromAngle(0, 5) -> (5,0)"
+    TEST_CHECK ABS(Vector2f_Angle(c)) < 0.0001!, "Angle of (5,0) is 0"
+    Vector2f_Set 6!, 8!, a
+    Vector2f_ClampLength a, 5!, c
+    TEST_CHECK ABS(Vector2f_Length(c) - 5!) < 0.0001!, "ClampLength clamps magnitude to 5"
+    TEST_CASE_END
+END SUB
+
+''' @brief Tests for Vector3f 3D floating-point vector math functions.
+SUB Test_Vector3f
+    TEST_CASE_BEGIN "Vector3f: Initialize, Set, IsNull, IsEqual"
+    DIM a AS Vector3f, b AS Vector3f, c AS Vector3f
+    Vector3f_Initialize 1.5!, -2.5!, 3.5!, a
+    TEST_CHECK a.x = 1.5! _ANDALSO a.y = -2.5! _ANDALSO a.z = 3.5!, "Vector3f_Initialize sets components correctly"
+    TEST_CHECK Vector3f_IsNull(a) = _FALSE, "a is not null"
+    Vector3f_Set 0!, 0!, 0!, b
+    TEST_CHECK Vector3f_IsNull(b) = _TRUE, "b is null"
+    Vector3f_Set 1.5!, -2.5!, 3.5!, c
+    TEST_CHECK Vector3f_IsEqual(a, c) = _TRUE, "a equals c"
+    TEST_CHECK Vector3f_IsEqual(a, b) = _FALSE, "a does not equal b"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Vector3f: Arithmetic operations"
+    Vector3f_Set 10!, 20!, 30!, a
+    Vector3f_Set 2!, 4!, 5!, b
+    Vector3f_Add a, b, c
+    TEST_CHECK c.x = 12! _ANDALSO c.y = 24! _ANDALSO c.z = 35!, "Add: (10,20,30) + (2,4,5) = (12,24,35)"
+    Vector3f_AddXYZ a, -1!, 2!, -3!, c
+    TEST_CHECK c.x = 9! _ANDALSO c.y = 22! _ANDALSO c.z = 27!, "AddXYZ: (9,22,27)"
+    Vector3f_Subtract a, b, c
+    TEST_CHECK c.x = 8! _ANDALSO c.y = 16! _ANDALSO c.z = 25!, "Subtract: (10,20,30) - (2,4,5) = (8,16,25)"
+    Vector3f_Multiply a, b, c
+    TEST_CHECK c.x = 20! _ANDALSO c.y = 80! _ANDALSO c.z = 150!, "Multiply: component-wise product"
+    Vector3f_Scale a, 0.5!, c
+    TEST_CHECK c.x = 5! _ANDALSO c.y = 10! _ANDALSO c.z = 15!, "Scale: (10,20,30) * 0.5 = (5,10,15)"
+    Vector3f_Divide a, 2!, c
+    TEST_CHECK c.x = 5! _ANDALSO c.y = 10! _ANDALSO c.z = 15!, "Divide: (10,20,30) / 2 = (5,10,15)"
+    Vector3f_Divide a, 0!, c
+    TEST_CHECK c.x = 0! _ANDALSO c.y = 0! _ANDALSO c.z = 0!, "Divide by zero yields zero"
+    Vector3f_Negate a, c
+    TEST_CHECK c.x = -10! _ANDALSO c.y = -20! _ANDALSO c.z = -30!, "Negate: -(10,20,30)"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Vector3f: Geometry and Vector Math"
+    Vector3f_Set 2!, 3!, 6!, a
+    TEST_CHECK Vector3f_LengthSquared(a) = 49!, "LengthSquared: 2^2 + 3^2 + 6^2 = 49"
+    TEST_CHECK ABS(Vector3f_Length(a) - 7!) < 0.0001!, "Length: 7"
+    Vector3f_Set 1!, 1!, 1!, a
+    Vector3f_Set 3!, 4!, 7!, b
+    TEST_CHECK Vector3f_DistanceSquared(a, b) = 49!, "DistanceSquared: 2^2 + 3^2 + 6^2 = 49"
+    TEST_CHECK ABS(Vector3f_Distance(a, b) - 7!) < 0.0001!, "Distance: 7"
+    Vector3f_Set 1!, 2!, 3!, a
+    Vector3f_Set 4!, 5!, 6!, b
+    TEST_CHECK Vector3f_DotProduct(a, b) = 32!, "DotProduct: 1*4 + 2*5 + 3*6 = 32"
+    Vector3f_Set 1!, 0!, 0!, a
+    Vector3f_Set 0!, 1!, 0!, b
+    Vector3f_CrossProduct a, b, c
+    TEST_CHECK c.x = 0! _ANDALSO c.y = 0! _ANDALSO ABS(c.z - 1!) < 0.0001!, "CrossProduct: (1,0,0) x (0,1,0) = (0,0,1)"
+    Vector3f_Set 0!, 0!, 5!, a
+    Vector3f_Normalize a, c
+    TEST_CHECK c.x = 0! _ANDALSO c.y = 0! _ANDALSO ABS(c.z - 1!) < 0.0001!, "Normalize (0,0,5) -> (0,0,1)"
+    Vector3f_Set 0!, 0!, 0!, a
+    Vector3f_Normalize a, c
+    TEST_CHECK Vector3f_IsNull(c) = _TRUE, "Normalize (0,0,0) -> (0,0,0)"
+    Vector3f_Set 0!, 0!, 0!, a
+    Vector3f_Set 10!, 20!, 30!, b
+    Vector3f_Lerp a, b, 0.5!, c
+    TEST_CHECK ABS(c.x - 5!) < 0.0001! _ANDALSO ABS(c.y - 10!) < 0.0001! _ANDALSO ABS(c.z - 15!) < 0.0001!, "Lerp at t=0.5"
+    Vector3f_Set 1!, -1!, 0!, a
+    Vector3f_Set 0!, 1!, 0!, b
+    Vector3f_Reflect a, b, c
+    TEST_CHECK ABS(c.x - 1!) < 0.0001! _ANDALSO ABS(c.y - 1!) < 0.0001! _ANDALSO ABS(c.z) < 0.0001!, "Reflect (1,-1,0) off normal (0,1,0) -> (1,1,0)"
+    Vector3f_Set 4!, 6!, 12!, a
+    Vector3f_ClampLength a, 7!, c
+    TEST_CHECK ABS(Vector3f_Length(c) - 7!) < 0.0001!, "ClampLength clamps magnitude to 7"
+    TEST_CASE_END
+END SUB
+
 IF _DIREXISTS("../mods") THEN CHDIR ".."
 
 ' Run all test suites
 TEST_BEGIN_ALL
 
+Test_Vector2f
+Test_Vector3f
 Test_AudioConv
 Test_SoftSynth
 Test_StringFile

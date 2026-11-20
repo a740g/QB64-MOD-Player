@@ -30,7 +30,7 @@ $COLOR:0
 '$INCLUDE:'Math.bi'
 '$INCLUDE:'Pathname.bi'
 '$INCLUDE:'File.bi'
-'$INCLUDE:'Vector2i.bi'
+'$INCLUDE:'Vector2f.bi'
 '$INCLUDE:'Vector3f.bi'
 '$INCLUDE:'AudioAnalyzer.bi'
 '$INCLUDE:'MODPlayer.bi'
@@ -73,10 +73,16 @@ END TYPE
 
 TYPE Snake
     p AS STRING ' position buffer (x = 1 byte, y = 1 byte)
-    s AS SINGLE ' speed
-    t AS SINGLE ' movement counter
-    d AS Vector2i ' direction
+    position AS Vector2f ' continuous sub-character position
+    direction AS Vector2f ' continuous direction unit vector
+    turnRate AS SINGLE ' angular velocity (radians per frame)
+    speed AS SINGLE ' speed in characters per frame
     c AS _UNSIGNED LONG ' color
+END TYPE
+
+TYPE Size
+    x AS LONG
+    y AS LONG
 END TYPE
 
 TYPE FFTInfo
@@ -84,7 +90,7 @@ TYPE FFTInfo
     frames AS LONG
     halfFrames AS LONG
     bits AS LONG
-    size AS Vector2i
+    size AS Size
 END TYPE
 
 REDIM NoteTable(0) AS STRING * 2 ' this contains the note stings
@@ -1018,7 +1024,7 @@ END SUB
 ''' @param snakes() Array of Snake structures to initialize.
 SUB Snake_InitializeAll (snakes() AS Snake)
     CONST SNAKE_SIZE_MIN = 5
-    CONST SNAKE_SIZE_MAX = 25
+    CONST SNAKE_SIZE_MAX = 30
 
     DIM L AS LONG: L = LBOUND(snakes)
     DIM U AS LONG: U = UBOUND(snakes)
@@ -1028,13 +1034,16 @@ SUB Snake_InitializeAll (snakes() AS Snake)
     DIM i AS LONG
     FOR i = L TO U
         snakes(i).p = SPACE$(Math_GetRandomBetween(SNAKE_SIZE_MIN, SNAKE_SIZE_MAX) * 2)
-        snakes(i).s = 0.1! + RND * 0.9!
+        snakes(i).speed = 0.2! + RND * 0.4!
         snakes(i).c = Math_GetRandomBetween(1, 8)
-        Vector2i_Initialize Math_GetRandomBetween(0, 1) * 2 - 1, Math_GetRandomBetween(0, 1) * 2 - 1, snakes(i).d ' -1 or 1
+        DIM angle AS SINGLE: angle = RND * _PI(2!)
+        Vector2f_FromAngle angle, 1!, snakes(i).direction
+        snakes(i).turnRate = 0!
 
         DIM size AS LONG: size = LEN(snakes(i).p)
         DIM x AS LONG: x = Math_GetRandomBetween(1, W)
         DIM y AS LONG: y = Math_GetRandomBetween(1, H)
+        Vector2f_Initialize CSNG(x), CSNG(y), snakes(i).position
 
         DIM j AS LONG
         FOR j = 1 TO size STEP 2
@@ -1057,52 +1066,79 @@ SUB Snake_UpdateAndDraw (snakes() AS Snake)
 
     DIM i AS LONG
     FOR i = L TO U
-        snakes(i).t = snakes(i).t + snakes(i).s
+        ' Smoothly adjust turning rate
+        DIM r AS SINGLE: r = RND
+        IF r < 0.02! THEN
+            snakes(i).turnRate = (RND - 0.5!) * 0.12!
+        ELSEIF r < 0.08! THEN
+            snakes(i).turnRate = 0!
+        END IF
 
-        DIM p AS Vector2i
-        DIM s AS LONG: s = LEN(snakes(i).p)
+        ' Rotate direction vector smoothly
+        IF snakes(i).turnRate <> 0! THEN
+            Vector2f_Rotate snakes(i).direction, snakes(i).turnRate, snakes(i).direction
+            Vector2f_Normalize snakes(i).direction, snakes(i).direction
+        END IF
 
-        ' Only run movement code when it is time to move
-        IF snakes(i).t > 1! THEN
-            snakes(i).t = 0!
+        ' Compute next continuous position
+        DIM nextX AS SINGLE: nextX = snakes(i).position.x + snakes(i).direction.x * snakes(i).speed
+        DIM nextY AS SINGLE: nextY = snakes(i).position.y + snakes(i).direction.y * snakes(i).speed
 
-            ' Get the position of the head and add velocity
-            Vector2i_AddXY snakes(i).d, ASC(snakes(i).p, 1), ASC(snakes(i).p, 2), p
+        ' Bounce off screen edges smoothly
+        IF nextX < 1! THEN
+            Vector2f_FlipHorizontal snakes(i).direction, snakes(i).direction
+            nextX = 1!
+            snakes(i).turnRate = -snakes(i).turnRate
+        ELSEIF nextX > CSNG(W) THEN
+            Vector2f_FlipHorizontal snakes(i).direction, snakes(i).direction
+            nextX = CSNG(W)
+            snakes(i).turnRate = -snakes(i).turnRate
+        END IF
 
-            IF p.x < 1 _ORELSE p.x > W THEN Vector2i_FlipHorizontal snakes(i).d, snakes(i).d
-            IF p.y < 1 _ORELSE p.y > H THEN Vector2i_FlipVertical snakes(i).d, snakes(i).d
+        IF nextY < 1! THEN
+            Vector2f_FlipVertical snakes(i).direction, snakes(i).direction
+            nextY = 1!
+            snakes(i).turnRate = -snakes(i).turnRate
+        ELSEIF nextY > CSNG(H) THEN
+            Vector2f_FlipVertical snakes(i).direction, snakes(i).direction
+            nextY = CSNG(H)
+            snakes(i).turnRate = -snakes(i).turnRate
+        END IF
 
-            DIM j AS LONG: j = s - 2
+        snakes(i).position.x = nextX
+        snakes(i).position.y = nextY
+
+        ' Check if the head advanced to a new character cell
+        DIM cellX AS LONG: cellX = _CLAMP(CINT(nextX), 1, W)
+        DIM cellY AS LONG: cellY = _CLAMP(CINT(nextY), 1, H)
+
+        IF cellX <> ASC(snakes(i).p, 1) _ORELSE cellY <> ASC(snakes(i).p, 2) THEN
+            DIM sLen AS LONG: sLen = LEN(snakes(i).p)
+            DIM j AS LONG: j = sLen - 2
             WHILE j > 0
                 ASC(snakes(i).p, j + 2) = ASC(snakes(i).p, j)
                 j = j - 1
             WEND
-            ASC(snakes(i).p, 1) = ASC(snakes(i).p, 1) + snakes(i).d.x
-            ASC(snakes(i).p, 2) = ASC(snakes(i).p, 2) + snakes(i).d.y
-
-            IF Math_GetRandomBetween(1, 100) <= 5 THEN ' change direction with a 5% chance
-                DO
-                    Vector2i_Initialize Math_GetRandomBetween(-1, 1), Math_GetRandomBetween(-1, 1), snakes(i).d
-                LOOP WHILE Vector2i_IsNull(snakes(i).d)
-            END IF
+            ASC(snakes(i).p, 1) = cellX
+            ASC(snakes(i).p, 2) = cellY
         END IF
 
-        j = s - 2
+        ' Draw body segments
+        sLen = LEN(snakes(i).p)
+        j = sLen - 2
         WHILE j > 2
-            p.y = ASC(snakes(i).p, j)
+            DIM py AS LONG: py = ASC(snakes(i).p, j)
             j = j - 1
-            p.x = ASC(snakes(i).p, j)
+            DIM px AS LONG: px = ASC(snakes(i).p, j)
             j = j - 1
 
             COLOR snakes(i).c, Black
-            _PRINTSTRING (p.x, p.y), SNAKE_BODY
+            _PRINTSTRING (px, py), SNAKE_BODY
         WEND
 
-        p.x = ASC(snakes(i).p, 1)
-        p.y = ASC(snakes(i).p, 2)
-
+        ' Draw head
         COLOR snakes(i).c, Black
-        _PRINTSTRING (p.x, p.y), SNAKE_HEAD
+        _PRINTSTRING (ASC(snakes(i).p, 1), ASC(snakes(i).p, 2)), SNAKE_HEAD
     NEXT i
 END SUB
 
