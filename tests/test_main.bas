@@ -1053,7 +1053,7 @@ SUB Test_RADLoader
     TEST_CASE_BEGIN "RADLoader: Load RAD v1.0 module from disk"
     DIM player AS MODPlayer
     TEST_REQUIRE RADLoader_LoadFromDisk(player, "mods/ALLOYRUN.RAD"), "RADLoader loads ALLOYRUN.RAD"
-    TEST_CHECK MODPlayer_GetType(player) = "RAD", "Song subtype is RAD"
+    TEST_CHECK MODPlayer_GetType(player) = "RAD1", "Song subtype is RAD1"
     TEST_CHECK player.song.isRAD, "isRAD flag is true"
     TEST_CHECK player.song.channels = 9, "RAD song has 9 channels"
     TEST_CHECK player.song.instruments > 0, "RAD song has instruments"
@@ -1076,7 +1076,7 @@ SUB Test_RADLoader
     TEST_REQUIRE LEN(buf) > 0, "Read ADLIBSP.RAD into buffer"
     DIM pMem AS MODPlayer
     TEST_REQUIRE RADLoader_LoadFromMemory(pMem, buf), "RADLoader loads from memory"
-    TEST_CHECK MODPlayer_GetType(pMem) = "RAD", "Memory load subtype is RAD"
+    TEST_CHECK MODPlayer_GetType(pMem) = "RAD1", "Memory load subtype is RAD1"
     TEST_CHECK pMem.song.channels = 9, "Memory load channels is 9"
     TEST_CHECK pMem.song.isRAD, "Memory load isRAD is true"
     MODPlayer_Finalize pMem
@@ -1085,7 +1085,7 @@ SUB Test_RADLoader
     TEST_CASE_BEGIN "RADLoader: Unified dispatcher auto-detection"
     DIM pAuto AS MODPlayer
     TEST_REQUIRE MODPlayer_LoadFromDisk(pAuto, "mods/ALLOYRUN.RAD"), "Unified loader loads ALLOYRUN.RAD"
-    TEST_CHECK MODPlayer_GetType(pAuto) = "RAD", "Auto-detected subtype is RAD"
+    TEST_CHECK MODPlayer_GetType(pAuto) = "RAD1", "Auto-detected subtype is RAD1"
     TEST_CHECK pAuto.song.channels = 9, "Auto-detected channels count is 9"
     MODPlayer_Finalize pAuto
     TEST_CASE_END
@@ -1153,7 +1153,7 @@ SUB Test_RAD_Playback
     FOR rIdx = 0 TO 12
         DIM radPlayer AS MODPlayer
         TEST_REQUIRE MODPlayer_LoadFromDisk(radPlayer, radFiles(rIdx)), "Load " + radFiles(rIdx)
-        TEST_CHECK MODPlayer_GetType(radPlayer) = "RAD", "Subtype is RAD: " + radFiles(rIdx)
+        TEST_CHECK MODPlayer_GetType(radPlayer) = "RAD1", "Subtype is RAD1: " + radFiles(rIdx)
         TEST_CHECK radPlayer.song.isRAD, "isRAD flag is true: " + radFiles(rIdx)
         TEST_CHECK radPlayer.song.channels = 9, "Channel count is 9: " + radFiles(rIdx)
         TEST_CHECK radPlayer.song.instruments > 0, "Has instruments: " + radFiles(rIdx)
@@ -1396,27 +1396,20 @@ SUB Test_Opal_OPL2_OPL3_Modes
     DIM chip AS Opal
     Opal_Initialize chip, 49716
 
-    TEST_CHECK Opal_GetChipType(chip) = OPAL_CHIP_TYPE_OPL3, "Default chip type is OPL3"
-    TEST_CHECK_FALSE Opal_IsOPL3(chip), "Chip starts in OPL2 compatibility mode (newMode = 0)"
+    TEST_CHECK Opal_GetChipType(chip) = OPAL_CHIP_TYPE_OPL2, "Chip powers up in OPL2 mode by default"
+    TEST_CHECK_FALSE Opal_IsOPL3(chip), "Chip starts in OPL2 mode (newMode = 0)"
 
     ' Write to Bank 0 operator 0 multiple = 1
     Opal_Write chip, &H20, 1
     TEST_CHECK chip.op(0).multiple = 1, "Bank 0 operator 0 MULT is 1"
 
-    ' While in OPL2 compatibility mode (newMode = 0), write to Bank 1 (&H120).
+    ' While in OPL2 mode (newMode = 0), write to Bank 1 (&H120).
     ' On real hardware, writes to Bank 1 registers (>= 0x100) must be ignored and MUST NOT overwrite Bank 0.
     Opal_Write chip, &H120, 7
     TEST_CHECK chip.op(0).multiple = 1, "Bank 1 write was rejected and did NOT overwrite Bank 0 operator 0"
     TEST_CHECK chip.op(18).multiple = 0, "Bank 1 operator 18 was not modified in OPL2 mode"
 
-    ' Set strict OPL2 chip mode
-    Opal_SetChipType chip, OPAL_CHIP_TYPE_OPL2
-    TEST_CHECK Opal_GetChipType(chip) = OPAL_CHIP_TYPE_OPL2, "Chip type set to OPAL_CHIP_TYPE_OPL2"
-
-    ' In strict OPL2 mode, writes to &H105 must be rejected
-    Opal_Write chip, &H105, 1
-    TEST_CHECK_FALSE Opal_IsOPL3(chip), "Strict OPL2 mode rejects &H105 write and stays in OPL2 mode"
-
+    ' In OPL2 mode, writes to &H105 bit 0 activate OPL3 mode
     ' Test waveform gating by waveSelectEnable (reg 0x01 bit 5) in OPL2 mode
     Opal_Write chip, &HE0, 2 ' Operator 0 waveform = 2
     TEST_CHECK chip.op(0).waveform = 2, "Operator 0 waveform register set to 2"
@@ -1429,15 +1422,20 @@ SUB Test_Opal_OPL2_OPL3_Modes
     Opal_Write chip, &H01, &H20
     TEST_CHECK chip.waveSelectEnable = 1, "waveSelectEnable set to 1 via reg 0x01 bit 5"
 
-    ' Switch back to OPL3 mode and activate newMode
-    Opal_SetChipType chip, OPAL_CHIP_TYPE_OPL3
+    ' Activate OPL3 mode via register 0x105 (standard OPL3 software initialization)
     Opal_Write chip, &H105, 1
     TEST_CHECK Opal_IsOPL3(chip), "OPL3 mode activated via reg 0x105"
+    TEST_CHECK Opal_GetChipType(chip) = OPAL_CHIP_TYPE_OPL3, "Chip type is now OPL3"
 
     ' Now Bank 1 writes should be accepted
     Opal_Write chip, &H120, 7
     TEST_CHECK chip.op(18).multiple = 7, "Bank 1 operator 18 MULT is now 7 in OPL3 mode"
     TEST_CHECK chip.op(0).multiple = 1, "Bank 0 operator 0 MULT unchanged at 1"
+
+    ' Switch back to OPL2 mode via reg 0x105
+    Opal_Write chip, &H105, 0
+    TEST_CHECK_FALSE Opal_IsOPL3(chip), "OPL2 mode restored via reg 0x105"
+    TEST_CHECK Opal_GetChipType(chip) = OPAL_CHIP_TYPE_OPL2, "Chip type returned to OPL2"
 
     TEST_CASE_END
 END SUB

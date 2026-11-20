@@ -448,7 +448,7 @@ FUNCTION RADLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 ```
 
 - **Supported Formats**: Reality Adlib Tracker v1.0 (`RAD by REALiTY!!`, version `0x10`) modules with
-  9 OPL2 melody channels, 64 rows per pattern, up to 31 HSC 2-operator instruments, order lists
+  song subtype `"RAD1"`, 9 OPL2 melody channels, 64 rows per pattern, up to 31 HSC 2-operator instruments, order lists
   up to 128 entries, slow-timer (~18.2 Hz) and standard (50 Hz) timing, and standard effects
   (portamento up/down, tone portamento, volume slide 1..99, set volume, pattern break, set speed).
 - **Parameters**:
@@ -949,10 +949,10 @@ SUB Opal_SetPan (self AS Opal, channel AS _UNSIGNED INTEGER, pan AS _UNSIGNED _B
 FUNCTION Opal_GetChipType& (self AS Opal)
 ```
 
-- **Description**: Returns the configured chip mode constant (`OPAL_CHIP_TYPE_OPL2` = 0, `OPAL_CHIP_TYPE_OPL3` = 1).
+- **Description**: Returns the active chip mode constant (`OPAL_CHIP_TYPE_OPL2` = 0, `OPAL_CHIP_TYPE_OPL3` = 1). Following real Yamaha YMF262 (OPL3) hardware behavior, the chip powers up in backwards-compatible OPL2 mode by default, and enters OPL3 mode when register `0x105` bit 0 is written as 1.
 - **Parameters**:
   - `self`: Opal instance context.
-- **Returns**: Chip mode constant.
+- **Returns**: Chip mode constant (`OPAL_CHIP_TYPE_OPL2` or `OPAL_CHIP_TYPE_OPL3`).
 
 #### `Opal_SetChipType`
 
@@ -960,7 +960,7 @@ FUNCTION Opal_GetChipType& (self AS Opal)
 SUB Opal_SetChipType (self AS Opal, chipType AS LONG)
 ```
 
-- **Description**: Configures strict OPL2 mode (`OPAL_CHIP_TYPE_OPL2`) or OPL3 mode (`OPAL_CHIP_TYPE_OPL3`). In OPL2 mode, writes to Bank 1 registers and 4-op register 0x104 are rejected, and register 0x105 writes cannot enable OPL3 mode.
+- **Description**: Configures OPL2 mode (`OPAL_CHIP_TYPE_OPL2`) or OPL3 mode (`OPAL_CHIP_TYPE_OPL3`). In OPL2 mode, writes to Bank 1 registers (>= 0x100) are ignored except register 0x105, 4-op register 0x104 is inactive, and waveforms are gated by register 0x01 bit 5 (`waveSelectEnable`).
 - **Parameters**:
   - `self`: Opal instance context.
   - `chipType`: `OPAL_CHIP_TYPE_OPL2` or `OPAL_CHIP_TYPE_OPL3`.

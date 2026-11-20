@@ -108,9 +108,6 @@ FUNCTION MODPlayer_Initialize%% (player AS MODPlayer)
     IF NOT SoftSynth_Initialize(player.synth) THEN EXIT FUNCTION
 
     Opal_Initialize player.opl, SoftSynth_GetSampleRate(player.synth)
-    IF player.song.isRAD THEN
-        Opal_SetChipType player.opl, OPAL_CHIP_TYPE_OPL2
-    END IF
     Opal_Write player.opl, &H01, &H20
     Opal_Write player.opl, &H08, 0
     Opal_Write player.opl, &HBD, 0
@@ -168,9 +165,6 @@ SUB MODPlayer_Play (player AS MODPlayer)
     __MODPlayer_SetBPM player, player.song.defaultBPM
 
     Opal_Initialize player.opl, SoftSynth_GetSampleRate(player.synth)
-    IF player.song.isRAD THEN
-        Opal_SetChipType player.opl, OPAL_CHIP_TYPE_OPL2
-    END IF
     Opal_Write player.opl, &H01, &H20
     Opal_Write player.opl, &H08, 0
     Opal_Write player.opl, &HBD, 0
@@ -265,9 +259,6 @@ SUB MODPlayer_Stop (player AS MODPlayer)
 
     SoftSynth_Finalize player.synth
     Opal_Initialize player.opl, SoftSynth_GetSampleRate(player.synth)
-    IF player.song.isRAD THEN
-        Opal_SetChipType player.opl, OPAL_CHIP_TYPE_OPL2
-    END IF
     Opal_Write player.opl, &H01, &H20
     Opal_Write player.opl, &H08, 0
     Opal_Write player.opl, &HBD, 0

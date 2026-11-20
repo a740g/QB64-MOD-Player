@@ -475,9 +475,14 @@ SUB __Opal_WriteControl (opl AS Opal, reg AS _UNSIGNED LONG, valByte AS _UNSIGNE
                 __Opal_WritePairing opl, valByte
             END IF
         CASE __OPAL_NEW_REGISTER
-            IF opl.chipType = OPAL_CHIP_TYPE_OPL3 THEN
-                opl.newMode = valByte AND 1
+            opl.newMode = valByte AND 1
+            IF opl.newMode <> 0 THEN
+                opl.chipType = OPAL_CHIP_TYPE_OPL3
+            ELSE
+                opl.chipType = OPAL_CHIP_TYPE_OPL2
+                opl.pairEnable = 0
             END IF
+            __Opal_RefreshRouting opl
     END SELECT
 END SUB
 
@@ -969,7 +974,8 @@ SUB Opal_Initialize (opl AS Opal, sampleRate AS LONG)
 
     DIM empty AS Opal
     opl = empty
-    opl.chipType = OPAL_CHIP_TYPE_OPL3
+    opl.newMode = 0
+    opl.chipType = OPAL_CHIP_TYPE_OPL2
 
     DIM ch AS _UNSIGNED LONG
     FOR ch = 0 TO OPAL_CHANNEL_COUNT - 1
@@ -1014,23 +1020,30 @@ SUB Opal_Initialize (opl AS Opal, sampleRate AS LONG)
     Opal_SetSampleRate opl, sampleRate
 END SUB
 
-''' @brief Gets the configured chip mode (OPAL_CHIP_TYPE_OPL2 or OPAL_CHIP_TYPE_OPL3).
+''' @brief Gets the current chip mode (OPAL_CHIP_TYPE_OPL2 or OPAL_CHIP_TYPE_OPL3).
 ''' @param opl Opal emulator instance.
-''' @return Chip mode constant.
+''' @return OPAL_CHIP_TYPE_OPL2 if in OPL2 mode, OPAL_CHIP_TYPE_OPL3 if in OPL3 mode.
 FUNCTION Opal_GetChipType& (opl AS Opal)
-    Opal_GetChipType = opl.chipType
+    IF opl.newMode <> 0 THEN
+        Opal_GetChipType = OPAL_CHIP_TYPE_OPL3
+    ELSE
+        Opal_GetChipType = OPAL_CHIP_TYPE_OPL2
+    END IF
 END FUNCTION
 
 ''' @brief Configures the emulator chip mode.
 ''' @param opl Opal emulator instance.
 ''' @param chipType OPAL_CHIP_TYPE_OPL2 or OPAL_CHIP_TYPE_OPL3.
 SUB Opal_SetChipType (opl AS Opal, chipType AS LONG)
-    opl.chipType = chipType
-    IF chipType = OPAL_CHIP_TYPE_OPL2 THEN
+    IF chipType = OPAL_CHIP_TYPE_OPL3 THEN
+        opl.newMode = 1
+        opl.chipType = OPAL_CHIP_TYPE_OPL3
+    ELSE
         opl.newMode = 0
+        opl.chipType = OPAL_CHIP_TYPE_OPL2
         opl.pairEnable = 0
-        __Opal_RefreshRouting opl
     END IF
+    __Opal_RefreshRouting opl
 END SUB
 
 ''' @brief Returns whether the emulator is actively running in OPL3 mode (newMode <> 0).
