@@ -1474,6 +1474,99 @@ SUB Test_MODPlayer_ChannelBadges
     TEST_CASE_END
 END SUB
 
+''' @brief Unit tests for classic ProTracker .MOD effect implementations and OpenMPT/libxmp crosschecks.
+SUB Test_MOD_Effects
+    TEST_CASE_BEGIN "MOD Effects: Sample Offset (9xx and 900 recall)"
+    DIM pOff AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pOff, "mods/Enigma.mod"), "Load Enigma.mod"
+    ' Simulate row tick with 902 (offset = 512 bytes)
+    pOff.pattern(0).note(0, 0).effect = __MODPLAYER_FX_SAMPLE_OFFSET
+    pOff.pattern(0).note(0, 0).operand = 2
+    pOff.pattern(0).note(0, 0).note = 36 ' C-3
+    pOff.pattern(0).note(0, 0).instrument = 1
+    pOff.song.tickPattern = 0
+    pOff.song.tickPatternRow = 0
+    __MODPlayer_UpdateRow pOff
+    TEST_CHECK pOff.channel(0).lastSampleOffset = 2, "902 sets lastSampleOffset to 2"
+    TEST_CHECK pOff.channel(0).startPosition = 512, "902 sets startPosition to 512"
+
+    ' Now test 900 recalls previous offset
+    pOff.pattern(0).note(1, 0).effect = __MODPLAYER_FX_SAMPLE_OFFSET
+    pOff.pattern(0).note(1, 0).operand = 0
+    pOff.pattern(0).note(1, 0).note = 36
+    pOff.pattern(0).note(1, 0).instrument = 1
+    pOff.song.tickPatternRow = 1
+    __MODPlayer_UpdateRow pOff
+    TEST_CHECK pOff.channel(0).startPosition = 512, "900 recalls offset memory (512 bytes)"
+    MODPlayer_Finalize pOff
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MOD Effects: Note Cut (EC0 on tick 0)"
+    DIM pCut AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pCut, "mods/Enigma.mod"), "Load Enigma.mod"
+    pCut.pattern(0).note(0, 0).note = 36
+    pCut.pattern(0).note(0, 0).instrument = 1
+    pCut.pattern(0).note(0, 0).effect = __MODPLAYER_FX_EXT
+    pCut.pattern(0).note(0, 0).operand = &HC0 ' EC0
+    pCut.song.tickPattern = 0
+    pCut.song.tickPatternRow = 0
+    __MODPlayer_UpdateRow pCut
+    TEST_CHECK pCut.channel(0).volume = 0, "EC0 silences channel volume immediately on tick 0"
+    MODPlayer_Finalize pCut
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MOD Effects: Speed 0 protection (F00 does not clear speed)"
+    DIM pSpd AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pSpd, "mods/Enigma.mod"), "Load Enigma.mod"
+    DIM origSpeed AS LONG: origSpeed = pSpd.song.speed
+    DIM chClear AS LONG
+    FOR chClear = 0 TO pSpd.song.channels - 1
+        pSpd.pattern(0).note(0, chClear).effect = 0
+        pSpd.pattern(0).note(0, chClear).operand = 0
+    NEXT chClear
+    pSpd.pattern(0).note(0, 0).effect = __MODPLAYER_FX_SPEED_TEMPO
+    pSpd.pattern(0).note(0, 0).operand = 0 ' F00
+    pSpd.song.tickPattern = 0
+    pSpd.song.tickPatternRow = 0
+    __MODPlayer_UpdateRow pSpd
+    TEST_CHECK pSpd.song.speed = origSpeed, "F00 is guarded and does not set speed to 0"
+    MODPlayer_Finalize pSpd
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MOD Effects: Amiga LED Filter (E00 on, E01 off)"
+    DIM pFlt AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pFlt, "mods/Enigma.mod"), "Load Enigma.mod"
+    ' E00 turns filter on
+    pFlt.pattern(0).note(0, 0).effect = __MODPLAYER_FX_EXT
+    pFlt.pattern(0).note(0, 0).operand = &H00 ' E00
+    pFlt.song.tickPattern = 0
+    pFlt.song.tickPatternRow = 0
+    __MODPlayer_UpdateRow pFlt
+    TEST_CHECK pFlt.song.useAmigaLPF, "E00 sets useAmigaLPF = _TRUE"
+
+    ' E01 turns filter off
+    pFlt.pattern(0).note(0, 0).operand = &H01 ' E01
+    __MODPlayer_UpdateRow pFlt
+    TEST_CHECK_FALSE pFlt.song.useAmigaLPF, "E01 sets useAmigaLPF = _FALSE"
+    MODPlayer_Finalize pFlt
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MOD Effects: Fine Portamento Up underflow clamp (E1F)"
+    DIM pFine AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pFine, "mods/Enigma.mod"), "Load Enigma.mod"
+    pFine.channel(0).period = 10 ' very small period
+    pFine.pattern(0).note(0, 0).note = __MODPLAYER_NOTE_NONE
+    pFine.pattern(0).note(0, 0).instrument = 0
+    pFine.pattern(0).note(0, 0).effect = __MODPLAYER_FX_EXT
+    pFine.pattern(0).note(0, 0).operand = &H1F ' E1F (subtract 15 * 4 = 60)
+    pFine.song.tickPattern = 0
+    pFine.song.tickPatternRow = 0
+    __MODPlayer_UpdateRow pFine
+    TEST_CHECK pFine.channel(0).period >= 1, "E1F clamps period to >= 1 and prevents underflow"
+    MODPlayer_Finalize pFine
+    TEST_CASE_END
+END SUB
+
 IF _DIREXISTS("../mods") THEN CHDIR ".."
 
 ' Run all test suites
@@ -1489,6 +1582,7 @@ Test_Opal_RhythmMode
 Test_MODPlayer_Lifecycle
 Test_MODPlayer_MOD
 Test_MODPlayer_Startrekker_AM
+Test_MOD_Effects
 Test_MODPlayer_S3M
 Test_MODPlayer_S3M_Packed
 Test_MODPlayer_S3M_AdLib

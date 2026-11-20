@@ -1520,9 +1520,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                 __MODPlayer_SetChannelPanning player, nChannel, nOperand
 
             CASE __MODPLAYER_FX_SAMPLE_OFFSET
-                IF player.song.isS3M THEN
-                    IF nOperand THEN player.channel(nChannel).lastSampleOffset = nOperand ELSE nOperand = player.channel(nChannel).lastSampleOffset
-                END IF
+                IF nOperand THEN player.channel(nChannel).lastSampleOffset = nOperand ELSE nOperand = player.channel(nChannel).lastSampleOffset
                 IF nNote < __MODPLAYER_NOTE_NONE THEN
                     player.channel(nChannel).startPosition = _SHL(nOperand, 8)
                     IF player.instrument(player.channel(nChannel).instrument).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP _ANDALSO player.instrument(player.channel(nChannel).instrument).loopEnd > player.instrument(player.channel(nChannel).instrument).loopStart _ANDALSO player.channel(nChannel).startPosition >= player.instrument(player.channel(nChannel).instrument).loopEnd THEN
@@ -1576,10 +1574,11 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
             CASE __MODPLAYER_FX_EXT
                 SELECT CASE nOpX
                     CASE __MODPLAYER_FX_EXT_FILTER
-                        player.song.useAmigaLPF = (nOpY <> _FALSE)
+                        player.song.useAmigaLPF = (nOpY = 0)
 
                     CASE __MODPLAYER_FX_EXT_PORTAMENTO_FINE_UP
                         player.channel(nChannel).period = player.channel(nChannel).period - _SHL(nOpY, 2)
+                        IF player.channel(nChannel).period < 1 THEN player.channel(nChannel).period = 1
 
                     CASE __MODPLAYER_FX_EXT_PORTAMENTO_FINE_DOWN
                         player.channel(nChannel).period = player.channel(nChannel).period + _SHL(nOpY, 2)
@@ -1637,6 +1636,19 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                         player.channel(nChannel).volume = player.channel(nChannel).volume - nOpY
                         IF player.channel(nChannel).volume < 0 THEN player.channel(nChannel).volume = 0
 
+                    CASE __MODPLAYER_FX_EXT_NOTE_CUT
+                        IF nOpY = 0 THEN
+                            player.channel(nChannel).volume = 0
+                            IF player.song.isS3M THEN SoftSynth_StopVoice player.synth, nChannel
+                            IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
+                                player.channel(nChannel).amLevel = 0
+                                player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
+                                SoftSynth_StopVoice player.synth, nChannel
+                                SoftSynth_SetVoiceVolume player.synth, nChannel, 0!
+                            END IF
+                            __MODPlayer_ApplyChannelVolume player, nChannel
+                        END IF
+
                     CASE __MODPLAYER_FX_EXT_NOTE_DELAY
                         IF nOpY > 0 THEN noFrequency = _TRUE
 
@@ -1649,7 +1661,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
 
             CASE __MODPLAYER_FX_SPEED_TEMPO
                 IF nOperand < 32 THEN
-                    player.song.speed = nOperand
+                    IF nOperand > 0 THEN player.song.speed = nOperand
                 ELSE
                     __MODPlayer_SetBPM player, nOperand
                 END IF
@@ -1913,41 +1925,25 @@ SUB __MODPlayer_UpdateTick (player AS MODPlayer)
                     IF arpParam _ANDALSO player.channel(nChannel).period > 0 THEN
                         DIM arpX AS _UNSIGNED _BYTE: arpX = _SHR(arpParam, 4)
                         DIM arpY AS _UNSIGNED _BYTE: arpY = arpParam AND &HF
+                        DIM c2SpdArp AS _UNSIGNED LONG
+                        c2SpdArp = player.channel(nChannel).c2Spd
+                        IF c2SpdArp = 0 THEN c2SpdArp = player.instrument(player.channel(nChannel).instrument).c2Spd
+                        IF c2SpdArp = 0 THEN c2SpdArp = 8363
                         SELECT CASE player.song.tick MOD 3
                             CASE 0
                                 SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(player.channel(nChannel).period)
                             CASE 1
-                                IF player.song.isS3M THEN
-                                    DIM c2SpdArp1 AS _UNSIGNED LONG
-                                    c2SpdArp1 = player.channel(nChannel).c2Spd
-                                    IF c2SpdArp1 = 0 THEN c2SpdArp1 = player.instrument(player.channel(nChannel).instrument).c2Spd
-                                    IF c2SpdArp1 = 0 THEN c2SpdArp1 = 8363
-                                    DIM note1 AS LONG: note1 = player.channel(nChannel).note + arpX
-                                    IF note1 > UBOUND(__MODPlayer_PeriodTable) THEN note1 = UBOUND(__MODPlayer_PeriodTable)
-                                    DIM p1 AS LONG
-                                    p1 = (8363 * __MODPlayer_PeriodTable(note1)) \ c2SpdArp1
-                                    SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(p1)
-                                ELSE
-                                    DIM noteMOD1 AS LONG: noteMOD1 = player.channel(nChannel).note + arpX
-                                    IF noteMOD1 > UBOUND(__MODPlayer_PeriodTable) THEN noteMOD1 = UBOUND(__MODPlayer_PeriodTable)
-                                    SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(__MODPlayer_PeriodTable(noteMOD1))
-                                END IF
+                                DIM note1 AS LONG: note1 = player.channel(nChannel).note + arpX
+                                IF note1 > UBOUND(__MODPlayer_PeriodTable) THEN note1 = UBOUND(__MODPlayer_PeriodTable)
+                                DIM p1 AS LONG
+                                p1 = (8363 * __MODPlayer_PeriodTable(note1)) \ c2SpdArp
+                                SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(p1)
                             CASE 2
-                                IF player.song.isS3M THEN
-                                    DIM c2SpdArp2 AS _UNSIGNED LONG
-                                    c2SpdArp2 = player.channel(nChannel).c2Spd
-                                    IF c2SpdArp2 = 0 THEN c2SpdArp2 = player.instrument(player.channel(nChannel).instrument).c2Spd
-                                    IF c2SpdArp2 = 0 THEN c2SpdArp2 = 8363
-                                    DIM note2 AS LONG: note2 = player.channel(nChannel).note + arpY
-                                    IF note2 > UBOUND(__MODPlayer_PeriodTable) THEN note2 = UBOUND(__MODPlayer_PeriodTable)
-                                    DIM p2 AS LONG
-                                    p2 = (8363 * __MODPlayer_PeriodTable(note2)) \ c2SpdArp2
-                                    SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(p2)
-                                ELSE
-                                    DIM noteMOD2 AS LONG: noteMOD2 = player.channel(nChannel).note + arpY
-                                    IF noteMOD2 > UBOUND(__MODPlayer_PeriodTable) THEN noteMOD2 = UBOUND(__MODPlayer_PeriodTable)
-                                    SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(__MODPlayer_PeriodTable(noteMOD2))
-                                END IF
+                                DIM note2 AS LONG: note2 = player.channel(nChannel).note + arpY
+                                IF note2 > UBOUND(__MODPlayer_PeriodTable) THEN note2 = UBOUND(__MODPlayer_PeriodTable)
+                                DIM p2 AS LONG
+                                p2 = (8363 * __MODPlayer_PeriodTable(note2)) \ c2SpdArp
+                                SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(p2)
                         END SELECT
                     END IF
 
