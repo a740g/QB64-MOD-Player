@@ -96,6 +96,7 @@ REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0), SpectrumAnalyzerR(0) ' left & r
 DIM Stars(1 TO STAR_COUNT) AS Star
 DIM Snakes(1 TO SNAKE_COUNT) AS Snake
 DIM Player AS MODPlayer
+DIM InstrumentScrollOffset AS LONG ' current scroll offset in instrument list
 
 ''' @brief Draws a horizontal text character line across the screen.
 ''' @param lx Left X coordinate.
@@ -125,6 +126,7 @@ SUB Visualizer_Draw
     ' These are internal variables and arrays used by the MODPlayer library and are used for showing internal info and visualization
     ' In a general use case, accessing these directly is not required at all
     SHARED Player AS MODPlayer
+    SHARED InstrumentScrollOffset AS LONG
 
     ' Subscript out of range bugfix for player when song is 128 orders long and the song reaches the end
     ' In this case if the sub is allowed to proceed then Player.order(Player.song.orderPosition) will cause "subscript out of range"
@@ -151,13 +153,25 @@ SUB Visualizer_Draw
 
     LOCATE 3, x: PRINT USING " BPM: ###       | SPD: ###       | VOL: ###%      | BUF: #######ms | REP: \       \ "; Player.song.BPM; Player.song.speed; SoftSynth_GetMasterVolume(Player.synth) * 100!; SoftSynth_GetBufferedSoundTime(Player.synth) * 1000#; _IIF(Player.song.isLooping, "Enabled", "Disabled");
 
+    ' Clamp instrument scroll offset
+    IF InstrumentScrollOffset > Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS THEN
+        InstrumentScrollOffset = Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS
+    END IF
+    IF InstrumentScrollOffset < 0 THEN InstrumentScrollOffset = 0
+
     ' Print the sample list header
     COLOR Blink, Cyan
-    _PRINTSTRING (x, 4), "  S#  SAMPLE-NAME                 VOLUME C2SPD LENGTH LOOPING LOOP-START LOOP-STOP  "
+    IF Player.song.instruments > UI_MAX_VISIBLE_INSTRUMENTS THEN
+        _PRINTSTRING (x, 4), "  S#  SAMPLE-NAME [Scroll:Up/Dn]  VOLUME C2SPD LENGTH LOOPING LOOP-START LOOP-STOP  "
+    ELSE
+        _PRINTSTRING (x, 4), "  S#  SAMPLE-NAME                 VOLUME C2SPD LENGTH LOOPING LOOP-START LOOP-STOP  "
+    END IF
 
     ' Print the sample information
-    DIM AS LONG i, j
-    WHILE i < Player.song.instruments
+    DIM AS LONG i, j, rowIdx, maxInst
+    maxInst = _MIN(Player.song.instruments, InstrumentScrollOffset + UI_MAX_VISIBLE_INSTRUMENTS)
+    rowIdx = 0
+    FOR i = InstrumentScrollOffset TO maxInst - 1
         COLOR Yellow, Black
 
         j = 0
@@ -169,14 +183,12 @@ SUB Visualizer_Draw
             j = j + 1
         WEND
 
-        LOCATE 5 + i, x: PRINT USING " ###: \                       \ ######## ##### ###### \     \ ########## #########  "; i + 1; Player.instrument(i).caption; Player.instrument(i).volume; Player.instrument(i).c2Spd; Player.instrument(i).length; _IIF(Player.instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, "Yes", "No"); Player.instrument(i).loopStart; Player.instrument(i).loopEnd;
+        LOCATE 5 + rowIdx, x: PRINT USING " ###: \                       \ ######## ##### ###### \     \ ########## #########  "; i + 1; Player.instrument(i).caption; Player.instrument(i).volume; Player.instrument(i).c2Spd; Player.instrument(i).length; _IIF(Player.instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, "Yes", "No"); Player.instrument(i).loopStart; Player.instrument(i).loopEnd;
 
-        i = i + 1
+        rowIdx = rowIdx + 1
+    NEXT
 
-        IF i >= UI_MAX_VISIBLE_INSTRUMENTS THEN EXIT WHILE ' FIXME: allow user to scroll and see the entire instrument list
-    WEND
-
-    j = 5 + i ' we starting updating from this line next
+    j = 5 + rowIdx ' we starting updating from this line next
     x = 1 + WindowWidth \ 2 - PatternDisplayWidth \ 2 ' find x so that we can center everything
 
     ' Print the pattern header
@@ -653,7 +665,9 @@ END SUB
 ''' @return Next application event code.
 FUNCTION App_OnPlayTune%% (fileName AS STRING)
     SHARED Player AS MODPlayer
+    SHARED InstrumentScrollOffset AS LONG
 
+    InstrumentScrollOffset = 0 ' reset scroll position on song load
     App_OnPlayTune = APP_EVENT_PLAY ' default event is to play next song
 
     DIM buffer AS STRING
@@ -714,6 +728,32 @@ FUNCTION App_OnPlayTune%% (fileName AS STRING)
 
             CASE _KEY_RIGHT
                 MODPlayer_GoToNextPosition Player
+
+            CASE _KEY_UP
+                IF InstrumentScrollOffset > 0 THEN InstrumentScrollOffset = InstrumentScrollOffset - 1
+
+            CASE _KEY_DOWN
+                IF InstrumentScrollOffset < Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS THEN
+                    InstrumentScrollOffset = InstrumentScrollOffset + 1
+                END IF
+
+            CASE _KEY_PAGEUP
+                InstrumentScrollOffset = InstrumentScrollOffset - 10
+                IF InstrumentScrollOffset < 0 THEN InstrumentScrollOffset = 0
+
+            CASE _KEY_PAGEDOWN
+                DIM maxScrollDown AS LONG: maxScrollDown = Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS
+                IF maxScrollDown < 0 THEN maxScrollDown = 0
+                InstrumentScrollOffset = InstrumentScrollOffset + 10
+                IF InstrumentScrollOffset > maxScrollDown THEN InstrumentScrollOffset = maxScrollDown
+
+            CASE _KEY_HOME
+                InstrumentScrollOffset = 0
+
+            CASE _KEY_END
+                DIM maxScrollEnd AS LONG: maxScrollEnd = Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS
+                IF maxScrollEnd < 0 THEN maxScrollEnd = 0
+                InstrumentScrollOffset = maxScrollEnd
 
             CASE _KEY_F1
                 App_OnPlayTune = APP_EVENT_LOAD

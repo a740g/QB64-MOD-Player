@@ -116,7 +116,7 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
         END IF
 
         ' Set sound to looping and fix loop points if needed
-        IF player.instrument(i).loopEnd - player.instrument(i).loopStart > 1 THEN ' we need 2 frames minimum to mark the sound as looping (TODO: check if this is normal)
+        IF player.instrument(i).loopEnd - player.instrument(i).loopStart > 1 _ANDALSO player.instrument(i).loopEnd > 2 THEN ' loop requires loopEnd > loopStart and loopEnd > 2 (standard MTM / MultiTracker spec)
             player.instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP
         ELSE
             player.instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD

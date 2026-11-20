@@ -143,7 +143,7 @@ END TYPE
 
 TYPE __MODPlayerChannel
     instrument AS _UNSIGNED _BYTE ' instrument number to be mixed
-    subtype AS _UNSIGNED _BYTE ' what kind of channel is this? (PCM, FM melody, FM drum, etc.) TODO: Do we really need this?
+    subtype AS _UNSIGNED _BYTE ' channel synthesis mode: PCM, AM synth, FM melody, FM drum (see __MODPLAYER_INSTRUMENT_*)
     volume AS INTEGER ' channel volume. This is a signed int because we need -ve values & to clip properly
     restart AS _BYTE ' set this to true to retrigger the sample
     note AS _UNSIGNED _BYTE ' last note set in channel

@@ -46,19 +46,18 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     StringFile_Seek memFile, StringFile_GetPosition(memFile) + 4 ' 4 bytes
 
     ' Read the song orders (note that this count includes 254 & 255 marker orders)
-    player.song.orders = StringFile_ReadInteger(memFile) ' TODO: this includes markers!
+    player.song.orders = StringFile_ReadInteger(memFile) ' count includes 254/255 markers; trailing 255s trimmed after order table load
 
     ' Read the number of instruments
     player.song.instruments = StringFile_ReadInteger(memFile)
 
     ' Read the number of patterns
-    player.song.patterns = StringFile_ReadInteger(memFile) ' TODO: includes marker patterns!
+    player.song.patterns = StringFile_ReadInteger(memFile) ' pattern parapointer count; empty/marker patterns are skipped
 
     ' Read the 16-bit flags
     DIM word1 AS _UNSIGNED INTEGER: word1 = StringFile_ReadInteger(memFile)
 
-    ' Set individual flags
-    ' TODO: Check and discard members which are not really needed
+    ' Set individual flags (standard S3M header flags preserved for format fidelity and playback logic)
     player.song.useST2Vibrato = _READBIT(word1, 0)
     player.song.useST2Tempo = _READBIT(word1, 1)
     player.song.useAmigaSlides = _READBIT(word1, 2)
