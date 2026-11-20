@@ -143,13 +143,21 @@ FUNCTION C669Loader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
         player.instrument(sIdx).c2Spd = __C669LOADER_C2SPD
         player.instrument(sIdx).volume = 64
         player.instrument(sIdx).bytesPerSample = _SIZE_OF_BYTE
+        player.instrument(sIdx).channels = 1
         player.instrument(sIdx).subtype = __MODPLAYER_INSTRUMENT_PCM
 
         ' 669 Loop handling:
-        IF loopEnd < &HFFFFF _ANDALSO loopEnd > 0 _ANDALSO loopEnd <= smpLength _ANDALSO loopStart < loopEnd THEN
-            player.instrument(sIdx).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP
-            player.instrument(sIdx).loopStart = loopStart
-            player.instrument(sIdx).loopEnd = loopEnd
+        IF loopEnd < &HFFFFF _ANDALSO loopEnd > 0 _ANDALSO loopStart < loopEnd THEN
+            DIM safeLoopEnd AS _UNSIGNED LONG: safeLoopEnd = _MIN(loopEnd, smpLength)
+            IF safeLoopEnd > loopStart THEN
+                player.instrument(sIdx).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP
+                player.instrument(sIdx).loopStart = loopStart
+                player.instrument(sIdx).loopEnd = safeLoopEnd
+            ELSE
+                player.instrument(sIdx).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD
+                player.instrument(sIdx).loopStart = 0
+                player.instrument(sIdx).loopEnd = smpLength
+            END IF
         ELSE
             player.instrument(sIdx).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD
             player.instrument(sIdx).loopStart = 0

@@ -878,6 +878,7 @@ SUB Test_C669Loader
     TEST_CHECK player.song.speed = 5, "Initial speed from pattern 0 is 5"
     TEST_CHECK player.song.isStereo, "Stereo flag is true"
     TEST_CHECK player.instrument(0).length > 0, "Sample 0 has length"
+    TEST_CHECK player.instrument(0).channels = 1, "Sample 0 channels is 1"
     TEST_CHECK player.instrument(0).c2Spd = 8363, "Sample 0 c2Spd is 8363"
     TEST_CHECK player.channel(0).panning = 48, "Channel 0 is Left (48)"
     TEST_CHECK player.channel(1).panning = 208, "Channel 1 is Right (208)"
@@ -910,6 +911,8 @@ SUB Test_C669Loader
     TEST_CHECK MODPlayer_IsPlaying(pPlay), "669 is playing"
     MODPlayer_Update pPlay, 0.05
     TEST_CHECK MODPlayer_IsPlaying(pPlay), "669 continues playing after update"
+    TEST_CHECK SoftSynth_GetActiveVoices(pPlay.synth) > 0, "669 has active voices sounding"
+    TEST_CHECK pPlay.channel(0).period > 0, "669 channel 0 period is non-zero"
     MODPlayer_Stop pPlay
     TEST_CHECK_FALSE MODPlayer_IsPlaying(pPlay), "669 stopped"
     MODPlayer_Finalize pPlay
