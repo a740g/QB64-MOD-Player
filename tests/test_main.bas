@@ -2132,9 +2132,9 @@ SUB Test_Background
     TEST_CHECK bg.starfield.count = BACKGROUND_STAR_COUNT, "Default starfield count allocated"
     TEST_CHECK bg.snakes.count = BACKGROUND_SNAKE_COUNT, "Default snakes count allocated"
     TEST_CHECK bg.mode = BACKGROUND_MODE_STARS, "Default mode is stars"
-    Background_UpdateAndDraw bg, 1!
+    Background_UpdateAndDraw bg
     bg.mode = BACKGROUND_MODE_SNAKES
-    Background_UpdateAndDraw bg, 1!
+    Background_UpdateAndDraw bg
     TEST_CHECK bg.snakes.gridW > 0 AND bg.snakes.gridH > 0, "Snakes grid resized dynamically"
     TEST_CASE_END
 END SUB
