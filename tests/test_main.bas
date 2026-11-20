@@ -939,6 +939,33 @@ SUB Test_MODPlayer_S3M_AdLib
     TEST_CHECK_FALSE MODPlayer_IsPlaying(player2), "Stopped adlib.s3m"
     MODPlayer_Finalize player2
     TEST_CASE_END
+
+    TEST_CASE_BEGIN "MODPlayer: S3M mixed PCM and FM with master volume (Shrubbing.s3m)"
+    DIM player3 AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(player3, "mods/Shrubbing.s3m"), "Load Shrubbing.s3m"
+    TEST_CHECK INSTR(MODPlayer_GetName(player3), "Shrubbing") > 0, "Song title matches"
+    TEST_CHECK player3.song.hasFMChannels, "Shrubbing marked as hasFMChannels"
+    TEST_CHECK player3.song.isStereo, "Shrubbing is stereo"
+    TEST_CHECK ABS(player3.song.pcmMasterGain - (37! / 160!)) < 0.01!, "PCM master gain attenuated correctly"
+    TEST_CHECK ABS(player3.song.fmMasterGain - 1.0!) < 0.01!, "FM master gain matches stereo factor"
+    MODPlayer_Play player3
+    TEST_CHECK MODPlayer_IsPlaying(player3), "Playing Shrubbing.s3m"
+    MODPlayer_Update player3, 0.1
+    DIM hasOutput3 AS _BYTE: hasOutput3 = _FALSE
+    DIM sIdx3 AS _UNSIGNED LONG
+    IF player3.synth.soundBufferSamples > 0 THEN
+        FOR sIdx3 = 0 TO player3.synth.soundBufferSamples - 1
+            IF player3.synth.soundBuffer(sIdx3) <> 0! THEN
+                hasOutput3 = _TRUE
+                EXIT FOR
+            END IF
+        NEXT sIdx3
+    END IF
+    TEST_CHECK hasOutput3, "Shrubbing produces non-zero mixed audio"
+    MODPlayer_Stop player3
+    TEST_CHECK_FALSE MODPlayer_IsPlaying(player3), "Stopped Shrubbing.s3m"
+    MODPlayer_Finalize player3
+    TEST_CASE_END
 END SUB
 
 ''' @brief Tests S3M OPL percussion pitch and independent drum key state.

@@ -250,6 +250,8 @@ TYPE __MODPlayerSong
     hasSpecialCustomData AS _BYTE ' special custom data in file (uses "Special" field)
     hasFMChannels AS _BYTE ' true if song contains AdLib FM channels
     isStereo AS _BYTE ' true if song uses stereo panning, false for mono
+    pcmMasterGain AS SINGLE ' S3M master volume and channel attenuation multiplier for PCM channels
+    fmMasterGain AS SINGLE ' OPL FM mixer gain multiplier (attenuated for mono)
 END TYPE
 
 TYPE MODPlayer

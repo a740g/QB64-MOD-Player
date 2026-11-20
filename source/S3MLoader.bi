@@ -120,6 +120,23 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     '_ECHO "isStereo =" + STR$(isStereo)
     player.song.isStereo = isStereo
 
+    DIM rawMasterVol AS _UNSIGNED _BYTE: rawMasterVol = byte1 AND &H7F
+    DIM samplePreAmp AS SINGLE
+    IF rawMasterVol = 0 THEN
+        samplePreAmp = 48!
+    ELSEIF rawMasterVol = 2 _ORELSE rawMasterVol = 18 THEN
+        samplePreAmp = 32!
+    ELSE
+        IF rawMasterVol < 16 THEN samplePreAmp = 16! ELSE samplePreAmp = CSNG(rawMasterVol)
+    END IF
+
+    IF NOT isStereo THEN
+        samplePreAmp = samplePreAmp * (8! / 11!)
+        player.song.fmMasterGain = 8! / 11!
+    ELSE
+        player.song.fmMasterGain = 1.0!
+    END IF
+
     ' Skip Ultrasound ultra-click removal crap
     StringFile_Seek memFile, StringFile_GetPosition(memFile) + 1 ' 1 byte
 
@@ -150,6 +167,24 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     NEXT i
 
     '_ECHO "Channels =" + STR$(player.song.channels)
+
+    ' Calculate PCM pre-amp attenuation based on channel count (matches OpenMPT PreAmpTable)
+    STATIC preAmpTable(0 TO 15) AS _UNSIGNED _BYTE
+    IF preAmpTable(0) = 0 THEN
+        preAmpTable(0) = &H60: preAmpTable(1) = &H60: preAmpTable(2) = &H60: preAmpTable(3) = &H70
+        preAmpTable(4) = &H80: preAmpTable(5) = &H88: preAmpTable(6) = &H90: preAmpTable(7) = &H98
+        preAmpTable(8) = &HA0: preAmpTable(9) = &HA4: preAmpTable(10) = &HA8: preAmpTable(11) = &HAC
+        preAmpTable(12) = &HB0: preAmpTable(13) = &HB4: preAmpTable(14) = &HB8: preAmpTable(15) = &HBC
+    END IF
+
+    DIM chIdx AS LONG
+    chIdx = player.song.channels \ 2
+    IF chIdx < 0 THEN chIdx = 0
+    IF chIdx > 15 THEN chIdx = 15
+    DIM attenuation AS SINGLE: attenuation = CSNG(preAmpTable(chIdx))
+    IF attenuation < 1! THEN attenuation = 1!
+
+    player.song.pcmMasterGain = samplePreAmp / attenuation
 
     ' Resize the channel array
     REDIM player.channel(0 TO player.song.channels - 1) AS __MODPLAYERCHANNEL
