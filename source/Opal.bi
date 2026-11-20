@@ -11,7 +11,7 @@ $INCLUDEONCE
 CONST OPAL_OPL3_SAMPLE_RATE = 49716
 CONST OPAL_CHANNEL_COUNT = 18
 CONST OPAL_OPERATOR_COUNT = 36
-CONST OPAL_DEFAULT_GAIN! = 6.0! ' OPL mixer gain factor to align emulated FM volume with PCM sample volume
+CONST OPAL_DEFAULT_GAIN! = 0.85! ' OPL mixer gain factor to align emulated FM volume with PCM sample volume
 
 CONST OPAL_WRITEBUF_SIZE = 4096
 CONST OPAL_WRITEBUF_DELAY = 2
