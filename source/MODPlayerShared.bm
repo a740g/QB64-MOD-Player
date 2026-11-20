@@ -255,3 +255,31 @@ END FUNCTION
 FUNCTION __MODPlayer_IsFMChannel%% (subtype AS _UNSIGNED _BYTE)
     __MODPlayer_IsFMChannel = (subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY _ANDALSO subtype <= __MODPLAYER_INSTRUMENT_FM_HIHAT)
 END FUNCTION
+
+''' @brief Calculates BPM for a Scream Tracker 2 tempo byte (speed and tempo factor).
+''' @param speed Ticks per row (high nibble of tempo byte, 1-15).
+''' @param tempoMod Tempo modifier (low nibble of tempo byte, 0-15).
+''' @return BPM value (clamped between 32 and 255).
+FUNCTION __MODPlayer_CalculateST2BPM~% (speed AS _UNSIGNED _BYTE, tempoMod AS _UNSIGNED _BYTE)
+    STATIC speedFactor(0 TO 15) AS _UNSIGNED _BYTE
+    IF speedFactor(0) = 0 THEN
+        speedFactor(0) = 140: speedFactor(1) = 50: speedFactor(2) = 25: speedFactor(3) = 15
+        speedFactor(4) = 10: speedFactor(5) = 7: speedFactor(6) = 6: speedFactor(7) = 4
+        speedFactor(8) = 3: speedFactor(9) = 3: speedFactor(10) = 2: speedFactor(11) = 2
+        speedFactor(12) = 2: speedFactor(13) = 2: speedFactor(14) = 1: speedFactor(15) = 1
+    END IF
+
+    DIM spd AS LONG: spd = speed AND &H0F
+    DIM tf AS LONG: tf = tempoMod AND &H0F
+    DIM divisor AS LONG: divisor = 50 - ((CLNG(speedFactor(spd)) * tf) \ 16)
+    IF divisor <= 0 THEN divisor = 1
+
+    CONST STM_MIX_RATE = 23863&
+    DIM tickFrames AS LONG: tickFrames = STM_MIX_RATE \ divisor
+    IF tickFrames <= 0 THEN tickFrames = 1
+
+    DIM bpm AS LONG: bpm = (STM_MIX_RATE * 5 + tickFrames) \ (tickFrames * 2)
+    IF bpm < 32 THEN bpm = 32
+    IF bpm > 255 THEN bpm = 255
+    __MODPlayer_CalculateST2BPM = bpm
+END FUNCTION

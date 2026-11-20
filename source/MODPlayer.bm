@@ -1216,7 +1216,16 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
             IF player.song.isS3M THEN
                 SELECT CASE nEffect
                     CASE __MODPLAYER_FX_SPEED
-                        IF nOperand THEN player.song.speed = nOperand
+                        IF nOperand THEN
+                            IF player.song.useST2Tempo THEN
+                                DIM stmSpd1 AS _UNSIGNED _BYTE: stmSpd1 = _SHR(nOperand, 4)
+                                IF stmSpd1 = 0 THEN stmSpd1 = 1
+                                player.song.speed = stmSpd1
+                                __MODPlayer_SetBPM player, __MODPlayer_CalculateST2BPM(stmSpd1, nOperand AND &H0F)
+                            ELSE
+                                player.song.speed = nOperand
+                            END IF
+                        END IF
 
                     CASE __MODPLAYER_FX_POSITION_JUMP
                         player.song.orderPosition = nOperand
@@ -1421,6 +1430,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                 player.channel(nChannel).instrument = nInstrument - 1
                 player.channel(nChannel).startPosition = 0
                 player.channel(nChannel).volume = player.instrument(player.channel(nChannel).instrument).volume
+                player.channel(nChannel).c2Spd = 0
                 IF nNote >= __MODPLAYER_NOTE_NONE THEN
                     IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH _ORELSE player.instrument(player.channel(nChannel).instrument).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
                         player.channel(nChannel).amLevel = 0
@@ -1685,7 +1695,16 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                 END IF
 
             CASE __MODPLAYER_FX_SPEED
-                IF nOperand THEN player.song.speed = nOperand
+                IF nOperand THEN
+                    IF player.song.useST2Tempo THEN
+                        DIM stmSpd2 AS _UNSIGNED _BYTE: stmSpd2 = _SHR(nOperand, 4)
+                        IF stmSpd2 = 0 THEN stmSpd2 = 1
+                        player.song.speed = stmSpd2
+                        __MODPlayer_SetBPM player, __MODPlayer_CalculateST2BPM(stmSpd2, nOperand AND &H0F)
+                    ELSE
+                        player.song.speed = nOperand
+                    END IF
+                END IF
 
             CASE __MODPLAYER_FX_VOLUME_FINE_SLIDE
                 IF player.song.isS3M THEN

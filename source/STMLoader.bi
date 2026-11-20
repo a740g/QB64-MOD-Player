@@ -18,35 +18,6 @@ CONST __STMLOADER_INSTRUMENTS = 31
 CONST __STMLOADER_ROWS = 64
 CONST __STMLOADER_MIX_RATE = 23863
 
-''' @brief Calculates playback BPM from Scream Tracker 2 speed and tempo factor.
-''' @param spd Speed (ticks per row, 1 to 15).
-''' @param tempoFactor Fine tempo factor nibble (0 to 15).
-''' @return Tempo in BPM (32 to 255).
-FUNCTION __STMLoader_CalculateBPM~% (spd AS _UNSIGNED _BYTE, tempoFactor AS _UNSIGNED _BYTE)
-    STATIC speedFactor(0 TO 15) AS _UNSIGNED _BYTE
-    STATIC tableInit AS _BYTE
-    IF NOT tableInit THEN
-        speedFactor(0) = 140: speedFactor(1) = 50: speedFactor(2) = 25: speedFactor(3) = 15
-        speedFactor(4) = 10: speedFactor(5) = 7: speedFactor(6) = 6: speedFactor(7) = 4
-        speedFactor(8) = 3: speedFactor(9) = 3: speedFactor(10) = 2: speedFactor(11) = 2
-        speedFactor(12) = 2: speedFactor(13) = 2: speedFactor(14) = 1: speedFactor(15) = 1
-        tableInit = _TRUE
-    END IF
-
-    DIM s AS LONG: s = _CLAMP(spd, 0, 15)
-    DIM divisor AS LONG: divisor = 50 - _SHR(CLNG(speedFactor(s)) * CLNG(tempoFactor), 4)
-    IF divisor <= 0 THEN divisor = 1
-
-    DIM tickFrames AS LONG: tickFrames = __STMLOADER_MIX_RATE \ divisor
-    IF tickFrames <= 0 THEN tickFrames = 1
-
-    DIM bpm AS LONG: bpm = (CLNG(__STMLOADER_MIX_RATE) * 5 + tickFrames) \ (tickFrames * 2)
-    IF bpm < 32 THEN bpm = 32
-    IF bpm > 255 THEN bpm = 255
-
-    __STMLoader_CalculateBPM = bpm
-END FUNCTION
-
 ''' @brief Parses and loads a Scream Tracker 2.x (STM) module from a memory buffer.
 ''' @param player The MOD player instance.
 ''' @param buffer In-memory binary representation of the STM file.
@@ -112,7 +83,7 @@ FUNCTION STMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
     DIM defSpeed AS _UNSIGNED _BYTE: defSpeed = _SHR(initTempo, 4)
     IF defSpeed = 0 THEN defSpeed = 6
-    DIM defBPM AS _UNSIGNED INTEGER: defBPM = __STMLoader_CalculateBPM(defSpeed, initTempo AND &H0F)
+    DIM defBPM AS _UNSIGNED INTEGER: defBPM = __MODPlayer_CalculateST2BPM(defSpeed, initTempo AND &H0F)
 
     IF NOT SoftSynth_Initialize(player.synth) THEN EXIT FUNCTION
     __MODPlayer_InitializeSong player
@@ -125,7 +96,7 @@ FUNCTION STMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     player.song.useST2Tempo = _TRUE
     player.song.useST2Vibrato = _TRUE
     player.song.isStereo = _TRUE
-    player.song.pcmMasterGain = 1.0!
+    player.song.pcmMasterGain = 48.0! / 128.0! ' Matches OpenMPT STM default pre-amp of 48
 
     IF globalVol > 64 THEN globalVol = 64
     player.song.globalVolume = globalVol
@@ -137,7 +108,7 @@ FUNCTION STMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     player.song.BPM = defBPM
 
     ' Read 31 instrument headers
-    REDIM player.instrument(0 TO __STMLOADER_INSTRUMENTS - 1) AS __MODPlayerInstrument
+    REDIM player.instrument(0 TO __STMLOADER_INSTRUMENTS - 1) AS __MODPLAYERINSTRUMENT
     DIM sampleOffsets(0 TO __STMLOADER_INSTRUMENTS - 1) AS _UNSIGNED LONG
 
     DIM i AS LONG
@@ -258,7 +229,7 @@ FUNCTION STMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
                         ELSEIF b1 = &HFF THEN
                             player.pattern(p).note(row, ch).note = __MODPLAYER_NOTE_NONE
                         ELSEIF (b1 AND &H0F) < 12 _ANDALSO b1 < &H60 THEN
-                            player.pattern(p).note(row, ch).note = _SHR(b1, 4) * 12 + (b1 AND &H0F) + 36
+                            player.pattern(p).note(row, ch).note = _SHR(b1, 4) * 12 + (b1 AND &H0F) + 24
                         ELSE
                             player.pattern(p).note(row, ch).note = __MODPLAYER_NOTE_NONE
                         END IF
@@ -283,15 +254,12 @@ FUNCTION STMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
                         SELECT CASE cmd
                             CASE 1 ' A - Set Speed / Tempo
                                 IF op > 0 THEN
-                                    DIM spd AS _UNSIGNED _BYTE
+                                    DIM tempoByte AS _UNSIGNED _BYTE: tempoByte = op
                                     IF version < 221 THEN
-                                        spd = op \ 10
-                                    ELSE
-                                        spd = _SHR(op, 4)
+                                        tempoByte = (tempoByte \ 10) * 16 + (tempoByte MOD 10)
                                     END IF
-                                    IF spd = 0 THEN spd = 1
                                     player.pattern(p).note(row, ch).effect = __MODPLAYER_FX_SPEED
-                                    player.pattern(p).note(row, ch).operand = spd
+                                    player.pattern(p).note(row, ch).operand = tempoByte
                                 END IF
 
                             CASE 2 ' B - Position Jump

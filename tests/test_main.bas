@@ -789,6 +789,7 @@ SUB Test_STMLoader
     TEST_CHECK player.song.patterns = 16, "Pattern count is 16"
     TEST_CHECK player.song.defaultSpeed = 6, "Default speed is 6"
     TEST_CHECK player.song.defaultBPM = 125, "Default BPM is 125"
+    TEST_CHECK ABS(player.song.pcmMasterGain - (48.0! / 128.0!)) < 0.001!, "PCM master gain matches OpenMPT 48/128"
     TEST_CHECK MODPlayer_IsStereo(player), "STM is stereo"
     TEST_CHECK player.song.isS3M = _TRUE, "STM uses S3M playback engine"
     TEST_CHECK player.song.useST2Tempo = _TRUE, "STM sets useST2Tempo flag"
@@ -815,14 +816,14 @@ SUB Test_STMLoader
     TEST_CHECK player.instrument(1).length = 10498, "Instrument 1 length is 10498"
     TEST_CHECK player.instrument(1).volume = 43, "Instrument 1 volume is 43"
 
-    ' Row 0 notes: Ch 0 has C-5 (note 60), inst 2, effect Speed (A) operand 4 (from 0x40)
-    TEST_CHECK player.pattern(0).note(0, 0).note = 60, "Pat 0 Row 0 Ch 0 note is 60 (C-5)"
+    ' Row 0 notes: Ch 0 has C-4 (note 48), inst 2, effect Speed (A) operand &H40 (from 0x40)
+    TEST_CHECK player.pattern(0).note(0, 0).note = 48, "Pat 0 Row 0 Ch 0 note is 48 (C-4)"
     TEST_CHECK player.pattern(0).note(0, 0).instrument = 2, "Pat 0 Row 0 Ch 0 inst is 2"
     TEST_CHECK player.pattern(0).note(0, 0).effect = __MODPLAYER_FX_SPEED, "Pat 0 Row 0 Ch 0 effect is SPEED"
-    TEST_CHECK player.pattern(0).note(0, 0).operand = 4, "Pat 0 Row 0 Ch 0 speed operand is 4"
-    TEST_CHECK player.pattern(0).note(0, 1).note = 72, "Pat 0 Row 0 Ch 1 note is 72 (C-6)"
-    TEST_CHECK player.pattern(0).note(0, 2).note = 48, "Pat 0 Row 0 Ch 2 note is 48 (C-4)"
-    TEST_CHECK player.pattern(0).note(0, 3).note = 48, "Pat 0 Row 0 Ch 3 note is 48 (C-4)"
+    TEST_CHECK player.pattern(0).note(0, 0).operand = &H40, "Pat 0 Row 0 Ch 0 speed operand is &H40"
+    TEST_CHECK player.pattern(0).note(0, 1).note = 60, "Pat 0 Row 0 Ch 1 note is 60 (C-5)"
+    TEST_CHECK player.pattern(0).note(0, 2).note = 36, "Pat 0 Row 0 Ch 2 note is 36 (C-3)"
+    TEST_CHECK player.pattern(0).note(0, 3).note = 36, "Pat 0 Row 0 Ch 3 note is 36 (C-3)"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "STMLoader: Load from memory"
@@ -2137,23 +2138,23 @@ SUB Test_STM_Effects
     TEST_CHECK pSynth.instrument(0).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, "Sample 0 is looped"
 
     ' Row 0: Note and Effect translations
-    TEST_CHECK pSynth.pattern(0).note(0, 0).note = 36, "Row 0 Ch 0 note is 36 (C-3)"
+    TEST_CHECK pSynth.pattern(0).note(0, 0).note = 24, "Row 0 Ch 0 note is 24 (C-2)"
     TEST_CHECK pSynth.pattern(0).note(0, 0).instrument = 1, "Row 0 Ch 0 inst is 1"
     TEST_CHECK pSynth.pattern(0).note(0, 0).volume = 64, "Row 0 Ch 0 vol is 64"
     TEST_CHECK pSynth.pattern(0).note(0, 0).effect = __MODPLAYER_FX_SPEED, "Row 0 Ch 0 effect is SPEED"
-    TEST_CHECK pSynth.pattern(0).note(0, 0).operand = 5, "Row 0 Ch 0 operand is 5"
+    TEST_CHECK pSynth.pattern(0).note(0, 0).operand = &H50, "Row 0 Ch 0 operand is &H50"
 
-    TEST_CHECK pSynth.pattern(0).note(0, 1).note = 37, "Row 0 Ch 1 note is 37 (C#3)"
+    TEST_CHECK pSynth.pattern(0).note(0, 1).note = 25, "Row 0 Ch 1 note is 25 (C#2)"
     TEST_CHECK pSynth.pattern(0).note(0, 1).volume = 40, "Row 0 Ch 1 vol is 40"
     TEST_CHECK pSynth.pattern(0).note(0, 1).effect = __MODPLAYER_FX_POSITION_JUMP, "Row 0 Ch 1 effect is POSITION_JUMP"
     TEST_CHECK pSynth.pattern(0).note(0, 1).operand = 3, "Row 0 Ch 1 operand is 3"
 
-    TEST_CHECK pSynth.pattern(0).note(0, 2).note = 38, "Row 0 Ch 2 note is 38 (D-3)"
+    TEST_CHECK pSynth.pattern(0).note(0, 2).note = 26, "Row 0 Ch 2 note is 26 (D-2)"
     TEST_CHECK pSynth.pattern(0).note(0, 2).volume = 20, "Row 0 Ch 2 vol is 20"
     TEST_CHECK pSynth.pattern(0).note(0, 2).effect = __MODPLAYER_FX_PATTERN_BREAK, "Row 0 Ch 2 effect is PATTERN_BREAK"
     TEST_CHECK pSynth.pattern(0).note(0, 2).operand = 0, "Row 0 Ch 2 operand is 0"
 
-    TEST_CHECK pSynth.pattern(0).note(0, 3).note = 39, "Row 0 Ch 3 note is 39 (D#3)"
+    TEST_CHECK pSynth.pattern(0).note(0, 3).note = 27, "Row 0 Ch 3 note is 27 (D#2)"
     TEST_CHECK pSynth.pattern(0).note(0, 3).volume = 10, "Row 0 Ch 3 vol is 10"
     TEST_CHECK pSynth.pattern(0).note(0, 3).effect = __MODPLAYER_FX_VOLUME_SLIDE, "Row 0 Ch 3 effect is VOLUME_SLIDE"
     TEST_CHECK pSynth.pattern(0).note(0, 3).operand = 2, "Row 0 Ch 3 operand is 2 (slide down 2)"
@@ -2181,8 +2182,8 @@ SUB Test_STM_Effects
     ' Row 3: Special Notes
     TEST_CHECK pSynth.pattern(0).note(3, 0).note = __MODPLAYER_NOTE_KEY_OFF, "Row 3 Ch 0 is KEY_OFF"
     TEST_CHECK pSynth.pattern(0).note(3, 1).note = __MODPLAYER_NOTE_NONE, "Row 3 Ch 1 is NOTE_NONE"
-    TEST_CHECK pSynth.pattern(0).note(3, 2).note = 48, "Row 3 Ch 2 is note 48 (C-4)"
-    TEST_CHECK pSynth.pattern(0).note(3, 3).note = 61, "Row 3 Ch 3 is note 61 (C#5)"
+    TEST_CHECK pSynth.pattern(0).note(3, 2).note = 36, "Row 3 Ch 2 is note 36 (C-3)"
+    TEST_CHECK pSynth.pattern(0).note(3, 3).note = 49, "Row 3 Ch 3 is note 49 (C#4)"
 
     ' Playback and teardown
     MODPlayer_Play pSynth
@@ -2203,7 +2204,7 @@ SUB Test_STM_Effects
     TEST_REQUIRE STMLoader_LoadFromMemory(pVer, stmVer220), "Load version 2.20 STM module"
     TEST_CHECK pVer.song.defaultSpeed = 6, "Decimal tempo 60 yields speed 6"
     TEST_CHECK pVer.song.defaultBPM = 125, "Decimal tempo 60 yields 125 BPM"
-    TEST_CHECK pVer.pattern(0).note(0, 0).operand = 8, "Decimal op 80 in ver 2.20 yields speed 8"
+    TEST_CHECK pVer.pattern(0).note(0, 0).operand = &H80, "Decimal op 80 in ver 2.20 yields tempoByte &H80"
     MODPlayer_Finalize pVer
     TEST_CASE_END
 END SUB
@@ -2408,11 +2409,11 @@ SUB Test_MODPlayer_TypePromotions
     TEST_CASE_BEGIN "Type Promotions: Instrument indices beyond 8-bit (255)"
     DIM pType AS MODPlayer
     TEST_REQUIRE MODPlayer_Initialize(pType), "Initialize player"
-    REDIM pType.instrument(0 TO 300) AS __MODPlayerInstrument
-    REDIM pType.channel(0 TO 3) AS __MODPlayerChannel
-    REDIM pType.pattern(0 TO 0) AS __MODPlayerPattern
+    REDIM pType.instrument(0 TO 300) AS __MODPLAYERINSTRUMENT
+    REDIM pType.channel(0 TO 3) AS __MODPLAYERCHANNEL
+    REDIM pType.pattern(0 TO 0) AS __MODPLAYERPATTERN
     pType.pattern(0).rows = 64
-    REDIM pType.pattern(0).note(0 TO 63, 0 TO 3) AS __MODPlayerNote
+    REDIM pType.pattern(0).note(0 TO 63, 0 TO 3) AS __MODPLAYERNOTE
 
     ' Instrument index > 255 in note
     pType.pattern(0).note(0, 0).instrument = 256
