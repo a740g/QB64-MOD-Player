@@ -103,10 +103,14 @@ DIM Player AS MODPlayer
 ''' @param rx Right X coordinate.
 ''' @param char ASCII character code to draw.
 SUB UI_DrawHorizontalLine (lx AS LONG, ty AS LONG, rx AS LONG, char AS _UNSIGNED _BYTE)
+    STATIC buffer AS STRING
+
     DIM l AS LONG: l = lx
     DIM r AS LONG: r = rx
     IF l > r THEN SWAP l, r
-    _PRINTSTRING (l, ty), STRING$(1 + r - l, char)
+    buffer = STRING$(1 + r - l, char)
+
+    _PRINTSTRING (l, ty), buffer
 END SUB
 
 ''' @brief Renders the tracker visualizer, pattern data, and FFT spectrum analyzers.
