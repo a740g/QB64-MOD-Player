@@ -243,6 +243,7 @@ TYPE __MODPlayerSong
     useAmigaLPF AS _BYTE ' use Amiga 12 dB/oct Butterworth low-pass filter
     useST2Vibrato AS _BYTE ' use Scream Tracker 2 vibrato
     useST2Tempo AS _BYTE ' use Scream Tracker 2 tempo behavior
+    useMTMTempoMode AS _BYTE ' MultiTracker Fxx tempo/speed reset behavior (reset tempo to 125 on speed, reset speed to 6 on tempo)
     useAmigaSlides AS _BYTE ' use volume slides similar to Amiga hardware
     useVolumeOptimization AS _BYTE ' turn off looping notes which have a zero volume for more than 2 rows
     useAmigaLimits AS _BYTE ' use Amiga limits (limit periods to confine to 113 <= x <= 856)

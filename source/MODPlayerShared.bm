@@ -109,6 +109,7 @@ SUB __MODPlayer_InitializeSong (player AS MODPlayer)
     player.song.useAmigaLPF = _FALSE
     player.song.useST2Vibrato = _FALSE
     player.song.useST2Tempo = _FALSE
+    player.song.useMTMTempoMode = _FALSE
     player.song.useAmigaSlides = _FALSE
     player.song.useVolumeOptimization = _FALSE
     player.song.useAmigaLimits = _FALSE

@@ -1551,7 +1551,11 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
 
             CASE __MODPLAYER_FX_PATTERN_BREAK
                 DIM breakTargetRow AS LONG
-                breakTargetRow = (nOpX * 10) + nOpY
+                IF LEFT$(player.song.subtype, 3) = "MTM" THEN
+                    breakTargetRow = nOperand
+                ELSE
+                    breakTargetRow = (nOpX * 10) + nOpY
+                END IF
                 IF NOT (player.song.isS3M _ANDALSO breakTargetRow >= 64) THEN
                     player.song.patternRow = breakTargetRow - 1
                     IF NOT breakEffectFlag _ANDALSO NOT jumpEffectFlag THEN
@@ -1661,9 +1665,17 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
 
             CASE __MODPLAYER_FX_SPEED_TEMPO
                 IF nOperand < 32 THEN
-                    IF nOperand > 0 THEN player.song.speed = nOperand
+                    IF nOperand > 0 THEN
+                        player.song.speed = nOperand
+                        IF player.song.useMTMTempoMode THEN
+                            __MODPlayer_SetBPM player, 125
+                        END IF
+                    END IF
                 ELSE
                     __MODPlayer_SetBPM player, nOperand
+                    IF player.song.useMTMTempoMode THEN
+                        player.song.speed = 6
+                    END IF
                 END IF
 
             CASE __MODPLAYER_FX_SPEED

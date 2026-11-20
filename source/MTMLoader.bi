@@ -87,6 +87,8 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
         ' Adjust and save the values per our mixer requirements
         IF i < player.song.channels _ANDALSO byte1 < 16 THEN
+            player.channel(i).panning = byte1 * 17
+            player.channel(i).defaultPanning = player.channel(i).panning
             ' __CHANNEL_PCM = 0 so all MTM channels are by default PCM
             SoftSynth_SetVoiceBalance player.synth, i, (byte1 / 15!) * 2! - SOFTSYNTH_VOICE_PAN_RIGHT ' pan = (x / 15) * 2 - 1
         END IF
@@ -181,6 +183,21 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
             IF mtmTrack(i, j).effect = &HA _ANDALSO (mtmTrack(i, j).operand AND &HF0) <> 0 THEN
                 mtmTrack(i, j).operand = mtmTrack(i, j).operand AND &HF0
             END IF
+
+            ' MultiTracker does not support 8xx panning (only E8x)
+            IF mtmTrack(i, j).effect = &H8 THEN
+                mtmTrack(i, j).effect = 0
+                mtmTrack(i, j).operand = 0
+            END IF
+
+            ' MultiTracker unsupported extended effects (E0x, E3x, E4x, E6x, E7x, EFx)
+            IF mtmTrack(i, j).effect = &HE THEN
+                SELECT CASE mtmTrack(i, j).operand AND &HF0
+                    CASE &H00, &H30, &H40, &H60, &H70, &HF0
+                        mtmTrack(i, j).effect = 0
+                        mtmTrack(i, j).operand = 0
+                END SELECT
+            END IF
         NEXT j
     NEXT i
 
@@ -217,15 +234,84 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
         NEXT j
     NEXT i
 
+    ' MultiTracker vs DMP tempo quirk detection:
+    ' In MultiTracker, speed commands reset tempo to 125, and tempo commands reset speed to 6.
+    ' DMP and external players did not implement this quirk.
+    ' If both speed and tempo commands are present, check if any row has both on different channels.
+    ' If they appear on the same row, it was written for DMP (do not enable MTM tempo mode).
+    ' If they never appear on the same row, enable MTM tempo reset mode.
+    DIM AS _BYTE hasSpeed, hasTempo, hasSpeedAndTempoOnSameRow
+    FOR i = 0 TO player.song.patterns - 1
+        FOR k = 0 TO numRows - 1
+            DIM AS _BYTE rowHasSpeed, rowHasTempo
+            FOR j = 0 TO player.song.channels - 1
+                IF player.pattern(i).note(k, j).effect = __MODPLAYER_FX_SPEED_TEMPO _ANDALSO player.pattern(i).note(k, j).operand > 0 THEN
+                    IF player.pattern(i).note(k, j).operand < 32 THEN
+                        hasSpeed = _TRUE
+                        rowHasSpeed = _TRUE
+                    ELSE
+                        hasTempo = _TRUE
+                        rowHasTempo = _TRUE
+                    END IF
+                END IF
+            NEXT j
+            IF rowHasSpeed _ANDALSO rowHasTempo THEN
+                hasSpeedAndTempoOnSameRow = _TRUE
+            END IF
+        NEXT k
+    NEXT i
+
+    IF hasSpeed _ANDALSO hasTempo _ANDALSO NOT hasSpeedAndTempoOnSameRow THEN
+        player.song.useMTMTempoMode = _TRUE
+    ELSE
+        player.song.useMTMTempoMode = _FALSE
+    END IF
+
     ' Read the tune comment
-    player.song.comment = StringFile_ReadString(memFile, commentLen) ' read the comment and leave it untouched
+    IF commentLen > 0 THEN
+        DIM rawComment AS STRING: rawComment = StringFile_ReadString(memFile, commentLen)
+        DIM lineCount AS LONG: lineCount = commentLen \ 40
+        DIM lastNonEmptyLine AS LONG: lastNonEmptyLine = -1
+        DIM lIdx AS LONG
+        FOR lIdx = 0 TO lineCount - 1
+            DIM rawLine AS STRING: rawLine = MID$(rawComment, lIdx * 40 + 1, 40)
+            DIM nulPos AS LONG: nulPos = INSTR(rawLine, _CHR_NUL)
+            IF nulPos > 0 THEN
+                rawLine = LEFT$(rawLine, nulPos - 1)
+            ELSE
+                rawLine = LEFT$(rawLine, 39)
+            END IF
+            IF LEN(RTRIM$(rawLine)) > 0 THEN lastNonEmptyLine = lIdx
+        NEXT lIdx
+
+        DIM formattedComment AS STRING: formattedComment = _STR_EMPTY
+        FOR lIdx = 0 TO lastNonEmptyLine
+            rawLine = MID$(rawComment, lIdx * 40 + 1, 40)
+            nulPos = INSTR(rawLine, _CHR_NUL)
+            IF nulPos > 0 THEN
+                rawLine = LEFT$(rawLine, nulPos - 1)
+            ELSE
+                rawLine = LEFT$(rawLine, 39)
+            END IF
+            IF lIdx > 0 THEN formattedComment = formattedComment + CHR$(13) + CHR$(10)
+            formattedComment = formattedComment + RTRIM$(rawLine)
+        NEXT lIdx
+
+        player.song.comment = formattedComment
+    ELSE
+        player.song.comment = _STR_EMPTY
+    END IF
 
     ' Load the instruments
     FOR i = 0 TO player.song.instruments - 1
         DIM sampBuf AS STRING: sampBuf = StringFile_ReadString(memFile, player.instrument(i).length)
 
-        ' Convert 8-bit unsigned samples to 8-bit signed
-        IF player.instrument(i).bytesPerSample = _SIZE_OF_BYTE THEN AudioConv_ConvertU8ToS8 sampBuf
+        ' Convert unsigned samples to signed
+        IF player.instrument(i).bytesPerSample = _SIZE_OF_BYTE THEN
+            AudioConv_ConvertU8ToS8 sampBuf
+        ELSEIF player.instrument(i).bytesPerSample = 2 THEN
+            AudioConv_ConvertU16ToS16 sampBuf
+        END IF
 
         ' Load sample size bytes of data and send it to our softsynth sample manager
         SoftSynth_LoadSound player.synth, i, sampBuf, player.instrument(i).bytesPerSample, player.instrument(i).channels

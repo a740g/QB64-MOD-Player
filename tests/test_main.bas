@@ -525,7 +525,13 @@ SUB Test_MODPlayer_MTM
     TEST_CHECK INSTR(MODPlayer_GetName(player), "Cougar story") > 0, "Song caption matches"
     TEST_CHECK MODPlayer_GetType(player) = "MTM1", "Song subtype is MTM1"
     TEST_CHECK ABS(player.song.pcmMasterGain - (48! / 128!)) < 0.01!, "MTM pcmMasterGain is 48/128"
-    TEST_CHECK MODPlayer_GetOrders(player) > 0, "Order count is greater than 0"
+    TEST_CHECK MODPlayer_GetOrders(player) = 78, "Order count is 78"
+    TEST_CHECK player.song.channels = 19, "Channel count is 19"
+    TEST_CHECK player.song.instruments = 31, "Instrument count is 31"
+    TEST_CHECK player.song.patterns = 49, "Pattern count is 49"
+    TEST_CHECK INSTR(player.song.comment, "inspekdah") > 0, "Comment contains author text"
+    TEST_CHECK INSTR(player.song.comment, CHR$(13) + CHR$(10)) > 0, "Comment is formatted with linebreaks"
+    TEST_CHECK player.channel(0).panning = player.channel(0).defaultPanning, "Channel panning matches default"
 
     MODPlayer_Play player
     TEST_CHECK MODPlayer_IsPlaying(player), "Playing MTM"
@@ -1567,6 +1573,92 @@ SUB Test_MOD_Effects
     TEST_CASE_END
 END SUB
 
+''' @brief Tests for MultiTracker MTM specific effects and playback features.
+SUB Test_MTM_Effects
+    TEST_CASE_BEGIN "MTM Effects: Pattern Break Dxx is Hexadecimal"
+    DIM pBreak AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pBreak, "mods/cougarstory-ii.mtm"), "Load MTM base for pattern break test"
+    ' Clear effects on row 0 across channels
+    DIM ch AS LONG: FOR ch = 0 TO pBreak.song.channels - 1
+        pBreak.pattern(0).note(0, ch).effect = 0
+        pBreak.pattern(0).note(0, ch).operand = 0
+    NEXT ch
+    ' Put D10 on channel 0 (row 16 in hex)
+    pBreak.song.orderPosition = 0
+    pBreak.song.patternRow = 0
+    pBreak.song.tickPattern = 0
+    pBreak.song.tickPatternRow = 0
+    pBreak.pattern(0).note(0, 0).effect = __MODPLAYER_FX_PATTERN_BREAK
+    pBreak.pattern(0).note(0, 0).operand = &H10 ' Hex 16
+    __MODPlayer_UpdateRow pBreak
+    pBreak.song.patternRow = pBreak.song.patternRow + 1
+    TEST_CHECK pBreak.song.orderPosition = 1, "Order advances to 1 on D10"
+    TEST_CHECK pBreak.song.patternRow = 16, "D10 jumps to hex row 16 (not decimal row 10)"
+
+    ' Put D1A on channel 0 (row 26 in hex)
+    pBreak.song.orderPosition = 0
+    pBreak.song.patternRow = 0
+    pBreak.song.tickPattern = 0
+    pBreak.song.tickPatternRow = 0
+    pBreak.pattern(0).note(0, 0).operand = &H1A ' Hex 26
+    __MODPlayer_UpdateRow pBreak
+    pBreak.song.patternRow = pBreak.song.patternRow + 1
+    TEST_CHECK pBreak.song.patternRow = 26, "D1A jumps to hex row 26"
+    MODPlayer_Finalize pBreak
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MTM Effects: MultiTracker Tempo Mode vs Standard Mode"
+    DIM pTempo AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pTempo, "mods/cougarstory-ii.mtm"), "Load MTM base for tempo test"
+    ' Clear row 0 effects
+    FOR ch = 0 TO pTempo.song.channels - 1
+        pTempo.pattern(0).note(0, ch).effect = 0
+        pTempo.pattern(0).note(0, ch).operand = 0
+    NEXT ch
+
+    ' Enable MTM tempo mode
+    pTempo.song.useMTMTempoMode = _TRUE
+    pTempo.song.speed = 3
+    pTempo.song.BPM = 140
+    ' Set speed 5 -> should reset BPM to 125
+    pTempo.pattern(0).note(0, 0).effect = __MODPLAYER_FX_SPEED_TEMPO
+    pTempo.pattern(0).note(0, 0).operand = 5
+    pTempo.song.tickPattern = 0
+    pTempo.song.tickPatternRow = 0
+    __MODPlayer_UpdateRow pTempo
+    TEST_CHECK pTempo.song.speed = 5, "F05 sets speed to 5"
+    TEST_CHECK pTempo.song.BPM = 125, "F05 in MTM mode resets BPM to 125"
+
+    ' Set tempo 150 -> should reset speed to 6
+    pTempo.pattern(0).note(0, 0).operand = 150
+    __MODPlayer_UpdateRow pTempo
+    TEST_CHECK pTempo.song.BPM = 150, "F96 sets BPM to 150"
+    TEST_CHECK pTempo.song.speed = 6, "F96 in MTM mode resets speed to 6"
+
+    ' Disable MTM tempo mode (DMP mode)
+    pTempo.song.useMTMTempoMode = _FALSE
+    pTempo.pattern(0).note(0, 0).operand = 4
+    __MODPlayer_UpdateRow pTempo
+    TEST_CHECK pTempo.song.speed = 4, "F04 in DMP mode sets speed to 4"
+    TEST_CHECK pTempo.song.BPM = 150, "F04 in DMP mode leaves BPM at 150"
+
+    MODPlayer_Finalize pTempo
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MTM Effects: 16-bit Unsigned Sample Conversion"
+    ' Synthesize a 16-bit unsigned buffer: 0x0000 (min) and 0x8000 (mid)
+    DIM u16Data AS STRING
+    u16Data = CHR$(0) + CHR$(0) + CHR$(0) + CHR$(&H80)
+    AudioConv_ConvertU16ToS16 u16Data
+    ' 0x0000 unsigned should become 0x8000 signed (-32768)
+    ' 0x8000 unsigned should become 0x0000 signed (0)
+    DIM sample1 AS INTEGER: sample1 = CVI(MID$(u16Data, 1, 2))
+    DIM sample2 AS INTEGER: sample2 = CVI(MID$(u16Data, 3, 2))
+    TEST_CHECK sample1 = -32768, "0x0000 unsigned 16-bit converts to -32768 signed"
+    TEST_CHECK sample2 = 0, "0x8000 unsigned 16-bit converts to 0 signed"
+    TEST_CASE_END
+END SUB
+
 IF _DIREXISTS("../mods") THEN CHDIR ".."
 
 ' Run all test suites
@@ -1592,6 +1684,7 @@ Test_S3M_Effects
 Test_MODPlayer_Stereo
 Test_MODPlayer_ChannelBadges
 Test_MODPlayer_MTM
+Test_MTM_Effects
 Test_MODPlayer_Memory
 Test_MODLoader
 Test_S3MLoader
