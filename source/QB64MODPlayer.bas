@@ -119,11 +119,11 @@ SUB Visualizer_Draw
     ' Subscript out of range bugfix for player when song is 128 orders long and the song reaches the end
     ' In this case if the sub is allowed to proceed then Player.order(Player.song.orderPosition) will cause "subscript out of range"
     ' Note this is only a problem with this demo and not the actual library since we are trying to access internal stuff directly
-    IF Player.song.orderPosition >= Player.song.orders THEN EXIT SUB
+    IF Player.song.orderPosition < 0 _ORELSE Player.song.orderPosition >= Player.song.orders THEN EXIT SUB
 
     DIM startPat AS LONG: startPat = Player.order(Player.song.orderPosition)
 
-    IF startPat >= Player.song.patterns THEN EXIT SUB ' this can happen when S3M tunes contain marker / end-of-song patterns
+    IF startPat < 0 _ORELSE startPat >= Player.song.patterns THEN EXIT SUB ' this can happen when S3M tunes contain marker / end-of-song patterns
 
     CLS , Black ' clear the framebuffer to black color
 
@@ -136,7 +136,7 @@ SUB Visualizer_Draw
     ' Print the header
     COLOR Blink, BrightWhite
     DIM curPatRows AS LONG
-    IF startPat < Player.song.patterns THEN curPatRows = Player.pattern(startPat).rows ELSE curPatRows = 64
+    IF startPat >= 0 _ANDALSO startPat < Player.song.patterns THEN curPatRows = Player.pattern(startPat).rows ELSE curPatRows = 64
     LOCATE 2, x: PRINT USING " ORD: ### / ### | PAT: ### / ### | ROW: ### / ### | CHN: ### / ### | VOC: ### / ### "; Player.song.orderPosition; Player.song.orders - 1; startPat; Player.song.patterns - 1; Player.song.patternRow; curPatRows - 1; Player.song.activeChannels; Player.song.channels; SoftSynth_GetActiveVoices(Player.synth); SoftSynth_GetTotalVoices(Player.synth);
 
     LOCATE 3, x: PRINT USING " BPM: ###       | SPD: ###       | VOL: ###%      | BUF: #######ms | REP: \       \ "; Player.song.BPM; Player.song.speed; SoftSynth_GetMasterVolume(Player.synth) * 100!; SoftSynth_GetBufferedSoundTime(Player.synth) * 1000#; _IIF(Player.song.isLooping, "Enabled", "Disabled");
@@ -162,14 +162,18 @@ SUB Visualizer_Draw
     FOR i = InstrumentScrollOffset TO maxInst - 1
         COLOR Yellow, Black
 
-        j = 0
-        WHILE j < Player.song.channels
-            IF i + 1 = Player.pattern(startPat).note(Player.song.patternRow, j).instrument THEN
-                COLOR LightMagenta, Blue
-            END IF
+        IF Player.song.patternRow >= 0 _ANDALSO startPat >= 0 _ANDALSO startPat < Player.song.patterns THEN
+            IF Player.song.patternRow < Player.pattern(startPat).rows THEN
+                j = 0
+                WHILE j < Player.song.channels
+                    IF i + 1 = Player.pattern(startPat).note(Player.song.patternRow, j).instrument THEN
+                        COLOR LightMagenta, Blue
+                    END IF
 
-            j = j + 1
-        WEND
+                    j = j + 1
+                WEND
+            END IF
+        END IF
 
         LOCATE 5 + rowIdx, x: PRINT USING " ###: \                       \ ######## ##### ###### \     \ ########## #########  "; i + 1; Player.instrument(i).caption; Player.instrument(i).volume; Player.instrument(i).c2Spd; Player.instrument(i).length; _IIF(Player.instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, "Yes", "No"); Player.instrument(i).loopStart; Player.instrument(i).loopEnd;
 
@@ -203,106 +207,146 @@ SUB Visualizer_Draw
         i = i + 1
     WEND
 
-    DIM AS LONG startRow, nNote, nChan, nSample, nEffect, nOperand
+    DIM AS LONG nNote, nChan, nSample, nEffect, nOperand
 
     j = j + 1 ' move to the current line number
 
-    ' Find the pattern and row we need to print
-    startRow = Player.song.patternRow - (1 + UI_TEXT_LINE_MAX - j) \ 2
-    IF startRow < 0 THEN
-        IF startPat > 0 THEN
-            startRow = Player.pattern(startPat - 1).rows + startRow
-            startPat = startPat - 1
+    DIM AS LONG cLine: cLine = j + (1 + UI_TEXT_LINE_MAX - j) \ 2
+
+    ' Find the starting order and row to display at line j
+    DIM blankLinesBefore AS LONG: blankLinesBefore = 0
+    DIM dispOrder AS LONG: dispOrder = Player.song.orderPosition
+    DIM dispRow AS LONG: dispRow = Player.song.patternRow
+    DIM kLines AS LONG: kLines = cLine - j
+
+    WHILE kLines > 0
+        IF dispRow >= kLines THEN
+            dispRow = dispRow - kLines
+            kLines = 0
         ELSE
-            startRow = 0
+            kLines = kLines - dispRow
+            IF dispOrder > 0 THEN
+                dispOrder = dispOrder - 1
+                DIM prevPat AS LONG: prevPat = Player.order(dispOrder)
+                IF prevPat >= 0 _ANDALSO prevPat < Player.song.patterns THEN
+                    dispRow = Player.pattern(prevPat).rows
+                ELSE
+                    blankLinesBefore = kLines
+                    dispRow = 0
+                    kLines = 0
+                END IF
+            ELSE
+                blankLinesBefore = kLines
+                dispRow = 0
+                kLines = 0
+            END IF
         END IF
-    END IF
+    WEND
 
     ' Now just dump everything to the screen
-    DIM AS LONG p, cLine: cLine = j + (1 + UI_TEXT_LINE_MAX - j) \ 2
+    DIM AS LONG p
     i = j
     WHILE i < UI_TEXT_LINE_MAX
-        COLOR BrightWhite, Black
-
-        IF startPat >= 0 _ANDALSO startPat < Player.song.patterns THEN
-            IF i = cLine THEN
-                COLOR BrightWhite, Blue
+        IF i < j + blankLinesBefore THEN
+            _PRINTSTRING (x, i), SPACE$(PatternDisplayWidth)
+        ELSE
+            DIM isValidRow AS _BYTE: isValidRow = _FALSE
+            DIM drawPat AS LONG: drawPat = -1
+            IF dispOrder >= 0 _ANDALSO dispOrder < Player.song.orders THEN
+                drawPat = Player.order(dispOrder)
+                IF drawPat >= 0 _ANDALSO drawPat < Player.song.patterns THEN
+                    IF dispRow >= 0 _ANDALSO dispRow < Player.pattern(drawPat).rows THEN
+                        isValidRow = _TRUE
+                    END IF
+                END IF
             END IF
 
-            p = x
-
-            LOCATE i, p: PRINT USING " ### ##:"; startPat; startRow;
-
-            p = p + 8
-
-            nChan = 0
-            WHILE nChan < Player.song.channels
-                COLOR LightCyan
-
-                LOCATE i, p: PRINT USING " (##)"; nChan + 1;
-
-                p = p + 5
-
-                nNote = Player.pattern(startPat).note(startRow, nChan).note
-                IF nNote = __MODPLAYER_NOTE_NONE THEN
-                    COLOR Gray
-                    _PRINTSTRING (p, i), "  -  "
-                ELSEIF nNote = __MODPLAYER_NOTE_KEY_OFF THEN
-                    COLOR Green
-                    _PRINTSTRING (p, i), " ^^^ "
-                ELSE
-                    COLOR LightGreen
-                    LOCATE i, p: PRINT USING " &# "; NoteTable(nNote MOD 12); 1 + nNote \ 12;
+            IF isValidRow THEN
+                COLOR BrightWhite, Black
+                IF i = cLine THEN
+                    COLOR BrightWhite, Blue
                 END IF
 
-                p = p + 5
+                p = x
 
-                nSample = Player.pattern(startPat).note(startRow, nChan).instrument
-                IF nSample = 0 THEN
-                    COLOR Gray
-                    _PRINTSTRING (p, i), "-- "
+                LOCATE i, p: PRINT USING " ### ##:"; drawPat; dispRow;
+
+                p = p + 8
+
+                nChan = 0
+                WHILE nChan < Player.song.channels
+                    COLOR LightCyan
+
+                    LOCATE i, p: PRINT USING " (##)"; nChan + 1;
+
+                    p = p + 5
+
+                    nNote = Player.pattern(drawPat).note(dispRow, nChan).note
+                    IF nNote = __MODPLAYER_NOTE_NONE THEN
+                        COLOR Gray
+                        _PRINTSTRING (p, i), "  -  "
+                    ELSEIF nNote = __MODPLAYER_NOTE_KEY_OFF THEN
+                        COLOR Green
+                        _PRINTSTRING (p, i), " ^^^ "
+                    ELSE
+                        COLOR LightGreen
+                        LOCATE i, p: PRINT USING " &# "; NoteTable(nNote MOD 12); 1 + nNote \ 12;
+                    END IF
+
+                    p = p + 5
+
+                    nSample = Player.pattern(drawPat).note(dispRow, nChan).instrument
+                    IF nSample = 0 THEN
+                        COLOR Gray
+                        _PRINTSTRING (p, i), "-- "
+                    ELSE
+                        COLOR Yellow
+                        LOCATE i, p: PRINT USING "## "; nSample;
+                    END IF
+
+                    p = p + 3
+
+                    nEffect = Player.pattern(drawPat).note(dispRow, nChan).effect
+                    nOperand = Player.pattern(drawPat).note(dispRow, nChan).operand
+
+                    IF nEffect = 0 _ANDALSO nOperand = 0 THEN
+                        COLOR Gray
+                        _PRINTSTRING (p, i), "-- "
+                    ELSE
+                        COLOR LightMagenta
+                        LOCATE i, p: PRINT RIGHT$("0" + HEX$(nEffect), 2); " ";
+                    END IF
+
+                    p = p + 3
+
+                    IF nOperand = 0 THEN
+                        COLOR Gray
+                        _PRINTSTRING (p, i), "-- "
+                    ELSE
+                        COLOR LightRed
+                        LOCATE i, p: PRINT RIGHT$("0" + HEX$(nOperand), 2); " ";
+                    END IF
+
+                    p = p + 3
+
+                    nChan = nChan + 1
+                WEND
+            ELSE
+                _PRINTSTRING (x, i), SPACE$(PatternDisplayWidth)
+            END IF
+
+            ' Advance row
+            dispRow = dispRow + 1
+            IF dispOrder >= 0 _ANDALSO dispOrder < Player.song.orders THEN
+                drawPat = Player.order(dispOrder)
+                IF drawPat >= 0 _ANDALSO drawPat < Player.song.patterns THEN
+                    IF dispRow >= Player.pattern(drawPat).rows THEN
+                        dispRow = 0
+                        dispOrder = dispOrder + 1
+                    END IF
                 ELSE
-                    COLOR Yellow
-                    LOCATE i, p: PRINT USING "## "; nSample;
+                    dispOrder = Player.song.orders
                 END IF
-
-                p = p + 3
-
-                nEffect = Player.pattern(startPat).note(startRow, nChan).effect
-                nOperand = Player.pattern(startPat).note(startRow, nChan).operand
-
-                IF nEffect = 0 _ANDALSO nOperand = 0 THEN
-                    COLOR Gray
-                    _PRINTSTRING (p, i), "-- "
-                ELSE
-                    COLOR LightMagenta
-                    LOCATE i, p: PRINT RIGHT$("0" + HEX$(nEffect), 2); " ";
-                END IF
-
-                p = p + 3
-
-                IF nOperand = 0 THEN
-                    COLOR Gray
-                    _PRINTSTRING (p, i), "-- "
-                ELSE
-                    COLOR LightRed
-                    LOCATE i, p: PRINT RIGHT$("0" + HEX$(nOperand), 2); " ";
-                END IF
-
-                p = p + 3
-
-                nChan = nChan + 1
-            WEND
-        ELSE
-            _PRINTSTRING (x, i), SPACE$(PatternDisplayWidth)
-        END IF
-
-        startRow = startRow + 1
-        ' Wrap if needed
-        IF startPat < Player.song.patterns THEN
-            IF startRow >= Player.pattern(startPat).rows THEN
-                startRow = 0
-                startPat = startPat + 1
             END IF
         END IF
 
