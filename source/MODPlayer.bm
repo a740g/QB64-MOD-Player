@@ -157,6 +157,16 @@ SUB MODPlayer_Play (player AS MODPlayer)
             player.channel(channelIndex).amVibratoPos = 0
             player.channel(channelIndex).amPitchDelta = 0
             player.channel(channelIndex).amBasePeriod = 0
+            player.channel(channelIndex).noteDelayPending = _FALSE
+            player.channel(channelIndex).noteDelayTick = 0
+            player.channel(channelIndex).delayedNote = __MODPLAYER_NOTE_NONE
+            player.channel(channelIndex).delayedInstrument = 0
+            player.channel(channelIndex).delayedHasInstrument = _FALSE
+            player.channel(channelIndex).delayedVolume = __MODPLAYER_NOTE_NO_VOLUME
+            player.channel(channelIndex).delayedPeriod = 0
+            player.channel(channelIndex).delayedStartPosition = 0
+            player.channel(channelIndex).patternLoopRow = 0
+            player.channel(channelIndex).patternLoopRowCounter = 0
             IF player.song.isS3M THEN
                 player.channel(channelIndex).channelVolume = __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
                 player.channel(channelIndex).panning = player.channel(channelIndex).defaultPanning
@@ -191,16 +201,6 @@ SUB MODPlayer_Play (player AS MODPlayer)
                 player.channel(channelIndex).panbrelloWaveform = 0
                 player.channel(channelIndex).panbrelloBasePanning = player.channel(channelIndex).panning
                 player.channel(channelIndex).panbrelloActive = _FALSE
-                player.channel(channelIndex).noteDelayPending = _FALSE
-                player.channel(channelIndex).noteDelayTick = 0
-                player.channel(channelIndex).delayedNote = __MODPLAYER_NOTE_NONE
-                player.channel(channelIndex).delayedInstrument = 0
-                player.channel(channelIndex).delayedHasInstrument = _FALSE
-                player.channel(channelIndex).delayedVolume = __MODPLAYER_NOTE_NO_VOLUME
-                player.channel(channelIndex).delayedPeriod = 0
-                player.channel(channelIndex).delayedStartPosition = 0
-                player.channel(channelIndex).patternLoopRow = 0
-                player.channel(channelIndex).patternLoopRowCounter = 0
                 player.channel(channelIndex).c2Spd = 0
                 IF player.song.isStereo THEN
                     SoftSynth_SetVoiceBalance player.synth, channelIndex, player.channel(channelIndex).panning / 255! * 2! - SOFTSYNTH_VOICE_PAN_RIGHT
@@ -220,7 +220,7 @@ SUB MODPlayer_Play (player AS MODPlayer)
                 player.channel(channelIndex).portamentoTo = 0
                 player.channel(channelIndex).vibratoPosition = 0
                 player.channel(channelIndex).vibratoSpeed = 0
-                player.channel(channelIndex).vibratoDepth = 0
+                player.channel(channelIndex).vibratoDepth = 4
                 SoftSynth_SetVoiceBalance player.synth, channelIndex, (CSNG(player.channel(channelIndex).panning) / 255!) * 2! - 1!
             END IF
         NEXT channelIndex
@@ -451,7 +451,7 @@ SUB __MODPlayer_SetVoiceVolume (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE
     DIM outputVolume AS SINGLE
     outputVolume = _CLAMP(volume, 0!, 1!)
 
-    IF player.song.isS3M THEN
+    IF player.song.isS3M _ORELSE player.song.subtype = "FAR" THEN
         outputVolume = outputVolume * (player.channel(nChannel).channelVolume / __MODPLAYER_S3M_GLOBAL_VOLUME_MAX)
     END IF
     outputVolume = outputVolume * player.song.pcmMasterGain

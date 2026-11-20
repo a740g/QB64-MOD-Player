@@ -60,7 +60,27 @@ FUNCTION FARLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
     DIM msgLen AS _UNSIGNED INTEGER: msgLen = StringFile_ReadInteger(memFile)
     IF msgLen > 0 _ANDALSO StringFile_GetPosition(memFile) + msgLen <= StringFile_GetSize(memFile) THEN
-        player.song.comment = String_MakePrintable(StringFile_ReadString(memFile, msgLen))
+        DIM rawComment AS STRING: rawComment = StringFile_ReadString(memFile, msgLen)
+        DIM formattedComment AS STRING: formattedComment = _STR_EMPTY
+        DIM cOffset AS LONG: cOffset = 1
+        WHILE cOffset <= LEN(rawComment)
+            DIM lineChunk AS STRING: lineChunk = MID$(rawComment, cOffset, 132)
+            DIM k AS LONG
+            FOR k = 1 TO LEN(lineChunk)
+                IF ASC(lineChunk, k) = 0 THEN MID$(lineChunk, k, 1) = " "
+            NEXT k
+            lineChunk = RTRIM$(String_MakePrintable(lineChunk))
+            IF LEN(formattedComment) > 0 THEN
+                formattedComment = formattedComment + CHR$(13) + CHR$(10) + lineChunk
+            ELSE
+                formattedComment = lineChunk
+            END IF
+            cOffset = cOffset + 132
+        WEND
+        DO WHILE RIGHT$(formattedComment, 2) = CHR$(13) + CHR$(10)
+            formattedComment = LEFT$(formattedComment, LEN(formattedComment) - 2)
+        LOOP
+        player.song.comment = formattedComment
     ELSE
         player.song.comment = _STR_EMPTY
     END IF
@@ -99,6 +119,9 @@ FUNCTION FARLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     DIM maxPat AS LONG: maxPat = 0
     FOR i = 0 TO 255
         IF patSizes(i) > 0 THEN maxPat = i
+    NEXT i
+    FOR i = 0 TO player.song.orders - 1
+        IF player.order(i) > maxPat THEN maxPat = player.order(i)
     NEXT i
     player.song.patterns = maxPat + 1
 
@@ -151,11 +174,7 @@ FUNCTION FARLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
                                 player.pattern(p).note(r, c).instrument = instrVal + 1
                             ELSE
                                 player.pattern(p).note(r, c).note = __MODPLAYER_NOTE_NONE
-                                IF instrVal > 0 THEN
-                                    player.pattern(p).note(r, c).instrument = instrVal + 1
-                                ELSE
-                                    player.pattern(p).note(r, c).instrument = 0
-                                END IF
+                                player.pattern(p).note(r, c).instrument = 0
                             END IF
 
                             ' Volume
@@ -215,7 +234,7 @@ FUNCTION FARLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
                                 CASE &H9 ' Sustained vibrato
                                     player.pattern(p).note(r, c).effect = __MODPLAYER_FX_VIBRATO
-                                    player.pattern(p).note(r, c).operand = _SHL(fxParam, 4) OR fxParam
+                                    player.pattern(p).note(r, c).operand = _SHL(fxParam, 4)
 
                                 CASE &HA ' Slide to volume / set volume
                                     IF player.pattern(p).note(r, c).volume = __MODPLAYER_NOTE_NO_VOLUME THEN
@@ -376,6 +395,7 @@ FUNCTION FARLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
         player.channel(cIdx).defaultPanning = (chnPanning(cIdx) AND &H0F) * 17
         player.channel(cIdx).panning = player.channel(cIdx).defaultPanning
         player.channel(cIdx).subtype = __MODPLAYER_INSTRUMENT_PCM
+        player.channel(cIdx).vibratoDepth = 4
         IF onOff(cIdx) = 0 THEN
             player.channel(cIdx).channelVolume = 0
         ELSE

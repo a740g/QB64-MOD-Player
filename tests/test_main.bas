@@ -637,6 +637,8 @@ SUB Test_FARLoader
     DIM player AS MODPlayer
     TEST_REQUIRE FARLoader_LoadFromDisk(player, "mods/M31.far"), "FARLoader loads M31.far"
     TEST_CHECK INSTR(MODPlayer_GetName(player), "M31") > 0, "Song caption matches"
+    TEST_CHECK INSTR(player.song.comment, CHR$(13) + CHR$(10)) > 0, "M31 comment contains linebreaks"
+    TEST_CHECK INSTR(player.song.comment, "S-U-P-E-R-H-O-U-S-E") > 0, "M31 comment text contains S-U-P-E-R-H-O-U-S-E"
     TEST_CHECK MODPlayer_GetType(player) = "FAR", "Song subtype is FAR"
     TEST_CHECK player.song.channels = 16, "FAR has 16 channels"
     TEST_CHECK ABS(player.song.pcmMasterGain - (32! / 128!)) < 0.01!, "FAR pcmMasterGain is 32/128"
@@ -1659,6 +1661,214 @@ SUB Test_MTM_Effects
     TEST_CASE_END
 END SUB
 
+SUB Test_FAR_Effects
+    TEST_CASE_BEGIN "FAR Effects: Synthetic FAR Module Loading and Effect Translation"
+    DIM farData AS STRING: farData = _STR_EMPTY
+
+    ' Header (869 + msgLen bytes)
+    farData = farData + "FAR" + CHR$(254) ' Magic (4 bytes)
+    farData = farData + "FAR Effects Test" + SPACE$(24) ' Song Title (40 bytes)
+    farData = farData + CHR$(13) + CHR$(10) + CHR$(26) ' EOF chars (3 bytes)
+
+    DIM msgLen AS LONG: msgLen = 264
+    DIM headerLen AS LONG: headerLen = 869 + msgLen
+    farData = farData + MKI$(headerLen) ' Header length (2 bytes)
+    farData = farData + CHR$(&H10) ' Version (1 byte)
+
+    ' Channel on/off map (16 bytes): channel 15 muted (0), channels 0..14 active (1)
+    DIM ch AS LONG
+    FOR ch = 0 TO 14: farData = farData + CHR$(1): NEXT ch
+    farData = farData + CHR$(0) ' channel 15 muted
+
+    farData = farData + STRING$(9, 0) ' 9 bytes editing state
+    farData = farData + CHR$(4) ' Default speed (4)
+
+    ' Channel panning map (16 bytes)
+    farData = farData + CHR$(0) ' channel 0 = left (0)
+    farData = farData + CHR$(15) ' channel 1 = right (15)
+    farData = farData + CHR$(8) ' channel 2 = center (8)
+    FOR ch = 3 TO 15: farData = farData + CHR$(8): NEXT ch
+
+    farData = farData + STRING$(4, 0) ' 4 bytes editing area / marked block
+
+    farData = farData + MKI$(msgLen) ' Song text length (2 bytes)
+
+    ' 2 lines of 132 chars (264 bytes)
+    DIM line1 AS STRING: line1 = "First Line" + SPACE$(122)
+    DIM line2 AS STRING: line2 = "Second Line" + STRING$(121, 0)
+    farData = farData + line1 + line2
+
+    ' Orders (256 bytes)
+    farData = farData + CHR$(0) + STRING$(255, 0)
+    farData = farData + CHR$(1) ' numPatterns
+    farData = farData + CHR$(1) ' numOrders
+    farData = farData + CHR$(0) ' restartPos
+
+    ' Pattern sizes (256 integers = 512 bytes)
+    DIM pat0Size AS LONG: pat0Size = 2 + 64 * 16 * 4
+    farData = farData + MKI$(pat0Size)
+    FOR ch = 1 TO 255: farData = farData + MKI$(0): NEXT ch
+
+    ' Pattern 0 data
+    farData = farData + CHR$(10) ' breakRow = 10 (targetBreakRow = 11)
+    farData = farData + CHR$(0) ' tempoUnused
+
+    ' Row 0 (16 channels * 4 bytes = 64 bytes)
+    ' Ch 0: note=1, inst=0, vol=16, fx=&H12 (Fine porta up 2)
+    farData = farData + CHR$(1) + CHR$(0) + CHR$(16) + CHR$(&H12)
+    ' Ch 1: note=2, inst=0, vol=1, fx=&H23 (Fine porta down 3)
+    farData = farData + CHR$(2) + CHR$(0) + CHR$(1) + CHR$(&H23)
+    ' Ch 2: note=13, inst=0, vol=0, fx=&H34 (Tone porta 4 -> 60\4=15)
+    farData = farData + CHR$(13) + CHR$(0) + CHR$(0) + CHR$(&H34)
+    ' Ch 3: note=25, inst=0, vol=&H28, fx=&H42 (Retrig 2 -> 6\3+1=3)
+    farData = farData + CHR$(25) + CHR$(0) + CHR$(&H28) + CHR$(&H42)
+    ' Ch 4: note=0, inst=0, vol=0, fx=&H56 (Vibrato depth 6)
+    farData = farData + CHR$(0) + CHR$(0) + CHR$(0) + CHR$(&H56)
+    ' Ch 5: note=37, inst=0, vol=0, fx=&H64 (Vibrato speed 4 -> &H40)
+    farData = farData + CHR$(37) + CHR$(0) + CHR$(0) + CHR$(&H64)
+    ' Ch 6: note=0, inst=0, vol=0, fx=&H72 (Volume slide up 2 -> &H20)
+    farData = farData + CHR$(0) + CHR$(0) + CHR$(0) + CHR$(&H72)
+    ' Ch 7: note=0, inst=0, vol=0, fx=&H83 (Volume slide down 3 -> &H03)
+    farData = farData + CHR$(0) + CHR$(0) + CHR$(0) + CHR$(&H83)
+    ' Ch 8: note=0, inst=0, vol=0, fx=&H95 (Sustained vibrato speed 5 -> &H50)
+    farData = farData + CHR$(0) + CHR$(0) + CHR$(0) + CHR$(&H95)
+    ' Ch 9: note=0, inst=0, vol=0, fx=&HA7 (Set volume 7 -> 32)
+    farData = farData + CHR$(0) + CHR$(0) + CHR$(0) + CHR$(&HA7)
+    ' Ch 10: note=0, inst=0, vol=0, fx=&HB4 (Panning 4 -> 68)
+    farData = farData + CHR$(0) + CHR$(0) + CHR$(0) + CHR$(&HB4)
+    ' Ch 11: note=1, inst=0, vol=0, fx=&HC1 (Note delay 1 -> &HD4)
+    farData = farData + CHR$(1) + CHR$(0) + CHR$(0) + CHR$(&HC1)
+    ' Ch 12: note=0, inst=0, vol=0, fx=&HF5 (Set speed 5)
+    farData = farData + CHR$(0) + CHR$(0) + CHR$(0) + CHR$(&HF5)
+    ' Ch 13: note=0, inst=5, vol=0, fx=0 (Instrument without note: should be ignored)
+    farData = farData + CHR$(0) + CHR$(5) + CHR$(0) + CHR$(0)
+    ' Ch 14: note=0, inst=0, vol=0, fx=0
+    farData = farData + CHR$(0) + CHR$(0) + CHR$(0) + CHR$(0)
+    ' Ch 15: note=1, inst=0, vol=16, fx=&H12 (Muted channel: should be cleared)
+    farData = farData + CHR$(1) + CHR$(0) + CHR$(16) + CHR$(&H12)
+
+    ' Rows 1..63 (63 * 64 bytes = 4032 bytes empty)
+    farData = farData + STRING$(63 * 64, 0)
+
+    ' Sample map (8 bytes): sample 0 active
+    farData = farData + CHR$(1) + STRING$(7, 0)
+
+    ' Sample 0 header (48 bytes)
+    farData = farData + "Test Sample" + SPACE$(21) ' 32 bytes name
+    farData = farData + MKL$(16) ' Length 16 bytes
+    farData = farData + CHR$(0) ' Finetune
+    farData = farData + CHR$(16) ' Volume (16 * 4 = 64)
+    farData = farData + MKL$(0) ' Repeat start
+    farData = farData + MKL$(16) ' Repeat end
+    farData = farData + CHR$(0) ' 8-bit
+    farData = farData + CHR$(&H08) ' Loop mode (looped)
+
+    ' Sample data (16 signed bytes)
+    farData = farData + STRING$(16, 0)
+
+    DIM pSynth AS MODPlayer
+    TEST_REQUIRE FARLoader_LoadFromMemory(pSynth, farData), "Synthetic FAR module loaded successfully"
+
+    ' Verify comment formatting
+    DIM expectedComment AS STRING
+    expectedComment = "First Line" + CHR$(13) + CHR$(10) + "Second Line"
+    TEST_CHECK pSynth.song.comment = expectedComment, "FAR comment formatted to multi-line with nulls converted to spaces"
+
+    ' Verify Note and Effect translations on Row 0
+    ' Ch 0: note 1 -> 36, vol 16 -> 64, effect E12 (fine porta up 2)
+    TEST_CHECK pSynth.pattern(0).note(0, 0).note = 36, "Ch 0 note 1 mapped to 36 (C-3)"
+    TEST_CHECK pSynth.pattern(0).note(0, 0).volume = 64, "Ch 0 vol 16 mapped to 64"
+    TEST_CHECK pSynth.pattern(0).note(0, 0).effect = __MODPLAYER_FX_EXT, "Ch 0 effect is FX_EXT"
+    TEST_CHECK pSynth.pattern(0).note(0, 0).operand = &H12, "Ch 0 operand is &H12 (E12 fine porta up)"
+
+    ' Ch 1: note 2 -> 37, vol 1 -> 0, effect E23 (fine porta down 3)
+    TEST_CHECK pSynth.pattern(0).note(0, 1).note = 37, "Ch 1 note 2 mapped to 37 (C#3)"
+    TEST_CHECK pSynth.pattern(0).note(0, 1).volume = 0, "Ch 1 vol 1 mapped to 0"
+    TEST_CHECK pSynth.pattern(0).note(0, 1).effect = __MODPLAYER_FX_EXT, "Ch 1 effect is FX_EXT"
+    TEST_CHECK pSynth.pattern(0).note(0, 1).operand = &H23, "Ch 1 operand is &H23 (E23 fine porta down)"
+
+    ' Ch 2: note 13 -> 48, effect 3xx (Tone porta 4 -> operand 15)
+    TEST_CHECK pSynth.pattern(0).note(0, 2).note = 48, "Ch 2 note 13 mapped to 48"
+    TEST_CHECK pSynth.pattern(0).note(0, 2).effect = __MODPLAYER_FX_PORTAMENTO, "Ch 2 effect is tone portamento"
+    TEST_CHECK pSynth.pattern(0).note(0, 2).operand = 15, "Ch 2 operand is 15 (60 \ 4)"
+
+    ' Ch 3: note 25 -> 60, vol &H28 -> 29, effect E93 (Retrigger every 3 ticks)
+    TEST_CHECK pSynth.pattern(0).note(0, 3).note = 60, "Ch 3 note 25 mapped to 60"
+    TEST_CHECK pSynth.pattern(0).note(0, 3).volume = 29, "Ch 3 vol &H28 major adjust mapped to 29"
+    TEST_CHECK pSynth.pattern(0).note(0, 3).effect = __MODPLAYER_FX_EXT, "Ch 3 effect is FX_EXT"
+    TEST_CHECK pSynth.pattern(0).note(0, 3).operand = &H93, "Ch 3 operand is &H93 (E93 retrigger 3 ticks)"
+
+    ' Ch 4: Vibrato depth 6 -> FX_VIBRATO operand 6
+    TEST_CHECK pSynth.pattern(0).note(0, 4).effect = __MODPLAYER_FX_VIBRATO, "Ch 4 effect is vibrato"
+    TEST_CHECK pSynth.pattern(0).note(0, 4).operand = 6, "Ch 4 operand is 6 (vibrato depth)"
+
+    ' Ch 5: Vibrato speed 4 -> FX_VIBRATO operand &H40
+    TEST_CHECK pSynth.pattern(0).note(0, 5).effect = __MODPLAYER_FX_VIBRATO, "Ch 5 effect is vibrato"
+    TEST_CHECK pSynth.pattern(0).note(0, 5).operand = &H40, "Ch 5 operand is &H40 (vibrato speed 4)"
+
+    ' Ch 6: Volume slide up 2 -> FX_VOLUME_SLIDE operand &H20
+    TEST_CHECK pSynth.pattern(0).note(0, 6).effect = __MODPLAYER_FX_VOLUME_SLIDE, "Ch 6 effect is volume slide"
+    TEST_CHECK pSynth.pattern(0).note(0, 6).operand = &H20, "Ch 6 operand is &H20 (volume slide up 2)"
+
+    ' Ch 7: Volume slide down 3 -> FX_VOLUME_SLIDE operand &H03
+    TEST_CHECK pSynth.pattern(0).note(0, 7).effect = __MODPLAYER_FX_VOLUME_SLIDE, "Ch 7 effect is volume slide"
+    TEST_CHECK pSynth.pattern(0).note(0, 7).operand = &H03, "Ch 7 operand is &H03 (volume slide down 3)"
+
+    ' Ch 8: Sustained vibrato speed 5 -> FX_VIBRATO operand &H50
+    TEST_CHECK pSynth.pattern(0).note(0, 8).effect = __MODPLAYER_FX_VIBRATO, "Ch 8 effect is vibrato"
+    TEST_CHECK pSynth.pattern(0).note(0, 8).operand = &H50, "Ch 8 operand is &H50 (sustained vibrato speed 5)"
+
+    ' Ch 9: Slide to volume / set volume 7 -> vol = _MIN(7*4+4, 64) = 32
+    TEST_CHECK pSynth.pattern(0).note(0, 9).volume = 32, "Ch 9 volume set to 32"
+    TEST_CHECK pSynth.pattern(0).note(0, 9).effect = 0, "Ch 9 effect is 0"
+
+    ' Ch 10: Panning 4 -> FX_PANNING_8 operand 68 (4 * 17)
+    TEST_CHECK pSynth.pattern(0).note(0, 10).effect = __MODPLAYER_FX_PANNING_8, "Ch 10 effect is panning 8"
+    TEST_CHECK pSynth.pattern(0).note(0, 10).operand = 68, "Ch 10 operand is 68 (4 * 17)"
+
+    ' Ch 11: Note delay 1 -> FX_EXT operand &HD4 (6\2 + 1 = 4 ticks delay)
+    TEST_CHECK pSynth.pattern(0).note(0, 11).effect = __MODPLAYER_FX_EXT, "Ch 11 effect is FX_EXT"
+    TEST_CHECK pSynth.pattern(0).note(0, 11).operand = &HD4, "Ch 11 operand is &HD4 (ED4 note delay)"
+
+    ' Ch 12: Set speed 5 -> FX_SPEED_TEMPO operand 5
+    TEST_CHECK pSynth.pattern(0).note(0, 12).effect = __MODPLAYER_FX_SPEED_TEMPO, "Ch 12 effect is speed/tempo"
+    TEST_CHECK pSynth.pattern(0).note(0, 12).operand = 5, "Ch 12 operand is 5"
+
+    ' Ch 13: Instrument without note is ignored
+    TEST_CHECK pSynth.pattern(0).note(0, 13).note = __MODPLAYER_NOTE_NONE, "Ch 13 note is none"
+    TEST_CHECK pSynth.pattern(0).note(0, 13).instrument = 0, "Ch 13 instrument without note is 0"
+
+    ' Ch 15: Muted channel
+    TEST_CHECK pSynth.pattern(0).note(0, 15).note = __MODPLAYER_NOTE_NONE, "Muted channel 15 note is none"
+    TEST_CHECK pSynth.pattern(0).note(0, 15).effect = 0, "Muted channel 15 effect is 0"
+    TEST_CHECK pSynth.channel(15).channelVolume = 0, "Muted channel 15 channelVolume is 0"
+
+    ' Pattern Break at row 11 (breakRow = 10 -> row 11)
+    TEST_CHECK pSynth.pattern(0).note(11, 0).effect = __MODPLAYER_FX_PATTERN_BREAK, "Row 11 has pattern break injected"
+    TEST_CHECK pSynth.pattern(0).note(11, 0).operand = 0, "Row 11 pattern break operand is 0"
+
+    ' Channel and Sample settings
+    TEST_CHECK pSynth.channel(0).panning = 0, "Ch 0 panning is 0 (left)"
+    TEST_CHECK pSynth.channel(1).panning = 255, "Ch 1 panning is 255 (right)"
+    TEST_CHECK pSynth.channel(2).panning = 136, "Ch 2 panning is 136 (center)"
+    TEST_CHECK pSynth.channel(0).vibratoDepth = 4, "Ch 0 default vibrato depth is 4"
+    TEST_CHECK pSynth.song.defaultSpeed = 4, "Song default speed is 4"
+    TEST_CHECK pSynth.song.defaultBPM = 80, "Song default BPM is 80"
+    TEST_CHECK pSynth.instrument(0).length = 16, "Sample 0 length is 16"
+    TEST_CHECK pSynth.instrument(0).volume = 64, "Sample 0 volume is 64"
+    TEST_CHECK pSynth.instrument(0).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, "Sample 0 is looped"
+    TEST_CHECK pSynth.instrument(0).c2Spd = 16726, "Sample 0 c2Spd is 16726"
+
+    ' Playback and silence on muted channel
+    MODPlayer_Play pSynth
+    TEST_CHECK pSynth.channel(0).vibratoDepth = 4, "Ch 0 vibratoDepth is 4 after MODPlayer_Play"
+    MODPlayer_Update pSynth, 0.05
+    TEST_CHECK MODPlayer_IsPlaying(pSynth), "Synthetic FAR plays without error"
+    MODPlayer_Stop pSynth
+    MODPlayer_Finalize pSynth
+    TEST_CASE_END
+END SUB
+
 IF _DIREXISTS("../mods") THEN CHDIR ".."
 
 ' Run all test suites
@@ -1690,6 +1900,7 @@ Test_MODLoader
 Test_S3MLoader
 Test_MTMLoader
 Test_FARLoader
+Test_FAR_Effects
 Test_MODPlayer_MultiInstance
 Test_MODPlayer_PatternRows
 Test_MODPlayer_Errors
