@@ -1298,14 +1298,12 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                         IF NOT (player.song.isS3M _ANDALSO breakTargetRowFM >= 64) THEN
                             player.song.patternRow = breakTargetRowFM - 1
                             IF NOT breakEffectFlag _ANDALSO NOT jumpEffectFlag THEN
-                                IF NOT player.song.isS3M _ORELSE (nOpX = 0 _ANDALSO nOpY = 0) THEN
+                                player.song.orderPosition = player.song.orderPosition + 1
+                                IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
+                                WHILE player.song.orderPosition < player.song.orders _ANDALSO player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_MARKER
                                     player.song.orderPosition = player.song.orderPosition + 1
-                                    IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
-                                    WHILE player.song.orderPosition < player.song.orders _ANDALSO player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_MARKER
-                                        player.song.orderPosition = player.song.orderPosition + 1
-                                    WEND
-                                    IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
-                                END IF
+                                WEND
+                                IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
                             END IF
                             IF player.song.orderPosition < player.song.orders THEN
                                 targetPatFM = player.order(player.song.orderPosition)
@@ -1595,14 +1593,12 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                 IF NOT (player.song.isS3M _ANDALSO breakTargetRow >= 64) THEN
                     player.song.patternRow = breakTargetRow - 1
                     IF NOT breakEffectFlag _ANDALSO NOT jumpEffectFlag THEN
-                        IF NOT player.song.isS3M _ORELSE (nOpX = 0 _ANDALSO nOpY = 0) THEN
+                        player.song.orderPosition = player.song.orderPosition + 1
+                        IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
+                        WHILE player.song.orderPosition < player.song.orders _ANDALSO player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_MARKER
                             player.song.orderPosition = player.song.orderPosition + 1
-                            IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
-                            WHILE player.song.orderPosition < player.song.orders _ANDALSO player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_MARKER
-                                player.song.orderPosition = player.song.orderPosition + 1
-                            WEND
-                            IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
-                        END IF
+                        WEND
+                        IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
                     END IF
                     IF player.song.orderPosition < player.song.orders THEN
                         DIM targetPat AS LONG: targetPat = player.order(player.song.orderPosition)

@@ -466,30 +466,33 @@ SUB Test_MODPlayer_S3M
     TEST_CHECK MODPlayer_GetOrders(playerS3MBack) = 13, "Song has 13 orders (trailing 255 trimmed)"
     TEST_CHECK playerS3MBack.song.patterns = 13, "Song has 13 patterns"
 
-    ' Step 0 -> row 0 has C63 which should break to row 63 in same pattern
+    ' Step 0 -> row 0 has C63 which advances order to 1 and breaks to row 63
     MODPlayer_Play playerS3MBack
     TEST_CHECK MODPlayer_IsPlaying(playerS3MBack), "Playing BACKWARD.S3M"
     playerS3MBack.song.tickPattern = playerS3MBack.order(playerS3MBack.song.orderPosition)
     playerS3MBack.song.tickPatternRow = playerS3MBack.song.patternRow
     __MODPlayer_UpdateRow playerS3MBack
     playerS3MBack.song.patternRow = playerS3MBack.song.patternRow + 1
-    TEST_CHECK playerS3MBack.song.orderPosition = 0, "Order remains 0 on C63 (not skipping to next pattern)"
+    TEST_CHECK playerS3MBack.song.orderPosition = 1, "Order advances to 1 on C63"
     TEST_CHECK playerS3MBack.song.patternRow = 63, "Target row is 63"
 
-    ' Step row 63 -> has C62 which breaks to row 62 in same pattern
+    ' Step Order 1 row 63 -> has C62 which advances order to 2 and breaks to row 62
+    playerS3MBack.song.tickPattern = playerS3MBack.order(playerS3MBack.song.orderPosition)
     playerS3MBack.song.tickPatternRow = playerS3MBack.song.patternRow
     __MODPlayer_UpdateRow playerS3MBack
     playerS3MBack.song.patternRow = playerS3MBack.song.patternRow + 1
-    TEST_CHECK playerS3MBack.song.orderPosition = 0, "Order remains 0 on C62"
+    TEST_CHECK playerS3MBack.song.orderPosition = 2, "Order advances to 2 on C62"
     TEST_CHECK playerS3MBack.song.patternRow = 62, "Target row is 62"
 
-    ' Step row 1 -> has C00 which should break to row 0 in next pattern
-    playerS3MBack.song.patternRow = 1
-    playerS3MBack.song.tickPatternRow = 1
+    ' Step Order 12 row 52 -> has C51 which wraps order to 0 and breaks to row 51
+    playerS3MBack.song.orderPosition = 12
+    playerS3MBack.song.patternRow = 52
+    playerS3MBack.song.tickPattern = playerS3MBack.order(12)
+    playerS3MBack.song.tickPatternRow = 52
     __MODPlayer_UpdateRow playerS3MBack
     playerS3MBack.song.patternRow = playerS3MBack.song.patternRow + 1
-    TEST_CHECK playerS3MBack.song.orderPosition = 1, "Order advances to 1 on C00"
-    TEST_CHECK playerS3MBack.song.patternRow = 0, "Target row is 0"
+    TEST_CHECK playerS3MBack.song.orderPosition = 0, "Order wraps to 0 on C51 at end of order list"
+    TEST_CHECK playerS3MBack.song.patternRow = 51, "Target row is 51"
 
     MODPlayer_Stop playerS3MBack
     MODPlayer_Finalize playerS3MBack
