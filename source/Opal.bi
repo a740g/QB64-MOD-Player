@@ -124,23 +124,12 @@ TYPE __OpalQueuedWrite
     value AS _UNSIGNED _BYTE
 END TYPE
 
-TYPE __OpalEnvelopeTime
-    odd AS _BYTE
-    count AS _UNSIGNED _INTEGER64
-END TYPE
-
 TYPE __OpalAlgorithm
     operatorCount AS _UNSIGNED _BYTE
     chainMask AS _UNSIGNED _BYTE
     carrierMask AS _UNSIGNED _BYTE
     gain AS _UNSIGNED _BYTE
     selfFeedback AS _BYTE
-END TYPE
-
-TYPE __OpalWave
-    attenuation AS _UNSIGNED INTEGER
-    negative AS _BYTE
-    silent AS _BYTE
 END TYPE
 
 TYPE __OpalVibratoStep
