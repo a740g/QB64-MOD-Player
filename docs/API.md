@@ -20,6 +20,7 @@ Synthesizer / Sample Mixer, and Audio Spectrum Analyzer.
   - [Scream Tracker 3 Loader (`S3MLoader.bi`)](#scream-tracker-3-loader-s3mloaderbi)
   - [MultiTracker Loader (`MTMLoader.bi`)](#multitracker-loader-mtmloaderbi)
   - [Farandole Composer Loader (`FARLoader.bi`)](#farandole-composer-loader-farloaderbi)
+  - [Composer 669 Loader (`C669Loader.bi`)](#composer-669-loader-c669loaderbi)
 - [Software Synthesizer API (`SoftSynth.bi`)](#software-synthesizer-api-softsynthbi)
   - [Constants](#softsynth-constants)
   - [Types](#softsynth-types)
@@ -416,6 +417,22 @@ FUNCTION FARLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 - **Supported Formats**: Farandole Composer (`FAR\xFE` signature) modules with up
   to 16 channels, variable rows per pattern, custom tempo, channel panning, and
   8-bit signed PCM samples.
+- **Parameters**:
+  - `player`: Target MOD player instance.
+  - `fileName`: Path to the module file.
+  - `buffer`: In-memory binary representation of the module file.
+- **Returns**: `_TRUE` on successful parse; `_FALSE` if incompatible or invalid.
+
+### Composer 669 Loader (`C669Loader.bi`)
+
+```vb
+FUNCTION C669Loader_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
+FUNCTION C669Loader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
+```
+
+- **Supported Formats**: Composer 669 (`if` signature) and Extended UNIS 669 (`JN` signature)
+  modules with 8 channels, 64 rows per pattern, up to 64 samples (8-bit unsigned PCM),
+  per-pattern tempo lists, break lengths, and standard/extended 669 effect commands.
 - **Parameters**:
   - `player`: Target MOD player instance.
   - `fileName`: Path to the module file.

@@ -863,6 +863,188 @@ SUB Test_STMLoader
     TEST_CASE_END
 END SUB
 
+''' @brief Tests for Composer 669 / UNIS 669 format loader.
+SUB Test_C669Loader
+    TEST_CASE_BEGIN "C669Loader: Load Composer 669 module directly"
+    DIM player AS MODPlayer
+    TEST_REQUIRE C669Loader_LoadFromDisk(player, "mods/crystals.669"), "C669Loader loads crystals.669"
+    TEST_CHECK INSTR(UCASE$(MODPlayer_GetName(player)), "CRYSTALS") > 0, "Song caption matches crystals"
+    TEST_CHECK MODPlayer_GetType(player) = "669", "Song subtype is 669"
+    TEST_CHECK player.song.channels = 8, "Channels count is 8"
+    TEST_CHECK player.song.instruments = 1, "Instruments count is 1"
+    TEST_CHECK player.song.patterns = 11, "Patterns count is 11"
+    TEST_CHECK player.song.orders > 0, "Orders count > 0"
+    TEST_CHECK player.song.BPM = 78, "Default BPM is 78"
+    TEST_CHECK player.song.speed = 5, "Initial speed from pattern 0 is 5"
+    TEST_CHECK player.song.isStereo, "Stereo flag is true"
+    TEST_CHECK player.instrument(0).length > 0, "Sample 0 has length"
+    TEST_CHECK player.instrument(0).c2Spd = 8363, "Sample 0 c2Spd is 8363"
+    TEST_CHECK player.channel(0).panning = 48, "Channel 0 is Left (48)"
+    TEST_CHECK player.channel(1).panning = 208, "Channel 1 is Right (208)"
+    MODPlayer_Finalize player
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "C669Loader: Load from memory"
+    DIM buf AS STRING: buf = File_Load("mods/crystals.669")
+    TEST_REQUIRE LEN(buf) > 0, "Read crystals.669 into buffer"
+    DIM pMem AS MODPlayer
+    TEST_REQUIRE C669Loader_LoadFromMemory(pMem, buf), "C669Loader loads from memory"
+    TEST_CHECK MODPlayer_GetType(pMem) = "669", "Memory load subtype is 669"
+    TEST_CHECK pMem.song.channels = 8, "Memory load channels is 8"
+    TEST_CHECK pMem.song.patterns = 11, "Memory load patterns is 11"
+    MODPlayer_Finalize pMem
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "C669Loader: Unified dispatcher auto-detection"
+    DIM pAuto AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pAuto, "mods/crystals.669"), "MODPlayer_LoadFromDisk auto-detects 669"
+    TEST_CHECK MODPlayer_GetType(pAuto) = "669", "Auto-detected subtype is 669"
+    TEST_CHECK pAuto.song.channels = 8, "Auto-detected channels is 8"
+    MODPlayer_Finalize pAuto
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "C669Loader: Playback and teardown"
+    DIM pPlay AS MODPlayer
+    TEST_REQUIRE C669Loader_LoadFromDisk(pPlay, "mods/crystals.669"), "Reload crystals for playback test"
+    MODPlayer_Play pPlay
+    TEST_CHECK MODPlayer_IsPlaying(pPlay), "669 is playing"
+    MODPlayer_Update pPlay, 0.05
+    TEST_CHECK MODPlayer_IsPlaying(pPlay), "669 continues playing after update"
+    MODPlayer_Stop pPlay
+    TEST_CHECK_FALSE MODPlayer_IsPlaying(pPlay), "669 stopped"
+    MODPlayer_Finalize pPlay
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "C669Loader: Reject incompatible formats"
+    DIM pRej AS MODPlayer
+    TEST_CHECK_FALSE C669Loader_LoadFromDisk(pRej, "mods/Enigma.mod"), "C669Loader rejects MOD"
+    TEST_CHECK_FALSE C669Loader_LoadFromDisk(pRej, "mods/A Touch of Spring.s3m"), "C669Loader rejects S3M"
+    TEST_CHECK_FALSE C669Loader_LoadFromDisk(pRej, "mods/cougarstory-ii.mtm"), "C669Loader rejects MTM"
+    TEST_CHECK_FALSE C669Loader_LoadFromDisk(pRej, "mods/M31.far"), "C669Loader rejects FAR"
+    TEST_CHECK_FALSE C669Loader_LoadFromDisk(pRej, "mods/OXYGENE.STM"), "C669Loader rejects STM"
+    DIM emptyBuf2 AS STRING: emptyBuf2 = STRING$(100, 0)
+    TEST_CHECK_FALSE C669Loader_LoadFromMemory(pRej, emptyBuf2), "C669Loader rejects undersized buffer"
+    MODPlayer_Finalize pRej
+    TEST_CASE_END
+END SUB
+
+''' @brief Tests for 669 effect decoding and synthetic module parsing.
+SUB Test_C669_Effects
+    TEST_CASE_BEGIN "C669 Effects: Synthetic 669 Module Loading and Effect Translation"
+    DIM b AS STRING
+    b = "if" ' Magic
+    b = b + "Synthetic 669 Test Song" + STRING$(108 - LEN("Synthetic 669 Test Song"), 0) ' Song message (108 bytes)
+    b = b + CHR$(1) ' 1 sample
+    b = b + CHR$(1) ' 1 pattern
+    b = b + CHR$(0) ' Restart pos 0
+
+    ' Orders (128 bytes)
+    b = b + CHR$(0) + STRING$(127, 255)
+    ' Tempo list (128 bytes) - Pattern 0 speed = 6
+    b = b + CHR$(6) + STRING$(127, 0)
+    ' Breaks list (128 bytes) - Pattern 0 break = 63
+    b = b + CHR$(63) + STRING$(127, 0)
+
+    ' Sample header (25 bytes)
+    b = b + "TEST.SMP" + STRING$(5, 0) ' 13 bytes filename
+    b = b + MKL$(16) ' Length 16
+    b = b + MKL$(0) ' Loop start 0
+    b = b + MKL$(0) ' Loop end 0
+
+    ' Pattern 0 (1536 bytes): 64 rows * 8 channels * 3 bytes
+    DIM patData AS STRING
+    DIM r AS LONG, c AS LONG
+    FOR r = 0 TO 63
+        FOR c = 0 TO 7
+            IF r = 0 THEN
+                SELECT CASE c
+                    CASE 0 ' Note 12 (C-1 -> note 48), instr 0 (sample 1), vol 15 (vol 64), Effect 0 param 3 (Porta Up)
+                        patData = patData + CHR$(_SHL(12, 2) OR 0) + CHR$(_SHL(0, 4) OR 15) + CHR$(_SHL(0, 4) OR 3)
+                    CASE 1 ' Note 24 (C-2 -> note 60), instr 0, vol 10 (vol (10*64+8)\15 = 43), Effect 1 param 5 (Porta Down)
+                        patData = patData + CHR$(_SHL(24, 2) OR 0) + CHR$(_SHL(0, 4) OR 10) + CHR$(_SHL(1, 4) OR 5)
+                    CASE 2 ' Note 0 (C-0 -> note 36), instr 0, vol 0 (vol 0), Effect 2 param 8 (Tone Porta)
+                        patData = patData + CHR$(_SHL(0, 2) OR 0) + CHR$(_SHL(0, 4) OR 0) + CHR$(_SHL(2, 4) OR 8)
+                    CASE 3 ' Note FE (no note, vol change), vol 7 (vol (7*64+8)\15 = 30), Effect 3 param 2 (Freq adjust)
+                        patData = patData + CHR$(&HFE) + CHR$(_SHL(0, 4) OR 7) + CHR$(_SHL(3, 4) OR 2)
+                    CASE 4 ' Note FF (no note, no vol), Effect 4 param 4 (Vibrato)
+                        patData = patData + CHR$(&HFF) + CHR$(&HFF) + CHR$(_SHL(4, 4) OR 4)
+                    CASE 5 ' Note FF, Effect 5 param 7 (Set speed)
+                        patData = patData + CHR$(&HFF) + CHR$(&HFF) + CHR$(_SHL(5, 4) OR 7)
+                    CASE ELSE
+                        patData = patData + CHR$(&HFF) + CHR$(&HFF) + CHR$(&HFF)
+                END SELECT
+            ELSE
+                patData = patData + CHR$(&HFF) + CHR$(&HFF) + CHR$(&HFF)
+            END IF
+        NEXT c
+    NEXT r
+    b = b + patData
+
+    ' Sample payload (16 bytes of unsigned PCM, center 128)
+    b = b + STRING$(16, 128)
+
+    DIM player AS MODPlayer
+    TEST_REQUIRE C669Loader_LoadFromMemory(player, b), "Synthetic 669 module loaded"
+    TEST_CHECK player.song.channels = 8, "8 channels"
+    TEST_CHECK player.song.patterns = 1, "1 pattern"
+    TEST_CHECK player.song.instruments = 1, "1 instrument"
+    TEST_CHECK player.song.speed = 6, "Initial speed is 6"
+
+    ' Channel 0: Note 48, Instrument 1, Volume 64, Effect 1, Operand 3
+    TEST_CHECK player.pattern(0).note(0, 0).note = 48, "Ch 0 note is 48"
+    TEST_CHECK player.pattern(0).note(0, 0).instrument = 1, "Ch 0 instrument is 1"
+    TEST_CHECK player.pattern(0).note(0, 0).volume = 64, "Ch 0 volume is 64"
+    TEST_CHECK player.pattern(0).note(0, 0).effect = 1, "Ch 0 effect is 1 (Porta Up)"
+    TEST_CHECK player.pattern(0).note(0, 0).operand = 3, "Ch 0 operand is 3"
+
+    ' Channel 1: Note 60, Instrument 1, Volume 43, Effect 2, Operand 5
+    TEST_CHECK player.pattern(0).note(0, 1).note = 60, "Ch 1 note is 60"
+    TEST_CHECK player.pattern(0).note(0, 1).volume = 43, "Ch 1 volume is 43"
+    TEST_CHECK player.pattern(0).note(0, 1).effect = 2, "Ch 1 effect is 2 (Porta Down)"
+    TEST_CHECK player.pattern(0).note(0, 1).operand = 5, "Ch 1 operand is 5"
+
+    ' Channel 2: Note 36, Volume 0, Effect 3, Operand 8
+    TEST_CHECK player.pattern(0).note(0, 2).note = 36, "Ch 2 note is 36"
+    TEST_CHECK player.pattern(0).note(0, 2).volume = 0, "Ch 2 volume is 0"
+    TEST_CHECK player.pattern(0).note(0, 2).effect = 3, "Ch 2 effect is 3 (Tone Porta)"
+    TEST_CHECK player.pattern(0).note(0, 2).operand = 8, "Ch 2 operand is 8"
+
+    ' Channel 3: Note none, Volume 30, Effect &H0E, Operand &H12
+    TEST_CHECK player.pattern(0).note(0, 3).note = __MODPLAYER_NOTE_NONE, "Ch 3 has no note"
+    TEST_CHECK player.pattern(0).note(0, 3).volume = 30, "Ch 3 volume is 30"
+    TEST_CHECK player.pattern(0).note(0, 3).effect = &H0E, "Ch 3 effect is &H0E (Fine Porta)"
+    TEST_CHECK player.pattern(0).note(0, 3).operand = &H12, "Ch 3 operand is &H12"
+
+    ' Channel 4: Vibrato effect 4
+    TEST_CHECK player.pattern(0).note(0, 4).effect = 4, "Ch 4 effect is 4 (Vibrato)"
+    TEST_CHECK player.pattern(0).note(0, 4).operand = &H44, "Ch 4 operand is &H44"
+
+    ' Channel 5: Set speed effect &H0F
+    TEST_CHECK player.pattern(0).note(0, 5).effect = &H0F, "Ch 5 effect is &H0F (Set Speed)"
+    TEST_CHECK player.pattern(0).note(0, 5).operand = 7, "Ch 5 operand is 7"
+
+    MODPlayer_Finalize player
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "C669 Effects: Extended UNIS 669 Effects (JN)"
+    ' Build extended UNIS module
+    MID$(b, 1, 2) = "JN"
+    ' In pattern row 0: channel 6 = Effect 6 param 0 (balance left), channel 7 = Effect 7 param 4 (slot retrig)
+    DIM ch6Pos AS LONG: ch6Pos = __C669LOADER_HEADER_SIZE + 25 + 6 * 3 + 1
+    MID$(b, ch6Pos, 3) = CHR$(&HFF) + CHR$(&HFF) + CHR$(_SHL(6, 4) OR 0)
+    DIM ch7Pos AS LONG: ch7Pos = __C669LOADER_HEADER_SIZE + 25 + 7 * 3 + 1
+    MID$(b, ch7Pos, 3) = CHR$(&HFF) + CHR$(&HFF) + CHR$(_SHL(7, 4) OR 4)
+
+    DIM pExt AS MODPlayer
+    TEST_REQUIRE C669Loader_LoadFromMemory(pExt, b), "Extended UNIS 669 loaded"
+    TEST_CHECK pExt.pattern(0).note(0, 6).effect = &H18, "Ch 6 balance effect is &H18 (panning)"
+    TEST_CHECK pExt.pattern(0).note(0, 6).operand = 0, "Ch 6 operand is 0 (pan left)"
+    TEST_CHECK pExt.pattern(0).note(0, 7).effect = &H0E, "Ch 7 slot retrig effect is &H0E"
+    TEST_CHECK pExt.pattern(0).note(0, 7).operand = &H94, "Ch 7 operand is &H94 (retrig)"
+    MODPlayer_Finalize pExt
+    TEST_CASE_END
+END SUB
+
 ''' @brief Tests for multi-instance isolation and concurrent state handling.
 SUB Test_MODPlayer_MultiInstance
     TEST_CASE_BEGIN "MODPlayer: Multi-instance independent playback"
@@ -2498,6 +2680,8 @@ Test_FARLoader
 Test_FAR_Effects
 Test_STMLoader
 Test_STM_Effects
+Test_C669Loader
+Test_C669_Effects
 Test_MODPlayer_MultiInstance
 Test_MODPlayer_PatternRows
 Test_MODPlayer_TypePromotions

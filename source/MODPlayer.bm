@@ -13,6 +13,7 @@ $INCLUDEONCE
 '$INCLUDE:'MTMLoader.bi'
 '$INCLUDE:'S3MLoader.bi'
 '$INCLUDE:'STMLoader.bi'
+'$INCLUDE:'C669Loader.bi'
 '$INCLUDE:'MODPlayerShared.bm'
 
 ''' @brief Loads a tracker module with optional companion data (e.g. StarTrekker .mod.nt).
@@ -41,6 +42,11 @@ FUNCTION MODPlayer_LoadWithCompanion%% (player AS MODPlayer, buffer AS STRING, c
     END IF
 
     IF STMLoader_LoadFromMemory(player, buffer) THEN
+        MODPlayer_LoadWithCompanion = _TRUE
+        EXIT FUNCTION
+    END IF
+
+    IF C669Loader_LoadFromMemory(player, buffer) THEN
         MODPlayer_LoadWithCompanion = _TRUE
         EXIT FUNCTION
     END IF
