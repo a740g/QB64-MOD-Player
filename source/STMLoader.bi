@@ -169,14 +169,14 @@ FUNCTION STMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
         player.instrument(i).bytesPerSample = _SIZE_OF_BYTE
         player.instrument(i).channels = 1
 
-        IF loopStart < smpLength _ANDALSO loopEnd > loopStart _ANDALSO loopEnd <= smpLength _ANDALSO loopEnd <> &HFFFF~% _ANDALSO loopEnd <> 0 THEN
+        IF loopStart < smpLength _ANDALSO loopEnd > loopStart _ANDALSO loopEnd <> &HFFFF~% _ANDALSO loopEnd <> 0 THEN
             player.instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP
             player.instrument(i).loopStart = loopStart
-            player.instrument(i).loopEnd = loopEnd
+            player.instrument(i).loopEnd = _MIN(loopEnd, smpLength)
         ELSE
             player.instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD
             player.instrument(i).loopStart = 0
-            player.instrument(i).loopEnd = 0
+            player.instrument(i).loopEnd = smpLength
         END IF
     NEXT i
 

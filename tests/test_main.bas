@@ -786,7 +786,7 @@ SUB Test_STMLoader
     TEST_CHECK player.song.channels = 4, "STM has 4 channels"
     TEST_CHECK player.song.instruments = 31, "STM has 31 instruments"
     TEST_CHECK MODPlayer_GetOrders(player) = 47, "Order count is 47"
-    TEST_CHECK player.song.patterns = 17, "Pattern count is 17"
+    TEST_CHECK player.song.patterns = 16, "Pattern count is 16"
     TEST_CHECK player.song.defaultSpeed = 6, "Default speed is 6"
     TEST_CHECK player.song.defaultBPM = 125, "Default BPM is 125"
     TEST_CHECK MODPlayer_IsStereo(player), "STM is stereo"
@@ -794,7 +794,7 @@ SUB Test_STMLoader
     TEST_CHECK player.song.useST2Tempo = _TRUE, "STM sets useST2Tempo flag"
     TEST_CHECK player.song.useST2Vibrato = _TRUE, "STM sets useST2Vibrato flag"
     TEST_CHECK MODPlayer_GetPatternRows(player, 0) = 64, "Pattern 0 has 64 rows"
-    TEST_CHECK MODPlayer_GetPatternRows(player, 16) = 64, "Pattern 16 has 64 rows"
+    TEST_CHECK MODPlayer_GetPatternRows(player, 15) = 64, "Pattern 15 has 64 rows"
 
     ' Channel panning LRRL (64, 192, 192, 64)
     TEST_CHECK player.channel(0).panning = 64, "Ch 0 panning is 64"
@@ -808,6 +808,7 @@ SUB Test_STMLoader
     TEST_CHECK player.instrument(0).volume = 64, "Instrument 0 volume is 64"
     TEST_CHECK player.instrument(0).c2Spd = 8448, "Instrument 0 c2Spd is 8448"
     TEST_CHECK player.instrument(0).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD, "Instrument 0 is non-looping"
+    TEST_CHECK player.instrument(0).loopEnd = 1826, "Instrument 0 loopEnd equals length for non-looping sample"
 
     ' Instrument 1 (shallbas.048)
     TEST_CHECK INSTR(LCASE$(player.instrument(1).caption), "shallbas") > 0, "Instrument 1 is shallbas"
@@ -829,7 +830,7 @@ SUB Test_STMLoader
     TEST_REQUIRE STMLoader_LoadFromMemory(player, stmBuf), "STMLoader loads from memory"
     TEST_CHECK MODPlayer_GetType(player) = "STM", "Subtype is STM"
     TEST_CHECK player.song.orders = 47, "Orders is 47"
-    TEST_CHECK player.song.patterns = 17, "Patterns is 17"
+    TEST_CHECK player.song.patterns = 16, "Patterns is 16"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "STMLoader: Unified dispatcher auto-detection"
