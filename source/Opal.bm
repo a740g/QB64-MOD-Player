@@ -471,9 +471,13 @@ SUB __Opal_WriteControl (opl AS Opal, reg AS _UNSIGNED LONG, valByte AS _UNSIGNE
             opl.noteSelect = _SHR(valByte, 6) AND 1
             opl.compositeSine = _SHR(valByte, 7)
         CASE __OPAL_FOUR_OP_REGISTER
-            __Opal_WritePairing opl, valByte
+            IF opl.newMode <> 0 THEN
+                __Opal_WritePairing opl, valByte
+            END IF
         CASE __OPAL_NEW_REGISTER
-            opl.newMode = valByte AND 1
+            IF opl.chipType = OPAL_CHIP_TYPE_OPL3 THEN
+                opl.newMode = valByte AND 1
+            END IF
     END SELECT
 END SUB
 
@@ -485,7 +489,7 @@ SUB Opal_Write (opl AS Opal, regNum AS _UNSIGNED INTEGER, valByte AS _UNSIGNED _
     DIM reg AS _UNSIGNED LONG
     reg = regNum AND &H1FF~%
     IF opl.newMode = 0 _ANDALSO reg <> __OPAL_NEW_REGISTER THEN
-        reg = reg AND &HFF~%
+        IF reg >= &H100 THEN EXIT SUB
     END IF
 
     DIM bank AS _UNSIGNED LONG
@@ -778,7 +782,14 @@ SUB __Opal_Output (opl AS Opal, left AS INTEGER, right AS INTEGER)
         DIM waveNegative AS _BYTE: waveNegative = 0
         DIM waveSilent AS _BYTE: waveSilent = 0
 
-        SELECT CASE opl.op(slot).waveform
+        DIM effWaveform AS _UNSIGNED _BYTE
+        IF opl.newMode <> 0 _ORELSE opl.waveSelectEnable <> 0 THEN
+            effWaveform = opl.op(slot).waveform
+        ELSE
+            effWaveform = 0
+        END IF
+
+        SELECT CASE effWaveform
             CASE 0
                 waveAtten = sine
                 waveNegative = secondHalf
@@ -958,6 +969,7 @@ SUB Opal_Initialize (opl AS Opal, sampleRate AS LONG)
 
     DIM empty AS Opal
     opl = empty
+    opl.chipType = OPAL_CHIP_TYPE_OPL3
 
     DIM ch AS _UNSIGNED LONG
     FOR ch = 0 TO OPAL_CHANNEL_COUNT - 1
@@ -1001,6 +1013,32 @@ SUB Opal_Initialize (opl AS Opal, sampleRate AS LONG)
     __Opal_RefreshRouting opl
     Opal_SetSampleRate opl, sampleRate
 END SUB
+
+''' @brief Gets the configured chip mode (OPAL_CHIP_TYPE_OPL2 or OPAL_CHIP_TYPE_OPL3).
+''' @param opl Opal emulator instance.
+''' @return Chip mode constant.
+FUNCTION Opal_GetChipType& (opl AS Opal)
+    Opal_GetChipType = opl.chipType
+END FUNCTION
+
+''' @brief Configures the emulator chip mode.
+''' @param opl Opal emulator instance.
+''' @param chipType OPAL_CHIP_TYPE_OPL2 or OPAL_CHIP_TYPE_OPL3.
+SUB Opal_SetChipType (opl AS Opal, chipType AS LONG)
+    opl.chipType = chipType
+    IF chipType = OPAL_CHIP_TYPE_OPL2 THEN
+        opl.newMode = 0
+        opl.pairEnable = 0
+        __Opal_RefreshRouting opl
+    END IF
+END SUB
+
+''' @brief Returns whether the emulator is actively running in OPL3 mode (newMode <> 0).
+''' @param opl Opal emulator instance.
+''' @return _TRUE if running in OPL3 mode, _FALSE if running in OPL2 compatibility mode.
+FUNCTION Opal_IsOPL3%% (opl AS Opal)
+    Opal_IsOPL3 = (opl.newMode <> 0)
+END FUNCTION
 
 ''' @brief Applies all pending queued register writes immediately.
 ''' @param opl Opal emulator instance.

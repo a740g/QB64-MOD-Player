@@ -21,6 +21,7 @@ Synthesizer / Sample Mixer, and Audio Spectrum Analyzer.
   - [MultiTracker Loader (`MTMLoader.bi`)](#multitracker-loader-mtmloaderbi)
   - [Farandole Composer Loader (`FARLoader.bi`)](#farandole-composer-loader-farloaderbi)
   - [Composer 669 Loader (`C669Loader.bi`)](#composer-669-loader-c669loaderbi)
+  - [Reality Adlib Tracker Loader (`RADLoader.bi`)](#reality-adlib-tracker-loader-radloaderbi)
 - [Software Synthesizer API (`SoftSynth.bi`)](#software-synthesizer-api-softsynthbi)
   - [Constants](#softsynth-constants)
   - [Types](#softsynth-types)
@@ -433,6 +434,23 @@ FUNCTION C669Loader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 - **Supported Formats**: Composer 669 (`if` signature) and Extended UNIS 669 (`JN` signature)
   modules with 8 channels, 64 rows per pattern, up to 64 samples (8-bit unsigned PCM),
   per-pattern tempo lists, break lengths, and standard/extended 669 effect commands.
+- **Parameters**:
+  - `player`: Target MOD player instance.
+  - `fileName`: Path to the module file.
+  - `buffer`: In-memory binary representation of the module file.
+- **Returns**: `_TRUE` on successful parse; `_FALSE` if incompatible or invalid.
+
+### Reality Adlib Tracker Loader (`RADLoader.bi`)
+
+```vb
+FUNCTION RADLoader_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
+FUNCTION RADLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
+```
+
+- **Supported Formats**: Reality Adlib Tracker v1.0 (`RAD by REALiTY!!`, version `0x10`) modules with
+  9 OPL2 melody channels, 64 rows per pattern, up to 31 HSC 2-operator instruments, order lists
+  up to 128 entries, slow-timer (~18.2 Hz) and standard (50 Hz) timing, and standard effects
+  (portamento up/down, tone portamento, volume slide 1..99, set volume, pattern break, set speed).
 - **Parameters**:
   - `player`: Target MOD player instance.
   - `fileName`: Path to the module file.
@@ -924,6 +942,39 @@ SUB Opal_SetPan (self AS Opal, channel AS _UNSIGNED INTEGER, pan AS _UNSIGNED _B
   - `self`: Opal instance context.
   - `channel`: Zero-based channel index (`0` - `17`).
   - `pan`: Pan position byte (`0` - `127`).
+
+#### `Opal_GetChipType&`
+
+```vb
+FUNCTION Opal_GetChipType& (self AS Opal)
+```
+
+- **Description**: Returns the configured chip mode constant (`OPAL_CHIP_TYPE_OPL2` = 0, `OPAL_CHIP_TYPE_OPL3` = 1).
+- **Parameters**:
+  - `self`: Opal instance context.
+- **Returns**: Chip mode constant.
+
+#### `Opal_SetChipType`
+
+```vb
+SUB Opal_SetChipType (self AS Opal, chipType AS LONG)
+```
+
+- **Description**: Configures strict OPL2 mode (`OPAL_CHIP_TYPE_OPL2`) or OPL3 mode (`OPAL_CHIP_TYPE_OPL3`). In OPL2 mode, writes to Bank 1 registers and 4-op register 0x104 are rejected, and register 0x105 writes cannot enable OPL3 mode.
+- **Parameters**:
+  - `self`: Opal instance context.
+  - `chipType`: `OPAL_CHIP_TYPE_OPL2` or `OPAL_CHIP_TYPE_OPL3`.
+
+#### `Opal_IsOPL3%%`
+
+```vb
+FUNCTION Opal_IsOPL3%% (self AS Opal)
+```
+
+- **Description**: Checks whether the emulator is currently operating in OPL3 mode (newMode <> 0).
+- **Parameters**:
+  - `self`: Opal instance context.
+- **Returns**: `_TRUE` if active in OPL3 mode; `_FALSE` if in OPL2 mode.
 
 ---
 

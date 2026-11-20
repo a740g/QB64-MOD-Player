@@ -1048,6 +1048,131 @@ SUB Test_C669_Effects
     TEST_CASE_END
 END SUB
 
+''' @brief Tests for Reality Adlib Tracker (RAD) v1.0 loader.
+SUB Test_RADLoader
+    TEST_CASE_BEGIN "RADLoader: Load RAD v1.0 module from disk"
+    DIM player AS MODPlayer
+    TEST_REQUIRE RADLoader_LoadFromDisk(player, "mods/ALLOYRUN.RAD"), "RADLoader loads ALLOYRUN.RAD"
+    TEST_CHECK MODPlayer_GetType(player) = "RAD", "Song subtype is RAD"
+    TEST_CHECK player.song.isRAD, "isRAD flag is true"
+    TEST_CHECK player.song.channels = 9, "RAD song has 9 channels"
+    TEST_CHECK player.song.instruments > 0, "RAD song has instruments"
+    TEST_CHECK player.song.orders > 0, "RAD song has orders"
+    TEST_CHECK player.song.patterns > 0, "RAD song has patterns"
+    TEST_CHECK player.song.BPM > 0, "RAD song has BPM"
+    TEST_CHECK player.song.speed > 0, "RAD song has speed"
+    TEST_CHECK player.song.hasFMChannels, "Song has FM channels flag set"
+    TEST_CHECK player.channel(0).subtype = __MODPLAYER_INSTRUMENT_FM_MELODY, "Channel 0 is FM melody"
+    TEST_CHECK player.channel(8).subtype = __MODPLAYER_INSTRUMENT_FM_MELODY, "Channel 8 is FM melody"
+    TEST_CHECK player.channel(0).oplChannel = 0, "Channel 0 mapped to OPL channel 0"
+    TEST_CHECK player.channel(8).oplChannel = 8, "Channel 8 mapped to OPL channel 8"
+    TEST_CHECK player.instrument(0).subtype = __MODPLAYER_INSTRUMENT_FM_MELODY, "Instrument 0 is FM melody"
+    TEST_CHECK player.instrument(0).c2Spd = 8363, "Instrument 0 c2Spd is 8363"
+    MODPlayer_Finalize player
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "RADLoader: Load from memory"
+    DIM buf AS STRING: buf = File_Load("mods/ADLIBSP.RAD")
+    TEST_REQUIRE LEN(buf) > 0, "Read ADLIBSP.RAD into buffer"
+    DIM pMem AS MODPlayer
+    TEST_REQUIRE RADLoader_LoadFromMemory(pMem, buf), "RADLoader loads from memory"
+    TEST_CHECK MODPlayer_GetType(pMem) = "RAD", "Memory load subtype is RAD"
+    TEST_CHECK pMem.song.channels = 9, "Memory load channels is 9"
+    TEST_CHECK pMem.song.isRAD, "Memory load isRAD is true"
+    MODPlayer_Finalize pMem
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "RADLoader: Unified dispatcher auto-detection"
+    DIM pAuto AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pAuto, "mods/ALLOYRUN.RAD"), "Unified loader loads ALLOYRUN.RAD"
+    TEST_CHECK MODPlayer_GetType(pAuto) = "RAD", "Auto-detected subtype is RAD"
+    TEST_CHECK pAuto.song.channels = 9, "Auto-detected channels count is 9"
+    MODPlayer_Finalize pAuto
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "RADLoader: Rejection of invalid data and v2"
+    DIM pFail AS MODPlayer
+    DIM dummyBuf AS STRING: dummyBuf = STRING$(100, 0)
+    TEST_CHECK_FALSE RADLoader_LoadFromMemory(pFail, dummyBuf), "Rejects invalid header magic"
+
+    ' Header with "RAD by REALiTY!!" but version 0x21 (v2)
+    DIM v2Buf AS STRING: v2Buf = "RAD by REALiTY!!" + CHR$(&H21) + STRING$(100, 0)
+    TEST_CHECK_FALSE RADLoader_LoadFromMemory(pFail, v2Buf), "Rejects version 0x21 (v2)"
+    MODPlayer_Finalize pFail
+    TEST_CASE_END
+END SUB
+
+''' @brief Tests for RAD v1.0 playback and audio rendering.
+SUB Test_RAD_Playback
+    TEST_CASE_BEGIN "RAD: Playback and audio synthesis"
+    DIM player AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(player, "mods/ALLOYRUN.RAD"), "Load ALLOYRUN.RAD for playback test"
+    MODPlayer_Play player
+    TEST_CHECK player.song.isPlaying, "Player is in playing state"
+    TEST_CHECK Opal_GetChipType(player.opl) = OPAL_CHIP_TYPE_OPL2, "Chip type is OPL2 during RAD playback"
+
+    ' Update player across multiple rows to allow notes to trigger
+    DIM u AS LONG
+    FOR u = 1 TO 200
+        MODPlayer_Update player, 0.05
+    NEXT u
+
+    ' Verify non-zero synthesized audio frames in soundBuffer
+    DIM hasAudio AS _BYTE: hasAudio = _FALSE
+    DIM i AS LONG
+    FOR i = 0 TO UBOUND(player.synth.soundBuffer)
+        IF player.synth.soundBuffer(i) <> 0! THEN
+            hasAudio = _TRUE
+            EXIT FOR
+        END IF
+    NEXT i
+    TEST_CHECK hasAudio, "Synthesized audible OPL audio during RAD playback"
+
+    MODPlayer_Stop player
+    TEST_CHECK_FALSE player.song.isPlaying, "Player stopped"
+    MODPlayer_Finalize player
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "RAD: Load and playback all bundled RAD files"
+    DIM radFiles(0 TO 12) AS STRING
+    radFiles(0) = "mods/ADLIBSP.RAD"
+    radFiles(1) = "mods/ALLOYRUN.RAD"
+    radFiles(2) = "mods/CRYSTAL2.RAD"
+    radFiles(3) = "mods/HANGOVER.RAD"
+    radFiles(4) = "mods/HUBBARD.RAD"
+    radFiles(5) = "mods/NEOINTRO.RAD"
+    radFiles(6) = "mods/RASTER.RAD"
+    radFiles(7) = "mods/REVENGE.RAD"
+    radFiles(8) = "mods/SHOOT.RAD"
+    radFiles(9) = "mods/SMJOOP.RAD"
+    radFiles(10) = "mods/SP2.RAD"
+    radFiles(11) = "mods/TERRANIA.RAD"
+    radFiles(12) = "mods/WVCHILD.RAD"
+
+    DIM rIdx AS LONG
+    FOR rIdx = 0 TO 12
+        DIM radPlayer AS MODPlayer
+        TEST_REQUIRE MODPlayer_LoadFromDisk(radPlayer, radFiles(rIdx)), "Load " + radFiles(rIdx)
+        TEST_CHECK MODPlayer_GetType(radPlayer) = "RAD", "Subtype is RAD: " + radFiles(rIdx)
+        TEST_CHECK radPlayer.song.isRAD, "isRAD flag is true: " + radFiles(rIdx)
+        TEST_CHECK radPlayer.song.channels = 9, "Channel count is 9: " + radFiles(rIdx)
+        TEST_CHECK radPlayer.song.instruments > 0, "Has instruments: " + radFiles(rIdx)
+        TEST_CHECK radPlayer.song.orders > 0, "Has orders: " + radFiles(rIdx)
+        TEST_CHECK radPlayer.song.patterns > 0, "Has patterns: " + radFiles(rIdx)
+
+        MODPlayer_Play radPlayer
+        TEST_CHECK radPlayer.song.isPlaying, "Is playing: " + radFiles(rIdx)
+        DIM tickU AS LONG
+        FOR tickU = 1 TO 20
+            MODPlayer_Update radPlayer, 0.05
+        NEXT tickU
+        MODPlayer_Stop radPlayer
+        TEST_CHECK_FALSE radPlayer.song.isPlaying, "Stopped: " + radFiles(rIdx)
+        MODPlayer_Finalize radPlayer
+    NEXT rIdx
+    TEST_CASE_END
+END SUB
+
 ''' @brief Tests for multi-instance isolation and concurrent state handling.
 SUB Test_MODPlayer_MultiInstance
     TEST_CASE_BEGIN "MODPlayer: Multi-instance independent playback"
@@ -1262,6 +1387,58 @@ SUB Test_Opal_RhythmMode
         IF leftSample <> 0 _ORELSE rightSample <> 0 THEN hasSound = _TRUE
     NEXT i
     TEST_CHECK hasSound, "Rhythm mode generated sound output"
+    TEST_CASE_END
+END SUB
+
+''' @brief Tests for Opal OPL2 and OPL3 mode controls, bank aliasing rejection, and waveform gating.
+SUB Test_Opal_OPL2_OPL3_Modes
+    TEST_CASE_BEGIN "Opal: OPL2 vs OPL3 mode differentiation and bank isolation"
+    DIM chip AS Opal
+    Opal_Initialize chip, 49716
+
+    TEST_CHECK Opal_GetChipType(chip) = OPAL_CHIP_TYPE_OPL3, "Default chip type is OPL3"
+    TEST_CHECK_FALSE Opal_IsOPL3(chip), "Chip starts in OPL2 compatibility mode (newMode = 0)"
+
+    ' Write to Bank 0 operator 0 multiple = 1
+    Opal_Write chip, &H20, 1
+    TEST_CHECK chip.op(0).multiple = 1, "Bank 0 operator 0 MULT is 1"
+
+    ' While in OPL2 compatibility mode (newMode = 0), write to Bank 1 (&H120).
+    ' On real hardware, writes to Bank 1 registers (>= 0x100) must be ignored and MUST NOT overwrite Bank 0.
+    Opal_Write chip, &H120, 7
+    TEST_CHECK chip.op(0).multiple = 1, "Bank 1 write was rejected and did NOT overwrite Bank 0 operator 0"
+    TEST_CHECK chip.op(18).multiple = 0, "Bank 1 operator 18 was not modified in OPL2 mode"
+
+    ' Set strict OPL2 chip mode
+    Opal_SetChipType chip, OPAL_CHIP_TYPE_OPL2
+    TEST_CHECK Opal_GetChipType(chip) = OPAL_CHIP_TYPE_OPL2, "Chip type set to OPAL_CHIP_TYPE_OPL2"
+
+    ' In strict OPL2 mode, writes to &H105 must be rejected
+    Opal_Write chip, &H105, 1
+    TEST_CHECK_FALSE Opal_IsOPL3(chip), "Strict OPL2 mode rejects &H105 write and stays in OPL2 mode"
+
+    ' Test waveform gating by waveSelectEnable (reg 0x01 bit 5) in OPL2 mode
+    Opal_Write chip, &HE0, 2 ' Operator 0 waveform = 2
+    TEST_CHECK chip.op(0).waveform = 2, "Operator 0 waveform register set to 2"
+
+    ' Ensure waveSelectEnable is 0
+    Opal_Write chip, &H01, 0
+    TEST_CHECK chip.waveSelectEnable = 0, "waveSelectEnable is 0"
+
+    ' Set waveSelectEnable = 1
+    Opal_Write chip, &H01, &H20
+    TEST_CHECK chip.waveSelectEnable = 1, "waveSelectEnable set to 1 via reg 0x01 bit 5"
+
+    ' Switch back to OPL3 mode and activate newMode
+    Opal_SetChipType chip, OPAL_CHIP_TYPE_OPL3
+    Opal_Write chip, &H105, 1
+    TEST_CHECK Opal_IsOPL3(chip), "OPL3 mode activated via reg 0x105"
+
+    ' Now Bank 1 writes should be accepted
+    Opal_Write chip, &H120, 7
+    TEST_CHECK chip.op(18).multiple = 7, "Bank 1 operator 18 MULT is now 7 in OPL3 mode"
+    TEST_CHECK chip.op(0).multiple = 1, "Bank 0 operator 0 MULT unchanged at 1"
+
     TEST_CASE_END
 END SUB
 
@@ -2661,6 +2838,7 @@ Test_AudioAnalyzer
 Test_Opal_Lifecycle
 Test_Opal_SoundGeneration
 Test_Opal_RhythmMode
+Test_Opal_OPL2_OPL3_Modes
 Test_MODPlayer_Lifecycle
 Test_MODPlayer_MOD
 Test_MODPlayer_Startrekker_AM
@@ -2685,6 +2863,8 @@ Test_STMLoader
 Test_STM_Effects
 Test_C669Loader
 Test_C669_Effects
+Test_RADLoader
+Test_RAD_Playback
 Test_MODPlayer_MultiInstance
 Test_MODPlayer_PatternRows
 Test_MODPlayer_TypePromotions

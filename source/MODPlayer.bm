@@ -14,6 +14,7 @@ $INCLUDEONCE
 '$INCLUDE:'S3MLoader.bi'
 '$INCLUDE:'STMLoader.bi'
 '$INCLUDE:'C669Loader.bi'
+'$INCLUDE:'RADLoader.bi'
 '$INCLUDE:'MODPlayerShared.bm'
 
 ''' @brief Loads a tracker module with optional companion data (e.g. StarTrekker .mod.nt).
@@ -47,6 +48,11 @@ FUNCTION MODPlayer_LoadWithCompanion%% (player AS MODPlayer, buffer AS STRING, c
     END IF
 
     IF C669Loader_LoadFromMemory(player, buffer) THEN
+        MODPlayer_LoadWithCompanion = _TRUE
+        EXIT FUNCTION
+    END IF
+
+    IF RADLoader_LoadFromMemory(player, buffer) THEN
         MODPlayer_LoadWithCompanion = _TRUE
         EXIT FUNCTION
     END IF
@@ -102,6 +108,12 @@ FUNCTION MODPlayer_Initialize%% (player AS MODPlayer)
     IF NOT SoftSynth_Initialize(player.synth) THEN EXIT FUNCTION
 
     Opal_Initialize player.opl, SoftSynth_GetSampleRate(player.synth)
+    IF player.song.isRAD THEN
+        Opal_SetChipType player.opl, OPAL_CHIP_TYPE_OPL2
+    END IF
+    Opal_Write player.opl, &H01, &H20
+    Opal_Write player.opl, &H08, 0
+    Opal_Write player.opl, &HBD, 0
 
     __MODPlayer_InitializeSong player
 
@@ -156,6 +168,12 @@ SUB MODPlayer_Play (player AS MODPlayer)
     __MODPlayer_SetBPM player, player.song.defaultBPM
 
     Opal_Initialize player.opl, SoftSynth_GetSampleRate(player.synth)
+    IF player.song.isRAD THEN
+        Opal_SetChipType player.opl, OPAL_CHIP_TYPE_OPL2
+    END IF
+    Opal_Write player.opl, &H01, &H20
+    Opal_Write player.opl, &H08, 0
+    Opal_Write player.opl, &HBD, 0
 
     DIM channelIndex AS _UNSIGNED LONG
     IF player.song.channels > 0 THEN
@@ -179,7 +197,7 @@ SUB MODPlayer_Play (player AS MODPlayer)
             player.channel(channelIndex).delayedStartPosition = 0
             player.channel(channelIndex).patternLoopRow = 0
             player.channel(channelIndex).patternLoopRowCounter = 0
-            IF player.song.isS3M THEN
+            IF player.song.isS3M _ORELSE player.song.isRAD THEN
                 player.channel(channelIndex).channelVolume = __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
                 player.channel(channelIndex).panning = player.channel(channelIndex).defaultPanning
                 SoftSynth_SetVoiceSurround player.synth, channelIndex, _FALSE
@@ -247,6 +265,12 @@ SUB MODPlayer_Stop (player AS MODPlayer)
 
     SoftSynth_Finalize player.synth
     Opal_Initialize player.opl, SoftSynth_GetSampleRate(player.synth)
+    IF player.song.isRAD THEN
+        Opal_SetChipType player.opl, OPAL_CHIP_TYPE_OPL2
+    END IF
+    Opal_Write player.opl, &H01, &H20
+    Opal_Write player.opl, &H08, 0
+    Opal_Write player.opl, &HBD, 0
 
     player.song.isPlaying = _FALSE
 END SUB
@@ -1066,7 +1090,7 @@ SUB __MODPlayer_UpdateFMChannelTick (player AS MODPlayer, nChannel AS _UNSIGNED 
                 __MODPlayer_FMDoPortamentoDown player, nChannel, player.channel(nChannel).lastPortamento
             END IF
 
-        CASE __MODPLAYER_FX_PORTAMENTO, __MODPLAYER_FX_PORTA_VOL_FINE_SLIDE
+        CASE __MODPLAYER_FX_PORTAMENTO, __MODPLAYER_FX_PORTA_VOL_FINE_SLIDE, __MODPLAYER_FX_PORTAMENTO_VOLUME_SLIDE
             IF player.channel(nChannel).portamentoTo > 0 THEN
                 DIM curPitch AS LONG
                 curPitch = _SHL(CLNG(player.channel(nChannel).oplFNum), player.channel(nChannel).oplBlock)
@@ -1096,6 +1120,28 @@ SUB __MODPlayer_UpdateFMChannelTick (player AS MODPlayer, nChannel AS _UNSIGNED 
                 regB0Porta = _SHL(newBlock AND 7, 2) OR (_SHR(tempPitch, 8) AND 3)
                 IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_FM_MELODY _ANDALSO player.channel(nChannel).oplKeyOn THEN regB0Porta = regB0Porta OR &H20
                 Opal_Write player.opl, &HB0 + oplChan, regB0Porta
+            END IF
+            IF nEffect = __MODPLAYER_FX_PORTAMENTO_VOLUME_SLIDE _ANDALSO player.song.isRAD THEN
+                DIM radVolDelta5 AS LONG
+                IF nOperand >= 50 THEN
+                    radVolDelta5 = CLNG(nOperand) - 50
+                ELSE
+                    radVolDelta5 = -CLNG(nOperand)
+                END IF
+                player.channel(nChannel).volume = _CLAMP(CLNG(player.channel(nChannel).volume) + radVolDelta5, 0, __MODPLAYER_INSTRUMENT_VOLUME_MAX)
+                __MODPlayer_UpdateFMVolume player, nChannel
+            END IF
+
+        CASE __MODPLAYER_FX_VOLUME_SLIDE
+            IF player.song.isRAD THEN
+                DIM radVolDelta AS LONG
+                IF nOperand >= 50 THEN
+                    radVolDelta = CLNG(nOperand) - 50
+                ELSE
+                    radVolDelta = -CLNG(nOperand)
+                END IF
+                player.channel(nChannel).volume = _CLAMP(CLNG(player.channel(nChannel).volume) + radVolDelta, 0, __MODPLAYER_INSTRUMENT_VOLUME_MAX)
+                __MODPlayer_UpdateFMVolume player, nChannel
             END IF
 
         CASE __MODPLAYER_FX_VIBRATO, __MODPLAYER_FX_VIBRATO_FINE, __MODPLAYER_FX_VIBRATO_VOL_FINE_SLIDE
@@ -1198,7 +1244,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
 
         IF __MODPlayer_IsFMChannel(player.channel(nChannel).subtype) THEN
             DIM isTonePortaFM AS _BYTE
-            isTonePortaFM = (nEffect = __MODPLAYER_FX_PORTAMENTO _ORELSE nEffect = __MODPLAYER_FX_PORTA_VOL_FINE_SLIDE)
+            isTonePortaFM = (nEffect = __MODPLAYER_FX_PORTAMENTO _ORELSE nEffect = __MODPLAYER_FX_PORTA_VOL_FINE_SLIDE _ORELSE nEffect = __MODPLAYER_FX_PORTAMENTO_VOLUME_SLIDE)
             DIM isNoteDelayFM AS _BYTE
             isNoteDelayFM = (nEffect = __MODPLAYER_FX_EXT _ANDALSO nOpX = __MODPLAYER_FX_EXT_NOTE_DELAY _ANDALSO nOpY > 0)
 
@@ -1212,14 +1258,14 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                 DIM targetFNum AS _UNSIGNED INTEGER, targetBlock AS _UNSIGNED _BYTE
                 __MODPlayer_GetOPLNotePitch player, nChannel, nNote, targetFNum, targetBlock
                 IF targetFNum > 0 THEN player.channel(nChannel).portamentoTo = _SHL(CLNG(targetFNum), targetBlock)
-                IF nOperand THEN player.channel(nChannel).portamentoSpeed = nOperand
+                IF nEffect <> __MODPLAYER_FX_PORTAMENTO_VOLUME_SLIDE _ANDALSO nOperand THEN player.channel(nChannel).portamentoSpeed = nOperand
                 __MODPlayer_UpdateFMChannelRow player, nChannel, __MODPLAYER_NOTE_NONE, nInstrument, nVolume
             ELSE
                 __MODPlayer_UpdateFMChannelRow player, nChannel, nNote, nInstrument, nVolume
             END IF
 
-            ' S3M song and channel-volume effects remain meaningful on OPL rows.
-            IF player.song.isS3M THEN
+            ' S3M and RAD song and channel-volume effects remain meaningful on OPL rows.
+            IF player.song.isS3M _ORELSE player.song.isRAD THEN
                 SELECT CASE nEffect
                     CASE __MODPLAYER_FX_SPEED
                         IF nOperand THEN

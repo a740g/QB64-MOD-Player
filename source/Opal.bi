@@ -13,6 +13,10 @@ CONST OPAL_CHANNEL_COUNT = 18
 CONST OPAL_OPERATOR_COUNT = 36
 CONST OPAL_DEFAULT_GAIN! = 1.15! ' OPL mixer gain factor to align emulated FM volume with PCM sample volume
 
+' Chip types
+CONST OPAL_CHIP_TYPE_OPL2 = 0
+CONST OPAL_CHIP_TYPE_OPL3 = 1
+
 CONST OPAL_WRITEBUF_SIZE = 4096
 CONST OPAL_WRITEBUF_DELAY = 2
 
@@ -138,6 +142,7 @@ TYPE __OpalVibratoStep
 END TYPE
 
 TYPE Opal
+    chipType AS LONG
     sampleRate AS LONG
     sampleAccum AS LONG
     lastOutput(0 TO 1) AS INTEGER
