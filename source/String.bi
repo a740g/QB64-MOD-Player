@@ -5,8 +5,6 @@
 
 $INCLUDEONCE
 
-'$INCLUDE:'Asc.bi'
-
 ''' @brief Converts a C-style string (null-terminated) to a BASIC string.
 ''' @param s The C-style string to convert.
 ''' @return The converted BASIC string.
@@ -27,12 +25,13 @@ END FUNCTION
 ''' @return A string containing only printable characters with control characters replaced by spaces.
 FUNCTION String_MakePrintable$ (text AS STRING)
     DIM buffer AS STRING: buffer = text
+    DIM l AS _UNSIGNED LONG: l = LEN(buffer)
 
-    DIM AS _UNSIGNED LONG i, l: l = LEN(buffer)
-    WHILE i < l
-        i = i + 1
-        IF Asc_IsControlCharacter(ASC(buffer, i)) THEN ASC(buffer, i) = _ASC_SPACE
-    WEND
+    DIM i AS _UNSIGNED LONG
+    FOR i = 1 TO l
+        DIM c AS _UNSIGNED _BYTE: c = ASC(buffer, i)
+        IF c < _ASC_SPACE _ORELSE c = _ASC_DEL THEN ASC(buffer, i) = _ASC_SPACE
+    NEXT i
 
     String_MakePrintable = buffer
 END FUNCTION
@@ -45,41 +44,58 @@ END FUNCTION
 ''' @param tokens() Dynamic string array that receives the parsed tokens.
 ''' @return The number of tokens parsed.
 FUNCTION String_Tokenize& (text AS STRING, delims AS STRING, quoteChars AS STRING, returnDelims AS _BYTE, tokens() AS STRING)
-    IF LEN(text) = 0 THEN EXIT FUNCTION ' nothing to be done
+    DIM textLen AS LONG: textLen = LEN(text)
+    IF textLen = 0 THEN EXIT FUNCTION ' nothing to be done
 
     DIM arrIdx AS LONG: arrIdx = LBOUND(tokens) ' we'll always start from the array lower bound - whatever it is
-    DIM insideQuote AS _BYTE ' flag to track if currently inside a quote
+    IF UBOUND(tokens) < arrIdx THEN REDIM _PRESERVE tokens(arrIdx TO arrIdx + 511) AS STRING
 
-    DIM token AS STRING ' holds a token until it is ready to be added to the array
-    DIM char AS STRING * 1 ' this is a single char from text we are iterating through
+    DIM hasQuotes AS _BYTE: hasQuotes = (LEN(quoteChars) > 0)
+    DIM openQuote AS _UNSIGNED _BYTE, closeQuote AS _UNSIGNED _BYTE
+    IF hasQuotes THEN
+        openQuote = ASC(quoteChars, 1)
+        closeQuote = ASC(quoteChars, LEN(quoteChars))
+    END IF
+
+    DIM isDelim(0 TO 255) AS _BYTE
+    DIM d AS LONG
+    FOR d = 1 TO LEN(delims)
+        isDelim(ASC(delims, d)) = _TRUE
+    NEXT d
+
+    DIM insideQuote AS _BYTE ' flag to track if currently inside a quote
+    DIM tokenStart AS LONG, tokenLen AS LONG
     DIM AS LONG i, count
+    DIM c AS _UNSIGNED _BYTE
 
     ' Iterate through the characters in the text string
-    FOR i = 1 TO LEN(text)
-        char = CHR$(ASC(text, i))
+    FOR i = 1 TO textLen
+        c = ASC(text, i)
         IF insideQuote THEN
-            IF char = RIGHT$(quoteChars, 1) THEN
+            IF c = closeQuote THEN
                 ' Closing quote char encountered, resume delimiting
                 insideQuote = _FALSE
                 GOSUB add_token ' add the token to the array
                 IF returnDelims THEN GOSUB add_delim ' add the closing quote char as delimiter if required
             ELSE
-                token = token + char ' add the character to the current token
+                IF tokenStart = 0 THEN tokenStart = i
+                tokenLen = tokenLen + 1
             END IF
         ELSE
-            IF char = LEFT$(quoteChars, 1) THEN
+            IF hasQuotes _ANDALSO c = openQuote THEN
                 ' Opening quote char encountered, temporarily stop delimiting
                 insideQuote = _TRUE
                 GOSUB add_token ' add the token to the array
                 IF returnDelims THEN GOSUB add_delim ' add the opening quote char as delimiter if required
-            ELSEIF INSTR(delims, char) = 0 THEN
-                token = token + char ' add the character to the current token
-            ELSE
+            ELSEIF isDelim(c) THEN
                 GOSUB add_token ' found a delimiter, add the token to the array
                 IF returnDelims THEN GOSUB add_delim ' found a delimiter, add it to the array if required
+            ELSE
+                IF tokenStart = 0 THEN tokenStart = i
+                tokenLen = tokenLen + 1
             END IF
         END IF
-    NEXT
+    NEXT i
 
     GOSUB add_token ' add the final token if there is any
 
@@ -91,16 +107,17 @@ FUNCTION String_Tokenize& (text AS STRING, delims AS STRING, quoteChars AS STRIN
 
     ' Add the token to the array if there is any
     add_token:
-    IF LEN(token) THEN
-        tokens(arrIdx) = token ' add the token to the token array
-        token = _STR_EMPTY ' clear the current token
+    IF tokenLen > 0 THEN
+        tokens(arrIdx) = MID$(text, tokenStart, tokenLen) ' extract token slice in a single allocation
+        tokenStart = 0
+        tokenLen = 0
         GOSUB increment_counters_and_resize_array
     END IF
     RETURN
 
     ' Add delimiter to array if required
     add_delim:
-    tokens(arrIdx) = char ' add delimiter to array
+    tokens(arrIdx) = MID$(text, i, 1) ' add delimiter to array
     GOSUB increment_counters_and_resize_array
     RETURN
 

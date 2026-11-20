@@ -252,6 +252,78 @@ SUB Test_StringFile
     TEST_CASE_END
 END SUB
 
+''' @brief Tests for String.bi string manipulation and tokenization routines.
+SUB Test_String
+    TEST_CASE_BEGIN "String: String_ConvertToBStr"
+    TEST_CHECK String_ConvertToBStr("Hello" + _CHR_NUL + "World") = "Hello", "Extracts prefix before null"
+    TEST_CHECK String_ConvertToBStr(_CHR_NUL + "World") = _STR_EMPTY, "Prefix before leading null is empty"
+    TEST_CHECK String_ConvertToBStr("NoNullHere") = "NoNullHere", "Returns full string when no null is present"
+    TEST_CHECK String_ConvertToBStr(_STR_EMPTY) = _STR_EMPTY, "Empty string returns empty string"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "String: String_ConvertToCStr"
+    DIM cStrResult AS STRING
+    cStrResult = String_ConvertToCStr("Hello")
+    TEST_CHECK LEN(cStrResult) = 6, "Appended null character increases length by 1"
+    TEST_CHECK RIGHT$(cStrResult, 1) = _CHR_NUL, "Last character is null byte"
+    TEST_CHECK LEFT$(cStrResult, 5) = "Hello", "Prefix matches original string"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "String: String_MakePrintable"
+    DIM rawStr AS STRING
+    rawStr = "Track" + CHR$(0) + CHR$(1) + "Name" + CHR$(31) + "!" + CHR$(127)
+    DIM cleanStr AS STRING
+    cleanStr = String_MakePrintable(rawStr)
+    TEST_CHECK cleanStr = "Track  Name ! ", "Control characters < 32 and 127 are replaced by spaces"
+    TEST_CHECK String_MakePrintable("CleanText 123") = "CleanText 123", "Already printable text is unchanged"
+    TEST_CHECK String_MakePrintable(_STR_EMPTY) = _STR_EMPTY, "Empty string remains empty"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "String: String_Tokenize"
+    REDIM tokens(0) AS STRING
+    DIM tokCount AS LONG
+
+    ' Basic splitting
+    tokCount = String_Tokenize("alpha|beta|gamma|delta", "|", _STR_EMPTY, _FALSE, tokens())
+    TEST_CHECK tokCount = 4, "Token count is 4 for pipe-delimited list"
+    TEST_CHECK tokens(0) = "alpha", "Token 0 is 'alpha'"
+    TEST_CHECK tokens(1) = "beta", "Token 1 is 'beta'"
+    TEST_CHECK tokens(2) = "gamma", "Token 2 is 'gamma'"
+    TEST_CHECK tokens(3) = "delta", "Token 3 is 'delta'"
+
+    ' Consecutive delimiters
+    tokCount = String_Tokenize("foo,,bar", ",", _STR_EMPTY, _FALSE, tokens())
+    TEST_CHECK tokCount = 2, "Consecutive delimiters do not produce empty tokens"
+    TEST_CHECK tokens(0) = "foo", "Token 0 is 'foo'"
+    TEST_CHECK tokens(1) = "bar", "Token 1 is 'bar'"
+
+    ' Symmetric quotes
+    tokCount = String_Tokenize("'hello world', unquoted, 'another quote'", ", ", "''", _FALSE, tokens())
+    TEST_CHECK tokCount = 3, "Quote-enclosed text with spaces is preserved as single token"
+    TEST_CHECK tokens(0) = "hello world", "Token 0 is 'hello world'"
+    TEST_CHECK tokens(1) = "unquoted", "Token 1 is 'unquoted'"
+    TEST_CHECK tokens(2) = "another quote", "Token 2 is 'another quote'"
+
+    ' Asymmetric quotes (e.g. parentheses)
+    tokCount = String_Tokenize("(bracketed text) and plain", " ", "()", _FALSE, tokens())
+    TEST_CHECK tokCount = 3, "Asymmetric quotes handle opening and closing correctly"
+    TEST_CHECK tokens(0) = "bracketed text", "Token 0 is 'bracketed text'"
+    TEST_CHECK tokens(1) = "and", "Token 1 is 'and'"
+    TEST_CHECK tokens(2) = "plain", "Token 2 is 'plain'"
+
+    ' Return delimiters
+    tokCount = String_Tokenize("a+b", "+", _STR_EMPTY, _TRUE, tokens())
+    TEST_CHECK tokCount = 3, "returnDelims returns tokens and delimiter"
+    TEST_CHECK tokens(0) = "a", "Token 0 is 'a'"
+    TEST_CHECK tokens(1) = "+", "Token 1 is '+'"
+    TEST_CHECK tokens(2) = "b", "Token 2 is 'b'"
+
+    ' Empty string
+    tokCount = String_Tokenize(_STR_EMPTY, ",", _STR_EMPTY, _FALSE, tokens())
+    TEST_CHECK tokCount = 0, "Empty string returns 0 tokens"
+    TEST_CASE_END
+END SUB
+
 ''' @brief Tests for AudioAnalyzer.bi multi-instance audio spectrum analyzer.
 SUB Test_AudioAnalyzer
     TEST_CASE_BEGIN "AudioAnalyzer: Lifecycle and initialization"
@@ -1877,6 +1949,7 @@ TEST_BEGIN_ALL
 Test_AudioConv
 Test_SoftSynth
 Test_StringFile
+Test_String
 Test_AudioAnalyzer
 Test_Opal_Lifecycle
 Test_Opal_SoundGeneration
