@@ -1204,6 +1204,39 @@ SUB Test_MODPlayer_Startrekker_AM
     TEST_CHECK pSil.channel(0).amLevel = 0, "AM level is 0"
     MODPlayer_Finalize pSil
     TEST_CASE_END
+
+    TEST_CASE_BEGIN "MODPlayer: __MODPlayer_IsFMChannel predicate"
+    TEST_CHECK_FALSE __MODPlayer_IsFMChannel(__MODPLAYER_INSTRUMENT_PCM), "PCM is not FM"
+    TEST_CHECK_FALSE __MODPlayer_IsFMChannel(__MODPLAYER_INSTRUMENT_AM_SYNTH), "AM synth is not FM"
+    TEST_CHECK_FALSE __MODPlayer_IsFMChannel(__MODPLAYER_INSTRUMENT_NONE), "None is not FM"
+    TEST_CHECK __MODPlayer_IsFMChannel(__MODPLAYER_INSTRUMENT_FM_MELODY), "FM Melody is FM"
+    TEST_CHECK __MODPlayer_IsFMChannel(__MODPLAYER_INSTRUMENT_FM_BASSDRUM), "FM Bass Drum is FM"
+    TEST_CHECK __MODPlayer_IsFMChannel(__MODPLAYER_INSTRUMENT_FM_HIHAT), "FM HiHat is FM"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MODPlayer: AM tick progression and decay during playback"
+    DIM pDecay AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pDecay, "mods/amsyntdemo.mod"), "Load amsyntdemo for decay test"
+    MODPlayer_Play pDecay
+    __MODPlayer_UpdateRow pDecay
+    DIM initialStage AS _UNSIGNED _BYTE: initialStage = pDecay.channel(0).amStage
+    DIM initialLevel AS LONG: initialLevel = pDecay.channel(0).amLevel
+    DIM tickIdx AS LONG
+    FOR tickIdx = 1 TO pDecay.song.speed - 1
+        pDecay.song.tick = tickIdx
+        __MODPlayer_UpdateTick pDecay
+    NEXT tickIdx
+    pDecay.song.tick = 0
+    pDecay.song.patternRow = pDecay.song.patternRow + 1
+    __MODPlayer_UpdateRow pDecay
+    FOR tickIdx = 1 TO pDecay.song.speed - 1
+        pDecay.song.tick = tickIdx
+        __MODPlayer_UpdateTick pDecay
+    NEXT tickIdx
+    TEST_CHECK pDecay.channel(0).amLevel < initialLevel _ORELSE pDecay.channel(0).amStage > initialStage, "AM envelope progresses/decays on ticks > 0"
+    MODPlayer_Stop pDecay
+    MODPlayer_Finalize pDecay
+    TEST_CASE_END
 END SUB
 
 ''' @brief Tests for S3M order list marker filtering (254 skip markers and 255 end-of-song markers).

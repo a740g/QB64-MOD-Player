@@ -204,12 +204,12 @@ SUB MODPlayer_Play (player AS MODPlayer)
                 player.channel(channelIndex).c2Spd = 0
                 IF player.song.isStereo THEN
                     SoftSynth_SetVoiceBalance player.synth, channelIndex, player.channel(channelIndex).panning / 255! * 2! - SOFTSYNTH_VOICE_PAN_RIGHT
-                    IF player.channel(channelIndex).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY THEN
+                    IF __MODPlayer_IsFMChannel(player.channel(channelIndex).subtype) THEN
                         Opal_SetPan player.opl, player.channel(channelIndex).oplChannel, player.channel(channelIndex).panning \ 2
                     END IF
                 ELSE
                     SoftSynth_SetVoiceBalance player.synth, channelIndex, SOFTSYNTH_VOICE_PAN_CENTER
-                    IF player.channel(channelIndex).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY THEN
+                    IF __MODPlayer_IsFMChannel(player.channel(channelIndex).subtype) THEN
                         Opal_SetPan player.opl, player.channel(channelIndex).oplChannel, 64
                     END IF
                 END IF
@@ -461,6 +461,7 @@ SUB __MODPlayer_SetVoiceVolume (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE
 END SUB
 
 SUB __MODPlayer_ApplyChannelVolume (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE)
+    IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN EXIT SUB
     __MODPlayer_SetVoiceVolume player, nChannel, player.channel(nChannel).volume / __MODPLAYER_INSTRUMENT_VOLUME_MAX
 END SUB
 
@@ -472,12 +473,12 @@ SUB __MODPlayer_SetChannelPanning (player AS MODPlayer, nChannel AS _UNSIGNED _B
     SoftSynth_SetVoiceSurround player.synth, nChannel, _FALSE
     IF player.song.isStereo THEN
         SoftSynth_SetVoiceBalance player.synth, nChannel, safePan / 255! * 2! - SOFTSYNTH_VOICE_PAN_RIGHT
-        IF player.channel(nChannel).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY THEN
+        IF __MODPlayer_IsFMChannel(player.channel(nChannel).subtype) THEN
             Opal_SetPan player.opl, player.channel(nChannel).oplChannel, safePan \ 2
         END IF
     ELSE
         SoftSynth_SetVoiceBalance player.synth, nChannel, SOFTSYNTH_VOICE_PAN_CENTER
-        IF player.channel(nChannel).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY THEN
+        IF __MODPlayer_IsFMChannel(player.channel(nChannel).subtype) THEN
             Opal_SetPan player.opl, player.channel(nChannel).oplChannel, 64
         END IF
     END IF
@@ -635,11 +636,10 @@ SUB __MODPlayer_UpdateAMChannel (player AS MODPlayer, nChannel AS _UNSIGNED _BYT
     END IF
 
     DIM netPeriod AS LONG
-    netPeriod = _CLAMP(player.channel(nChannel).period + vibDelta, 113, 27392)
+    netPeriod = player.channel(nChannel).period + vibDelta
+    IF netPeriod < 1 THEN netPeriod = 1
 
-    IF netPeriod > 0 THEN
-        SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(netPeriod)
-    END IF
+    SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(netPeriod)
 END SUB
 
 SUB __MODPlayer_ProcessAMChannelTick (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE)
@@ -670,15 +670,16 @@ SUB __MODPlayer_ProcessAMChannelTick (player AS MODPlayer, nChannel AS _UNSIGNED
             __MODPlayer_TickAMEnvelope player, nChannel, 0, player.instrument(inst).am.releaseSpeed, __MODPLAYER_AM_STAGE_IDLE
             IF player.channel(nChannel).amLevel = 0 THEN
                 player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
+                player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_PCM
                 SoftSynth_StopVoice player.synth, nChannel
+                SoftSynth_SetVoiceVolume player.synth, nChannel, 0!
             END IF
     END SELECT
 
     ' Add pitchFall directly to period each tick (matches StarTrekker assembly & libxmp)
     IF player.instrument(inst).am.pitchFall <> 0 THEN
         player.channel(nChannel).period = player.channel(nChannel).period + player.instrument(inst).am.pitchFall
-        IF player.channel(nChannel).period < 113 THEN player.channel(nChannel).period = 113
-        IF player.channel(nChannel).period > 27392 THEN player.channel(nChannel).period = 27392
+        IF player.channel(nChannel).period < 1 THEN player.channel(nChannel).period = 1
     END IF
 
     ' Advance vibrato phase
@@ -1183,7 +1184,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
         nOpY = nOperand AND &HF
         noFrequency = _FALSE
 
-        IF player.channel(nChannel).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY THEN
+        IF __MODPlayer_IsFMChannel(player.channel(nChannel).subtype) THEN
             DIM isTonePortaFM AS _BYTE
             isTonePortaFM = (nEffect = __MODPLAYER_FX_PORTAMENTO _ORELSE nEffect = __MODPLAYER_FX_PORTA_VOL_FINE_SLIDE)
             DIM isNoteDelayFM AS _BYTE
@@ -1418,6 +1419,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                     IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH _ORELSE player.instrument(player.channel(nChannel).instrument).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
                         player.channel(nChannel).amLevel = 0
                         player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
+                        player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_PCM
                         SoftSynth_StopVoice player.synth, nChannel
                         SoftSynth_SetVoiceVolume player.synth, nChannel, 0!
                     END IF
@@ -1466,6 +1468,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
             IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
                 player.channel(nChannel).amLevel = 0
                 player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
+                player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_PCM
                 SoftSynth_StopVoice player.synth, nChannel
                 SoftSynth_SetVoiceVolume player.synth, nChannel, 0!
             END IF
@@ -1485,6 +1488,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                     IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH _ORELSE player.instrument(player.channel(nChannel).instrument).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
                         player.channel(nChannel).amLevel = 0
                         player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
+                        player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_PCM
                         SoftSynth_StopVoice player.synth, nChannel
                         SoftSynth_SetVoiceVolume player.synth, nChannel, 0!
                     END IF
@@ -1497,6 +1501,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                     IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH _ORELSE player.instrument(player.channel(nChannel).instrument).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
                         player.channel(nChannel).amLevel = 0
                         player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
+                        player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_PCM
                         SoftSynth_StopVoice player.synth, nChannel
                         SoftSynth_SetVoiceVolume player.synth, nChannel, 0!
                     END IF
@@ -1815,15 +1820,12 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
     NEXT
 
     ' Now play all samples that needs to be played
-    FOR nChannel = 0 TO player.song.activeChannels
+    FOR nChannel = 0 TO player.song.channels - 1
         IF player.channel(nChannel).restart THEN
             __MODPlayer_PlayPCMChannelVoice player, nChannel
         ELSE
-            DIM amSustainIdx AS LONG: amSustainIdx = player.channel(nChannel).instrument
-            IF amSustainIdx >= 0 _ANDALSO amSustainIdx < player.song.instruments THEN
-                IF player.instrument(amSustainIdx).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
-                    __MODPlayer_ProcessAMChannelTick player, nChannel
-                END IF
+            IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
+                __MODPlayer_ProcessAMChannelTick player, nChannel
             END IF
         END IF
     NEXT
@@ -1836,7 +1838,7 @@ SUB __MODPlayer_UpdateTick (player AS MODPlayer)
 
     ' Process all channels
     FOR nChannel = 0 TO player.song.channels - 1
-        IF player.channel(nChannel).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY THEN
+        IF __MODPlayer_IsFMChannel(player.channel(nChannel).subtype) THEN
             nVolume = player.pattern(player.song.tickPattern).note(player.song.tickPatternRow, nChannel).volume
             nEffect = player.pattern(player.song.tickPattern).note(player.song.tickPatternRow, nChannel).effect
             nOperand = player.pattern(player.song.tickPattern).note(player.song.tickPatternRow, nChannel).operand
@@ -2170,11 +2172,8 @@ SUB __MODPlayer_UpdateTick (player AS MODPlayer)
             END IF
         END IF
 
-        DIM amInstIdx AS LONG: amInstIdx = player.channel(nChannel).instrument
-        IF amInstIdx >= 0 _ANDALSO amInstIdx < player.song.instruments THEN
-            IF player.instrument(amInstIdx).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
-                __MODPlayer_ProcessAMChannelTick player, nChannel
-            END IF
+        IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
+            __MODPlayer_ProcessAMChannelTick player, nChannel
         END IF
     NEXT
 END SUB

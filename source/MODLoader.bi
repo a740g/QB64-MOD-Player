@@ -66,29 +66,32 @@ END FUNCTION
 ''' @param chunk 120-byte instrument block string.
 ''' @param inst Target instrument structure to populate.
 SUB __MODPlayer_ParseAMInstrument (chunk AS STRING, inst AS __MODPlayerInstrument)
-    IF LEN(chunk) < 36 THEN EXIT SUB
+    IF LEN(chunk) < 22 THEN EXIT SUB
     IF LEFT$(chunk, 2) <> "AM" THEN EXIT SUB
 
+    DIM paddedChunk AS STRING: paddedChunk = chunk
+    IF LEN(paddedChunk) < 36 THEN paddedChunk = paddedChunk + STRING$(36 - LEN(paddedChunk), 0)
+
     inst.am.isAM = _TRUE
-    inst.am.startLevel = _SHL(ASC(chunk, 7), 8) OR ASC(chunk, 8)
-    inst.am.attack1Level = _SHL(ASC(chunk, 9), 8) OR ASC(chunk, 10)
-    inst.am.attack1Speed = _SHL(ASC(chunk, 11), 8) OR ASC(chunk, 12)
-    inst.am.attack2Level = _SHL(ASC(chunk, 13), 8) OR ASC(chunk, 14)
-    inst.am.attack2Speed = _SHL(ASC(chunk, 15), 8) OR ASC(chunk, 16)
-    inst.am.sustainLevel = _SHL(ASC(chunk, 17), 8) OR ASC(chunk, 18)
-    inst.am.decaySpeed = _SHL(ASC(chunk, 19), 8) OR ASC(chunk, 20)
-    inst.am.sustainTime = _SHL(ASC(chunk, 21), 8) OR ASC(chunk, 22)
-    inst.am.releaseSpeed = _SHL(ASC(chunk, 25), 8) OR ASC(chunk, 26)
-    inst.am.waveform = _SHL(ASC(chunk, 27), 8) OR ASC(chunk, 28)
+    inst.am.startLevel = _SHL(ASC(paddedChunk, 7), 8) OR ASC(paddedChunk, 8)
+    inst.am.attack1Level = _SHL(ASC(paddedChunk, 9), 8) OR ASC(paddedChunk, 10)
+    inst.am.attack1Speed = _SHL(ASC(paddedChunk, 11), 8) OR ASC(paddedChunk, 12)
+    inst.am.attack2Level = _SHL(ASC(paddedChunk, 13), 8) OR ASC(paddedChunk, 14)
+    inst.am.attack2Speed = _SHL(ASC(paddedChunk, 15), 8) OR ASC(paddedChunk, 16)
+    inst.am.sustainLevel = _SHL(ASC(paddedChunk, 17), 8) OR ASC(paddedChunk, 18)
+    inst.am.decaySpeed = _SHL(ASC(paddedChunk, 19), 8) OR ASC(paddedChunk, 20)
+    inst.am.sustainTime = _SHL(ASC(paddedChunk, 21), 8) OR ASC(paddedChunk, 22)
+    inst.am.releaseSpeed = _SHL(ASC(paddedChunk, 25), 8) OR ASC(paddedChunk, 26)
+    inst.am.waveform = _SHL(ASC(paddedChunk, 27), 8) OR ASC(paddedChunk, 28)
 
     DIM rawPF AS LONG
-    rawPF = _SHL(ASC(chunk, 29), 8) OR ASC(chunk, 30)
+    rawPF = _SHL(ASC(paddedChunk, 29), 8) OR ASC(paddedChunk, 30)
     IF rawPF >= 32768 THEN rawPF = rawPF - 65536
     inst.am.pitchFall = rawPF
 
-    inst.am.vibAmp = _SHL(ASC(chunk, 31), 8) OR ASC(chunk, 32)
-    inst.am.vibSpeed = _SHL(ASC(chunk, 33), 8) OR ASC(chunk, 34)
-    inst.am.octave = _SHL(ASC(chunk, 35), 8) OR ASC(chunk, 36)
+    inst.am.vibAmp = _SHL(ASC(paddedChunk, 31), 8) OR ASC(paddedChunk, 32)
+    inst.am.vibSpeed = _SHL(ASC(paddedChunk, 33), 8) OR ASC(paddedChunk, 34)
+    inst.am.octave = _SHL(ASC(paddedChunk, 35), 8) OR ASC(paddedChunk, 36)
 END SUB
 
 ''' @brief Parses and loads a ProTracker or compatible MOD module with optional companion AM synth data.
@@ -381,7 +384,7 @@ FUNCTION MODLoader_LoadWithCompanion%% (player AS MODPlayer, buffer AS STRING, c
         IF compMagic = "ST1.2 ModuleINFO" _ORELSE compMagic = "ST1.3 ModuleINFO" _ORELSE compMagic = "AudioSculpture10" THEN
             FOR sIdx = 0 TO player.song.instruments - 1
                 DIM chunkOffset AS LONG: chunkOffset = 144 + sIdx * 120 + 1
-                IF chunkOffset + 119 <= LEN(companionBuffer) THEN
+                IF chunkOffset + 21 <= LEN(companionBuffer) THEN
                     DIM instChunk AS STRING: instChunk = MID$(companionBuffer, chunkOffset, 120)
                     IF LEFT$(instChunk, 2) = "AM" THEN
                         __MODPlayer_ParseAMInstrument instChunk, player.instrument(sIdx)

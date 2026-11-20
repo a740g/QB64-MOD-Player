@@ -312,7 +312,7 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
                     player.channel(i).panning = (byte1 AND 15) * 17
                     player.channel(i).defaultPanning = player.channel(i).panning
                     SoftSynth_SetVoiceBalance player.synth, i, player.channel(i).panning / 255! * 2! - SOFTSYNTH_VOICE_PAN_RIGHT
-                    IF player.channel(i).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY THEN
+                    IF __MODPlayer_IsFMChannel(player.channel(i).subtype) THEN
                         Opal_SetPan player.opl, player.channel(i).oplChannel, player.channel(i).panning \ 2
                     END IF
                     '_ECHO "Channel " + STR$(i) + " panning =" + STR$(SoftSynth_GetVoiceBalance(i))
@@ -327,7 +327,7 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
             player.channel(i).panning = 128
             player.channel(i).defaultPanning = 128
             SoftSynth_SetVoiceBalance player.synth, i, 0!
-            IF player.channel(i).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY THEN
+            IF __MODPlayer_IsFMChannel(player.channel(i).subtype) THEN
                 Opal_SetPan player.opl, player.channel(i).oplChannel, 64
             END IF
             '_ECHO "Channel " + STR$(i) + " panning =" + STR$(SoftSynth_GetVoiceBalance(i))
