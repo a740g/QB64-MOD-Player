@@ -20,6 +20,7 @@ $LET TEST_CONSOLE_ONLY = TRUE
 '$INCLUDE:'../source/FARLoader.bi'
 '$INCLUDE:'../source/Vector2f.bi'
 '$INCLUDE:'../source/Vector3f.bi'
+'$INCLUDE:'../source/Background.bi'
 
 ''' @brief Tests for AudioConv.bi audio conversion functions.
 SUB Test_AudioConv
@@ -2089,6 +2090,55 @@ SUB Test_Vector3f
     TEST_CASE_END
 END SUB
 
+''' @brief Tests for Background.bi starfield and snake animation logic.
+SUB Test_Background
+    TEST_CASE_BEGIN "Background: Starfield initialization"
+    DIM sf AS BackgroundStarfield
+    Background_InitializeStars sf, 64
+    TEST_CHECK sf.count = 64, "Starfield count is 64"
+    TEST_CHECK sf.stars(1).p.z = 4096!, "Star 1 initialized with z depth 4096"
+    TEST_CHECK sf.stars(1).c >= 9 AND sf.stars(1).c <= 15, "Star 1 has valid color [9..15]"
+    TEST_CHECK sf.stars(64).p.z = 4096!, "Last star initialized with z depth 4096"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Background: Snakes initialization"
+    DIM sn AS BackgroundSnakes
+    Background_InitializeSnakes sn, 24
+    TEST_CHECK sn.count = 24, "Snakes count is 24"
+    TEST_CHECK sn.snakes(1).speed >= 0.2! AND sn.snakes(1).speed <= 0.6!, "Snake 1 speed in [0.2..0.6]"
+    TEST_CHECK sn.snakes(1).c >= 1 AND sn.snakes(1).c <= 8, "Snake 1 color in [1..8]"
+    DIM lSq AS SINGLE: lSq = Vector2f_LengthSquared(sn.snakes(1).direction)
+    TEST_CHECK ABS(lSq - 1!) < 0.001!, "Snake 1 direction is unit vector"
+    TEST_CHECK LEN(sn.snakes(1).p) >= 10, "Snake 1 body buffer has valid length"
+
+    ' Ensure initial spawn heads are not overlapping
+    DIM overlaps AS LONG: overlaps = 0
+    DIM i AS LONG, j AS LONG
+    FOR i = 1 TO sn.count - 1
+        DIM hx AS LONG: hx = ASC(sn.snakes(i).p, 1)
+        DIM hy AS LONG: hy = ASC(sn.snakes(i).p, 2)
+        FOR j = i + 1 TO sn.count
+            IF hx = ASC(sn.snakes(j).p, 1) AND hy = ASC(sn.snakes(j).p, 2) THEN
+                overlaps = overlaps + 1
+            END IF
+        NEXT j
+    NEXT i
+    TEST_CHECK overlaps = 0, "Initial snake head placements have zero overlaps"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Background: Unified context management"
+    DIM bg AS Background
+    Background_Initialize bg
+    TEST_CHECK bg.starfield.count = BACKGROUND_STAR_COUNT, "Default starfield count allocated"
+    TEST_CHECK bg.snakes.count = BACKGROUND_SNAKE_COUNT, "Default snakes count allocated"
+    TEST_CHECK bg.mode = BACKGROUND_MODE_STARS, "Default mode is stars"
+    Background_UpdateAndDraw bg, 1!
+    bg.mode = BACKGROUND_MODE_SNAKES
+    Background_UpdateAndDraw bg, 1!
+    TEST_CHECK bg.snakes.gridW > 0 AND bg.snakes.gridH > 0, "Snakes grid resized dynamically"
+    TEST_CASE_END
+END SUB
+
 IF _DIREXISTS("../mods") THEN CHDIR ".."
 
 ' Run all test suites
@@ -2096,6 +2146,7 @@ TEST_BEGIN_ALL
 
 Test_Vector2f
 Test_Vector3f
+Test_Background
 Test_AudioConv
 Test_SoftSynth
 Test_StringFile

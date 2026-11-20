@@ -32,6 +32,7 @@ $COLOR:0
 '$INCLUDE:'File.bi'
 '$INCLUDE:'Vector2f.bi'
 '$INCLUDE:'Vector3f.bi'
+'$INCLUDE:'Background.bi'
 '$INCLUDE:'AudioAnalyzer.bi'
 '$INCLUDE:'MODPlayer.bi'
 '$INCLUDE:'MODPlayer.bm'
@@ -53,9 +54,6 @@ CONST APP_EVENT_LOAD%% = 3%% ' user want to load files
 CONST APP_EVENT_DROP%% = 4%% ' user dropped files
 CONST APP_EVENT_PLAY%% = 5%% ' play next song
 CONST APP_EVENT_HTTP%% = 6%% ' Downloads and plays random MODs from modarchive.org
-' Background constants
-CONST STAR_COUNT& = 256& ' the maximum stars that we can show
-CONST SNAKE_COUNT& = 48& ' the maximum snakes we can draw on the screen
 ' Keyboard constants
 CONST KEY_SPACE& = _ASC_SPACE
 CONST KEY_PLUS& = _ASC_PLUS
@@ -64,21 +62,6 @@ CONST KEY_MINUS& = _ASC_MINUS
 CONST KEY_UNDERSCORE& = _ASC_UNDERSCORE
 CONST KEY_UPPER_L& = ASC_UPPER_L
 CONST KEY_LOWER_L& = ASC_LOWER_L
-
-TYPE Star
-    p AS Vector3f ' position
-    a AS SINGLE ' angle
-    c AS _UNSIGNED LONG ' color
-END TYPE
-
-TYPE Snake
-    p AS STRING ' position buffer (x = 1 byte, y = 1 byte)
-    position AS Vector2f ' continuous sub-character position
-    direction AS Vector2f ' continuous direction unit vector
-    turnRate AS SINGLE ' angular velocity (radians per frame)
-    speed AS SINGLE ' speed in characters per frame
-    c AS _UNSIGNED LONG ' color
-END TYPE
 
 TYPE Size
     x AS LONG
@@ -99,8 +82,7 @@ DIM PatternDisplayWidth AS LONG ' the width of the pattern display in characters
 DIM FFT AS FFTInfo ' global FFT info
 DIM AnalyzerL AS AudioAnalyzer, AnalyzerR AS AudioAnalyzer ' left & right audio analyzers
 REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0), SpectrumAnalyzerR(0) ' left & right channel FFT data
-DIM Stars(1 TO STAR_COUNT) AS Star
-DIM Snakes(1 TO SNAKE_COUNT) AS Snake
+DIM Bg AS Background
 DIM Player AS MODPlayer
 DIM InstrumentScrollOffset AS LONG ' current scroll offset in instrument list
 
@@ -551,8 +533,9 @@ SUB UI_RenderTitleScreen (img AS LONG, s AS STRING)
 END SUB
 
 ''' @brief Runs the interactive welcome screen event loop.
+''' @param bg Background animation context.
 ''' @return Next application event code.
-FUNCTION App_OnWelcomeScreen%%
+FUNCTION App_OnWelcomeScreen%% (bg AS Background)
     ' Welcome ANSI (144 x 90 chars)
     CONST SIZE_QB64MODPLAYER_ANS_15162& = 15162&
     CONST DATA_QB64MODPLAYER_ANS_15162 = _
@@ -568,15 +551,12 @@ FUNCTION App_OnWelcomeScreen%%
         "sZVyFTBPN4ldofCbxO4ESkhr+5uDNmx8XW+3R9AZr4PTKal1pjqlYXEE48neer/b24R7X++D+Tzcag+gMh62Nx5BPpsvwJKYpzWsGIbEAc1mL1DD" + _
         "jJh1WT4etRvjQQfOhKPO5bKFH/tiycDAyDiBIYoBBJiZPZ18FcLcHU0NGJABAJPUQiY="
 
-    SHARED Stars() AS Star
-    SHARED Snakes() AS Snake
-
     ' Load the ANSI art data and render it to a text surface
     DIM titlePage AS LONG: titlePage = _NEWIMAGE(UI_TEXT_WIDTH_MIN, UI_TEXT_LINE_MAX, 0)
     UI_RenderTitleScreen titlePage, _INFLATE$(_BASE64DECODE$(DATA_QB64MODPLAYER_ANS_15162), SIZE_QB64MODPLAYER_ANS_15162)
     _CLEARCOLOR _ASC_SPACE + _SHL(White, 8), titlePage ' Set all blank cells to be transparent
 
-    DIM bgType AS LONG: bgType = Math_GetRandomBetween(0, 1)
+    bg.mode = Math_GetRandomBetween(0, BACKGROUND_MODE_MAX)
 
     DIM e AS _BYTE: e = APP_EVENT_NONE
 
@@ -584,13 +564,7 @@ FUNCTION App_OnWelcomeScreen%%
         CLS , Black ' Clear the framebuffer to black color
 
         ' Draw the background
-        SELECT CASE bgType
-            CASE 1
-                Snake_UpdateAndDraw Snakes()
-
-            CASE ELSE
-                Star_UpdateAndDraw Stars(), 1!
-        END SELECT
+        Background_UpdateAndDraw bg
 
         _PUTIMAGE , titlePage
 
@@ -946,368 +920,6 @@ SUB App_QuickSave (buffer AS STRING, url AS STRING)
     END IF
 END SUB
 
-''' @brief Initializes star positions and colors for background starfield effect.
-''' @param stars() Array of Star structures to initialize.
-SUB Star_InitializeAll (stars() AS Star)
-    CONST Z_DIVIDER = 4096!
-
-    DIM L AS LONG: L = LBOUND(stars)
-    DIM U AS LONG: U = UBOUND(stars)
-    DIM W AS LONG: W = _WIDTH
-    DIM H AS LONG: H = _HEIGHT
-
-    DIM i AS LONG
-    FOR i = L TO U
-        stars(i).p.x = Math_GetRandomBetween(1, W)
-        stars(i).p.y = Math_GetRandomBetween(1, H)
-        stars(i).p.z = Z_DIVIDER
-        stars(i).c = Math_GetRandomBetween(9, 15)
-    NEXT i
-END SUB
-
-''' @brief Updates starfield positions and renders stars on screen.
-''' @param stars() Array of Star structures.
-''' @param speed Forward star travel speed.
-SUB Star_UpdateAndDraw (stars() AS Star, speed AS SINGLE)
-    CONST Z_DIVIDER = 4096!
-    CONST STAR_249 = CHR$(249)
-    CONST STAR_7 = CHR$(7)
-    CONST STAR_43 = CHR$(43)
-    CONST STAR_120 = CHR$(120)
-    CONST STAR_42 = CHR$(42)
-
-    DIM L AS LONG: L = LBOUND(stars)
-    DIM U AS LONG: U = UBOUND(stars)
-    DIM W AS LONG: W = _WIDTH
-    DIM H AS LONG: H = _HEIGHT
-    DIM W_Half AS LONG: W_Half = W \ 2
-    DIM H_Half AS LONG: H_Half = H \ 2
-
-    DIM i AS LONG
-    FOR i = L TO U
-        IF stars(i).p.x < 1 _ORELSE _CAST(LONG, stars(i).p.x) > W _ORELSE stars(i).p.y < 1 _ORELSE _CAST(LONG, stars(i).p.y) > H THEN
-            stars(i).p.x = Math_GetRandomBetween(1, W)
-            stars(i).p.y = Math_GetRandomBetween(1, H)
-            stars(i).p.z = Z_DIVIDER
-            stars(i).c = Math_GetRandomBetween(9, 15)
-        END IF
-
-        COLOR stars(i).c, Black
-
-        SELECT CASE stars(i).p.z
-            CASE IS < 4119!
-                _PRINTSTRING (stars(i).p.x, stars(i).p.y), STAR_249
-
-            CASE IS < 4149!
-                _PRINTSTRING (stars(i).p.x, stars(i).p.y), STAR_7
-
-            CASE IS < 4166!
-                _PRINTSTRING (stars(i).p.x, stars(i).p.y), STAR_43
-
-            CASE IS < 4190!
-                _PRINTSTRING (stars(i).p.x, stars(i).p.y), STAR_120
-
-            CASE ELSE
-                _PRINTSTRING (stars(i).p.x, stars(i).p.y), STAR_42
-
-        END SELECT
-
-        stars(i).p.z = stars(i).p.z + speed
-        stars(i).a = stars(i).a + 0.01!
-        DIM zd AS SINGLE: zd = stars(i).p.z / Z_DIVIDER
-        stars(i).p.x = ((stars(i).p.x - W_Half) * zd) + W_Half + COS(stars(i).a * 0.5!) * 0.5!
-        stars(i).p.y = ((stars(i).p.y - H_Half) * zd) + H_Half + SIN(stars(i).a * 1.5!) * 0.5!
-    NEXT i
-END SUB
-
-''' @brief Initializes bouncing snake positions and colors with collision-free placement.
-''' @param snakes() Array of Snake structures to initialize.
-SUB Snake_InitializeAll (snakes() AS Snake)
-    CONST SNAKE_SIZE_MIN = 5
-    CONST SNAKE_SIZE_MAX = 30
-
-    DIM L AS LONG: L = LBOUND(snakes)
-    DIM U AS LONG: U = UBOUND(snakes)
-    DIM W AS LONG: W = _WIDTH
-    DIM H AS LONG: H = _HEIGHT
-
-    REDIM spawnGrid(1 TO W, 1 TO H) AS _BYTE
-
-    DIM i AS LONG
-    FOR i = L TO U
-        snakes(i).p = SPACE$(Math_GetRandomBetween(SNAKE_SIZE_MIN, SNAKE_SIZE_MAX) * 2)
-        snakes(i).speed = 0.2! + RND * 0.4!
-        snakes(i).c = Math_GetRandomBetween(1, 8)
-        DIM angle AS SINGLE: angle = RND * _PI(2!)
-        Vector2f_FromAngle angle, 1!, snakes(i).direction
-        snakes(i).turnRate = 0!
-
-        ' Find a spawn position not occupied by another snake
-        DIM x AS LONG, y AS LONG, tries AS LONG
-        DO
-            x = Math_GetRandomBetween(2, W - 1)
-            y = Math_GetRandomBetween(2, H - 1)
-            tries = tries + 1
-        LOOP WHILE spawnGrid(x, y) <> 0 AND tries < 500
-        spawnGrid(x, y) = 1
-
-        Vector2f_Initialize CSNG(x), CSNG(y), snakes(i).position
-
-        DIM size AS LONG: size = LEN(snakes(i).p)
-        DIM j AS LONG
-        FOR j = 1 TO size STEP 2
-            ASC(snakes(i).p, j) = x
-            ASC(snakes(i).p, j + 1) = y
-        NEXT j
-    NEXT i
-END SUB
-
-''' @brief Updates snake segments with collision detection/avoidance and renders bouncing snakes on screen.
-''' @param snakes() Array of Snake structures.
-SUB Snake_UpdateAndDraw (snakes() AS Snake)
-    CONST SNAKE_HEAD = CHR$(15)
-    CONST SNAKE_BODY = CHR$(254)
-
-    DIM L AS LONG: L = LBOUND(snakes)
-    DIM U AS LONG: U = UBOUND(snakes)
-    DIM W AS LONG: W = _WIDTH
-    DIM H AS LONG: H = _HEIGHT
-
-    STATIC grid() AS _BYTE, gridW AS LONG, gridH AS LONG
-    IF W <> gridW _ORELSE H <> gridH THEN
-        gridW = W: gridH = H
-        REDIM grid(1 TO W, 1 TO H) AS _BYTE
-    END IF
-
-    ' Clear occupancy grid
-    DIM mema AS _MEM: mema = _MEM(grid())
-    _MEMFILL mema, mema.OFFSET, mema.SIZE, 0%% AS _BYTE
-    _MEMFREE mema
-
-    ' Populate occupancy grid with all current snake segments
-    DIM i AS LONG
-    FOR i = L TO U
-        DIM pLen AS LONG: pLen = LEN(snakes(i).p)
-        DIM j AS LONG
-        FOR j = 1 TO pLen STEP 2
-            DIM sx AS LONG: sx = ASC(snakes(i).p, j)
-            DIM sy AS LONG: sy = ASC(snakes(i).p, j + 1)
-            IF sx >= 1 _ANDALSO sx <= W _ANDALSO sy >= 1 _ANDALSO sy <= H THEN
-                grid(sx, sy) = i
-            END IF
-        NEXT j
-    NEXT i
-
-    ' Head-to-head proximity deflection
-    FOR i = L TO U - 1
-        FOR j = i + 1 TO U
-            DIM dSq AS SINGLE
-            dSq = Vector2f_DistanceSquared(snakes(i).position, snakes(j).position)
-            IF dSq < 4.0! THEN
-                DIM rep AS Vector2f
-                Vector2f_Subtract snakes(i).position, snakes(j).position, rep
-                IF Vector2f_IsNull(rep) THEN
-                    Vector2f_Set (RND - 0.5!), (RND - 0.5!), rep
-                END IF
-                Vector2f_Normalize rep, rep
-                snakes(i).direction = rep
-                Vector2f_Negate rep, snakes(j).direction
-                snakes(i).turnRate = (RND - 0.5!) * 0.2!
-                snakes(j).turnRate = (RND - 0.5!) * 0.2!
-            END IF
-        NEXT j
-    NEXT i
-
-    ' Update each snake
-    FOR i = L TO U
-        ' Probe ahead for obstacles (walls or other snakes)
-        DIM lookDist AS SINGLE: lookDist = 2.0!
-        DIM aheadX AS SINGLE: aheadX = snakes(i).position.x + snakes(i).direction.x * lookDist
-        DIM aheadY AS SINGLE: aheadY = snakes(i).position.y + snakes(i).direction.y * lookDist
-        DIM ax AS LONG: ax = _CLAMP(CINT(aheadX), 1, W)
-        DIM ay AS LONG: ay = _CLAMP(CINT(aheadY), 1, H)
-
-        DIM aheadBlocked AS _BYTE
-        aheadBlocked = (aheadX < 1.5! _ORELSE aheadX > CSNG(W) - 0.5! _ORELSE aheadY < 1.5! _ORELSE aheadY > CSNG(H) - 0.5!)
-        IF NOT aheadBlocked THEN
-            IF grid(ax, ay) <> 0 _ANDALSO grid(ax, ay) <> i THEN aheadBlocked = _TRUE
-        END IF
-
-        IF aheadBlocked THEN
-            ' Evaluate left (+60 deg) and right (-60 deg) alternatives
-            DIM leftDir AS Vector2f, rightDir AS Vector2f
-            Vector2f_Rotate snakes(i).direction, 1.047!, leftDir
-            Vector2f_Rotate snakes(i).direction, -1.047!, rightDir
-
-            DIM lx AS LONG: lx = _CLAMP(CINT(snakes(i).position.x + leftDir.x * lookDist), 1, W)
-            DIM ly AS LONG: ly = _CLAMP(CINT(snakes(i).position.y + leftDir.y * lookDist), 1, H)
-            DIM leftBlocked AS _BYTE
-            leftBlocked = (lx <= 1 _ORELSE lx >= W _ORELSE ly <= 1 _ORELSE ly >= H)
-            IF NOT leftBlocked THEN
-                IF grid(lx, ly) <> 0 _ANDALSO grid(lx, ly) <> i THEN leftBlocked = _TRUE
-            END IF
-
-            DIM rx AS LONG: rx = _CLAMP(CINT(snakes(i).position.x + rightDir.x * lookDist), 1, W)
-            DIM ry AS LONG: ry = _CLAMP(CINT(snakes(i).position.y + rightDir.y * lookDist), 1, H)
-            DIM rightBlocked AS _BYTE
-            rightBlocked = (rx <= 1 _ORELSE rx >= W _ORELSE ry <= 1 _ORELSE ry >= H)
-            IF NOT rightBlocked THEN
-                IF grid(rx, ry) <> 0 _ANDALSO grid(rx, ry) <> i THEN rightBlocked = _TRUE
-            END IF
-
-            IF NOT leftBlocked _ANDALSO rightBlocked THEN
-                snakes(i).turnRate = 0.25!
-            ELSEIF NOT rightBlocked _ANDALSO leftBlocked THEN
-                snakes(i).turnRate = -0.25!
-            ELSEIF NOT leftBlocked _ANDALSO NOT rightBlocked THEN
-                IF snakes(i).turnRate >= 0! THEN snakes(i).turnRate = 0.25! ELSE snakes(i).turnRate = -0.25!
-            ELSE
-                Vector2f_Rotate snakes(i).direction, _PI * 0.75!, snakes(i).direction
-                snakes(i).turnRate = (RND - 0.5!) * 0.2!
-            END IF
-        ELSE
-            ' Free wandering steering
-            DIM r AS SINGLE: r = RND
-            IF r < 0.04! THEN
-                snakes(i).turnRate = (RND - 0.5!) * 0.12!
-            ELSEIF r < 0.08! THEN
-                snakes(i).turnRate = 0!
-            END IF
-        END IF
-
-        ' Rotate direction vector smoothly
-        IF snakes(i).turnRate <> 0! THEN
-            Vector2f_Rotate snakes(i).direction, snakes(i).turnRate, snakes(i).direction
-            Vector2f_Normalize snakes(i).direction, snakes(i).direction
-        END IF
-
-        ' Compute next continuous position
-        DIM nextX AS SINGLE: nextX = snakes(i).position.x + snakes(i).direction.x * snakes(i).speed
-        DIM nextY AS SINGLE: nextY = snakes(i).position.y + snakes(i).direction.y * snakes(i).speed
-
-        ' Screen border bounces
-        IF nextX < 1! THEN
-            Vector2f_FlipHorizontal snakes(i).direction, snakes(i).direction
-            nextX = 1!
-            snakes(i).turnRate = -snakes(i).turnRate
-        ELSEIF nextX > CSNG(W) THEN
-            Vector2f_FlipHorizontal snakes(i).direction, snakes(i).direction
-            nextX = CSNG(W)
-            snakes(i).turnRate = -snakes(i).turnRate
-        END IF
-
-        IF nextY < 1! THEN
-            Vector2f_FlipVertical snakes(i).direction, snakes(i).direction
-            nextY = 1!
-            snakes(i).turnRate = -snakes(i).turnRate
-        ELSEIF nextY > CSNG(H) THEN
-            Vector2f_FlipVertical snakes(i).direction, snakes(i).direction
-            nextY = CSNG(H)
-            snakes(i).turnRate = -snakes(i).turnRate
-        END IF
-
-        ' Hard collision prevention: ensure target cell is not occupied by another snake
-        DIM targetCellX AS LONG: targetCellX = _CLAMP(CINT(nextX), 1, W)
-        DIM targetCellY AS LONG: targetCellY = _CLAMP(CINT(nextY), 1, H)
-
-        IF grid(targetCellX, targetCellY) <> 0 _ANDALSO grid(targetCellX, targetCellY) <> i THEN
-            DIM foundEscape AS _BYTE: foundEscape = _FALSE
-            DIM testIdx AS LONG
-            FOR testIdx = 1 TO 5
-                DIM testAngle AS SINGLE
-                SELECT CASE testIdx
-                    CASE 1: testAngle = 1.570796!   ' +90 deg
-                    CASE 2: testAngle = -1.570796!  ' -90 deg
-                    CASE 3: testAngle = 2.356194!   ' +135 deg
-                    CASE 4: testAngle = -2.356194!  ' -135 deg
-                    CASE 5: testAngle = 3.141593!   ' 180 deg
-                END SELECT
-
-                DIM candDir AS Vector2f
-                Vector2f_Rotate snakes(i).direction, testAngle, candDir
-                Vector2f_Normalize candDir, candDir
-
-                DIM candX AS SINGLE: candX = snakes(i).position.x + candDir.x * snakes(i).speed
-                DIM candY AS SINGLE: candY = snakes(i).position.y + candDir.y * snakes(i).speed
-                DIM candCellX AS LONG: candCellX = _CLAMP(CINT(candX), 1, W)
-                DIM candCellY AS LONG: candCellY = _CLAMP(CINT(candY), 1, H)
-
-                IF candX >= 1! _ANDALSO candX <= CSNG(W) _ANDALSO candY >= 1! _ANDALSO candY <= CSNG(H) THEN
-                    IF grid(candCellX, candCellY) = 0 _ORELSE grid(candCellX, candCellY) = i THEN
-                        snakes(i).direction = candDir
-                        snakes(i).turnRate = testAngle * 0.1!
-                        nextX = candX
-                        nextY = candY
-                        targetCellX = candCellX
-                        targetCellY = candCellY
-                        foundEscape = _TRUE
-                        EXIT FOR
-                    END IF
-                END IF
-            NEXT testIdx
-
-            IF NOT foundEscape THEN
-                nextX = snakes(i).position.x
-                nextY = snakes(i).position.y
-                targetCellX = ASC(snakes(i).p, 1)
-                targetCellY = ASC(snakes(i).p, 2)
-            END IF
-        END IF
-
-        snakes(i).position.x = nextX
-        snakes(i).position.y = nextY
-
-        ' Shift body segments when entering a new character cell
-        IF targetCellX <> ASC(snakes(i).p, 1) _ORELSE targetCellY <> ASC(snakes(i).p, 2) THEN
-            DIM sLen AS LONG: sLen = LEN(snakes(i).p)
-            DIM oldTailX AS LONG: oldTailX = ASC(snakes(i).p, sLen - 1)
-            DIM oldTailY AS LONG: oldTailY = ASC(snakes(i).p, sLen)
-
-            DIM k AS LONG: k = sLen - 2
-            WHILE k > 0
-                ASC(snakes(i).p, k + 2) = ASC(snakes(i).p, k)
-                k = k - 1
-            WEND
-            ASC(snakes(i).p, 1) = targetCellX
-            ASC(snakes(i).p, 2) = targetCellY
-
-            ' Only clear old tail cell if no other segment of snake i remains there
-            DIM tailStillOccupied AS _BYTE: tailStillOccupied = _FALSE
-            DIM chk AS LONG
-            FOR chk = 1 TO sLen STEP 2
-                IF ASC(snakes(i).p, chk) = oldTailX AND ASC(snakes(i).p, chk + 1) = oldTailY THEN
-                    tailStillOccupied = _TRUE
-                    EXIT FOR
-                END IF
-            NEXT chk
-
-            IF NOT tailStillOccupied THEN
-                IF oldTailX >= 1 _ANDALSO oldTailX <= W _ANDALSO oldTailY >= 1 _ANDALSO oldTailY <= H THEN
-                    IF grid(oldTailX, oldTailY) = i THEN grid(oldTailX, oldTailY) = 0
-                END IF
-            END IF
-            grid(targetCellX, targetCellY) = i
-        END IF
-
-        ' Draw body segments
-        DIM sLenDraw AS LONG: sLenDraw = LEN(snakes(i).p)
-        j = sLenDraw - 2
-        WHILE j > 2
-            DIM py AS LONG: py = ASC(snakes(i).p, j)
-            j = j - 1
-            DIM px AS LONG: px = ASC(snakes(i).p, j)
-            j = j - 1
-
-            COLOR snakes(i).c, Black
-            _PRINTSTRING (px, py), SNAKE_BODY
-        WEND
-
-        ' Draw head
-        COLOR snakes(i).c, Black
-        _PRINTSTRING (ASC(snakes(i).p, 1), ASC(snakes(i).p, 2)), SNAKE_HEAD
-    NEXT i
-END SUB
-
 '-----------------------------------------------------------------------------------------------------------------------
 ' PROGRAM ENTRY POINT - Frankenstein retro TUI with drag & drop support
 '-----------------------------------------------------------------------------------------------------------------------
@@ -1318,8 +930,7 @@ Visualizer_InitializeNoteTable ' initialize note string table
 App_AdjustWindowSize ' set the initial window size
 _ALLOWFULLSCREEN _SQUAREPIXELS , _SMOOTH ' allow the user to press Alt+Enter to go fullscreen
 RANDOMIZE TIMER
-Star_InitializeAll Stars()
-Snake_InitializeAll Snakes()
+Background_Initialize Bg
 
 DIM event AS _BYTE: event = APP_EVENT_CMDS ' default to command line event first
 
@@ -1342,7 +953,7 @@ DO
             event = App_OnModArchiveFiles
 
         CASE ELSE
-            event = App_OnWelcomeScreen
+            event = App_OnWelcomeScreen(Bg)
     END SELECT
 LOOP
 
