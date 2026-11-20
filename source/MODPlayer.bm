@@ -410,7 +410,7 @@ SUB __MODPlayer_UpdateOPLDrumKeys (player AS MODPlayer)
     Opal_Write player.opl, &HBD, &H20 OR drumKeys
 END SUB
 
-SUB __MODPlayer_GetOPLNotePitch (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, nNote AS _UNSIGNED _BYTE, fNum AS _UNSIGNED INTEGER, oplBlock AS _UNSIGNED _BYTE)
+SUB __MODPlayer_GetOPLNotePitch (player AS MODPlayer, nChannel AS _UNSIGNED LONG, nNote AS _UNSIGNED _BYTE, fNum AS _UNSIGNED INTEGER, oplBlock AS _UNSIGNED _BYTE)
     IF player.channel(nChannel).instrument >= player.song.instruments THEN
         fNum = 0
         oplBlock = 0
@@ -447,7 +447,7 @@ SUB __MODPlayer_GetOPLNotePitch (player AS MODPlayer, nChannel AS _UNSIGNED _BYT
     oplBlock = octave
 END SUB
 
-SUB __MODPlayer_SetVoiceVolume (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, volume AS SINGLE)
+SUB __MODPlayer_SetVoiceVolume (player AS MODPlayer, nChannel AS _UNSIGNED LONG, volume AS SINGLE)
     DIM outputVolume AS SINGLE
     outputVolume = _CLAMP(volume, 0!, 1!)
 
@@ -460,12 +460,12 @@ SUB __MODPlayer_SetVoiceVolume (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE
     SoftSynth_SetVoiceVolume player.synth, nChannel, outputVolume
 END SUB
 
-SUB __MODPlayer_ApplyChannelVolume (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE)
+SUB __MODPlayer_ApplyChannelVolume (player AS MODPlayer, nChannel AS _UNSIGNED LONG)
     IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN EXIT SUB
     __MODPlayer_SetVoiceVolume player, nChannel, player.channel(nChannel).volume / __MODPLAYER_INSTRUMENT_VOLUME_MAX
 END SUB
 
-SUB __MODPlayer_SetChannelPanning (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, panning AS LONG)
+SUB __MODPlayer_SetChannelPanning (player AS MODPlayer, nChannel AS _UNSIGNED LONG, panning AS LONG)
     DIM safePan AS LONG
     safePan = _CLAMP(panning, 0, 255)
     player.channel(nChannel).panning = safePan
@@ -491,7 +491,7 @@ SUB __MODPlayer_SetGlobalVolume (player AS MODPlayer, volume AS LONG)
     SoftSynth_SetGlobalVolume player.synth, safeVolume / __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
 END SUB
 
-SUB __MODPlayer_DoS3MChannelVolumeSlide (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, nOperand AS _UNSIGNED _BYTE, isRowTick AS _BYTE)
+SUB __MODPlayer_DoS3MChannelVolumeSlide (player AS MODPlayer, nChannel AS _UNSIGNED LONG, nOperand AS _UNSIGNED _BYTE, isRowTick AS _BYTE)
     IF nOperand THEN player.channel(nChannel).lastChannelVolumeSlide = nOperand ELSE nOperand = player.channel(nChannel).lastChannelVolumeSlide
 
     DIM slideUp AS _UNSIGNED _BYTE: slideUp = _SHR(nOperand, 4)
@@ -516,7 +516,7 @@ SUB __MODPlayer_DoS3MChannelVolumeSlide (player AS MODPlayer, nChannel AS _UNSIG
     __MODPlayer_ApplyChannelVolume player, nChannel
 END SUB
 
-SUB __MODPlayer_DoS3MGlobalVolumeSlide (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, nOperand AS _UNSIGNED _BYTE, isRowTick AS _BYTE)
+SUB __MODPlayer_DoS3MGlobalVolumeSlide (player AS MODPlayer, nChannel AS _UNSIGNED LONG, nOperand AS _UNSIGNED _BYTE, isRowTick AS _BYTE)
     IF nOperand THEN player.channel(nChannel).lastGlobalVolumeSlide = nOperand ELSE nOperand = player.channel(nChannel).lastGlobalVolumeSlide
 
     DIM slideUp AS _UNSIGNED _BYTE: slideUp = _SHR(nOperand, 4)
@@ -540,7 +540,7 @@ SUB __MODPlayer_DoS3MGlobalVolumeSlide (player AS MODPlayer, nChannel AS _UNSIGN
     __MODPlayer_SetGlobalVolume player, CLNG(player.song.globalVolume) + delta
 END SUB
 
-SUB __MODPlayer_DoS3MPanningSlide (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, nOperand AS _UNSIGNED _BYTE, isRowTick AS _BYTE)
+SUB __MODPlayer_DoS3MPanningSlide (player AS MODPlayer, nChannel AS _UNSIGNED LONG, nOperand AS _UNSIGNED _BYTE, isRowTick AS _BYTE)
     IF nOperand THEN player.channel(nChannel).lastPanningSlide = nOperand ELSE nOperand = player.channel(nChannel).lastPanningSlide
 
     DIM slideLeft AS _UNSIGNED _BYTE: slideLeft = _SHR(nOperand, 4)
@@ -564,7 +564,7 @@ SUB __MODPlayer_DoS3MPanningSlide (player AS MODPlayer, nChannel AS _UNSIGNED _B
     __MODPlayer_SetChannelPanning player, nChannel, CLNG(player.channel(nChannel).panning) + delta
 END SUB
 
-SUB __MODPlayer_PlayPCMChannelVoice (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE)
+SUB __MODPlayer_PlayPCMChannelVoice (player AS MODPlayer, nChannel AS _UNSIGNED LONG)
     DIM inst AS LONG: inst = player.channel(nChannel).instrument
     IF inst < 0 _ORELSE inst >= player.song.instruments THEN EXIT SUB
 
@@ -578,7 +578,7 @@ SUB __MODPlayer_PlayPCMChannelVoice (player AS MODPlayer, nChannel AS _UNSIGNED 
     END IF
 END SUB
 
-SUB __MODPlayer_TickAMEnvelope (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, target AS LONG, rate AS LONG, nextStage AS _UNSIGNED _BYTE)
+SUB __MODPlayer_TickAMEnvelope (player AS MODPlayer, nChannel AS _UNSIGNED LONG, target AS LONG, rate AS LONG, nextStage AS _UNSIGNED _BYTE)
     DIM curLevel AS LONG: curLevel = player.channel(nChannel).amLevel
     DIM x AS LONG
     IF target > curLevel THEN
@@ -594,7 +594,7 @@ SUB __MODPlayer_TickAMEnvelope (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE
     END IF
 END SUB
 
-SUB __MODPlayer_TriggerAMInstrument (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, inst AS LONG)
+SUB __MODPlayer_TriggerAMInstrument (player AS MODPlayer, nChannel AS _UNSIGNED LONG, inst AS LONG)
     player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_ATTACK1
     player.channel(nChannel).amLevel = player.instrument(inst).am.startLevel
     player.channel(nChannel).amSustainCounter = player.instrument(inst).am.sustainTime
@@ -614,7 +614,7 @@ SUB __MODPlayer_TriggerAMInstrument (player AS MODPlayer, nChannel AS _UNSIGNED 
     __MODPlayer_ProcessAMChannelTick player, nChannel
 END SUB
 
-SUB __MODPlayer_UpdateAMChannel (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE)
+SUB __MODPlayer_UpdateAMChannel (player AS MODPlayer, nChannel AS _UNSIGNED LONG)
     DIM inst AS LONG: inst = player.channel(nChannel).instrument
     IF inst < 0 _ORELSE inst >= player.song.instruments THEN EXIT SUB
     IF player.instrument(inst).subtype <> __MODPLAYER_INSTRUMENT_AM_SYNTH THEN EXIT SUB
@@ -642,7 +642,7 @@ SUB __MODPlayer_UpdateAMChannel (player AS MODPlayer, nChannel AS _UNSIGNED _BYT
     SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(netPeriod)
 END SUB
 
-SUB __MODPlayer_ProcessAMChannelTick (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE)
+SUB __MODPlayer_ProcessAMChannelTick (player AS MODPlayer, nChannel AS _UNSIGNED LONG)
     DIM inst AS LONG: inst = player.channel(nChannel).instrument
     IF inst < 0 _ORELSE inst >= player.song.instruments THEN EXIT SUB
     IF player.instrument(inst).subtype <> __MODPLAYER_INSTRUMENT_AM_SYNTH THEN EXIT SUB
@@ -693,7 +693,7 @@ SUB __MODPlayer_ProcessAMChannelTick (player AS MODPlayer, nChannel AS _UNSIGNED
     __MODPlayer_UpdateAMChannel player, nChannel
 END SUB
 
-SUB __MODPlayer_TriggerDelayedNote (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE)
+SUB __MODPlayer_TriggerDelayedNote (player AS MODPlayer, nChannel AS _UNSIGNED LONG)
     DIM delayedPortamento AS _BYTE: delayedPortamento = _FALSE
     IF NOT player.channel(nChannel).noteDelayPending _ORELSE player.song.tick <> player.channel(nChannel).noteDelayTick THEN EXIT SUB
 
@@ -738,7 +738,7 @@ SUB __MODPlayer_TriggerDelayedNote (player AS MODPlayer, nChannel AS _UNSIGNED _
     __MODPlayer_PlayPCMChannelVoice player, nChannel
 END SUB
 
-SUB __MODPlayer_DoS3MTempoSlide (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, nOperand AS _UNSIGNED _BYTE)
+SUB __MODPlayer_DoS3MTempoSlide (player AS MODPlayer, nChannel AS _UNSIGNED LONG, nOperand AS _UNSIGNED _BYTE)
     IF nOperand THEN player.channel(nChannel).lastTempo = nOperand ELSE nOperand = player.channel(nChannel).lastTempo
     IF nOperand = 0 _ORELSE nOperand >= 32 THEN EXIT SUB
 
@@ -755,7 +755,7 @@ SUB __MODPlayer_DoS3MTempoSlide (player AS MODPlayer, nChannel AS _UNSIGNED _BYT
     __MODPlayer_SetBPM player, targetTempo
 END SUB
 
-SUB __MODPlayer_DoPanbrello (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE)
+SUB __MODPlayer_DoPanbrello (player AS MODPlayer, nChannel AS _UNSIGNED LONG)
     SHARED __MODPlayer_SineTable() AS _UNSIGNED _BYTE
     DIM panPos AS _UNSIGNED _BYTE: panPos = player.channel(nChannel).panbrelloPosition AND 31
     DIM waveValue AS LONG
@@ -778,7 +778,7 @@ SUB __MODPlayer_DoPanbrello (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE)
     player.channel(nChannel).panbrelloPosition = (player.channel(nChannel).panbrelloPosition + player.channel(nChannel).panbrelloSpeed) AND 31
 END SUB
 
-SUB __MODPlayer_UpdateFMVolume (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE)
+SUB __MODPlayer_UpdateFMVolume (player AS MODPlayer, nChannel AS _UNSIGNED LONG)
     DIM oplChan AS _UNSIGNED _BYTE
     oplChan = player.channel(nChannel).oplChannel
     DIM subtype AS _UNSIGNED _BYTE
@@ -841,7 +841,7 @@ SUB __MODPlayer_UpdateFMVolume (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE
     END IF
 END SUB
 
-SUB __MODPlayer_TriggerFMPatch (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, instIdx AS LONG)
+SUB __MODPlayer_TriggerFMPatch (player AS MODPlayer, nChannel AS _UNSIGNED LONG, instIdx AS LONG)
     DIM oplChan AS _UNSIGNED _BYTE
     oplChan = player.channel(nChannel).oplChannel
     DIM subtype AS _UNSIGNED _BYTE
@@ -884,7 +884,7 @@ SUB __MODPlayer_TriggerFMPatch (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE
     __MODPlayer_UpdateFMVolume player, nChannel
 END SUB
 
-SUB __MODPlayer_UpdateFMChannelRow (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, nNote AS _UNSIGNED _BYTE, nInstrument AS _UNSIGNED _BYTE, nVolume AS _UNSIGNED _BYTE)
+SUB __MODPlayer_UpdateFMChannelRow (player AS MODPlayer, nChannel AS _UNSIGNED LONG, nNote AS _UNSIGNED _BYTE, nInstrument AS _UNSIGNED INTEGER, nVolume AS _UNSIGNED _BYTE)
     DIM oplChan AS _UNSIGNED _BYTE
     oplChan = player.channel(nChannel).oplChannel
     DIM oplFNum AS _UNSIGNED INTEGER
@@ -970,7 +970,7 @@ SUB __MODPlayer_UpdateFMChannelRow (player AS MODPlayer, nChannel AS _UNSIGNED _
     END IF
 END SUB
 
-SUB __MODPlayer_FMDoPortamentoUp (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, amount AS LONG)
+SUB __MODPlayer_FMDoPortamentoUp (player AS MODPlayer, nChannel AS _UNSIGNED LONG, amount AS LONG)
     DIM oplChan AS _UNSIGNED _BYTE
     oplChan = player.channel(nChannel).oplChannel
     DIM fUp AS LONG
@@ -989,7 +989,7 @@ SUB __MODPlayer_FMDoPortamentoUp (player AS MODPlayer, nChannel AS _UNSIGNED _BY
     Opal_Write player.opl, &HB0 + oplChan, regB0Up
 END SUB
 
-SUB __MODPlayer_FMDoPortamentoDown (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, amount AS LONG)
+SUB __MODPlayer_FMDoPortamentoDown (player AS MODPlayer, nChannel AS _UNSIGNED LONG, amount AS LONG)
     DIM oplChan AS _UNSIGNED _BYTE
     oplChan = player.channel(nChannel).oplChannel
     DIM fDown AS LONG
@@ -1008,7 +1008,7 @@ SUB __MODPlayer_FMDoPortamentoDown (player AS MODPlayer, nChannel AS _UNSIGNED _
     Opal_Write player.opl, &HB0 + oplChan, regB0Down
 END SUB
 
-SUB __MODPlayer_UpdateFMChannelTick (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, nEffect AS _UNSIGNED _BYTE, nOperand AS _UNSIGNED _BYTE)
+SUB __MODPlayer_UpdateFMChannelTick (player AS MODPlayer, nChannel AS _UNSIGNED LONG, nEffect AS _UNSIGNED _BYTE, nOperand AS _UNSIGNED _BYTE)
     SHARED __MODPlayer_SineTable() AS _UNSIGNED _BYTE
     DIM oplChan AS _UNSIGNED _BYTE
     oplChan = player.channel(nChannel).oplChannel
@@ -1162,13 +1162,13 @@ END SUB
 ''' @brief Processes the current pattern row at tick 0 and sets up note triggers and effects.
 SUB __MODPlayer_UpdateRow (player AS MODPlayer)
     SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
-    DIM AS _UNSIGNED _BYTE nChannel, nNote, nInstrument, nVolume, nEffect, nOperand, nOpX, nOpY
+    DIM AS _UNSIGNED _BYTE nNote, nVolume, nEffect, nOperand, nOpX, nOpY
+    DIM AS _UNSIGNED INTEGER nInstrument
     DIM AS _UNSIGNED LONG c2Speed
     DIM AS _BYTE delayedNoteRow
     ' The effect flags below are set to true when a pattern jump effect and pattern break effect are triggered
     DIM AS _BYTE jumpEffectFlag, breakEffectFlag, noFrequency
-    DIM AS LONG targetPatFM
-    DIM AS _UNSIGNED _BYTE loopChannelFM
+    DIM AS LONG targetPatFM, loopChannelFM, nChannel
 
     ' Set the active channel count to zero
     player.song.activeChannels = 0
@@ -1606,7 +1606,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                         END IF
 
                     CASE __MODPLAYER_FX_EXT_PATTERN_LOOP
-                        DIM loopChannel AS _UNSIGNED _BYTE
+                        DIM loopChannel AS LONG
                         loopChannel = nChannel
                         IF player.song.isS3M THEN loopChannel = 0
                         IF nOpY = 0 THEN
@@ -1858,7 +1858,8 @@ END SUB
 ''' @brief Processes tick-based modulation effects (vibrato, tremolo, slides, retrigger) on ticks > 0.
 SUB __MODPlayer_UpdateTick (player AS MODPlayer)
     SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
-    DIM AS _UNSIGNED _BYTE nChannel, nVolume, nEffect, nOperand, nOpX, nOpY
+    DIM AS _UNSIGNED _BYTE nVolume, nEffect, nOperand, nOpX, nOpY
+    DIM AS LONG nChannel
 
     ' Process all channels
     FOR nChannel = 0 TO player.song.channels - 1
@@ -2188,8 +2189,8 @@ END SUB
 
 ''' @brief Sets sequencer tempo (Beats Per Minute) and recalculates timing parameters.
 ''' @param player The MOD player instance.
-''' @param nBPM Tempo in BPM (32 to 255).
-SUB __MODPlayer_SetBPM (player AS MODPlayer, nBPM AS _UNSIGNED _BYTE)
+''' @param nBPM Tempo in BPM (32 to 65535).
+SUB __MODPlayer_SetBPM (player AS MODPlayer, nBPM AS _UNSIGNED INTEGER)
     IF nBPM = 0 THEN EXIT SUB
 
     player.song.BPM = nBPM
@@ -2241,7 +2242,7 @@ END FUNCTION
 
 ''' @brief Performs tone portamento calculation towards destination note period for a channel.
 ''' @param chan Channel index (0-based).
-SUB __MODPlayer_DoPortamento (player AS MODPlayer, chan AS _UNSIGNED _BYTE)
+SUB __MODPlayer_DoPortamento (player AS MODPlayer, chan AS _UNSIGNED LONG)
     ' Slide up/down and clamp to destination
     IF player.channel(chan).period < player.channel(chan).portamentoTo THEN
         player.channel(chan).period = player.channel(chan).period + _SHL(player.channel(chan).portamentoSpeed, 2)
@@ -2267,7 +2268,7 @@ END SUB
 ''' @param x Upward slide amount nibble.
 ''' @param y Downward slide amount nibble.
 ''' @param isNotFine _TRUE for regular volume slide, _FALSE for fine volume slide.
-SUB __MODPlayer_DoVolumeSlide (player AS MODPlayer, chan AS _UNSIGNED _BYTE, x AS _UNSIGNED _BYTE, y AS _UNSIGNED _BYTE, isNotFine AS _BYTE)
+SUB __MODPlayer_DoVolumeSlide (player AS MODPlayer, chan AS _UNSIGNED LONG, x AS _UNSIGNED _BYTE, y AS _UNSIGNED _BYTE, isNotFine AS _BYTE)
     IF isNotFine THEN
         IF player.song.isS3M _ANDALSO y > 0 THEN
             player.channel(chan).volume = player.channel(chan).volume - y
@@ -2287,7 +2288,7 @@ END SUB
 
 ''' @brief Processes Scream Tracker 3 tremor effect on a channel.
 ''' @param chan Channel index (0-based).
-SUB __MODPlayer_DoS3MTremor (player AS MODPlayer, chan AS _UNSIGNED _BYTE)
+SUB __MODPlayer_DoS3MTremor (player AS MODPlayer, chan AS _UNSIGNED LONG)
     DIM cycleLength AS _UNSIGNED _BYTE
     cycleLength = player.channel(chan).tremorOnTicks + player.channel(chan).tremorOffTicks
     IF cycleLength = 0 THEN EXIT SUB
@@ -2301,7 +2302,7 @@ END SUB
 ''' @brief Calculates and applies pitch vibrato oscillation on a channel.
 ''' @param chan Channel index (0-based).
 ''' @param isNotFine _TRUE for standard vibrato, _FALSE for fine vibrato.
-SUB __MODPlayer_DoVibrato (player AS MODPlayer, chan AS _UNSIGNED _BYTE, isNotFine AS _BYTE)
+SUB __MODPlayer_DoVibrato (player AS MODPlayer, chan AS _UNSIGNED LONG, isNotFine AS _BYTE)
     SHARED __MODPlayer_SineTable() AS _UNSIGNED _BYTE
     DIM delta AS _UNSIGNED INTEGER
     DIM temp AS _UNSIGNED _BYTE
@@ -2341,7 +2342,7 @@ END SUB
 
 ''' @brief Calculates and applies volume tremolo oscillation on a channel.
 ''' @param chan Channel index (0-based).
-SUB __MODPlayer_DoTremolo (player AS MODPlayer, chan AS _UNSIGNED _BYTE)
+SUB __MODPlayer_DoTremolo (player AS MODPlayer, chan AS _UNSIGNED LONG)
     SHARED __MODPlayer_SineTable() AS _UNSIGNED _BYTE
     DIM delta AS _UNSIGNED INTEGER
     DIM temp AS _UNSIGNED _BYTE
@@ -2380,11 +2381,11 @@ END SUB
 
 ''' @brief Processes ProTracker EFx funk / invert loop effect on a channel.
 ''' @param chan Channel index (0-based).
-SUB __MODPlayer_DoInvertLoop (player AS MODPlayer, chan AS _UNSIGNED _BYTE)
+SUB __MODPlayer_DoInvertLoop (player AS MODPlayer, chan AS _UNSIGNED LONG)
     SHARED __MODPlayer_InvertLoopSpeedTable() AS _UNSIGNED _BYTE
     player.channel(chan).invertLoopDelay = player.channel(chan).invertLoopDelay + __MODPlayer_InvertLoopSpeedTable(player.channel(chan).invertLoopSpeed)
 
-    DIM sampleNumber AS _UNSIGNED _BYTE: sampleNumber = player.channel(chan).instrument ' cache the sample number case we'll use this often below
+    DIM sampleNumber AS _UNSIGNED INTEGER: sampleNumber = player.channel(chan).instrument ' cache the sample number case we'll use this often below
 
     IF player.channel(chan).invertLoopDelay >= 128 _ANDALSO SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP = player.instrument(sampleNumber).playMode THEN
         player.channel(chan).invertLoopDelay = 0 ' reset delay
@@ -2548,7 +2549,7 @@ END FUNCTION
 ''' @param player The MOD player instance.
 ''' @param nChannel Channel index (0-based).
 ''' @return Badge string: "[PCM]", "[AM ]", "[FMm]", or "[FMd]".
-FUNCTION MODPlayer_GetChannelSubtypeCaption$ (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE)
+FUNCTION MODPlayer_GetChannelSubtypeCaption$ (player AS MODPlayer, nChannel AS _UNSIGNED LONG)
     IF nChannel >= player.song.channels THEN EXIT FUNCTION
 
     SELECT CASE player.channel(nChannel).subtype

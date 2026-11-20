@@ -125,7 +125,7 @@ END SUB
 ''' @brief Calculates middle-C playback speed in Hertz for a ProTracker finetune nibble.
 ''' @param ft Signed finetune nibble (0-15).
 ''' @return C2 playback speed in Hertz.
-FUNCTION __MODPlayer_GetC2Spd~% (ft AS _UNSIGNED _BYTE)
+FUNCTION __MODPlayer_GetC2Spd~& (ft AS _UNSIGNED _BYTE)
     SELECT CASE ft
         CASE 0
             __MODPlayer_GetC2Spd = 8363
@@ -167,7 +167,7 @@ END FUNCTION
 ''' @brief Returns the S3M S2x finetune rate for the encoded nibble.
 ''' @param ft S3M finetune value (0-15).
 ''' @return Middle-C playback rate in Hertz.
-FUNCTION __MODPlayer_GetS3MC2Spd~% (ft AS _UNSIGNED _BYTE)
+FUNCTION __MODPlayer_GetS3MC2Spd~& (ft AS _UNSIGNED _BYTE)
     SELECT CASE ft AND &HF
         CASE 0: __MODPlayer_GetS3MC2Spd = 7895
         CASE 1: __MODPlayer_GetS3MC2Spd = 7941

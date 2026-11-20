@@ -2139,6 +2139,62 @@ SUB Test_Background
     TEST_CASE_END
 END SUB
 
+''' @brief Tests type promotions for instrument, c2Spd, endJumpOrder, and BPM beyond 8-bit and 16-bit limits.
+SUB Test_MODPlayer_TypePromotions
+    TEST_CASE_BEGIN "Type Promotions: Instrument indices beyond 8-bit (255)"
+    DIM pType AS MODPlayer
+    TEST_REQUIRE MODPlayer_Initialize(pType), "Initialize player"
+    REDIM pType.instrument(0 TO 300) AS __MODPlayerInstrument
+    REDIM pType.channel(0 TO 3) AS __MODPlayerChannel
+    REDIM pType.pattern(0 TO 0) AS __MODPlayerPattern
+    pType.pattern(0).rows = 64
+    REDIM pType.pattern(0).note(0 TO 63, 0 TO 3) AS __MODPlayerNote
+
+    ' Instrument index > 255 in note
+    pType.pattern(0).note(0, 0).instrument = 256
+    TEST_CHECK pType.pattern(0).note(0, 0).instrument = 256, "Note instrument 256 does not wrap to 0"
+    pType.pattern(0).note(0, 1).instrument = 1000
+    TEST_CHECK pType.pattern(0).note(0, 1).instrument = 1000, "Note instrument 1000 is preserved"
+
+    ' Instrument index > 255 in channel and delayedInstrument
+    pType.channel(0).instrument = 256
+    TEST_CHECK pType.channel(0).instrument = 256, "Channel instrument 256 does not wrap to 0"
+    pType.channel(0).delayedInstrument = 500
+    TEST_CHECK pType.channel(0).delayedInstrument = 500, "Delayed instrument 500 is preserved"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Type Promotions: c2Spd sample rates beyond 16-bit (65535 Hz)"
+    ' 96 kHz and 192 kHz sample rates exceed 65,535
+    pType.instrument(0).c2Spd = 96000
+    TEST_CHECK pType.instrument(0).c2Spd = 96000, "Instrument c2Spd 96000 does not wrap to 30464"
+    pType.instrument(1).c2Spd = 192000
+    TEST_CHECK pType.instrument(1).c2Spd = 192000, "Instrument c2Spd 192000 is preserved"
+
+    pType.channel(0).c2Spd = 96000
+    TEST_CHECK pType.channel(0).c2Spd = 96000, "Channel c2Spd 96000 does not wrap"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Type Promotions: endJumpOrder beyond 8-bit (255)"
+    pType.song.orders = 500
+    pType.song.endJumpOrder = 300
+    TEST_CHECK pType.song.endJumpOrder = 300, "endJumpOrder 300 does not wrap to 44"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Type Promotions: BPM and defaultBPM beyond 8-bit (255)"
+    pType.song.defaultBPM = 350
+    TEST_CHECK pType.song.defaultBPM = 350, "defaultBPM 350 does not wrap to 94"
+
+    __MODPlayer_SetBPM pType, 300
+    TEST_CHECK pType.song.BPM = 300, "SetBPM sets 300 BPM without wrapping"
+    TEST_CHECK pType.song.framesPerTick > 0, "framesPerTick calculated correctly for 300 BPM"
+
+    __MODPlayer_SetBPM pType, 512
+    TEST_CHECK pType.song.BPM = 512, "SetBPM sets 512 BPM without wrapping"
+
+    MODPlayer_Finalize pType
+    TEST_CASE_END
+END SUB
+
 IF _DIREXISTS("../mods") THEN CHDIR ".."
 
 ' Run all test suites
@@ -2177,6 +2233,7 @@ Test_FARLoader
 Test_FAR_Effects
 Test_MODPlayer_MultiInstance
 Test_MODPlayer_PatternRows
+Test_MODPlayer_TypePromotions
 Test_MODPlayer_Errors
 
 TEST_END_ALL

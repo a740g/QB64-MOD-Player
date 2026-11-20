@@ -97,7 +97,7 @@ CONST __MODPLAYER_FX_STEREO_CONTROL~%% = 37~%% ' Legacy S3M SAx channel panning
 
 TYPE __MODPlayerNote
     note AS _UNSIGNED _BYTE ' contains info on 1 note
-    instrument AS _UNSIGNED _BYTE ' instrument number to play
+    instrument AS _UNSIGNED INTEGER ' instrument number to play
     volume AS _UNSIGNED _BYTE ' volume value. Not used for MODs. 255 = no volume
     effect AS _UNSIGNED _BYTE ' effect number
     operand AS _UNSIGNED _BYTE ' effect parameters
@@ -130,7 +130,7 @@ TYPE __MODPlayerInstrument
     caption AS STRING ' instrument name or message
     subtype AS _UNSIGNED _BYTE ' what kind of instrument is this? (PCM, FM melody, FM drum, etc.)
     length AS _UNSIGNED LONG ' sample length in bytes
-    c2Spd AS _UNSIGNED INTEGER ' sample finetune is converted to c2spd
+    c2Spd AS _UNSIGNED LONG ' sample finetune is converted to c2spd
     volume AS _UNSIGNED _BYTE ' volume: 0 - 64
     loopStart AS _UNSIGNED LONG ' loop start (or just start; usually 0) in bytes
     loopEnd AS _UNSIGNED LONG ' loop end (or just end; usually length) in bytes
@@ -142,7 +142,7 @@ TYPE __MODPlayerInstrument
 END TYPE
 
 TYPE __MODPlayerChannel
-    instrument AS _UNSIGNED _BYTE ' instrument number to be mixed
+    instrument AS _UNSIGNED INTEGER ' instrument number to be mixed
     subtype AS _UNSIGNED _BYTE ' channel synthesis mode: PCM, AM synth, FM melody, FM drum (see __MODPLAYER_INSTRUMENT_*)
     volume AS INTEGER ' channel volume. This is a signed int because we need -ve values & to clip properly
     restart AS _BYTE ' set this to true to retrigger the sample
@@ -153,7 +153,7 @@ TYPE __MODPlayerChannel
     channelVolume AS _UNSIGNED _BYTE ' S3M channel volume (Mxx), independent of sample volume
     defaultPanning AS _UNSIGNED _BYTE ' initial 8-bit S3M pan used when playback restarts
     panning AS _UNSIGNED _BYTE ' current 8-bit S3M pan position
-    c2Spd AS _UNSIGNED INTEGER ' per-channel C2SPD, including S2x finetune
+    c2Spd AS _UNSIGNED LONG ' per-channel C2SPD, including S2x finetune
     lastSampleOffset AS _UNSIGNED _BYTE ' S3M Oxx effect memory
     lastPanningSlide AS _UNSIGNED _BYTE ' S3M Pxy effect memory
     lastChannelVolumeSlide AS _UNSIGNED _BYTE ' S3M Nxy effect memory
@@ -171,7 +171,7 @@ TYPE __MODPlayerChannel
     noteDelayPending AS _BYTE ' a delayed note is waiting for its tick
     noteDelayTick AS _UNSIGNED _BYTE ' S3M SDx tick to trigger the pending note
     delayedNote AS _UNSIGNED _BYTE ' pending note number
-    delayedInstrument AS _UNSIGNED _BYTE ' pending instrument index
+    delayedInstrument AS _UNSIGNED INTEGER ' pending instrument index
     delayedHasInstrument AS _BYTE ' whether the delayed row changes instrument
     delayedVolume AS _UNSIGNED _BYTE ' pending S3M volume-column value
     delayedPeriod AS LONG ' pending note period
@@ -218,7 +218,7 @@ TYPE __MODPlayerSong
     channels AS _UNSIGNED LONG ' number of channels in the song
     instruments AS _UNSIGNED LONG ' number of instruments in the song
     orders AS _UNSIGNED INTEGER ' song length in orders
-    endJumpOrder AS _UNSIGNED _BYTE ' this is used for jumping to an order if global looping is on
+    endJumpOrder AS _UNSIGNED INTEGER ' this is used for jumping to an order if global looping is on
     patterns AS _UNSIGNED INTEGER ' number of patterns in the song
     orderPosition AS LONG ' the position in the order list. Signed so that we can properly wrap
     patternRow AS INTEGER ' points to the pattern row to be played. This is signed because sometimes we need to set it to -1
@@ -229,9 +229,9 @@ TYPE __MODPlayerSong
     isPaused AS _BYTE ' set this to true to pause playback
     patternDelay AS _UNSIGNED _BYTE ' number of times to delay pattern for effect EE
     speed AS _UNSIGNED _BYTE ' current song speed
-    BPM AS _UNSIGNED _BYTE ' current song BPM
+    BPM AS _UNSIGNED INTEGER ' current song BPM
     defaultSpeed AS _UNSIGNED _BYTE ' default song speed
-    defaultBPM AS _UNSIGNED _BYTE ' default song BPM
+    defaultBPM AS _UNSIGNED INTEGER ' default song BPM
     tick AS _UNSIGNED INTEGER ' current song tick (may exceed 255 with S6x fine pattern delay)
     rowTickDelay AS _UNSIGNED INTEGER ' accumulated S3M S6x extra ticks on the current row
     globalVolume AS _UNSIGNED _BYTE ' current S3M Vxx global volume (0-64)
