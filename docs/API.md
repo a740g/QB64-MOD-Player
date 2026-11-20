@@ -16,8 +16,10 @@ Synthesizer / Sample Mixer, and Audio Spectrum Analyzer.
   - [Song Information and Navigation](#song-information-and-navigation)
 - [Dedicated Format Loaders API (`*Loader.bi`)](#dedicated-format-loaders-api-loaderbi)
   - [ProTracker Loader (`MODLoader.bi`)](#protracker-loader-modloaderbi)
+  - [Scream Tracker 2 Loader (`STMLoader.bi`)](#scream-tracker-2-loader-stmloaderbi)
   - [Scream Tracker 3 Loader (`S3MLoader.bi`)](#scream-tracker-3-loader-s3mloaderbi)
   - [MultiTracker Loader (`MTMLoader.bi`)](#multitracker-loader-mtmloaderbi)
+  - [Farandole Composer Loader (`FARLoader.bi`)](#farandole-composer-loader-farloaderbi)
 - [Software Synthesizer API (`SoftSynth.bi`)](#software-synthesizer-api-softsynthbi)
   - [Constants](#softsynth-constants)
   - [Types](#softsynth-types)
@@ -386,6 +388,38 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
   sequencing matrices and 8-bit PCM samples.
 - **Parameters**:
   - `player`: Target MOD player instance.
+- **Returns**: `_TRUE` on successful parse; `_FALSE` if incompatible or invalid.
+
+### Scream Tracker 2 Loader (`STMLoader.bi`)
+
+```vb
+FUNCTION STMLoader_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
+FUNCTION STMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
+```
+
+- **Supported Formats**: Scream Tracker 2 (`!Scream!` and compatible) modules
+  with 4 channels, 31 instruments, signed 8-bit PCM samples, ST2 tempo timing,
+  and ST2 effect commands.
+- **Parameters**:
+  - `player`: Target MOD player instance.
+  - `fileName`: Path to the module file.
+  - `buffer`: In-memory binary representation of the module file.
+- **Returns**: `_TRUE` on successful parse; `_FALSE` if incompatible or invalid.
+
+### Farandole Composer Loader (`FARLoader.bi`)
+
+```vb
+FUNCTION FARLoader_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
+FUNCTION FARLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
+```
+
+- **Supported Formats**: Farandole Composer (`FAR\xFE` signature) modules with up
+  to 16 channels, variable rows per pattern, custom tempo, channel panning, and
+  8-bit signed PCM samples.
+- **Parameters**:
+  - `player`: Target MOD player instance.
+  - `fileName`: Path to the module file.
+  - `buffer`: In-memory binary representation of the module file.
 - **Returns**: `_TRUE` on successful parse; `_FALSE` if incompatible or invalid.
 
 ---

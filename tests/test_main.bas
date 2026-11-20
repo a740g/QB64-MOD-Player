@@ -18,6 +18,7 @@ $LET TEST_CONSOLE_ONLY = TRUE
 '$INCLUDE:'../source/S3MLoader.bi'
 '$INCLUDE:'../source/MTMLoader.bi'
 '$INCLUDE:'../source/FARLoader.bi'
+'$INCLUDE:'../source/STMLoader.bi'
 '$INCLUDE:'../source/Vector2f.bi'
 '$INCLUDE:'../source/Vector3f.bi'
 '$INCLUDE:'../source/Background.bi'
@@ -771,6 +772,91 @@ SUB Test_FARLoader
     TEST_CHECK_FALSE FARLoader_LoadFromDisk(player, "mods/Enigma.mod"), "FARLoader rejects MOD"
     TEST_CHECK_FALSE FARLoader_LoadFromDisk(player, "mods/A Touch of Spring.s3m"), "FARLoader rejects S3M"
     TEST_CHECK_FALSE FARLoader_LoadFromDisk(player, "mods/cougarstory-ii.mtm"), "FARLoader rejects MTM"
+    MODPlayer_Finalize player
+    TEST_CASE_END
+END SUB
+
+''' @brief Tests for dedicated STMLoader.
+SUB Test_STMLoader
+    TEST_CASE_BEGIN "STMLoader: Load Scream Tracker 2 module directly"
+    DIM player AS MODPlayer
+    TEST_REQUIRE STMLoader_LoadFromDisk(player, "mods/OXYGENE.STM"), "STMLoader loads OXYGENE.STM"
+    TEST_CHECK INSTR(UCASE$(MODPlayer_GetName(player)), "OXYGENE") > 0, "Song caption matches oxygene"
+    TEST_CHECK MODPlayer_GetType(player) = "STM", "Song subtype is STM"
+    TEST_CHECK player.song.channels = 4, "STM has 4 channels"
+    TEST_CHECK player.song.instruments = 31, "STM has 31 instruments"
+    TEST_CHECK MODPlayer_GetOrders(player) = 47, "Order count is 47"
+    TEST_CHECK player.song.patterns = 17, "Pattern count is 17"
+    TEST_CHECK player.song.defaultSpeed = 6, "Default speed is 6"
+    TEST_CHECK player.song.defaultBPM = 125, "Default BPM is 125"
+    TEST_CHECK MODPlayer_IsStereo(player), "STM is stereo"
+    TEST_CHECK player.song.isS3M = _TRUE, "STM uses S3M playback engine"
+    TEST_CHECK player.song.useST2Tempo = _TRUE, "STM sets useST2Tempo flag"
+    TEST_CHECK player.song.useST2Vibrato = _TRUE, "STM sets useST2Vibrato flag"
+    TEST_CHECK MODPlayer_GetPatternRows(player, 0) = 64, "Pattern 0 has 64 rows"
+    TEST_CHECK MODPlayer_GetPatternRows(player, 16) = 64, "Pattern 16 has 64 rows"
+
+    ' Channel panning LRRL (64, 192, 192, 64)
+    TEST_CHECK player.channel(0).panning = 64, "Ch 0 panning is 64"
+    TEST_CHECK player.channel(1).panning = 192, "Ch 1 panning is 192"
+    TEST_CHECK player.channel(2).panning = 192, "Ch 2 panning is 192"
+    TEST_CHECK player.channel(3).panning = 64, "Ch 3 panning is 64"
+
+    ' Instrument checks (instrument 0 is hihat.014)
+    TEST_CHECK INSTR(LCASE$(player.instrument(0).caption), "hihat") > 0, "Instrument 0 is hihat"
+    TEST_CHECK player.instrument(0).length = 1826, "Instrument 0 length is 1826"
+    TEST_CHECK player.instrument(0).volume = 64, "Instrument 0 volume is 64"
+    TEST_CHECK player.instrument(0).c2Spd = 8448, "Instrument 0 c2Spd is 8448"
+    TEST_CHECK player.instrument(0).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD, "Instrument 0 is non-looping"
+
+    ' Instrument 1 (shallbas.048)
+    TEST_CHECK INSTR(LCASE$(player.instrument(1).caption), "shallbas") > 0, "Instrument 1 is shallbas"
+    TEST_CHECK player.instrument(1).length = 10498, "Instrument 1 length is 10498"
+    TEST_CHECK player.instrument(1).volume = 43, "Instrument 1 volume is 43"
+
+    ' Row 0 notes: Ch 0 has C-5 (note 60), inst 2, effect Speed (A) operand 4 (from 0x40)
+    TEST_CHECK player.pattern(0).note(0, 0).note = 60, "Pat 0 Row 0 Ch 0 note is 60 (C-5)"
+    TEST_CHECK player.pattern(0).note(0, 0).instrument = 2, "Pat 0 Row 0 Ch 0 inst is 2"
+    TEST_CHECK player.pattern(0).note(0, 0).effect = __MODPLAYER_FX_SPEED, "Pat 0 Row 0 Ch 0 effect is SPEED"
+    TEST_CHECK player.pattern(0).note(0, 0).operand = 4, "Pat 0 Row 0 Ch 0 speed operand is 4"
+    TEST_CHECK player.pattern(0).note(0, 1).note = 72, "Pat 0 Row 0 Ch 1 note is 72 (C-6)"
+    TEST_CHECK player.pattern(0).note(0, 2).note = 48, "Pat 0 Row 0 Ch 2 note is 48 (C-4)"
+    TEST_CHECK player.pattern(0).note(0, 3).note = 48, "Pat 0 Row 0 Ch 3 note is 48 (C-4)"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "STMLoader: Load from memory"
+    DIM stmBuf AS STRING: stmBuf = File_LoadFromDisk("mods/OXYGENE.STM")
+    TEST_REQUIRE STMLoader_LoadFromMemory(player, stmBuf), "STMLoader loads from memory"
+    TEST_CHECK MODPlayer_GetType(player) = "STM", "Subtype is STM"
+    TEST_CHECK player.song.orders = 47, "Orders is 47"
+    TEST_CHECK player.song.patterns = 17, "Patterns is 17"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "STMLoader: Unified dispatcher auto-detection"
+    DIM pAuto AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pAuto, "mods/OXYGENE.STM"), "MODPlayer_LoadFromDisk auto-detects STM"
+    TEST_CHECK MODPlayer_GetType(pAuto) = "STM", "Auto-detected subtype is STM"
+    TEST_CHECK pAuto.song.channels = 4, "Auto-detected channels is 4"
+    MODPlayer_Finalize pAuto
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "STMLoader: Playback and teardown"
+    MODPlayer_Play player
+    TEST_CHECK MODPlayer_IsPlaying(player), "STM is playing"
+    MODPlayer_Update player, 0.05
+    TEST_CHECK MODPlayer_IsPlaying(player), "STM continues playing after update"
+    MODPlayer_Stop player
+    TEST_CHECK_FALSE MODPlayer_IsPlaying(player), "STM stopped"
+    MODPlayer_Finalize player
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "STMLoader: Reject incompatible formats"
+    TEST_CHECK_FALSE STMLoader_LoadFromDisk(player, "mods/Enigma.mod"), "STMLoader rejects MOD"
+    TEST_CHECK_FALSE STMLoader_LoadFromDisk(player, "mods/A Touch of Spring.s3m"), "STMLoader rejects S3M"
+    TEST_CHECK_FALSE STMLoader_LoadFromDisk(player, "mods/cougarstory-ii.mtm"), "STMLoader rejects MTM"
+    TEST_CHECK_FALSE STMLoader_LoadFromDisk(player, "mods/M31.far"), "STMLoader rejects FAR"
+    DIM emptyBuf AS STRING: emptyBuf = STRING$(100, 0)
+    TEST_CHECK_FALSE STMLoader_LoadFromMemory(player, emptyBuf), "STMLoader rejects undersized buffer"
     MODPlayer_Finalize player
     TEST_CASE_END
 END SUB
@@ -1944,6 +2030,183 @@ SUB Test_FAR_Effects
     TEST_CASE_END
 END SUB
 
+''' @brief Tests for Scream Tracker 2 effect translations and quirk handling.
+SUB Test_STM_Effects
+    TEST_CASE_BEGIN "STM Effects: Synthetic STM Module Loading and Effect Translation"
+    DIM stmData AS STRING: stmData = _STR_EMPTY
+
+    ' Header (48 bytes)
+    stmData = stmData + "Synthetic STM" + SPACE$(7) ' Title (20 bytes)
+    stmData = stmData + "!Scream!" ' Tracker (8 bytes)
+    stmData = stmData + CHR$(&H1A) ' EOF (1 byte)
+    stmData = stmData + CHR$(2) ' File type: module (1 byte)
+    stmData = stmData + CHR$(2) ' Major version (1 byte)
+    stmData = stmData + CHR$(21) ' Minor version 2.21 (1 byte)
+    stmData = stmData + CHR$(&H60) ' Init tempo (1 byte)
+    stmData = stmData + CHR$(1) ' Number of patterns (1 byte)
+    stmData = stmData + CHR$(64) ' Global volume (1 byte)
+    stmData = stmData + STRING$(13, 0) ' Reserved (13 bytes)
+
+    ' Instruments (31 * 32 = 992 bytes)
+    ' Instrument 0 (32 bytes)
+    DIM paraOffset AS _UNSIGNED INTEGER: paraOffset = 137 ' (48 + 992 + 128 + 1024) \ 16 = 2192 \ 16 = 137
+    stmData = stmData + "TestSample" + SPACE$(2) ' 12 bytes name
+    stmData = stmData + CHR$(0) ' zero byte
+    stmData = stmData + CHR$(0) ' disk byte
+    stmData = stmData + MKI$(paraOffset) ' paragraph offset
+    stmData = stmData + MKI$(16) ' length (16 bytes)
+    stmData = stmData + MKI$(0) ' loop start
+    stmData = stmData + MKI$(16) ' loop end
+    stmData = stmData + CHR$(64) ' volume
+    stmData = stmData + CHR$(0) ' reserved2
+    stmData = stmData + MKI$(8363) ' c2spd
+    stmData = stmData + MKL$(0) ' reserved3
+    stmData = stmData + MKI$(1) ' paralen
+
+    ' Instruments 1..30 (960 bytes)
+    stmData = stmData + STRING$(960, 0)
+
+    ' Orders (128 bytes)
+    stmData = stmData + CHR$(0) + STRING$(127, 99)
+
+    ' Pattern 0 (1024 bytes = 64 rows * 4 channels * 4 bytes)
+    ' Row 0 (16 bytes)
+    ' Ch 0: note=0 (C-3 -> 36), inst=1, vol=64, cmd=1 (A), op=&H50 -> speed 5
+    stmData = stmData + CHR$(0) + CHR$(8) + CHR$(&H81) + CHR$(&H50)
+    ' Ch 1: note=1 (C#3 -> 37), inst=1, vol=40, cmd=2 (B), op=3 -> pos jump 3
+    stmData = stmData + CHR$(1) + CHR$(8) + CHR$(&H52) + CHR$(3)
+    ' Ch 2: note=2 (D-3 -> 38), inst=1, vol=20, cmd=3 (C), op=0 -> pat break 0
+    stmData = stmData + CHR$(2) + CHR$(12) + CHR$(&H23) + CHR$(0)
+    ' Ch 3: note=3 (D#3 -> 39), inst=1, vol=10, cmd=4 (D), op=2 -> vol slide down 2
+    stmData = stmData + CHR$(3) + CHR$(10) + CHR$(&H14) + CHR$(2)
+
+    ' Row 1 (16 bytes)
+    ' Ch 0: vol slide up 3 (D30)
+    stmData = stmData + CHR$(&HFF) + CHR$(0) + CHR$(&HF4) + CHR$(&H30)
+    ' Ch 1: portamento down 5 (E05)
+    stmData = stmData + CHR$(&HFF) + CHR$(0) + CHR$(&HF5) + CHR$(5)
+    ' Ch 2: portamento up 4 (F04)
+    stmData = stmData + CHR$(&HFF) + CHR$(0) + CHR$(&HF6) + CHR$(4)
+    ' Ch 3: tone portamento 8 (G08)
+    stmData = stmData + CHR$(&HFF) + CHR$(0) + CHR$(&HF7) + CHR$(8)
+
+    ' Row 2 (16 bytes)
+    ' Ch 0: vibrato &H45 (H45)
+    stmData = stmData + CHR$(&HFF) + CHR$(0) + CHR$(&HF8) + CHR$(&H45)
+    ' Ch 1: tremor &H32 (I32)
+    stmData = stmData + CHR$(&HFF) + CHR$(0) + CHR$(&HF9) + CHR$(&H32)
+    ' Ch 2: arpeggio &H12 (J12)
+    stmData = stmData + CHR$(&HFF) + CHR$(0) + CHR$(&HFA) + CHR$(&H12)
+    ' Ch 3: volume slide 0 -> operand 0 suppressed (ST2 has no effect memory)
+    stmData = stmData + CHR$(&HFF) + CHR$(0) + CHR$(&HF4) + CHR$(0)
+
+    ' Row 3 (16 bytes)
+    ' Ch 0: key off (&HFE)
+    stmData = stmData + CHR$(&HFE) + CHR$(8) + CHR$(&HF0) + CHR$(0)
+    ' Ch 1: no note (&HFF)
+    stmData = stmData + CHR$(&HFF) + CHR$(0) + CHR$(&HF0) + CHR$(0)
+    ' Ch 2: octave 1 semitone 0 -> note 48 (C-4)
+    stmData = stmData + CHR$(&H10) + CHR$(8) + CHR$(&HF0) + CHR$(0)
+    ' Ch 3: octave 2 semitone 1 -> note 61 (C#5)
+    stmData = stmData + CHR$(&H21) + CHR$(8) + CHR$(&HF0) + CHR$(0)
+
+    ' Rows 4..63 (60 rows * 16 bytes = 960 bytes)
+    DIM r AS LONG
+    FOR r = 4 TO 63
+        stmData = stmData + CHR$(&HFF) + CHR$(0) + CHR$(&HF0) + CHR$(0)
+        stmData = stmData + CHR$(&HFF) + CHR$(0) + CHR$(&HF0) + CHR$(0)
+        stmData = stmData + CHR$(&HFF) + CHR$(0) + CHR$(&HF0) + CHR$(0)
+        stmData = stmData + CHR$(&HFF) + CHR$(0) + CHR$(&HF0) + CHR$(0)
+    NEXT r
+
+    ' Sample data (16 signed bytes)
+    stmData = stmData + STRING$(16, 0)
+
+    DIM pSynth AS MODPlayer
+    TEST_REQUIRE STMLoader_LoadFromMemory(pSynth, stmData), "Synthetic STM module loaded successfully"
+
+    ' Song and Instrument checks
+    TEST_CHECK INSTR(pSynth.song.caption, "Synthetic STM") > 0, "Song caption matches"
+    TEST_CHECK pSynth.song.channels = 4, "STM has 4 channels"
+    TEST_CHECK pSynth.song.defaultSpeed = 6, "Default speed is 6"
+    TEST_CHECK pSynth.song.defaultBPM = 125, "Default BPM is 125"
+    TEST_CHECK pSynth.song.isS3M = _TRUE, "isS3M is _TRUE"
+    TEST_CHECK pSynth.instrument(0).length = 16, "Sample 0 length is 16"
+    TEST_CHECK pSynth.instrument(0).volume = 64, "Sample 0 volume is 64"
+    TEST_CHECK pSynth.instrument(0).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, "Sample 0 is looped"
+
+    ' Row 0: Note and Effect translations
+    TEST_CHECK pSynth.pattern(0).note(0, 0).note = 36, "Row 0 Ch 0 note is 36 (C-3)"
+    TEST_CHECK pSynth.pattern(0).note(0, 0).instrument = 1, "Row 0 Ch 0 inst is 1"
+    TEST_CHECK pSynth.pattern(0).note(0, 0).volume = 64, "Row 0 Ch 0 vol is 64"
+    TEST_CHECK pSynth.pattern(0).note(0, 0).effect = __MODPLAYER_FX_SPEED, "Row 0 Ch 0 effect is SPEED"
+    TEST_CHECK pSynth.pattern(0).note(0, 0).operand = 5, "Row 0 Ch 0 operand is 5"
+
+    TEST_CHECK pSynth.pattern(0).note(0, 1).note = 37, "Row 0 Ch 1 note is 37 (C#3)"
+    TEST_CHECK pSynth.pattern(0).note(0, 1).volume = 40, "Row 0 Ch 1 vol is 40"
+    TEST_CHECK pSynth.pattern(0).note(0, 1).effect = __MODPLAYER_FX_POSITION_JUMP, "Row 0 Ch 1 effect is POSITION_JUMP"
+    TEST_CHECK pSynth.pattern(0).note(0, 1).operand = 3, "Row 0 Ch 1 operand is 3"
+
+    TEST_CHECK pSynth.pattern(0).note(0, 2).note = 38, "Row 0 Ch 2 note is 38 (D-3)"
+    TEST_CHECK pSynth.pattern(0).note(0, 2).volume = 20, "Row 0 Ch 2 vol is 20"
+    TEST_CHECK pSynth.pattern(0).note(0, 2).effect = __MODPLAYER_FX_PATTERN_BREAK, "Row 0 Ch 2 effect is PATTERN_BREAK"
+    TEST_CHECK pSynth.pattern(0).note(0, 2).operand = 0, "Row 0 Ch 2 operand is 0"
+
+    TEST_CHECK pSynth.pattern(0).note(0, 3).note = 39, "Row 0 Ch 3 note is 39 (D#3)"
+    TEST_CHECK pSynth.pattern(0).note(0, 3).volume = 10, "Row 0 Ch 3 vol is 10"
+    TEST_CHECK pSynth.pattern(0).note(0, 3).effect = __MODPLAYER_FX_VOLUME_SLIDE, "Row 0 Ch 3 effect is VOLUME_SLIDE"
+    TEST_CHECK pSynth.pattern(0).note(0, 3).operand = 2, "Row 0 Ch 3 operand is 2 (slide down 2)"
+
+    ' Row 1: Slides
+    TEST_CHECK pSynth.pattern(0).note(1, 0).effect = __MODPLAYER_FX_VOLUME_SLIDE, "Row 1 Ch 0 effect is VOLUME_SLIDE"
+    TEST_CHECK pSynth.pattern(0).note(1, 0).operand = &H30, "Row 1 Ch 0 operand is &H30 (slide up 3)"
+    TEST_CHECK pSynth.pattern(0).note(1, 1).effect = __MODPLAYER_FX_PORTAMENTO_DOWN, "Row 1 Ch 1 effect is PORTAMENTO_DOWN"
+    TEST_CHECK pSynth.pattern(0).note(1, 1).operand = 5, "Row 1 Ch 1 operand is 5"
+    TEST_CHECK pSynth.pattern(0).note(1, 2).effect = __MODPLAYER_FX_PORTAMENTO_UP, "Row 1 Ch 2 effect is PORTAMENTO_UP"
+    TEST_CHECK pSynth.pattern(0).note(1, 2).operand = 4, "Row 1 Ch 2 operand is 4"
+    TEST_CHECK pSynth.pattern(0).note(1, 3).effect = __MODPLAYER_FX_PORTAMENTO, "Row 1 Ch 3 effect is PORTAMENTO"
+    TEST_CHECK pSynth.pattern(0).note(1, 3).operand = 8, "Row 1 Ch 3 operand is 8"
+
+    ' Row 2: Vibrato, Tremor, Arpeggio, Zero Operand Suppression
+    TEST_CHECK pSynth.pattern(0).note(2, 0).effect = __MODPLAYER_FX_VIBRATO, "Row 2 Ch 0 effect is VIBRATO"
+    TEST_CHECK pSynth.pattern(0).note(2, 0).operand = &H45, "Row 2 Ch 0 operand is &H45"
+    TEST_CHECK pSynth.pattern(0).note(2, 1).effect = __MODPLAYER_FX_TREMOR, "Row 2 Ch 1 effect is TREMOR"
+    TEST_CHECK pSynth.pattern(0).note(2, 1).operand = &H32, "Row 2 Ch 1 operand is &H32"
+    TEST_CHECK pSynth.pattern(0).note(2, 2).effect = __MODPLAYER_FX_ARPEGGIO, "Row 2 Ch 2 effect is ARPEGGIO"
+    TEST_CHECK pSynth.pattern(0).note(2, 2).operand = &H12, "Row 2 Ch 2 operand is &H12"
+    TEST_CHECK pSynth.pattern(0).note(2, 3).effect = 0, "Row 2 Ch 3 zero operand suppresses effect"
+    TEST_CHECK pSynth.pattern(0).note(2, 3).operand = 0, "Row 2 Ch 3 operand is 0"
+
+    ' Row 3: Special Notes
+    TEST_CHECK pSynth.pattern(0).note(3, 0).note = __MODPLAYER_NOTE_KEY_OFF, "Row 3 Ch 0 is KEY_OFF"
+    TEST_CHECK pSynth.pattern(0).note(3, 1).note = __MODPLAYER_NOTE_NONE, "Row 3 Ch 1 is NOTE_NONE"
+    TEST_CHECK pSynth.pattern(0).note(3, 2).note = 48, "Row 3 Ch 2 is note 48 (C-4)"
+    TEST_CHECK pSynth.pattern(0).note(3, 3).note = 61, "Row 3 Ch 3 is note 61 (C#5)"
+
+    ' Playback and teardown
+    MODPlayer_Play pSynth
+    MODPlayer_Update pSynth, 0.05
+    TEST_CHECK MODPlayer_IsPlaying(pSynth), "Synthetic STM plays without error"
+    MODPlayer_Stop pSynth
+    MODPlayer_Finalize pSynth
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "STM Effects: Decimal tempo conversion for ST2 version < 2.21"
+    ' Modify header to version 2.20 with decimal tempo 60 (which translates to 0x60 / speed 6, factor 0)
+    DIM stmVer220 AS STRING: stmVer220 = stmData
+    MID$(stmVer220, 32, 1) = CHR$(20) ' verMinor = 20
+    MID$(stmVer220, 33, 1) = CHR$(60) ' initTempo = 60 (decimal)
+    ' In row 0, ch 0: op was &H50 (80 decimal) -> for ver < 2.21: 80 \ 10 = 8 speed
+    MID$(stmVer220, 48 + 992 + 128 + 4, 1) = CHR$(80)
+    DIM pVer AS MODPlayer
+    TEST_REQUIRE STMLoader_LoadFromMemory(pVer, stmVer220), "Load version 2.20 STM module"
+    TEST_CHECK pVer.song.defaultSpeed = 6, "Decimal tempo 60 yields speed 6"
+    TEST_CHECK pVer.song.defaultBPM = 125, "Decimal tempo 60 yields 125 BPM"
+    TEST_CHECK pVer.pattern(0).note(0, 0).operand = 8, "Decimal op 80 in ver 2.20 yields speed 8"
+    MODPlayer_Finalize pVer
+    TEST_CASE_END
+END SUB
+
 ''' @brief Tests for Vector2f 2D floating-point vector math functions.
 SUB Test_Vector2f
     TEST_CASE_BEGIN "Vector2f: Initialize, Set, IsNull, IsEqual"
@@ -2231,6 +2494,8 @@ Test_S3MLoader
 Test_MTMLoader
 Test_FARLoader
 Test_FAR_Effects
+Test_STMLoader
+Test_STM_Effects
 Test_MODPlayer_MultiInstance
 Test_MODPlayer_PatternRows
 Test_MODPlayer_TypePromotions

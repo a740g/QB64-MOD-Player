@@ -6,7 +6,9 @@ It supports the following classic module formats:
 
 - [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatibles, `.mod`)
 - [MultiTracker](https://en.wikipedia.org/wiki/Module_file#Popular_formats) (`.mtm`)
+- [Scream Tracker 2](https://en.wikipedia.org/wiki/Scream_Tracker) (`.stm`)
 - [Scream Tracker 3](https://en.wikipedia.org/wiki/Scream_Tracker) (`.s3m`)
+- [Farandole Composer](https://en.wikipedia.org/wiki/Farandole_Composer) (`.far`)
 
 ---
 
@@ -22,14 +24,20 @@ It supports the following classic module formats:
   - ProTracker MOD files with 1 to 99 channels, 15 or 31 samples, Amiga period
     limits, and StarTrekker 1.2/1.3 AM synthesized instruments (auto-loading
     companion `.mod.nt`, `.nt`, and `.as` files).
+  - Scream Tracker 2 (STM) files with 4 channels, ST2 tempo conversion, signed
+    8-bit PCM samples, and ST2 effects (volume slides, portamentos, vibrato,
+    tremor, arpeggio).
   - Scream Tracker 3 (S3M) files with multi-channel digital audio, custom sample
     rates, ST3 panning, and Yamaha OPL2/OPL3 AdLib FM synthesis (melodic and
     rhythm channels) with real-time software mixing.
   - MultiTracker (MTM) files with track sequencing and 8-bit PCM samples.
+  - Farandole Composer (FAR) files with up to 16 channels, custom tempo, 8-bit
+    samples, and per-pattern row counts.
 - Modular Architecture:
   - Core Player engine (`MODPlayer.bi`, `MODPlayer.bm`, `MODPlayerShared.bm`)
     decoupled from file parsers.
-  - Dedicated format loaders (`MODLoader.bi`, `S3MLoader.bi`, `MTMLoader.bi`)
+  - Dedicated format loaders (`MODLoader.bi`, `S3MLoader.bi`, `MTMLoader.bi`,
+    `FARLoader.bi`, `STMLoader.bi`)
     that parse native tracker files into a unified internal representation.
   - Extensible design inspired by OpenMPT and MikMod: new tracker formats (e.g.
     XM, IT) can be added simply by implementing a loader.
