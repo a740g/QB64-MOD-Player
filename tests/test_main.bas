@@ -1222,6 +1222,94 @@ SUB Test_S3M_Markers
     TEST_CASE_END
 END SUB
 
+''' @brief Tests for S3M effects (Arpeggio memory, Cxx invalid row ignore, Zxx, XA4).
+SUB Test_S3M_Effects
+    SHARED __MODPlayer_PeriodTable() AS _UNSIGNED INTEGER
+    TEST_CASE_BEGIN "S3M Effects: Arpeggio memory and c2Spd scaling"
+    DIM player AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(player, "mods/adlib.s3m"), "Load adlib.s3m base"
+    player.channel(0).note = 36 ' C-3
+    player.channel(0).period = 1000
+    player.channel(0).c2Spd = 8363
+    player.channel(0).lastArpeggio = 0
+
+    ' Row has J37 (Arpeggio +3, +7)
+    player.song.tickPattern = 0
+    player.song.tickPatternRow = 0
+    player.pattern(0).note(0, 0).note = __MODPLAYER_NOTE_NONE
+    player.pattern(0).note(0, 0).effect = __MODPLAYER_FX_ARPEGGIO
+    player.pattern(0).note(0, 0).operand = &H37
+    __MODPlayer_UpdateRow player
+    TEST_CHECK player.channel(0).lastArpeggio = &H37, "J37 sets lastArpeggio to &H37"
+
+    ' Tick 1: should calculate frequency for note + 3 (36 + 3 = 39)
+    player.song.tick = 1
+    __MODPlayer_UpdateTick player
+    DIM expectedPeriod1 AS LONG
+    expectedPeriod1 = (8363 * __MODPlayer_PeriodTable(39)) \ 8363
+    DIM expectedFreq1 AS _UNSIGNED LONG
+    expectedFreq1 = __MODPlayer_GetFrequencyFromPeriod(expectedPeriod1)
+    TEST_CHECK SoftSynth_GetVoiceFrequency(player.synth, 0) = expectedFreq1, "Tick 1 arpeggio frequency matches note+3"
+
+    ' Now test J00 (recall memory)
+    player.pattern(0).note(0, 0).operand = 0
+    __MODPlayer_UpdateRow player
+    TEST_CHECK player.channel(0).lastArpeggio = &H37, "J00 preserves lastArpeggio"
+    player.song.tick = 2
+    __MODPlayer_UpdateTick player
+    DIM expectedPeriod2 AS LONG
+    expectedPeriod2 = (8363 * __MODPlayer_PeriodTable(43)) \ 8363
+    DIM expectedFreq2 AS _UNSIGNED LONG
+    expectedFreq2 = __MODPlayer_GetFrequencyFromPeriod(expectedPeriod2)
+    TEST_CHECK SoftSynth_GetVoiceFrequency(player.synth, 0) = expectedFreq2, "Tick 2 arpeggio with J00 recalls memory (note+7)"
+
+    MODPlayer_Finalize player
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "S3M Effects: Pattern Break Cxx ignores row >= 64"
+    DIM playerPB AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(playerPB, "mods/BACKWARD.S3M"), "Load BACKWARD.S3M"
+    MODPlayer_Play playerPB
+    playerPB.song.orderPosition = 2
+    playerPB.song.patternRow = 10
+    playerPB.song.tickPattern = playerPB.order(2)
+    playerPB.song.tickPatternRow = 10
+
+    ' Simulate C64 (operand &H64 = 6*10 + 4 = 64) -> ST3 ignores row >= 64
+    playerPB.pattern(playerPB.song.tickPattern).note(10, 0).effect = __MODPLAYER_FX_PATTERN_BREAK
+    playerPB.pattern(playerPB.song.tickPattern).note(10, 0).operand = &H64
+    __MODPlayer_UpdateRow playerPB
+    TEST_CHECK playerPB.song.orderPosition = 2, "C64 does not advance order (ignored)"
+    TEST_CHECK playerPB.song.patternRow = 10, "C64 does not change row (ignored)"
+
+    MODPlayer_Stop playerPB
+    MODPlayer_Finalize playerPB
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "S3M Effects: FM Arpeggio modulation"
+    DIM playerFM AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(playerFM, "mods/adlib.s3m"), "Load adlib.s3m"
+    MODPlayer_Play playerFM
+    ' Channel 4 is FM melody
+    playerFM.channel(4).note = 36
+    playerFM.channel(4).oplKeyOn = -1
+    playerFM.channel(4).lastArpeggio = &H47
+    playerFM.song.tickPattern = playerFM.order(playerFM.song.orderPosition)
+    playerFM.song.tickPatternRow = 0
+    playerFM.pattern(playerFM.song.tickPattern).note(0, 4).effect = __MODPLAYER_FX_ARPEGGIO
+    playerFM.pattern(playerFM.song.tickPattern).note(0, 4).operand = 0 ' J00
+
+    ' Tick 1: arpeggio modulation
+    playerFM.song.tick = 1
+    __MODPlayer_UpdateFMChannelTick playerFM, 4, __MODPLAYER_FX_ARPEGGIO, 0
+    TEST_CHECK playerFM.channel(4).oplKeyOn = -1, "FM voice remains active during arpeggio"
+    TEST_CHECK playerFM.channel(4).lastArpeggio = &H47, "FM J00 memory intact"
+
+    MODPlayer_Stop playerFM
+    MODPlayer_Finalize playerFM
+    TEST_CASE_END
+END SUB
+
 ''' @brief Tests for S3M master stereo flag detection and mono centering.
 SUB Test_MODPlayer_Stereo
     TEST_CASE_BEGIN "Stereo Flag: S3M Mono vs Stereo detection"
@@ -1328,6 +1416,7 @@ Test_MODPlayer_S3M_Packed
 Test_MODPlayer_S3M_AdLib
 Test_MODPlayer_S3M_FMDrums
 Test_S3M_Markers
+Test_S3M_Effects
 Test_MODPlayer_Stereo
 Test_MODPlayer_ChannelBadges
 Test_MODPlayer_MTM

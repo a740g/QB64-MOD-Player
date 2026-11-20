@@ -159,6 +159,7 @@ TYPE __MODPlayerChannel
     lastChannelVolumeSlide AS _UNSIGNED _BYTE ' S3M Nxy effect memory
     lastGlobalVolumeSlide AS _UNSIGNED _BYTE ' S3M Wxy effect memory
     lastTempo AS _UNSIGNED _BYTE ' S3M Txx effect memory
+    lastArpeggio AS _UNSIGNED _BYTE ' S3M Jxy effect memory
     tremorOnTicks AS _UNSIGNED _BYTE ' S3M Ixy on-time, including the encoded +1
     tremorOffTicks AS _UNSIGNED _BYTE ' S3M Ixy off-time, including the encoded +1
     panbrelloPosition AS _UNSIGNED _BYTE ' S3M Yxy phase

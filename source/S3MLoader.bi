@@ -693,6 +693,10 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
                                     ' Ranges from 0 (left) to 128 (right)
                                     player.pattern(i).note(row, chan).effect = __MODPLAYER_FX_PANNING_8
                                     player.pattern(i).note(row, chan).operand = (player.pattern(i).note(row, chan).operand * 255&) \ 128&
+                                ELSEIF player.pattern(i).note(row, chan).operand = &HA4 THEN
+                                    ' XA4 is surround mode in S3M (matching libxmp and OpenMPT)
+                                    player.pattern(i).note(row, chan).effect = __MODPLAYER_FX_SOUND_CONTROL
+                                    player.pattern(i).note(row, chan).operand = 1
                                 ELSE
                                     ' If it is anything else, then we'll simply ignore the effect
                                     player.pattern(i).note(row, chan).effect = &H0
@@ -702,7 +706,7 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
                             CASE &H19 ' Yxy Panbrello
                                 player.pattern(i).note(row, chan).effect = __MODPLAYER_FX_PANBRELLO
 
-                            CASE &H20 ' Zxx MIDI Macro
+                            CASE &H1A ' Zxx MIDI Macro (26 = 'Z')
                                 player.pattern(i).note(row, chan).effect = __MODPLAYER_FX_MIDI_MACRO
 
                             CASE ELSE

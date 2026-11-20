@@ -166,6 +166,7 @@ SUB MODPlayer_Play (player AS MODPlayer)
                 player.channel(channelIndex).lastChannelVolumeSlide = 0
                 player.channel(channelIndex).lastGlobalVolumeSlide = 0
                 player.channel(channelIndex).lastTempo = 0
+                player.channel(channelIndex).lastArpeggio = 0
                 player.channel(channelIndex).lastVolumeSlide = 0
                 player.channel(channelIndex).lastPortamento = 0
                 player.channel(channelIndex).retriggerVolumeSlide = 0
@@ -992,6 +993,7 @@ SUB __MODPlayer_UpdateFMChannelRow (player AS MODPlayer, nChannel AS _UNSIGNED _
             regB0 = _SHL(player.channel(nChannel).oplBlock AND 7, 2) OR (_SHR(player.channel(nChannel).oplFNum, 8) AND 3)
             Opal_Write player.opl, &HB0 + oplChan, regB0
         ELSEIF nNote < __MODPLAYER_NOTE_NONE THEN
+            player.channel(nChannel).note = nNote
             player.channel(nChannel).vibratoPosition = 0
             __MODPlayer_GetOPLNotePitch player, nChannel, nNote, oplFNum, oplBlock
             IF oplFNum > 0 THEN
@@ -1004,6 +1006,11 @@ SUB __MODPlayer_UpdateFMChannelRow (player AS MODPlayer, nChannel AS _UNSIGNED _
                 Opal_Write player.opl, &HB0 + oplChan, regB0 AND (NOT &H20)
                 Opal_Write player.opl, &HB0 + oplChan, regB0
             END IF
+        ELSEIF player.channel(nChannel).oplKeyOn THEN
+            ' Restore base frequency on sustaining notes in case arpeggio or vibrato modulated it
+            Opal_Write player.opl, &HA0 + oplChan, player.channel(nChannel).oplFNum AND &HFF
+            regB0 = &H20 OR _SHL(player.channel(nChannel).oplBlock AND 7, 2) OR (_SHR(player.channel(nChannel).oplFNum, 8) AND 3)
+            Opal_Write player.opl, &HB0 + oplChan, regB0
         END IF
     ELSE
         DIM drumBit AS _UNSIGNED _BYTE
@@ -1013,6 +1020,7 @@ SUB __MODPlayer_UpdateFMChannelRow (player AS MODPlayer, nChannel AS _UNSIGNED _
                 player.channel(nChannel).oplKeyOn = _FALSE
                 __MODPlayer_UpdateOPLDrumKeys player
             ELSEIF nNote < __MODPLAYER_NOTE_NONE THEN
+                player.channel(nChannel).note = nNote
                 __MODPlayer_GetOPLNotePitch player, nChannel, nNote, oplFNum, oplBlock
                 IF oplFNum > 0 THEN
                     player.channel(nChannel).oplFNum = oplFNum
@@ -1078,6 +1086,32 @@ SUB __MODPlayer_UpdateFMChannelTick (player AS MODPlayer, nChannel AS _UNSIGNED 
     DIM nOpY AS _UNSIGNED _BYTE: nOpY = nOperand AND &HF
 
     SELECT CASE nEffect
+        CASE __MODPLAYER_FX_ARPEGGIO
+            IF player.channel(nChannel).oplKeyOn THEN
+                DIM arpParamFM AS _UNSIGNED _BYTE
+                arpParamFM = nOperand
+                IF arpParamFM = 0 THEN arpParamFM = player.channel(nChannel).lastArpeggio
+                IF arpParamFM > 0 THEN
+                    DIM arpXFM AS _UNSIGNED _BYTE, arpYFM AS _UNSIGNED _BYTE, arpNoteFM AS _UNSIGNED _BYTE
+                    arpXFM = _SHR(arpParamFM, 4)
+                    arpYFM = arpParamFM AND &HF
+                    SELECT CASE player.song.tick MOD 3
+                        CASE 0: arpNoteFM = player.channel(nChannel).note
+                        CASE 1: arpNoteFM = player.channel(nChannel).note + arpXFM
+                        CASE 2: arpNoteFM = player.channel(nChannel).note + arpYFM
+                    END SELECT
+                    DIM arpFNum AS _UNSIGNED INTEGER, arpBlock AS _UNSIGNED _BYTE
+                    __MODPlayer_GetOPLNotePitch player, nChannel, arpNoteFM, arpFNum, arpBlock
+                    IF arpFNum > 0 THEN
+                        Opal_Write player.opl, &HA0 + oplChan, arpFNum AND &HFF
+                        DIM regB0Arp AS _UNSIGNED _BYTE
+                        regB0Arp = _SHL(arpBlock AND 7, 2) OR (_SHR(arpFNum, 8) AND 3)
+                        IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_FM_MELODY THEN regB0Arp = regB0Arp OR &H20
+                        Opal_Write player.opl, &HB0 + oplChan, regB0Arp
+                    END IF
+                END IF
+            END IF
+
         CASE __MODPLAYER_FX_PORTAMENTO_UP, __MODPLAYER_FX_PORTA_EXTRA_FINE_UP
             IF nOperand THEN player.channel(nChannel).lastPortamento = nOperand
             IF player.channel(nChannel).lastPortamento < &HE0 THEN
@@ -1259,24 +1293,31 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                         jumpEffectFlag = _TRUE
 
                     CASE __MODPLAYER_FX_PATTERN_BREAK
-                        player.song.patternRow = (nOpX * 10) + nOpY - 1
-                        IF NOT breakEffectFlag _ANDALSO NOT jumpEffectFlag THEN
-                            IF NOT player.song.isS3M _ORELSE (nOpX = 0 _ANDALSO nOpY = 0) THEN
-                                player.song.orderPosition = player.song.orderPosition + 1
-                                IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
-                                WHILE player.song.orderPosition < player.song.orders _ANDALSO player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_MARKER
+                        DIM breakTargetRowFM AS LONG
+                        breakTargetRowFM = (nOpX * 10) + nOpY
+                        IF NOT (player.song.isS3M _ANDALSO breakTargetRowFM >= 64) THEN
+                            player.song.patternRow = breakTargetRowFM - 1
+                            IF NOT breakEffectFlag _ANDALSO NOT jumpEffectFlag THEN
+                                IF NOT player.song.isS3M _ORELSE (nOpX = 0 _ANDALSO nOpY = 0) THEN
                                     player.song.orderPosition = player.song.orderPosition + 1
-                                WEND
-                                IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
+                                    IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
+                                    WHILE player.song.orderPosition < player.song.orders _ANDALSO player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_MARKER
+                                        player.song.orderPosition = player.song.orderPosition + 1
+                                    WEND
+                                    IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
+                                END IF
                             END IF
-                        END IF
-                        IF player.song.orderPosition < player.song.orders THEN
-                            targetPatFM = player.order(player.song.orderPosition)
-                            IF targetPatFM < player.song.patterns THEN
-                                IF player.song.patternRow >= player.pattern(targetPatFM).rows THEN player.song.patternRow = -1
+                            IF player.song.orderPosition < player.song.orders THEN
+                                targetPatFM = player.order(player.song.orderPosition)
+                                IF targetPatFM < player.song.patterns THEN
+                                    IF player.song.patternRow >= player.pattern(targetPatFM).rows THEN player.song.patternRow = -1
+                                END IF
                             END IF
+                            breakEffectFlag = _TRUE
                         END IF
-                        breakEffectFlag = _TRUE
+
+                    CASE __MODPLAYER_FX_ARPEGGIO
+                        IF nOperand THEN player.channel(nChannel).lastArpeggio = nOperand
 
                     CASE __MODPLAYER_FX_PORTA_EXTRA_FINE_DOWN
                         IF nOperand THEN player.channel(nChannel).lastPortamento = nOperand
@@ -1529,6 +1570,11 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                     END IF
                 END IF
 
+            CASE __MODPLAYER_FX_ARPEGGIO
+                IF player.song.isS3M THEN
+                    IF nOperand THEN player.channel(nChannel).lastArpeggio = nOperand
+                END IF
+
             CASE __MODPLAYER_FX_POSITION_JUMP
                 player.song.orderPosition = nOperand
                 IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
@@ -1544,24 +1590,28 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                 IF player.channel(nChannel).volume > __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN player.channel(nChannel).volume = __MODPLAYER_INSTRUMENT_VOLUME_MAX
 
             CASE __MODPLAYER_FX_PATTERN_BREAK
-                player.song.patternRow = (nOpX * 10) + nOpY - 1
-                IF NOT breakEffectFlag _ANDALSO NOT jumpEffectFlag THEN
-                    IF NOT player.song.isS3M _ORELSE (nOpX = 0 _ANDALSO nOpY = 0) THEN
-                        player.song.orderPosition = player.song.orderPosition + 1
-                        IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
-                        WHILE player.song.orderPosition < player.song.orders _ANDALSO player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_MARKER
+                DIM breakTargetRow AS LONG
+                breakTargetRow = (nOpX * 10) + nOpY
+                IF NOT (player.song.isS3M _ANDALSO breakTargetRow >= 64) THEN
+                    player.song.patternRow = breakTargetRow - 1
+                    IF NOT breakEffectFlag _ANDALSO NOT jumpEffectFlag THEN
+                        IF NOT player.song.isS3M _ORELSE (nOpX = 0 _ANDALSO nOpY = 0) THEN
                             player.song.orderPosition = player.song.orderPosition + 1
-                        WEND
-                        IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
+                            IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
+                            WHILE player.song.orderPosition < player.song.orders _ANDALSO player.order(player.song.orderPosition) = __MODPLAYER_PATTERN_MARKER
+                                player.song.orderPosition = player.song.orderPosition + 1
+                            WEND
+                            IF player.song.orderPosition >= player.song.orders THEN player.song.orderPosition = player.song.endJumpOrder
+                        END IF
                     END IF
-                END IF
-                IF player.song.orderPosition < player.song.orders THEN
-                    DIM targetPat AS LONG: targetPat = player.order(player.song.orderPosition)
-                    IF targetPat < player.song.patterns THEN
-                        IF player.song.patternRow >= player.pattern(targetPat).rows THEN player.song.patternRow = -1
+                    IF player.song.orderPosition < player.song.orders THEN
+                        DIM targetPat AS LONG: targetPat = player.order(player.song.orderPosition)
+                        IF targetPat < player.song.patterns THEN
+                            IF player.song.patternRow >= player.pattern(targetPat).rows THEN player.song.patternRow = -1
+                        END IF
                     END IF
+                    breakEffectFlag = _TRUE
                 END IF
-                breakEffectFlag = _TRUE
 
             CASE __MODPLAYER_FX_EXT
                 SELECT CASE nOpX
@@ -1900,14 +1950,47 @@ SUB __MODPlayer_UpdateTick (player AS MODPlayer)
 
             SELECT CASE nEffect
                 CASE __MODPLAYER_FX_ARPEGGIO
-                    IF nOperand _ANDALSO player.channel(nChannel).period > 0 THEN
+                    DIM arpParam AS _UNSIGNED _BYTE
+                    arpParam = nOperand
+                    IF arpParam = 0 _ANDALSO player.song.isS3M THEN arpParam = player.channel(nChannel).lastArpeggio
+                    IF arpParam _ANDALSO player.channel(nChannel).period > 0 THEN
+                        DIM arpX AS _UNSIGNED _BYTE: arpX = _SHR(arpParam, 4)
+                        DIM arpY AS _UNSIGNED _BYTE: arpY = arpParam AND &HF
                         SELECT CASE player.song.tick MOD 3
                             CASE 0
                                 SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(player.channel(nChannel).period)
                             CASE 1
-                                SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(__MODPlayer_PeriodTable(player.channel(nChannel).note + nOpX))
+                                IF player.song.isS3M THEN
+                                    DIM c2SpdArp1 AS _UNSIGNED LONG
+                                    c2SpdArp1 = player.channel(nChannel).c2Spd
+                                    IF c2SpdArp1 = 0 THEN c2SpdArp1 = player.instrument(player.channel(nChannel).instrument).c2Spd
+                                    IF c2SpdArp1 = 0 THEN c2SpdArp1 = 8363
+                                    DIM note1 AS LONG: note1 = player.channel(nChannel).note + arpX
+                                    IF note1 > UBOUND(__MODPlayer_PeriodTable) THEN note1 = UBOUND(__MODPlayer_PeriodTable)
+                                    DIM p1 AS LONG
+                                    p1 = (8363 * __MODPlayer_PeriodTable(note1)) \ c2SpdArp1
+                                    SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(p1)
+                                ELSE
+                                    DIM noteMOD1 AS LONG: noteMOD1 = player.channel(nChannel).note + arpX
+                                    IF noteMOD1 > UBOUND(__MODPlayer_PeriodTable) THEN noteMOD1 = UBOUND(__MODPlayer_PeriodTable)
+                                    SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(__MODPlayer_PeriodTable(noteMOD1))
+                                END IF
                             CASE 2
-                                SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(__MODPlayer_PeriodTable(player.channel(nChannel).note + nOpY))
+                                IF player.song.isS3M THEN
+                                    DIM c2SpdArp2 AS _UNSIGNED LONG
+                                    c2SpdArp2 = player.channel(nChannel).c2Spd
+                                    IF c2SpdArp2 = 0 THEN c2SpdArp2 = player.instrument(player.channel(nChannel).instrument).c2Spd
+                                    IF c2SpdArp2 = 0 THEN c2SpdArp2 = 8363
+                                    DIM note2 AS LONG: note2 = player.channel(nChannel).note + arpY
+                                    IF note2 > UBOUND(__MODPlayer_PeriodTable) THEN note2 = UBOUND(__MODPlayer_PeriodTable)
+                                    DIM p2 AS LONG
+                                    p2 = (8363 * __MODPlayer_PeriodTable(note2)) \ c2SpdArp2
+                                    SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(p2)
+                                ELSE
+                                    DIM noteMOD2 AS LONG: noteMOD2 = player.channel(nChannel).note + arpY
+                                    IF noteMOD2 > UBOUND(__MODPlayer_PeriodTable) THEN noteMOD2 = UBOUND(__MODPlayer_PeriodTable)
+                                    SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(__MODPlayer_PeriodTable(noteMOD2))
+                                END IF
                         END SELECT
                     END IF
 
