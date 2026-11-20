@@ -1020,7 +1020,7 @@ SUB Star_UpdateAndDraw (stars() AS Star, speed AS SINGLE)
     NEXT i
 END SUB
 
-''' @brief Initializes bouncing snake positions and colors.
+''' @brief Initializes bouncing snake positions and colors with collision-free placement.
 ''' @param snakes() Array of Snake structures to initialize.
 SUB Snake_InitializeAll (snakes() AS Snake)
     CONST SNAKE_SIZE_MIN = 5
@@ -1031,6 +1031,8 @@ SUB Snake_InitializeAll (snakes() AS Snake)
     DIM W AS LONG: W = _WIDTH
     DIM H AS LONG: H = _HEIGHT
 
+    REDIM spawnGrid(1 TO W, 1 TO H) AS _BYTE
+
     DIM i AS LONG
     FOR i = L TO U
         snakes(i).p = SPACE$(Math_GetRandomBetween(SNAKE_SIZE_MIN, SNAKE_SIZE_MAX) * 2)
@@ -1040,11 +1042,18 @@ SUB Snake_InitializeAll (snakes() AS Snake)
         Vector2f_FromAngle angle, 1!, snakes(i).direction
         snakes(i).turnRate = 0!
 
-        DIM size AS LONG: size = LEN(snakes(i).p)
-        DIM x AS LONG: x = Math_GetRandomBetween(1, W)
-        DIM y AS LONG: y = Math_GetRandomBetween(1, H)
+        ' Find a spawn position not occupied by another snake
+        DIM x AS LONG, y AS LONG, tries AS LONG
+        DO
+            x = Math_GetRandomBetween(2, W - 1)
+            y = Math_GetRandomBetween(2, H - 1)
+            tries = tries + 1
+        LOOP WHILE spawnGrid(x, y) <> 0 AND tries < 500
+        spawnGrid(x, y) = 1
+
         Vector2f_Initialize CSNG(x), CSNG(y), snakes(i).position
 
+        DIM size AS LONG: size = LEN(snakes(i).p)
         DIM j AS LONG
         FOR j = 1 TO size STEP 2
             ASC(snakes(i).p, j) = x
@@ -1053,7 +1062,7 @@ SUB Snake_InitializeAll (snakes() AS Snake)
     NEXT i
 END SUB
 
-''' @brief Updates snake segments and renders bouncing snakes on screen.
+''' @brief Updates snake segments with collision detection/avoidance and renders bouncing snakes on screen.
 ''' @param snakes() Array of Snake structures.
 SUB Snake_UpdateAndDraw (snakes() AS Snake)
     CONST SNAKE_HEAD = CHR$(15)
@@ -1064,14 +1073,106 @@ SUB Snake_UpdateAndDraw (snakes() AS Snake)
     DIM W AS LONG: W = _WIDTH
     DIM H AS LONG: H = _HEIGHT
 
+    STATIC grid() AS _BYTE, gridW AS LONG, gridH AS LONG
+    IF W <> gridW _ORELSE H <> gridH THEN
+        gridW = W: gridH = H
+        REDIM grid(1 TO W, 1 TO H) AS _BYTE
+    END IF
+
+    ' Clear occupancy grid
+    DIM mema AS _MEM: mema = _MEM(grid())
+    _MEMFILL mema, mema.OFFSET, mema.SIZE, 0%% AS _BYTE
+    _MEMFREE mema
+
+    ' Populate occupancy grid with all current snake segments
     DIM i AS LONG
     FOR i = L TO U
-        ' Smoothly adjust turning rate
-        DIM r AS SINGLE: r = RND
-        IF r < 0.02! THEN
-            snakes(i).turnRate = (RND - 0.5!) * 0.12!
-        ELSEIF r < 0.08! THEN
-            snakes(i).turnRate = 0!
+        DIM pLen AS LONG: pLen = LEN(snakes(i).p)
+        DIM j AS LONG
+        FOR j = 1 TO pLen STEP 2
+            DIM sx AS LONG: sx = ASC(snakes(i).p, j)
+            DIM sy AS LONG: sy = ASC(snakes(i).p, j + 1)
+            IF sx >= 1 _ANDALSO sx <= W _ANDALSO sy >= 1 _ANDALSO sy <= H THEN
+                grid(sx, sy) = i
+            END IF
+        NEXT j
+    NEXT i
+
+    ' Head-to-head proximity deflection
+    FOR i = L TO U - 1
+        FOR j = i + 1 TO U
+            DIM dSq AS SINGLE
+            dSq = Vector2f_DistanceSquared(snakes(i).position, snakes(j).position)
+            IF dSq < 4.0! THEN
+                DIM rep AS Vector2f
+                Vector2f_Subtract snakes(i).position, snakes(j).position, rep
+                IF Vector2f_IsNull(rep) THEN
+                    Vector2f_Set (RND - 0.5!), (RND - 0.5!), rep
+                END IF
+                Vector2f_Normalize rep, rep
+                snakes(i).direction = rep
+                Vector2f_Negate rep, snakes(j).direction
+                snakes(i).turnRate = (RND - 0.5!) * 0.2!
+                snakes(j).turnRate = (RND - 0.5!) * 0.2!
+            END IF
+        NEXT j
+    NEXT i
+
+    ' Update each snake
+    FOR i = L TO U
+        ' Probe ahead for obstacles (walls or other snakes)
+        DIM lookDist AS SINGLE: lookDist = 2.0!
+        DIM aheadX AS SINGLE: aheadX = snakes(i).position.x + snakes(i).direction.x * lookDist
+        DIM aheadY AS SINGLE: aheadY = snakes(i).position.y + snakes(i).direction.y * lookDist
+        DIM ax AS LONG: ax = _CLAMP(CINT(aheadX), 1, W)
+        DIM ay AS LONG: ay = _CLAMP(CINT(aheadY), 1, H)
+
+        DIM aheadBlocked AS _BYTE
+        aheadBlocked = (aheadX < 1.5! _ORELSE aheadX > CSNG(W) - 0.5! _ORELSE aheadY < 1.5! _ORELSE aheadY > CSNG(H) - 0.5!)
+        IF NOT aheadBlocked THEN
+            IF grid(ax, ay) <> 0 _ANDALSO grid(ax, ay) <> i THEN aheadBlocked = _TRUE
+        END IF
+
+        IF aheadBlocked THEN
+            ' Evaluate left (+60 deg) and right (-60 deg) alternatives
+            DIM leftDir AS Vector2f, rightDir AS Vector2f
+            Vector2f_Rotate snakes(i).direction, 1.047!, leftDir
+            Vector2f_Rotate snakes(i).direction, -1.047!, rightDir
+
+            DIM lx AS LONG: lx = _CLAMP(CINT(snakes(i).position.x + leftDir.x * lookDist), 1, W)
+            DIM ly AS LONG: ly = _CLAMP(CINT(snakes(i).position.y + leftDir.y * lookDist), 1, H)
+            DIM leftBlocked AS _BYTE
+            leftBlocked = (lx <= 1 _ORELSE lx >= W _ORELSE ly <= 1 _ORELSE ly >= H)
+            IF NOT leftBlocked THEN
+                IF grid(lx, ly) <> 0 _ANDALSO grid(lx, ly) <> i THEN leftBlocked = _TRUE
+            END IF
+
+            DIM rx AS LONG: rx = _CLAMP(CINT(snakes(i).position.x + rightDir.x * lookDist), 1, W)
+            DIM ry AS LONG: ry = _CLAMP(CINT(snakes(i).position.y + rightDir.y * lookDist), 1, H)
+            DIM rightBlocked AS _BYTE
+            rightBlocked = (rx <= 1 _ORELSE rx >= W _ORELSE ry <= 1 _ORELSE ry >= H)
+            IF NOT rightBlocked THEN
+                IF grid(rx, ry) <> 0 _ANDALSO grid(rx, ry) <> i THEN rightBlocked = _TRUE
+            END IF
+
+            IF NOT leftBlocked _ANDALSO rightBlocked THEN
+                snakes(i).turnRate = 0.25!
+            ELSEIF NOT rightBlocked _ANDALSO leftBlocked THEN
+                snakes(i).turnRate = -0.25!
+            ELSEIF NOT leftBlocked _ANDALSO NOT rightBlocked THEN
+                IF snakes(i).turnRate >= 0! THEN snakes(i).turnRate = 0.25! ELSE snakes(i).turnRate = -0.25!
+            ELSE
+                Vector2f_Rotate snakes(i).direction, _PI * 0.75!, snakes(i).direction
+                snakes(i).turnRate = (RND - 0.5!) * 0.2!
+            END IF
+        ELSE
+            ' Free wandering steering
+            DIM r AS SINGLE: r = RND
+            IF r < 0.04! THEN
+                snakes(i).turnRate = (RND - 0.5!) * 0.12!
+            ELSEIF r < 0.08! THEN
+                snakes(i).turnRate = 0!
+            END IF
         END IF
 
         ' Rotate direction vector smoothly
@@ -1084,7 +1185,7 @@ SUB Snake_UpdateAndDraw (snakes() AS Snake)
         DIM nextX AS SINGLE: nextX = snakes(i).position.x + snakes(i).direction.x * snakes(i).speed
         DIM nextY AS SINGLE: nextY = snakes(i).position.y + snakes(i).direction.y * snakes(i).speed
 
-        ' Bounce off screen edges smoothly
+        ' Screen border bounces
         IF nextX < 1! THEN
             Vector2f_FlipHorizontal snakes(i).direction, snakes(i).direction
             nextX = 1!
@@ -1105,27 +1206,92 @@ SUB Snake_UpdateAndDraw (snakes() AS Snake)
             snakes(i).turnRate = -snakes(i).turnRate
         END IF
 
+        ' Hard collision prevention: ensure target cell is not occupied by another snake
+        DIM targetCellX AS LONG: targetCellX = _CLAMP(CINT(nextX), 1, W)
+        DIM targetCellY AS LONG: targetCellY = _CLAMP(CINT(nextY), 1, H)
+
+        IF grid(targetCellX, targetCellY) <> 0 _ANDALSO grid(targetCellX, targetCellY) <> i THEN
+            DIM foundEscape AS _BYTE: foundEscape = _FALSE
+            DIM testIdx AS LONG
+            FOR testIdx = 1 TO 5
+                DIM testAngle AS SINGLE
+                SELECT CASE testIdx
+                    CASE 1: testAngle = 1.570796!   ' +90 deg
+                    CASE 2: testAngle = -1.570796!  ' -90 deg
+                    CASE 3: testAngle = 2.356194!   ' +135 deg
+                    CASE 4: testAngle = -2.356194!  ' -135 deg
+                    CASE 5: testAngle = 3.141593!   ' 180 deg
+                END SELECT
+
+                DIM candDir AS Vector2f
+                Vector2f_Rotate snakes(i).direction, testAngle, candDir
+                Vector2f_Normalize candDir, candDir
+
+                DIM candX AS SINGLE: candX = snakes(i).position.x + candDir.x * snakes(i).speed
+                DIM candY AS SINGLE: candY = snakes(i).position.y + candDir.y * snakes(i).speed
+                DIM candCellX AS LONG: candCellX = _CLAMP(CINT(candX), 1, W)
+                DIM candCellY AS LONG: candCellY = _CLAMP(CINT(candY), 1, H)
+
+                IF candX >= 1! _ANDALSO candX <= CSNG(W) _ANDALSO candY >= 1! _ANDALSO candY <= CSNG(H) THEN
+                    IF grid(candCellX, candCellY) = 0 _ORELSE grid(candCellX, candCellY) = i THEN
+                        snakes(i).direction = candDir
+                        snakes(i).turnRate = testAngle * 0.1!
+                        nextX = candX
+                        nextY = candY
+                        targetCellX = candCellX
+                        targetCellY = candCellY
+                        foundEscape = _TRUE
+                        EXIT FOR
+                    END IF
+                END IF
+            NEXT testIdx
+
+            IF NOT foundEscape THEN
+                nextX = snakes(i).position.x
+                nextY = snakes(i).position.y
+                targetCellX = ASC(snakes(i).p, 1)
+                targetCellY = ASC(snakes(i).p, 2)
+            END IF
+        END IF
+
         snakes(i).position.x = nextX
         snakes(i).position.y = nextY
 
-        ' Check if the head advanced to a new character cell
-        DIM cellX AS LONG: cellX = _CLAMP(CINT(nextX), 1, W)
-        DIM cellY AS LONG: cellY = _CLAMP(CINT(nextY), 1, H)
-
-        IF cellX <> ASC(snakes(i).p, 1) _ORELSE cellY <> ASC(snakes(i).p, 2) THEN
+        ' Shift body segments when entering a new character cell
+        IF targetCellX <> ASC(snakes(i).p, 1) _ORELSE targetCellY <> ASC(snakes(i).p, 2) THEN
             DIM sLen AS LONG: sLen = LEN(snakes(i).p)
-            DIM j AS LONG: j = sLen - 2
-            WHILE j > 0
-                ASC(snakes(i).p, j + 2) = ASC(snakes(i).p, j)
-                j = j - 1
+            DIM oldTailX AS LONG: oldTailX = ASC(snakes(i).p, sLen - 1)
+            DIM oldTailY AS LONG: oldTailY = ASC(snakes(i).p, sLen)
+
+            DIM k AS LONG: k = sLen - 2
+            WHILE k > 0
+                ASC(snakes(i).p, k + 2) = ASC(snakes(i).p, k)
+                k = k - 1
             WEND
-            ASC(snakes(i).p, 1) = cellX
-            ASC(snakes(i).p, 2) = cellY
+            ASC(snakes(i).p, 1) = targetCellX
+            ASC(snakes(i).p, 2) = targetCellY
+
+            ' Only clear old tail cell if no other segment of snake i remains there
+            DIM tailStillOccupied AS _BYTE: tailStillOccupied = _FALSE
+            DIM chk AS LONG
+            FOR chk = 1 TO sLen STEP 2
+                IF ASC(snakes(i).p, chk) = oldTailX AND ASC(snakes(i).p, chk + 1) = oldTailY THEN
+                    tailStillOccupied = _TRUE
+                    EXIT FOR
+                END IF
+            NEXT chk
+
+            IF NOT tailStillOccupied THEN
+                IF oldTailX >= 1 _ANDALSO oldTailX <= W _ANDALSO oldTailY >= 1 _ANDALSO oldTailY <= H THEN
+                    IF grid(oldTailX, oldTailY) = i THEN grid(oldTailX, oldTailY) = 0
+                END IF
+            END IF
+            grid(targetCellX, targetCellY) = i
         END IF
 
         ' Draw body segments
-        sLen = LEN(snakes(i).p)
-        j = sLen - 2
+        DIM sLenDraw AS LONG: sLenDraw = LEN(snakes(i).p)
+        j = sLenDraw - 2
         WHILE j > 2
             DIM py AS LONG: py = ASC(snakes(i).p, j)
             j = j - 1
