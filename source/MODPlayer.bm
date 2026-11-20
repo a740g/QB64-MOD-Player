@@ -577,10 +577,26 @@ SUB __MODPlayer_PlayPCMChannelVoice (player AS MODPlayer, nChannel AS _UNSIGNED 
     END IF
 END SUB
 
+SUB __MODPlayer_TickAMEnvelope (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, target AS LONG, rate AS LONG, nextStage AS _UNSIGNED _BYTE)
+    DIM curLevel AS LONG: curLevel = player.channel(nChannel).amLevel
+    DIM x AS LONG
+    IF target > curLevel THEN
+        x = curLevel + rate
+        IF x > target THEN x = target
+    ELSE
+        x = curLevel - rate
+        IF x < target THEN x = target
+    END IF
+    player.channel(nChannel).amLevel = x
+    IF x = target THEN
+        player.channel(nChannel).amStage = nextStage
+    END IF
+END SUB
+
 SUB __MODPlayer_TriggerAMInstrument (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE, inst AS LONG)
     player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_ATTACK1
     player.channel(nChannel).amLevel = player.instrument(inst).am.startLevel
-    player.channel(nChannel).amSustainCounter = 0
+    player.channel(nChannel).amSustainCounter = player.instrument(inst).am.sustainTime
     player.channel(nChannel).amVibratoPos = 0
     player.channel(nChannel).amPitchDelta = 0
 
@@ -590,9 +606,11 @@ SUB __MODPlayer_TriggerAMInstrument (player AS MODPlayer, nChannel AS _UNSIGNED 
     IF oct > 0 _ANDALSO basePeriod > 0 THEN
         basePeriod = _SHL(basePeriod, oct)
     END IF
+    player.channel(nChannel).period = basePeriod
     player.channel(nChannel).amBasePeriod = basePeriod
 
-    __MODPlayer_UpdateAMChannel player, nChannel
+    ' Step tick 0 of envelope and pitch
+    __MODPlayer_ProcessAMChannelTick player, nChannel
 END SUB
 
 SUB __MODPlayer_UpdateAMChannel (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE)
@@ -600,22 +618,24 @@ SUB __MODPlayer_UpdateAMChannel (player AS MODPlayer, nChannel AS _UNSIGNED _BYT
     IF inst < 0 _ORELSE inst >= player.song.instruments THEN EXIT SUB
     IF player.instrument(inst).subtype <> __MODPLAYER_INSTRUMENT_AM_SYNTH THEN EXIT SUB
 
-    DIM vol AS LONG
-    vol = _CLAMP((CLNG(player.channel(nChannel).volume) * player.channel(nChannel).amLevel) \ 256, 0, __MODPLAYER_INSTRUMENT_VOLUME_MAX)
+    DIM curLevel AS LONG: curLevel = player.channel(nChannel).amLevel
+    IF curLevel < 0 THEN curLevel = 0
+    IF curLevel > 256 THEN curLevel = 256
+
     DIM finalVol AS SINGLE
-    finalVol = (CSNG(vol) / CSNG(__MODPLAYER_INSTRUMENT_VOLUME_MAX)) * (CSNG(player.song.globalVolume) / CSNG(__MODPLAYER_S3M_GLOBAL_VOLUME_MAX)) * player.song.pcmMasterGain
+    finalVol = (CSNG(curLevel) / 256.0!) * (CSNG(player.song.globalVolume) / CSNG(__MODPLAYER_S3M_GLOBAL_VOLUME_MAX)) * player.song.pcmMasterGain
     SoftSynth_SetVoiceVolume player.synth, nChannel, finalVol
 
     DIM vibDelta AS LONG: vibDelta = 0
     IF player.instrument(inst).am.vibAmp > 0 THEN
         DIM vPhase AS LONG: vPhase = player.channel(nChannel).amVibratoPos AND 63
         DIM sVal AS LONG
-        sVal = CINT(_ROUND(SIN(vPhase * 6.283185307179586# / 64!) * 127!))
-        vibDelta = (sVal * CLNG(player.instrument(inst).am.vibAmp) * 2) \ 128
+        sVal = CINT(_ROUND(SIN(vPhase * 6.283185307179586# / 64!) * 255!))
+        vibDelta = (sVal * CLNG(player.instrument(inst).am.vibAmp)) \ 1024
     END IF
 
     DIM netPeriod AS LONG
-    netPeriod = _CLAMP(player.channel(nChannel).amBasePeriod + player.channel(nChannel).amPitchDelta + vibDelta, 113, 27392)
+    netPeriod = _CLAMP(player.channel(nChannel).period + vibDelta, 113, 27392)
 
     IF netPeriod > 0 THEN
         SoftSynth_SetVoiceFrequency player.synth, nChannel, __MODPlayer_GetFrequencyFromPeriod(netPeriod)
@@ -628,137 +648,46 @@ SUB __MODPlayer_ProcessAMChannelTick (player AS MODPlayer, nChannel AS _UNSIGNED
     IF player.instrument(inst).subtype <> __MODPLAYER_INSTRUMENT_AM_SYNTH THEN EXIT SUB
     IF player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE THEN EXIT SUB
 
-    DIM oct AS _UNSIGNED _BYTE: oct = player.instrument(inst).am.octave
-    IF oct > 5 THEN oct = 5
-    DIM basePeriod AS LONG: basePeriod = player.channel(nChannel).period
-    IF oct > 0 _ANDALSO basePeriod > 0 THEN
-        basePeriod = _SHL(basePeriod, oct)
-    END IF
-    player.channel(nChannel).amBasePeriod = basePeriod
-
-    IF player.instrument(inst).am.pitchFall <> 0 THEN
-        player.channel(nChannel).amPitchDelta = player.channel(nChannel).amPitchDelta + player.instrument(inst).am.pitchFall
-    END IF
-
-    IF player.instrument(inst).am.vibAmp > 0 THEN
-        player.channel(nChannel).amVibratoPos = (player.channel(nChannel).amVibratoPos + player.instrument(inst).am.vibSpeed) AND 63
-    END IF
-
-    DIM curLevel AS LONG: curLevel = player.channel(nChannel).amLevel
-    DIM targetLevel AS LONG, speed AS LONG, stepVal AS LONG
-
     SELECT CASE player.channel(nChannel).amStage
         CASE __MODPLAYER_AM_STAGE_ATTACK1
-            targetLevel = player.instrument(inst).am.attack1Level
-            speed = player.instrument(inst).am.attack1Speed
-            IF speed = 0 THEN
-                ' Speed 0 holds level indefinitely (sustain)
-            ELSE
-                IF targetLevel > curLevel THEN
-                    stepVal = (speed * (256 - curLevel)) \ 256
-                    IF stepVal < 1 THEN stepVal = 1
-                    curLevel = curLevel + stepVal
-                    IF curLevel >= targetLevel THEN
-                        curLevel = targetLevel
-                        player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_ATTACK2
-                    END IF
-                ELSEIF targetLevel < curLevel THEN
-                    stepVal = (speed * curLevel) \ 256
-                    IF stepVal < 1 THEN stepVal = 1
-                    curLevel = curLevel - stepVal
-                    IF curLevel <= targetLevel THEN
-                        curLevel = targetLevel
-                        player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_ATTACK2
-                    END IF
-                ELSE
-                    player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_ATTACK2
-                END IF
-            END IF
+            __MODPlayer_TickAMEnvelope player, nChannel, player.instrument(inst).am.attack1Level, player.instrument(inst).am.attack1Speed, __MODPLAYER_AM_STAGE_ATTACK2
 
         CASE __MODPLAYER_AM_STAGE_ATTACK2
-            targetLevel = player.instrument(inst).am.attack2Level
-            speed = player.instrument(inst).am.attack2Speed
-            IF speed = 0 THEN
-                ' Speed 0 holds level indefinitely
-            ELSE
-                IF targetLevel > curLevel THEN
-                    stepVal = (speed * (256 - curLevel)) \ 256
-                    IF stepVal < 1 THEN stepVal = 1
-                    curLevel = curLevel + stepVal
-                    IF curLevel >= targetLevel THEN
-                        curLevel = targetLevel
-                        player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_DECAY
-                    END IF
-                ELSEIF targetLevel < curLevel THEN
-                    stepVal = (speed * curLevel) \ 256
-                    IF stepVal < 1 THEN stepVal = 1
-                    curLevel = curLevel - stepVal
-                    IF curLevel <= targetLevel THEN
-                        curLevel = targetLevel
-                        player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_DECAY
-                    END IF
-                ELSE
-                    player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_DECAY
-                END IF
-            END IF
+            __MODPlayer_TickAMEnvelope player, nChannel, player.instrument(inst).am.attack2Level, player.instrument(inst).am.attack2Speed, __MODPLAYER_AM_STAGE_DECAY
 
         CASE __MODPLAYER_AM_STAGE_DECAY
-            targetLevel = player.instrument(inst).am.sustainLevel
-            speed = player.instrument(inst).am.decaySpeed
-            IF speed = 0 THEN
-                ' Speed 0 holds level indefinitely
-            ELSE
-                IF targetLevel > curLevel THEN
-                    stepVal = (speed * (256 - curLevel)) \ 256
-                    IF stepVal < 1 THEN stepVal = 1
-                    curLevel = curLevel + stepVal
-                    IF curLevel >= targetLevel THEN
-                        curLevel = targetLevel
-                        player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_SUSTAIN
-                        player.channel(nChannel).amSustainCounter = player.instrument(inst).am.sustainTime
-                    END IF
-                ELSEIF targetLevel < curLevel THEN
-                    stepVal = (speed * curLevel) \ 256
-                    IF stepVal < 1 THEN stepVal = 1
-                    curLevel = curLevel - stepVal
-                    IF curLevel <= targetLevel THEN
-                        curLevel = targetLevel
-                        player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_SUSTAIN
-                        player.channel(nChannel).amSustainCounter = player.instrument(inst).am.sustainTime
-                    END IF
-                ELSE
-                    player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_SUSTAIN
-                    player.channel(nChannel).amSustainCounter = player.instrument(inst).am.sustainTime
-                END IF
-            END IF
+            __MODPlayer_TickAMEnvelope player, nChannel, player.instrument(inst).am.sustainLevel, player.instrument(inst).am.decaySpeed, __MODPLAYER_AM_STAGE_SUSTAIN
 
         CASE __MODPLAYER_AM_STAGE_SUSTAIN
-            curLevel = player.instrument(inst).am.sustainLevel
+            ' Total sustain duration is sustainTime + 1 ticks.
             IF player.channel(nChannel).amSustainCounter > 0 THEN
                 player.channel(nChannel).amSustainCounter = player.channel(nChannel).amSustainCounter - 1
-                IF player.channel(nChannel).amSustainCounter = 0 THEN
-                    player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_RELEASE
-                END IF
             ELSE
                 player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_RELEASE
             END IF
 
         CASE __MODPLAYER_AM_STAGE_RELEASE
-            speed = player.instrument(inst).am.releaseSpeed
-            IF speed = 0 THEN
-                ' Speed 0 holds level indefinitely
-            ELSE
-                stepVal = speed
-                IF stepVal < 1 THEN stepVal = 1
-                curLevel = curLevel - stepVal
-                IF curLevel <= 0 THEN
-                    curLevel = 0
-                    player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
-                END IF
+            __MODPlayer_TickAMEnvelope player, nChannel, 0, player.instrument(inst).am.releaseSpeed, __MODPLAYER_AM_STAGE_IDLE
+            IF player.channel(nChannel).amLevel = 0 THEN
+                player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
+                SoftSynth_StopVoice player.synth, nChannel
             END IF
     END SELECT
 
-    player.channel(nChannel).amLevel = curLevel
+    ' Add pitchFall directly to period each tick (matches StarTrekker assembly & libxmp)
+    IF player.instrument(inst).am.pitchFall <> 0 THEN
+        player.channel(nChannel).period = player.channel(nChannel).period + player.instrument(inst).am.pitchFall
+        IF player.channel(nChannel).period < 113 THEN player.channel(nChannel).period = 113
+        IF player.channel(nChannel).period > 27392 THEN player.channel(nChannel).period = 27392
+    END IF
+
+    ' Advance vibrato phase
+    IF player.instrument(inst).am.vibAmp > 0 THEN
+        DIM rate AS LONG
+        rate = (CLNG(player.instrument(inst).am.vibSpeed) + 2) \ 4
+        IF rate < 1 THEN rate = 1
+        player.channel(nChannel).amVibratoPos = (player.channel(nChannel).amVibratoPos + rate) AND 63
+    END IF
 
     __MODPlayer_UpdateAMChannel player, nChannel
 END SUB
@@ -1485,6 +1414,14 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                 player.channel(nChannel).instrument = nInstrument - 1
                 player.channel(nChannel).startPosition = 0
                 player.channel(nChannel).volume = player.instrument(player.channel(nChannel).instrument).volume
+                IF nNote >= __MODPLAYER_NOTE_NONE THEN
+                    IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH _ORELSE player.instrument(player.channel(nChannel).instrument).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
+                        player.channel(nChannel).amLevel = 0
+                        player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
+                        SoftSynth_StopVoice player.synth, nChannel
+                        SoftSynth_SetVoiceVolume player.synth, nChannel, 0!
+                    END IF
+                END IF
             END IF
 
             IF nNote < __MODPLAYER_NOTE_NONE THEN
@@ -1526,6 +1463,12 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
         IF nNote = __MODPLAYER_NOTE_KEY_OFF THEN
             player.channel(nChannel).volume = 0
             IF player.song.isS3M THEN SoftSynth_StopVoice player.synth, nChannel
+            IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
+                player.channel(nChannel).amLevel = 0
+                player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
+                SoftSynth_StopVoice player.synth, nChannel
+                SoftSynth_SetVoiceVolume player.synth, nChannel, 0!
+            END IF
         END IF
         IF player.song.isS3M _ANDALSO nVolume = 125 _ANDALSO nNote < __MODPLAYER_NOTE_NONE _ANDALSO NOT delayedNoteRow THEN
             player.channel(nChannel).portamentoTo = player.channel(nChannel).lastPeriod
@@ -1538,10 +1481,26 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                 IF nOperand THEN player.channel(nChannel).portamentoSpeed = nOperand
                 player.channel(nChannel).portamentoTo = player.channel(nChannel).lastPeriod
                 player.channel(nChannel).restart = _FALSE
+                IF nInstrument > 0 THEN
+                    IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH _ORELSE player.instrument(player.channel(nChannel).instrument).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
+                        player.channel(nChannel).amLevel = 0
+                        player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
+                        SoftSynth_StopVoice player.synth, nChannel
+                        SoftSynth_SetVoiceVolume player.synth, nChannel, 0!
+                    END IF
+                END IF
 
             CASE __MODPLAYER_FX_PORTAMENTO_VOLUME_SLIDE
                 player.channel(nChannel).portamentoTo = player.channel(nChannel).lastPeriod
                 player.channel(nChannel).restart = _FALSE
+                IF nInstrument > 0 THEN
+                    IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH _ORELSE player.instrument(player.channel(nChannel).instrument).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
+                        player.channel(nChannel).amLevel = 0
+                        player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
+                        SoftSynth_StopVoice player.synth, nChannel
+                        SoftSynth_SetVoiceVolume player.synth, nChannel, 0!
+                    END IF
+                END IF
 
             CASE __MODPLAYER_FX_VIBRATO
                 IF nOpX THEN player.channel(nChannel).vibratoSpeed = nOpX
@@ -2037,6 +1996,12 @@ SUB __MODPlayer_UpdateTick (player AS MODPlayer)
                                 IF nOpY > 0 _ORELSE NOT player.song.isS3M THEN
                                     player.channel(nChannel).volume = 0
                                     IF player.song.isS3M THEN SoftSynth_StopVoice player.synth, nChannel
+                                    IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
+                                        player.channel(nChannel).amLevel = 0
+                                        player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
+                                        SoftSynth_StopVoice player.synth, nChannel
+                                        SoftSynth_SetVoiceVolume player.synth, nChannel, 0!
+                                    END IF
                                     __MODPlayer_ApplyChannelVolume player, nChannel
                                 END IF
                             END IF

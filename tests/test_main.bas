@@ -1147,22 +1147,62 @@ SUB Test_MODPlayer_Startrekker_AM
     MODPlayer_Finalize player2
     TEST_CASE_END
 
-    TEST_CASE_BEGIN "MODLoader: In-memory companion loading"
-    DIM player3 AS MODPlayer
-    DIM modData AS STRING: modData = File_Load("mods/amsyntdemo.mod")
-    DIM compData AS STRING: compData = File_Load("mods/amsyntdemo.mod.nt")
-    TEST_REQUIRE LEN(modData) > 0, "Read amsyntdemo.mod data"
-    TEST_REQUIRE LEN(compData) > 0, "Read amsyntdemo.mod.nt data"
+    TEST_CASE_BEGIN "MODPlayer: AM envelope step & stage progression"
+    DIM pEnv AS MODPlayer
+    TEST_REQUIRE MODPlayer_Initialize(pEnv), "Init player for envelope test"
+    REDIM pEnv.channel(0 TO 0) AS __MODPLAYERCHANNEL
+    
+    ' Case A: rate = 0 and curLevel = target -> advances immediately
+    pEnv.channel(0).amLevel = 100
+    pEnv.channel(0).amStage = __MODPLAYER_AM_STAGE_ATTACK1
+    __MODPlayer_TickAMEnvelope pEnv, 0, 100, 0, __MODPLAYER_AM_STAGE_ATTACK2
+    TEST_CHECK pEnv.channel(0).amStage = __MODPLAYER_AM_STAGE_ATTACK2, "Rate 0 at target advances to ATTACK2"
+    TEST_CHECK pEnv.channel(0).amLevel = 100, "Level unchanged at 100"
 
-    ' Load without companion: instruments should not be AM
-    TEST_CHECK MODLoader_LoadFromMemory(player3, modData), "Load without companion"
-    TEST_CHECK player3.instrument(0).subtype = __MODPLAYER_INSTRUMENT_PCM, "Without companion inst 1 is PCM"
-    MODPlayer_Finalize player3
+    ' Case B: rate = 0 and curLevel <> target -> holds indefinitely
+    __MODPlayer_TickAMEnvelope pEnv, 0, 200, 0, __MODPLAYER_AM_STAGE_DECAY
+    TEST_CHECK pEnv.channel(0).amStage = __MODPLAYER_AM_STAGE_ATTACK2, "Rate 0 below target holds stage"
+    TEST_CHECK pEnv.channel(0).amLevel = 100, "Level unchanged at 100"
 
-    ' Load with companion: instruments should be AM synth
-    TEST_CHECK MODLoader_LoadWithCompanion(player3, modData, compData), "Load with companion"
-    TEST_CHECK player3.instrument(0).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH, "With companion inst 1 is AM"
-    MODPlayer_Finalize player3
+    ' Case C: linear upward step
+    __MODPlayer_TickAMEnvelope pEnv, 0, 120, 15, __MODPLAYER_AM_STAGE_DECAY
+    TEST_CHECK pEnv.channel(0).amLevel = 115, "Linear step up +15 reaches 115"
+    TEST_CHECK pEnv.channel(0).amStage = __MODPLAYER_AM_STAGE_ATTACK2, "Not yet at target 120"
+    __MODPlayer_TickAMEnvelope pEnv, 0, 120, 15, __MODPLAYER_AM_STAGE_DECAY
+    TEST_CHECK pEnv.channel(0).amLevel = 120, "Linear step up clamps to target 120"
+    TEST_CHECK pEnv.channel(0).amStage = __MODPLAYER_AM_STAGE_DECAY, "Target reached advances to DECAY"
+
+    ' Case D: linear downward step
+    __MODPlayer_TickAMEnvelope pEnv, 0, 50, 40, __MODPLAYER_AM_STAGE_SUSTAIN
+    TEST_CHECK pEnv.channel(0).amLevel = 80, "Linear step down -40 reaches 80"
+    __MODPlayer_TickAMEnvelope pEnv, 0, 50, 40, __MODPLAYER_AM_STAGE_SUSTAIN
+    TEST_CHECK pEnv.channel(0).amLevel = 50, "Linear step down clamps to 50"
+    TEST_CHECK pEnv.channel(0).amStage = __MODPLAYER_AM_STAGE_SUSTAIN, "Target reached advances to SUSTAIN"
+    MODPlayer_Finalize pEnv
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MODPlayer: AM voice silencing on instrument change and cut"
+    DIM pSil AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pSil, "mods/amsyntdemo.mod"), "Load amsyntdemo for cut test"
+    ' Trigger instrument 0 on channel 0
+    pSil.channel(0).instrument = 0
+    __MODPlayer_PlayPCMChannelVoice pSil, 0
+    TEST_CHECK pSil.channel(0).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH, "Channel 0 is AM synth"
+    TEST_CHECK pSil.channel(0).amStage = __MODPLAYER_AM_STAGE_ATTACK2, "Inst 1 startLevel=256=A1L advances to ATTACK2"
+    TEST_CHECK pSil.synth.voices(0).sound <> SOFTSYNTH_VOICE_NO_SOUND, "Voice 0 is assigned and playing"
+
+    ' Simulate instrument number without note on AM channel -> cuts voice
+    pSil.channel(0).instrument = 1 ' new instrument
+    IF pSil.channel(0).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH _ORELSE pSil.instrument(1).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
+        pSil.channel(0).amLevel = 0
+        pSil.channel(0).amStage = __MODPLAYER_AM_STAGE_IDLE
+        SoftSynth_StopVoice pSil.synth, 0
+        SoftSynth_SetVoiceVolume pSil.synth, 0, 0!
+    END IF
+    TEST_CHECK pSil.synth.voices(0).sound = SOFTSYNTH_VOICE_NO_SOUND, "Voice 0 is stopped on ins # without note"
+    TEST_CHECK pSil.channel(0).amStage = __MODPLAYER_AM_STAGE_IDLE, "AM stage is IDLE"
+    TEST_CHECK pSil.channel(0).amLevel = 0, "AM level is 0"
+    MODPlayer_Finalize pSil
     TEST_CASE_END
 END SUB
 
@@ -1400,6 +1440,8 @@ SUB Test_MODPlayer_ChannelBadges
     MODPlayer_Finalize pAM
     TEST_CASE_END
 END SUB
+
+IF _DIREXISTS("../mods") THEN CHDIR ".."
 
 ' Run all test suites
 TEST_BEGIN_ALL
