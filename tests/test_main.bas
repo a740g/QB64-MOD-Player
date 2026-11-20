@@ -374,6 +374,7 @@ SUB Test_MODPlayer_MOD
     TEST_REQUIRE MODPlayer_LoadFromDisk(player, "mods/Enigma.mod"), "Load Enigma.mod"
     TEST_CHECK INSTR(MODPlayer_GetName(player), "Enigma") > 0, "Song caption contains 'Enigma'"
     TEST_CHECK MODPlayer_GetType(player) = "M.K.", "Song subtype is M.K."
+    TEST_CHECK ABS(player.song.pcmMasterGain - 0.5!) < 0.01!, "4-channel MOD pcmMasterGain is 0.5"
     TEST_CHECK MODPlayer_GetOrders(player) > 0, "Order count is greater than 0"
     TEST_CHECK MODPlayer_GetPosition(player) = 0, "Initial position is 0"
 
@@ -425,6 +426,18 @@ SUB Test_MODPlayer_MOD
     TEST_CHECK MODPlayer_IsPlaying(playerBack), "Still playing after update"
     MODPlayer_Stop playerBack
     MODPlayer_Finalize playerBack
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MODPlayer: 8-channel MOD attenuation (shop.mod)"
+    DIM player8 AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(player8, "mods/shop.mod"), "Load shop.mod"
+    TEST_CHECK player8.song.channels = 8, "Song has 8 channels"
+    TEST_CHECK ABS(player8.song.pcmMasterGain - 0.25!) < 0.01!, "8-channel MOD pcmMasterGain is 0.25"
+    MODPlayer_Play player8
+    TEST_CHECK MODPlayer_IsPlaying(player8), "Playing shop.mod"
+    MODPlayer_Update player8, 0.05
+    MODPlayer_Stop player8
+    MODPlayer_Finalize player8
     TEST_CASE_END
 END SUB
 
@@ -508,6 +521,7 @@ SUB Test_MODPlayer_MTM
     TEST_REQUIRE MODPlayer_LoadFromDisk(player, "mods/cougarstory-ii.mtm"), "Load cougarstory-ii.mtm"
     TEST_CHECK INSTR(MODPlayer_GetName(player), "Cougar story") > 0, "Song caption matches"
     TEST_CHECK MODPlayer_GetType(player) = "MTM1", "Song subtype is MTM1"
+    TEST_CHECK ABS(player.song.pcmMasterGain - (48! / 128!)) < 0.01!, "MTM pcmMasterGain is 48/128"
     TEST_CHECK MODPlayer_GetOrders(player) > 0, "Order count is greater than 0"
 
     MODPlayer_Play player
@@ -616,6 +630,7 @@ SUB Test_FARLoader
     TEST_CHECK INSTR(MODPlayer_GetName(player), "M31") > 0, "Song caption matches"
     TEST_CHECK MODPlayer_GetType(player) = "FAR", "Song subtype is FAR"
     TEST_CHECK player.song.channels = 16, "FAR has 16 channels"
+    TEST_CHECK ABS(player.song.pcmMasterGain - (32! / 128!)) < 0.01!, "FAR pcmMasterGain is 32/128"
     TEST_CHECK MODPlayer_IsStereo(player), "FAR is stereo"
     TEST_CHECK MODPlayer_GetOrders(player) = 12, "Order count is 12"
     TEST_CHECK MODPlayer_GetPatternRows(player, 0) = 64, "Pattern 0 has 64 rows"

@@ -210,6 +210,11 @@ FUNCTION MODLoader_LoadWithCompanion%% (player AS MODPlayer, buffer AS STRING, c
     ' Sanity check
     IF player.song.instruments = 0 _ORELSE player.song.channels = 0 THEN EXIT FUNCTION
 
+    ' Set PCM master gain based on channel count (matches OpenMPT MOD pre-amp)
+    DIM pcmPreAmp AS LONG
+    pcmPreAmp = _CLAMP(256 \ player.song.channels, 32, 128)
+    player.song.pcmMasterGain = CSNG(pcmPreAmp) / 128.0!
+
     ' Resize the instruments array
     REDIM player.instrument(0 TO player.song.instruments - 1) AS __MODPLAYERINSTRUMENT
     DIM AS _UNSIGNED _BYTE byte1, byte2

@@ -451,8 +451,9 @@ SUB __MODPlayer_SetVoiceVolume (player AS MODPlayer, nChannel AS _UNSIGNED _BYTE
     outputVolume = _CLAMP(volume, 0!, 1!)
 
     IF player.song.isS3M THEN
-        outputVolume = outputVolume * (player.channel(nChannel).channelVolume / __MODPLAYER_S3M_GLOBAL_VOLUME_MAX) * player.song.pcmMasterGain
+        outputVolume = outputVolume * (player.channel(nChannel).channelVolume / __MODPLAYER_S3M_GLOBAL_VOLUME_MAX)
     END IF
+    outputVolume = outputVolume * player.song.pcmMasterGain
     IF player.channel(nChannel).tremorMuted THEN outputVolume = 0!
 
     SoftSynth_SetVoiceVolume player.synth, nChannel, outputVolume
@@ -601,8 +602,7 @@ SUB __MODPlayer_UpdateAMChannel (player AS MODPlayer, nChannel AS _UNSIGNED _BYT
     DIM vol AS LONG
     vol = _CLAMP((CLNG(player.channel(nChannel).volume) * player.channel(nChannel).amLevel) \ 256, 0, __MODPLAYER_INSTRUMENT_VOLUME_MAX)
     DIM finalVol AS SINGLE
-    finalVol = (CSNG(vol) / CSNG(__MODPLAYER_INSTRUMENT_VOLUME_MAX)) * (CSNG(player.song.globalVolume) / CSNG(__MODPLAYER_S3M_GLOBAL_VOLUME_MAX))
-    IF player.song.isS3M THEN finalVol = finalVol * player.song.pcmMasterGain
+    finalVol = (CSNG(vol) / CSNG(__MODPLAYER_INSTRUMENT_VOLUME_MAX)) * (CSNG(player.song.globalVolume) / CSNG(__MODPLAYER_S3M_GLOBAL_VOLUME_MAX)) * player.song.pcmMasterGain
     SoftSynth_SetVoiceVolume player.synth, nChannel, finalVol
 
     DIM vibDelta AS LONG: vibDelta = 0

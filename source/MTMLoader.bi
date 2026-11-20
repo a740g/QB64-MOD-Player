@@ -69,6 +69,9 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     ' Sanity check
     IF numTracks = 0 _ORELSE player.song.instruments = 0 _ORELSE numRows = 0 _ORELSE player.song.channels = 0 THEN EXIT FUNCTION
 
+    ' Set PCM master gain (matches OpenMPT MTM default pre-amp of 48)
+    player.song.pcmMasterGain = 48.0! / 128.0!
+
     ' Resize the channel array
     REDIM player.channel(0 TO player.song.channels - 1) AS __MODPLAYERCHANNEL
     DIM cIdx AS LONG: FOR cIdx = 0 TO player.song.channels - 1
