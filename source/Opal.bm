@@ -136,6 +136,7 @@ SUB __Opal_InitTables
     __Opal_KslData:
     DATA 0,32,40,45,48,51,53,55,56,58,59,60,61,62,63,64
 END SUB
+
 SUB __Opal_TickTimer (opl AS Opal, t AS LONG)
     IF (opl.timerControl AND _SHL(1, t)) = 0 THEN EXIT SUB
     opl.timerCount(t) = opl.timerCount(t) + 1
@@ -148,6 +149,7 @@ SUB __Opal_TickTimer (opl AS Opal, t AS LONG)
         END IF
     END IF
 END SUB
+
 FUNCTION __Opal_ChannelIsPairTail% (ch AS _UNSIGNED LONG)
     __Opal_ChannelIsPairTail = (((ch MOD __OPAL_CHANNELS_PER_BANK) \ __OPAL_PAIRS_PER_BANK) = 1)
 END FUNCTION
@@ -475,7 +477,11 @@ SUB __Opal_WriteControl (opl AS Opal, reg AS _UNSIGNED LONG, valByte AS _UNSIGNE
     END SELECT
 END SUB
 
-SUB __Opal_Write (opl AS Opal, regNum AS _UNSIGNED INTEGER, valByte AS _UNSIGNED _BYTE)
+''' @brief Writes directly to an OPL register.
+''' @param opl Opal emulator instance.
+''' @param regNum 9-bit register address (&H000-&H1FF).
+''' @param valByte 8-bit data value to write.
+SUB Opal_Write (opl AS Opal, regNum AS _UNSIGNED INTEGER, valByte AS _UNSIGNED _BYTE)
     DIM reg AS _UNSIGNED LONG
     reg = regNum AND &H1FF~%
     IF opl.newMode = 0 _ANDALSO reg <> __OPAL_NEW_REGISTER THEN
@@ -523,8 +529,9 @@ SUB __Opal_ApplyQueuedWrite (opl AS Opal)
     valByte = opl.queue(opl.queueHead).value
     opl.queueHead = (opl.queueHead + 1) MOD OPAL_WRITEBUF_SIZE
     opl.queueCount = opl.queueCount - 1
-    __Opal_Write opl, regNum, valByte
+    Opal_Write opl, regNum, valByte
 END SUB
+
 FUNCTION __Opal_CymbalBit~& (opl AS Opal)
     DIM hat AS _UNSIGNED LONG
     hat = opl.hiHatPhase
@@ -536,6 +543,7 @@ FUNCTION __Opal_CymbalBit~& (opl AS Opal)
     t3 = _SHR(cymbal, 3) XOR _SHR(cymbal, 5)
     __Opal_CymbalBit = (t1 OR t2 OR t3) AND 1
 END FUNCTION
+
 SUB __Opal_CloseSample (opl AS Opal)
     opl.sampleCounter = (opl.sampleCounter + 1) AND &HFFFF~%
     IF (opl.sampleCounter AND 63) = 0 THEN
@@ -992,14 +1000,6 @@ SUB Opal_Initialize (opl AS Opal, sampleRate AS LONG)
     opl.noise = 1
     __Opal_RefreshRouting opl
     Opal_SetSampleRate opl, sampleRate
-END SUB
-
-''' @brief Writes directly to an OPL register.
-''' @param opl Opal emulator instance.
-''' @param regNum 9-bit register address (&H000-&H1FF).
-''' @param valByte 8-bit data value to write.
-SUB Opal_Write (opl AS Opal, regNum AS _UNSIGNED INTEGER, valByte AS _UNSIGNED _BYTE)
-    __Opal_Write opl, regNum, valByte
 END SUB
 
 ''' @brief Applies all pending queued register writes immediately.
