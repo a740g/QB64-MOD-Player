@@ -5,6 +5,8 @@
 
 $INCLUDEONCE
 
+'$INCLUDE:'Asc.bi'
+
 ''' @brief Converts a C-style string (null-terminated) to a BASIC string.
 ''' @param s The C-style string to convert.
 ''' @return The converted BASIC string.
@@ -24,14 +26,12 @@ END FUNCTION
 ''' @param text The input string to sanitize.
 ''' @return A string containing only printable characters with control characters replaced by spaces.
 FUNCTION String_MakePrintable$ (text AS STRING)
-    DIM buffer AS STRING: buffer = SPACE$(LEN(text))
+    DIM buffer AS STRING: buffer = text
 
-    DIM i AS _UNSIGNED LONG, c AS _UNSIGNED _BYTE
-    WHILE i < LEN(text)
+    DIM AS _UNSIGNED LONG i, l: l = LEN(buffer)
+    WHILE i < l
         i = i + 1
-
-        c = ASC(text, i)
-        IF c > _ASC_SPACE THEN ASC(buffer, i) = c
+        IF Asc_IsControlCharacter(ASC(buffer, i)) THEN ASC(buffer, i) = _ASC_SPACE
     WEND
 
     String_MakePrintable = buffer
