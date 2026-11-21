@@ -184,26 +184,27 @@ SUB Visualizer_Draw
     x = 1 + WindowWidth \ 2 - PatternDisplayWidth \ 2 ' find x so that we can center everything
 
     ' Print the pattern header
-    COLOR Blink, Cyan
+    COLOR Black, Cyan
     _PRINTSTRING (x, j), " PAT RW "
     i = 0
     WHILE i < Player.song.channels
         DIM chanBadge AS STRING: chanBadge = MODPlayer_GetChannelSubtypeCaption(Player, i)
-        COLOR Blink, Cyan
+        COLOR Black, Cyan
         _PRINTSTRING (x + 8 + i * 19, j), " "
         SELECT CASE chanBadge
-            CASE "[AM ]"
+            CASE "AM"
                 COLOR Blink, Yellow
-            CASE "[FMm]"
+            CASE "FMm"
                 COLOR Blink, LightMagenta
-            CASE "[FMd]"
+            CASE "FMd"
                 COLOR Blink, LightRed
             CASE ELSE
                 COLOR Blink, LightCyan
         END SELECT
-        _PRINTSTRING (x + 8 + i * 19 + 1, j), chanBadge
-        COLOR Blink, Cyan
-        _PRINTSTRING (x + 8 + i * 19 + 6, j), " NOT S# FX OP "
+        LOCATE j, x + 8 + i * 19 + 1
+        PRINT USING "\  \"; chanBadge;
+        COLOR Black, Cyan
+        _PRINTSTRING (x + 8 + i * 19 + 5, j), " NOT S# FX OP "
         i = i + 1
     WEND
 
@@ -248,6 +249,7 @@ SUB Visualizer_Draw
     i = j
     WHILE i < UI_TEXT_LINE_MAX
         IF i < j + blankLinesBefore THEN
+            COLOR BrightWhite, Black
             _PRINTSTRING (x, i), SPACE$(PatternDisplayWidth)
         ELSE
             DIM isValidRow AS _BYTE: isValidRow = _FALSE

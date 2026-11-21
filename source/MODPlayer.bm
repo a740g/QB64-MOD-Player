@@ -2616,18 +2616,18 @@ END FUNCTION
 ''' @brief Gets the synthesis mode badge caption for a channel.
 ''' @param player The MOD player instance.
 ''' @param nChannel Channel index (0-based).
-''' @return Badge string: "[PCM]", "[AM ]", "[FMm]", or "[FMd]".
+''' @return Badge string: "PCM", "AM ", "FMm", or "FMd".
 FUNCTION MODPlayer_GetChannelSubtypeCaption$ (player AS MODPlayer, nChannel AS _UNSIGNED LONG)
     IF nChannel >= player.song.channels THEN EXIT FUNCTION
 
     SELECT CASE player.channel(nChannel).subtype
         CASE __MODPLAYER_INSTRUMENT_AM_SYNTH
-            MODPlayer_GetChannelSubtypeCaption = "[AM ]"
+            MODPlayer_GetChannelSubtypeCaption = "AM"
         CASE __MODPLAYER_INSTRUMENT_FM_MELODY
-            MODPlayer_GetChannelSubtypeCaption = "[FMm]"
+            MODPlayer_GetChannelSubtypeCaption = "FMm"
         CASE __MODPLAYER_INSTRUMENT_FM_BASSDRUM TO __MODPLAYER_INSTRUMENT_FM_HIHAT
-            MODPlayer_GetChannelSubtypeCaption = "[FMd]"
+            MODPlayer_GetChannelSubtypeCaption = "FMd"
         CASE ELSE
-            MODPlayer_GetChannelSubtypeCaption = "[PCM]"
+            MODPlayer_GetChannelSubtypeCaption = "PCM"
     END SELECT
 END FUNCTION
