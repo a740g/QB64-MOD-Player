@@ -218,6 +218,45 @@ SUB Test_SoftSynth
     SoftSynth_Finalize ctxB
     TEST_CHECK_FALSE SoftSynth_IsInitialized(ctxB), "ctxB finalized"
     TEST_CASE_END
+
+    TEST_CASE_BEGIN "SoftSynth: Bidirectional (ping-pong) looping"
+    DIM synthBidi AS SoftSynth
+    TEST_REQUIRE SoftSynth_Initialize(synthBidi), "Initialize synthBidi"
+    SoftSynth_SetTotalVoices synthBidi, 1
+    SoftSynth_SetVoiceFrequency synthBidi, 0, SoftSynth_GetSampleRate(synthBidi)
+
+    ' 10 signed 8-bit frames: 0, 10, 20, 30, 40, 50, 60, 70, 80, 90
+    DIM rawBuf AS STRING: rawBuf = SPACE$(10)
+    DIM bIdx AS LONG
+    FOR bIdx = 1 TO 10
+        ASC(rawBuf, bIdx) = (bIdx - 1) * 10
+    NEXT bIdx
+    SoftSynth_LoadSound synthBidi, 0, rawBuf, 1, 1
+
+    ' Play with bidi loop from frame 2 to frame 6, starting at frame 2
+    SoftSynth_PlayVoice synthBidi, 0, 0, 2, SOFTSYNTH_VOICE_PLAY_BIDIRECTIONAL_LOOP, 2, 6
+    TEST_CHECK synthBidi.voices(0).playMode = SOFTSYNTH_VOICE_PLAY_BIDIRECTIONAL_LOOP, "PlayMode is bidirectional"
+    TEST_CHECK_FALSE synthBidi.voices(0).isReverse, "Initially not reverse"
+
+    ' Render 3 frames (positions 2 -> 3 -> 4, ending ready for 5)
+    SoftSynth_Render synthBidi, 3
+    TEST_CHECK synthBidi.voices(0).position = 5!, "Position advanced forward to 5"
+    TEST_CHECK_FALSE synthBidi.voices(0).isReverse, "Still moving forward"
+
+    ' Render 3 more frames:
+    ' frame 1: at 5 -> advances to 6
+    ' frame 2: at 6 -> advances to 7 -> reflects at 6: isReverse=_TRUE, pos = 6 - (7 - 6) = 5 -> advances in reverse: pos = 5 - 1 = 4
+    ' Render 3 frames brings it in reverse
+    SoftSynth_Render synthBidi, 3
+    TEST_CHECK synthBidi.voices(0).isReverse, "isReverse toggled to TRUE after reaching loop end"
+    TEST_CHECK synthBidi.voices(0).position < 6!, "Position is descending"
+
+    ' Inverted loop check: endPosition <= startPosition falls back to FORWARD
+    SoftSynth_PlayVoice synthBidi, 0, 0, 0, SOFTSYNTH_VOICE_PLAY_BIDIRECTIONAL_LOOP, 5, 3
+    TEST_CHECK synthBidi.voices(0).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD, "Inverted loop points fall back to forward"
+
+    SoftSynth_Finalize synthBidi
+    TEST_CASE_END
 END SUB
 
 ''' @brief Tests for StringFile.bi in-memory file I/O operations.
@@ -1183,6 +1222,135 @@ SUB Test_RAD_Playback
         TEST_CHECK_FALSE radPlayer.song.isPlaying, "Stopped: " + radFiles(rIdx)
         MODPlayer_Finalize radPlayer
     NEXT rIdx
+    TEST_CASE_END
+END SUB
+
+''' @brief Tests for UltraTracker (ULT) format loader.
+SUB Test_ULTLoader
+    TEST_CASE_BEGIN "ULTLoader: Load UltraTracker modules across versions (v1.1-v1.6)"
+    DIM player AS MODPlayer
+
+    ' v1.3 (ver 1)
+    TEST_REQUIRE ULTLoader_LoadFromDisk(player, "mods/4th Dimension.ult"), "Load 4th Dimension.ult (v1.3)"
+    TEST_CHECK MODPlayer_GetType(player) = "ULT1", "Subtype is ULT1"
+    TEST_CHECK player.song.channels = 11, "Channels is 11"
+    TEST_CHECK player.song.instruments = 11, "Instruments is 11"
+    TEST_CHECK player.song.patterns = 16, "Patterns is 16"
+    TEST_CHECK player.song.isULT, "isULT is true"
+    TEST_CHECK player.song.isStereo, "isStereo is true"
+    MODPlayer_Finalize player
+
+    ' v1.4 (ver 2)
+    TEST_REQUIRE ULTLoader_LoadFromDisk(player, "mods/Dark Force.ult"), "Load Dark Force.ult (v1.4)"
+    TEST_CHECK MODPlayer_GetType(player) = "ULT2", "Subtype is ULT2"
+    TEST_CHECK player.song.channels = 19, "Channels is 19"
+    TEST_CHECK player.song.instruments = 16, "Instruments is 16"
+    TEST_CHECK player.song.patterns = 39, "Patterns is 39"
+    TEST_CHECK player.song.isULT, "isULT is true"
+    MODPlayer_Finalize player
+
+    ' v1.5 (ver 3)
+    TEST_REQUIRE ULTLoader_LoadFromDisk(player, "mods/A Plethora Of Twinkies Abound!.ult"), "Load A Plethora Of Twinkies Abound!.ult (v1.5)"
+    TEST_CHECK MODPlayer_GetType(player) = "ULT3", "Subtype is ULT3"
+    TEST_CHECK player.song.channels = 6, "Channels is 6"
+    TEST_CHECK player.song.instruments = 5, "Instruments is 5"
+    TEST_CHECK player.song.patterns = 18, "Patterns is 18"
+    TEST_CHECK player.song.isULT, "isULT is true"
+    MODPlayer_Finalize player
+
+    ' v1.6 (ver 4)
+    TEST_REQUIRE ULTLoader_LoadFromDisk(player, "mods/CybOccultation.ult"), "Load CybOccultation.ult (v1.6)"
+    TEST_CHECK MODPlayer_GetType(player) = "ULT4", "Subtype is ULT4"
+    TEST_CHECK player.song.channels = 18, "Channels is 18"
+    TEST_CHECK player.song.instruments = 26, "Instruments is 26"
+    TEST_CHECK player.song.patterns = 40, "Patterns is 40"
+    TEST_CHECK player.song.isULT, "isULT is true"
+    MODPlayer_Finalize player
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "ULTLoader: Load from memory"
+    DIM buf AS STRING: buf = File_Load("mods/4th Dimension.ult")
+    TEST_REQUIRE LEN(buf) > 0, "Read 4th Dimension.ult into buffer"
+    DIM pMem AS MODPlayer
+    TEST_REQUIRE ULTLoader_LoadFromMemory(pMem, buf), "ULTLoader loads from memory"
+    TEST_CHECK MODPlayer_GetType(pMem) = "ULT1", "Memory load subtype is ULT1"
+    TEST_CHECK pMem.song.channels = 11, "Memory load channels is 11"
+    TEST_CHECK pMem.song.isULT, "Memory load isULT is true"
+    MODPlayer_Finalize pMem
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "ULTLoader: Unified dispatcher auto-detection"
+    DIM pAuto AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pAuto, "mods/CybOccultation.ult"), "Unified loader loads CybOccultation.ult"
+    TEST_CHECK MODPlayer_GetType(pAuto) = "ULT4", "Auto-detected subtype is ULT4"
+    TEST_CHECK pAuto.song.channels = 18, "Auto-detected channels count is 18"
+    TEST_CHECK pAuto.song.isULT, "Auto-detected isULT is true"
+    MODPlayer_Finalize pAuto
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "ULTLoader: Playback and audio synthesis"
+    DIM pPlay AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pPlay, "mods/4th Dimension.ult"), "Load 4th Dimension for playback"
+    MODPlayer_Play pPlay
+    TEST_CHECK pPlay.song.isPlaying, "Player is in playing state"
+
+    DIM u AS LONG
+    FOR u = 1 TO 40
+        MODPlayer_Update pPlay, 0.05
+    NEXT u
+
+    DIM hasAudio AS _BYTE: hasAudio = _FALSE
+    DIM i AS LONG
+    FOR i = 0 TO UBOUND(pPlay.synth.soundBuffer)
+        IF pPlay.synth.soundBuffer(i) <> 0! THEN
+            hasAudio = _TRUE
+            EXIT FOR
+        END IF
+    NEXT i
+    TEST_CHECK hasAudio, "Synthesized audible PCM audio during ULT playback"
+
+    MODPlayer_Stop pPlay
+    TEST_CHECK_FALSE pPlay.song.isPlaying, "Player stopped"
+    MODPlayer_Finalize pPlay
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "ULTLoader: Reject incompatible formats and invalid versions"
+    DIM pFail AS MODPlayer
+    TEST_CHECK_FALSE ULTLoader_LoadFromDisk(pFail, "mods/Enigma.mod"), "ULTLoader rejects MOD"
+    TEST_CHECK_FALSE ULTLoader_LoadFromDisk(pFail, "mods/A Touch of Spring.s3m"), "ULTLoader rejects S3M"
+    TEST_CHECK_FALSE ULTLoader_LoadFromDisk(pFail, "mods/cougarstory-ii.mtm"), "ULTLoader rejects MTM"
+    TEST_CHECK_FALSE ULTLoader_LoadFromDisk(pFail, "mods/M31.far"), "ULTLoader rejects FAR"
+    TEST_CHECK_FALSE ULTLoader_LoadFromDisk(pFail, "mods/OXYGENE.STM"), "ULTLoader rejects STM"
+    TEST_CHECK_FALSE ULTLoader_LoadFromDisk(pFail, "mods/crystals.669"), "ULTLoader rejects 669"
+    TEST_CHECK_FALSE ULTLoader_LoadFromDisk(pFail, "mods/ALLOYRUN.RAD"), "ULTLoader rejects RAD"
+
+    DIM dummyBuf AS STRING: dummyBuf = STRING$(100, 0)
+    TEST_CHECK_FALSE ULTLoader_LoadFromMemory(pFail, dummyBuf), "Rejects invalid header magic"
+
+    ' Header with "MAS_UTrack_V000" (invalid ver 0)
+    DIM v0Buf AS STRING: v0Buf = "MAS_UTrack_V000" + STRING$(100, 0)
+    TEST_CHECK_FALSE ULTLoader_LoadFromMemory(pFail, v0Buf), "Rejects version 0"
+
+    ' Header with "MAS_UTrack_V005" (invalid ver 5)
+    DIM v5Buf AS STRING: v5Buf = "MAS_UTrack_V005" + STRING$(100, 0)
+    TEST_CHECK_FALSE ULTLoader_LoadFromMemory(pFail, v5Buf), "Rejects version 5"
+
+    MODPlayer_Finalize pFail
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "ULTLoader: Bidirectional looping sample setup"
+    DIM pBidi AS MODPlayer
+    TEST_REQUIRE ULTLoader_LoadFromDisk(pBidi, "mods/CybOccultation.ult"), "Load CybOccultation.ult for bidi loop inspection"
+    DIM foundBidi AS _BYTE: foundBidi = _FALSE
+    DIM sIdx AS LONG
+    FOR sIdx = 0 TO pBidi.song.instruments - 1
+        IF pBidi.instrument(sIdx).playMode = SOFTSYNTH_VOICE_PLAY_BIDIRECTIONAL_LOOP THEN
+            foundBidi = _TRUE
+            TEST_CHECK pBidi.instrument(sIdx).loopEnd > pBidi.instrument(sIdx).loopStart, "Bidi loop end > start"
+        END IF
+    NEXT sIdx
+    TEST_CHECK foundBidi, "Found bidirectional looping instruments in CybOccultation.ult"
+    MODPlayer_Finalize pBidi
     TEST_CASE_END
 END SUB
 
@@ -2876,6 +3044,7 @@ Test_C669Loader
 Test_C669_Effects
 Test_RADLoader
 Test_RAD_Playback
+Test_ULTLoader
 Test_MODPlayer_MultiInstance
 Test_MODPlayer_PatternRows
 Test_MODPlayer_TypePromotions

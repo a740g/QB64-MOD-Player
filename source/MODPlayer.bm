@@ -15,6 +15,7 @@ $INCLUDEONCE
 '$INCLUDE:'STMLoader.bi'
 '$INCLUDE:'C669Loader.bi'
 '$INCLUDE:'RADLoader.bi'
+'$INCLUDE:'ULTLoader.bi'
 '$INCLUDE:'MODPlayerShared.bm'
 
 ''' @brief Loads a tracker module with optional companion data (e.g. StarTrekker .mod.nt).
@@ -53,6 +54,11 @@ FUNCTION MODPlayer_LoadWithCompanion%% (player AS MODPlayer, buffer AS STRING, c
     END IF
 
     IF RADLoader_LoadFromMemory(player, buffer) THEN
+        MODPlayer_LoadWithCompanion = _TRUE
+        EXIT FUNCTION
+    END IF
+
+    IF ULTLoader_LoadFromMemory(player, buffer) THEN
         MODPlayer_LoadWithCompanion = _TRUE
         EXIT FUNCTION
     END IF
@@ -1600,7 +1606,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                 IF nNote < __MODPLAYER_NOTE_NONE THEN
                     player.channel(nChannel).startPosition = _SHL(nOperand, 8)
                     IF player.channel(nChannel).instrument < player.song.instruments THEN
-                        IF player.instrument(player.channel(nChannel).instrument).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP _ANDALSO player.instrument(player.channel(nChannel).instrument).loopEnd > player.instrument(player.channel(nChannel).instrument).loopStart _ANDALSO player.channel(nChannel).startPosition >= player.instrument(player.channel(nChannel).instrument).loopEnd THEN
+                        IF (player.instrument(player.channel(nChannel).instrument).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP _ORELSE player.instrument(player.channel(nChannel).instrument).playMode = SOFTSYNTH_VOICE_PLAY_BIDIRECTIONAL_LOOP) _ANDALSO player.instrument(player.channel(nChannel).instrument).loopEnd > player.instrument(player.channel(nChannel).instrument).loopStart _ANDALSO player.channel(nChannel).startPosition >= player.instrument(player.channel(nChannel).instrument).loopEnd THEN
                             player.channel(nChannel).startPosition = player.instrument(player.channel(nChannel).instrument).loopStart + ((player.channel(nChannel).startPosition - player.instrument(player.channel(nChannel).instrument).loopStart) MOD (player.instrument(player.channel(nChannel).instrument).loopEnd - player.instrument(player.channel(nChannel).instrument).loopStart))
                         ELSEIF player.channel(nChannel).startPosition > player.instrument(player.channel(nChannel).instrument).length THEN
                             player.channel(nChannel).startPosition = player.instrument(player.channel(nChannel).instrument).length

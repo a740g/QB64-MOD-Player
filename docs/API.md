@@ -22,6 +22,7 @@ Synthesizer / Sample Mixer, and Audio Spectrum Analyzer.
   - [Farandole Composer Loader (`FARLoader.bi`)](#farandole-composer-loader-farloaderbi)
   - [Composer 669 Loader (`C669Loader.bi`)](#composer-669-loader-c669loaderbi)
   - [Reality Adlib Tracker Loader (`RADLoader.bi`)](#reality-adlib-tracker-loader-radloaderbi)
+  - [UltraTracker Loader (`ULTLoader.bi`)](#ultratracker-loader-ultloaderbi)
 - [Software Synthesizer API (`SoftSynth.bi`)](#software-synthesizer-api-softsynthbi)
   - [Constants](#softsynth-constants)
   - [Types](#softsynth-types)
@@ -457,6 +458,23 @@ FUNCTION RADLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
   - `buffer`: In-memory binary representation of the module file.
 - **Returns**: `_TRUE` on successful parse; `_FALSE` if incompatible or invalid.
 
+### UltraTracker Loader (`ULTLoader.bi`)
+
+```vb
+FUNCTION ULTLoader_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
+FUNCTION ULTLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
+```
+
+- **Supported Formats**: UltraTracker (`MAS_UTrack_V001` through `MAS_UTrack_V004`) modules with
+  song subtype `"ULT1"` through `"ULT4"`, 1 to 32 channels, 64 rows per pattern, up to 64 samples
+  (8-bit and 16-bit signed PCM), per-channel panning tables, RLE track unpacking, and dual-effect
+  command translation.
+- **Parameters**:
+  - `player`: Target MOD player instance.
+  - `fileName`: Path to the module file.
+  - `buffer`: In-memory binary representation of the module file.
+- **Returns**: `_TRUE` on successful parse; `_FALSE` if incompatible or invalid.
+
 ---
 
 ## Software Synthesizer API (`SoftSynth.bi`)
@@ -473,6 +491,7 @@ Include header:
 CONST SOFTSYNTH_VOICE_NO_SOUND = -1
 CONST SOFTSYNTH_VOICE_PLAY_FORWARD = 0
 CONST SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP = 1
+CONST SOFTSYNTH_VOICE_PLAY_BIDIRECTIONAL_LOOP = 2
 CONST SOFTSYNTH_VOICE_VOLUME_MAX! = 1!
 CONST SOFTSYNTH_VOICE_VOLUME_MIN! = 0!
 CONST SOFTSYNTH_VOICE_PAN_LEFT! = -1!
@@ -568,8 +587,9 @@ SUB SoftSynth_PlayVoice (ctx AS SoftSynth, voice AS _UNSIGNED LONG, snd AS LONG,
   - `voice`: Target voice index (0-based).
   - `snd`: Sound slot index to play.
   - `position`: Initial frame position to start playing from.
-  - `mode`: `SOFTSYNTH_VOICE_PLAY_FORWARD` or
-    `SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP`.
+  - `mode`: `SOFTSYNTH_VOICE_PLAY_FORWARD`,
+    `SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP`, or
+    `SOFTSYNTH_VOICE_PLAY_BIDIRECTIONAL_LOOP`.
   - `startPosition`: Loop restart frame boundary (or playback start).
   - `endPosition`: Loop ending frame boundary.
 

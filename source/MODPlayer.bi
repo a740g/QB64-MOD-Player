@@ -238,6 +238,7 @@ TYPE __MODPlayerSong
     defaultGlobalVolume AS _UNSIGNED _BYTE ' S3M header global volume (0-64)
     isS3M AS _BYTE ' true when the loaded song uses S3M effect and volume semantics
     isRAD AS _BYTE ' true when the loaded song is Reality Adlib Tracker (.RAD)
+    isULT AS _BYTE ' true when the loaded song is UltraTracker (.ULT)
     tempoTimerValue AS _UNSIGNED LONG ' (mixer_sample_rate * default_bpm) / 50
     framesPerTick AS _UNSIGNED LONG ' this is the amount of sample frames we have to mix per tick based on mixerRate & bpm
     activeChannels AS _UNSIGNED LONG ' just a count of channels that are "active"

@@ -13,6 +13,7 @@ $UNSTABLE:TYPEFIELDS
 CONST SOFTSYNTH_VOICE_NO_SOUND = -1 ' used to unbind a sound from a voice
 CONST SOFTSYNTH_VOICE_PLAY_FORWARD = 0 ' single-shot forward playback
 CONST SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP = 1 ' forward-looping playback
+CONST SOFTSYNTH_VOICE_PLAY_BIDIRECTIONAL_LOOP = 2 ' bidirectional (ping-pong) looping playback
 CONST SOFTSYNTH_VOICE_VOLUME_MAX! = 1! ' maximum volume of any sample
 CONST SOFTSYNTH_VOICE_VOLUME_MIN! = 0! ' minimum volume
 CONST SOFTSYNTH_VOICE_PAN_LEFT! = -1! ' leftmost panning position
@@ -52,7 +53,8 @@ TYPE __SoftSynthVoice
     endPosition AS _UNSIGNED LONG ' loop end or playback end (in frames)
     frame AS SINGLE ' current interpolated output frame
     oldFrame AS SINGLE ' previous frame (for smooth interpolation and anti-click)
-    playMode AS LONG ' SOFTSYNTH_VOICE_PLAY_FORWARD or SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP
+    playMode AS LONG ' SOFTSYNTH_VOICE_PLAY_FORWARD, SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, or SOFTSYNTH_VOICE_PLAY_BIDIRECTIONAL_LOOP
+    isReverse AS _BYTE ' true when voice is in the backward phase of bidirectional loop
 END TYPE
 
 ' Main synthesizer context — holds all sounds, voices, sound pipe, and mix buffer
@@ -88,6 +90,7 @@ SUB __SoftSynth_ResetVoice (voice AS __SoftSynthVoice)
     voice.oldFrame = 0!
     voice.surround = _FALSE
     voice.playMode = SOFTSYNTH_VOICE_PLAY_FORWARD
+    voice.isReverse = _FALSE
 END SUB
 
 ''' @brief Computes pan gains for a voice using equal-power (-3 dB) pan law.
@@ -488,11 +491,19 @@ SUB SoftSynth_PlayVoice (ctx AS SoftSynth, voice AS _UNSIGNED LONG, snd AS LONG,
     DIM v AS __SoftSynthVoice
     v = ctx.voices(voice) ' work on local copy to preserve pan
 
-    IF mode < SOFTSYNTH_VOICE_PLAY_FORWARD _ORELSE mode > SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP THEN
+    IF mode < SOFTSYNTH_VOICE_PLAY_FORWARD _ORELSE mode > SOFTSYNTH_VOICE_PLAY_BIDIRECTIONAL_LOOP THEN
         v.playMode = SOFTSYNTH_VOICE_PLAY_FORWARD
     ELSE
         v.playMode = mode
     END IF
+
+    IF v.playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP _ORELSE v.playMode = SOFTSYNTH_VOICE_PLAY_BIDIRECTIONAL_LOOP THEN
+        IF endPosition <= startPosition THEN
+            v.playMode = SOFTSYNTH_VOICE_PLAY_FORWARD
+        END IF
+    END IF
+
+    v.isReverse = _FALSE
 
     v.position = CSNG(position)
     v.iPosition = position
@@ -601,20 +612,39 @@ SUB SoftSynth_Render (ctx AS SoftSynth, frames AS _UNSIGNED LONG)
         DIM voiceStartPos AS _UNSIGNED LONG: voiceStartPos = ctx.voices(v).startPosition
         DIM voiceEndPos AS _UNSIGNED LONG: voiceEndPos = ctx.voices(v).endPosition
         DIM voiceMode AS LONG: voiceMode = ctx.voices(v).playMode
+        DIM voiceIsReverse AS _BYTE: voiceIsReverse = ctx.voices(v).isReverse
         DIM voiceSound AS LONG: voiceSound = sndIdx
 
         DIM outIdx AS _UNSIGNED LONG: outIdx = 0
 
         DIM s AS _UNSIGNED LONG
         FOR s = 0 TO frames - 1
-            IF voicePos > CSNG(voiceEndPos) THEN
-                IF voiceMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP THEN
-                    voicePos = CSNG(voiceStartPos) + (voicePos - CSNG(voiceEndPos))
+            IF voiceMode = SOFTSYNTH_VOICE_PLAY_BIDIRECTIONAL_LOOP THEN
+                IF voiceIsReverse THEN
+                    IF voicePos < CSNG(voiceStartPos) THEN
+                        voiceIsReverse = _FALSE
+                        voicePos = CSNG(voiceStartPos) + (CSNG(voiceStartPos) - voicePos)
+                        IF voicePos > CSNG(voiceEndPos) THEN voicePos = CSNG(voiceEndPos)
+                    END IF
                 ELSE
-                    voiceSound = SOFTSYNTH_VOICE_NO_SOUND
-                    EXIT FOR
+                    IF voicePos > CSNG(voiceEndPos) THEN
+                        voiceIsReverse = _TRUE
+                        voicePos = CSNG(voiceEndPos) - (voicePos - CSNG(voiceEndPos))
+                        IF voicePos < CSNG(voiceStartPos) THEN voicePos = CSNG(voiceStartPos)
+                    END IF
+                END IF
+            ELSE
+                IF voicePos > CSNG(voiceEndPos) THEN
+                    IF voiceMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP THEN
+                        voicePos = CSNG(voiceStartPos) + (voicePos - CSNG(voiceEndPos))
+                    ELSE
+                        voiceSound = SOFTSYNTH_VOICE_NO_SOUND
+                        EXIT FOR
+                    END IF
                 END IF
             END IF
+
+            IF voicePos < 0! THEN voicePos = 0!
 
             DIM curIPos AS _UNSIGNED LONG: curIPos = _CAST(_UNSIGNED LONG, voicePos)
             IF curIPos <> voiceIPos THEN
@@ -628,7 +658,11 @@ SUB SoftSynth_Render (ctx AS SoftSynth, frames AS _UNSIGNED LONG)
             DIM outFrame AS SINGLE
             outFrame = (voiceOldFrame + (voiceFrame - voiceOldFrame) * (voicePos - CSNG(voiceIPos))) * voiceVol
 
-            voicePos = voicePos + voicePitch
+            IF voiceIsReverse THEN
+                voicePos = voicePos - voicePitch
+            ELSE
+                voicePos = voicePos + voicePitch
+            END IF
 
             ctx.soundBuffer(outIdx) = ctx.soundBuffer(outIdx) + outFrame * voiceLGain
             ctx.soundBuffer(outIdx + 1) = ctx.soundBuffer(outIdx + 1) + outFrame * voiceRGain
@@ -640,6 +674,7 @@ SUB SoftSynth_Render (ctx AS SoftSynth, frames AS _UNSIGNED LONG)
         ctx.voices(v).iPosition = voiceIPos
         ctx.voices(v).frame = voiceFrame
         ctx.voices(v).oldFrame = voiceOldFrame
+        ctx.voices(v).isReverse = voiceIsReverse
     NEXT
 
     ' Apply global volume if not 1.0
