@@ -918,6 +918,19 @@ SUB Test_C669Loader
     MODPlayer_Finalize pPlay
     TEST_CASE_END
 
+    TEST_CASE_BEGIN "C669Loader: Blue Waters.669 pattern instrument bounds check"
+    DIM pBW AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pBW, "mods/Blue Waters.669"), "Loads Blue Waters.669"
+    TEST_CHECK pBW.song.instruments = 5, "Blue Waters has 5 samples"
+    MODPlayer_Play pBW
+    TEST_CHECK MODPlayer_IsPlaying(pBW), "Blue Waters is playing"
+    MODPlayer_Update pBW, 0.05
+    TEST_CHECK MODPlayer_IsPlaying(pBW), "Continues playing without subscript error"
+    MODPlayer_Stop pBW
+    TEST_CHECK_FALSE MODPlayer_IsPlaying(pBW), "Stopped"
+    MODPlayer_Finalize pBW
+    TEST_CASE_END
+
     TEST_CASE_BEGIN "C669Loader: Reject incompatible formats"
     DIM pRej AS MODPlayer
     TEST_CHECK_FALSE C669Loader_LoadFromDisk(pRej, "mods/Enigma.mod"), "C669Loader rejects MOD"
@@ -1958,10 +1971,10 @@ SUB Test_MODPlayer_ChannelBadges
     TEST_CASE_BEGIN "Channel Badges: PCM channels in MOD"
     DIM pMod AS MODPlayer
     TEST_REQUIRE MODPlayer_LoadFromDisk(pMod, "mods/Enigma.mod"), "Load Enigma.mod"
-    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pMod, 0) = "[PCM]", "Channel 0 is [PCM]"
-    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pMod, 1) = "[PCM]", "Channel 1 is [PCM]"
-    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pMod, 2) = "[PCM]", "Channel 2 is [PCM]"
-    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pMod, 3) = "[PCM]", "Channel 3 is [PCM]"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pMod, 0) = "PCM", "Channel 0 is PCM"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pMod, 1) = "PCM", "Channel 1 is PCM"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pMod, 2) = "PCM", "Channel 2 is PCM"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pMod, 3) = "PCM", "Channel 3 is PCM"
     TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pMod, 4) = "", "Channel out of bounds is empty string"
     MODPlayer_Finalize pMod
     TEST_CASE_END
@@ -1970,9 +1983,9 @@ SUB Test_MODPlayer_ChannelBadges
     DIM pFM AS MODPlayer
     TEST_REQUIRE MODPlayer_LoadFromDisk(pFM, "mods/adlib.s3m"), "Load adlib.s3m"
     ' adlib.s3m has channels 0..3 as PCM and 4..12 as AdLib FM Melody
-    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pFM, 0) = "[PCM]", "Channel 0 is [PCM]"
-    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pFM, 4) = "[FMm]", "Channel 4 is [FMm]"
-    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pFM, 12) = "[FMm]", "Channel 12 is [FMm]"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pFM, 0) = "PCM", "Channel 0 is PCM"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pFM, 4) = "FMm", "Channel 4 is FMm"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pFM, 12) = "FMm", "Channel 12 is FMm"
     MODPlayer_Finalize pFM
     TEST_CASE_END
 
@@ -1985,22 +1998,22 @@ SUB Test_MODPlayer_ChannelBadges
     pDrum.channel(2).subtype = __MODPLAYER_INSTRUMENT_FM_TOMTOM
     pDrum.channel(3).subtype = __MODPLAYER_INSTRUMENT_FM_CYMBAL
     pDrum.channel(4).subtype = __MODPLAYER_INSTRUMENT_FM_HIHAT
-    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pDrum, 0) = "[FMd]", "Bass drum is [FMd]"
-    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pDrum, 1) = "[FMd]", "Snare drum is [FMd]"
-    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pDrum, 2) = "[FMd]", "Tom-tom is [FMd]"
-    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pDrum, 3) = "[FMd]", "Cymbal is [FMd]"
-    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pDrum, 4) = "[FMd]", "Hi-hat is [FMd]"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pDrum, 0) = "FMd", "Bass drum is FMd"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pDrum, 1) = "FMd", "Snare drum is FMd"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pDrum, 2) = "FMd", "Tom-tom is FMd"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pDrum, 3) = "FMd", "Cymbal is FMd"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pDrum, 4) = "FMd", "Hi-hat is FMd"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "Channel Badges: AM Synth dynamic badge"
     DIM pAM AS MODPlayer
     TEST_REQUIRE MODPlayer_LoadFromDisk(pAM, "mods/amsyntdemo.mod"), "Load AM demo"
     ' Initially all channels are PCM before triggering
-    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pAM, 0) = "[PCM]", "Initial channel 0 is [PCM]"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pAM, 0) = "PCM", "Initial channel 0 is PCM"
     ' Simulate channel 0 playing an AM instrument
     pAM.channel(0).instrument = 0 ' inst 0 is AM synth
     __MODPlayer_PlayPCMChannelVoice pAM, 0
-    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pAM, 0) = "[AM ]", "After triggering AM instrument, badge is [AM ]"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pAM, 0) = "AM", "After triggering AM instrument, badge is AM"
     MODPlayer_Finalize pAM
     TEST_CASE_END
 END SUB

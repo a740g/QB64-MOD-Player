@@ -728,7 +728,11 @@ SUB __MODPlayer_TriggerDelayedNote (player AS MODPlayer, nChannel AS _UNSIGNED L
     IF player.channel(nChannel).delayedHasInstrument THEN
         player.channel(nChannel).instrument = player.channel(nChannel).delayedInstrument
         player.channel(nChannel).startPosition = 0
-        player.channel(nChannel).volume = player.instrument(player.channel(nChannel).instrument).volume
+        IF player.channel(nChannel).instrument < player.song.instruments THEN
+            player.channel(nChannel).volume = player.instrument(player.channel(nChannel).instrument).volume
+        ELSE
+            player.channel(nChannel).volume = 0
+        END IF
     END IF
 
     IF player.channel(nChannel).delayedNote = __MODPLAYER_NOTE_KEY_OFF THEN
@@ -1458,7 +1462,9 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                 END IF
                 player.channel(nChannel).delayedVolume = nVolume
                 c2Speed = player.channel(nChannel).c2Spd
-                IF c2Speed = 0 THEN c2Speed = player.instrument(player.channel(nChannel).delayedInstrument).c2Spd
+                IF c2Speed = 0 _ANDALSO player.channel(nChannel).delayedInstrument < player.song.instruments THEN
+                    c2Speed = player.instrument(player.channel(nChannel).delayedInstrument).c2Spd
+                END IF
                 IF c2Speed = 0 THEN c2Speed = 8363
                 IF nNote < __MODPLAYER_NOTE_NONE THEN
                     player.channel(nChannel).delayedPeriod = (8363 * __MODPlayer_PeriodTable(nNote)) \ c2Speed
@@ -1472,36 +1478,47 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
             IF nInstrument THEN
                 player.channel(nChannel).instrument = nInstrument - 1
                 player.channel(nChannel).startPosition = 0
-                player.channel(nChannel).volume = player.instrument(player.channel(nChannel).instrument).volume
-                player.channel(nChannel).c2Spd = 0
-                IF nNote >= __MODPLAYER_NOTE_NONE THEN
-                    IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH _ORELSE player.instrument(player.channel(nChannel).instrument).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
-                        player.channel(nChannel).amLevel = 0
-                        player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
-                        player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_PCM
-                        SoftSynth_StopVoice player.synth, nChannel
-                        SoftSynth_SetVoiceVolume player.synth, nChannel, 0!
+                IF player.channel(nChannel).instrument < player.song.instruments THEN
+                    player.channel(nChannel).volume = player.instrument(player.channel(nChannel).instrument).volume
+                    player.channel(nChannel).c2Spd = 0
+                    IF nNote >= __MODPLAYER_NOTE_NONE THEN
+                        IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH _ORELSE player.instrument(player.channel(nChannel).instrument).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
+                            player.channel(nChannel).amLevel = 0
+                            player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
+                            player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_PCM
+                            SoftSynth_StopVoice player.synth, nChannel
+                            SoftSynth_SetVoiceVolume player.synth, nChannel, 0!
+                        END IF
                     END IF
+                ELSE
+                    player.channel(nChannel).volume = 0
+                    player.channel(nChannel).c2Spd = 0
                 END IF
             END IF
 
             IF nNote < __MODPLAYER_NOTE_NONE THEN
-                player.channel(nChannel).startPosition = 0
-                c2Speed = player.channel(nChannel).c2Spd
-                IF c2Speed = 0 THEN c2Speed = player.instrument(player.channel(nChannel).instrument).c2Spd
-                IF c2Speed = 0 THEN c2Speed = 8363
-                player.channel(nChannel).lastPeriod = (8363 * __MODPlayer_PeriodTable(nNote)) \ c2Speed
-                player.channel(nChannel).note = nNote
-                player.channel(nChannel).restart = _TRUE
-                player.song.activeChannels = nChannel
+                DIM curInst AS LONG: curInst = player.channel(nChannel).instrument
+                IF curInst < player.song.instruments THEN
+                    player.channel(nChannel).startPosition = 0
+                    c2Speed = player.channel(nChannel).c2Spd
+                    IF c2Speed = 0 THEN c2Speed = player.instrument(curInst).c2Spd
+                    IF c2Speed = 0 THEN c2Speed = 8363
+                    player.channel(nChannel).lastPeriod = (8363 * __MODPlayer_PeriodTable(nNote)) \ c2Speed
+                    player.channel(nChannel).note = nNote
+                    player.channel(nChannel).restart = _TRUE
+                    player.song.activeChannels = nChannel
 
-                ' Retrigger tremolo and vibrato waveforms
-                IF (player.channel(nChannel).waveControl AND &HF) < 4 THEN player.channel(nChannel).vibratoPosition = 0
-                IF _SHR(player.channel(nChannel).waveControl, 4) < 4 THEN player.channel(nChannel).tremoloPosition = 0
+                    ' Retrigger tremolo and vibrato waveforms
+                    IF (player.channel(nChannel).waveControl AND &HF) < 4 THEN player.channel(nChannel).vibratoPosition = 0
+                    IF _SHR(player.channel(nChannel).waveControl, 4) < 4 THEN player.channel(nChannel).tremoloPosition = 0
 
-                ' A tone-portamento volume column keeps the current note running.
-                IF nEffect <> __MODPLAYER_FX_PORTAMENTO _ANDALSO nEffect <> __MODPLAYER_FX_PORTAMENTO_VOLUME_SLIDE _ANDALSO nEffect <> __MODPLAYER_FX_PORTA_VOL_FINE_SLIDE _ANDALSO NOT (player.song.isS3M _ANDALSO nVolume = 125) THEN
-                    player.channel(nChannel).period = player.channel(nChannel).lastPeriod
+                    ' A tone-portamento volume column keeps the current note running.
+                    IF nEffect <> __MODPLAYER_FX_PORTAMENTO _ANDALSO nEffect <> __MODPLAYER_FX_PORTAMENTO_VOLUME_SLIDE _ANDALSO nEffect <> __MODPLAYER_FX_PORTA_VOL_FINE_SLIDE _ANDALSO NOT (player.song.isS3M _ANDALSO nVolume = 125) THEN
+                        player.channel(nChannel).period = player.channel(nChannel).lastPeriod
+                    END IF
+                ELSE
+                    player.channel(nChannel).restart = _FALSE
+                    SoftSynth_StopVoice player.synth, nChannel
                 END IF
             ELSE
                 player.channel(nChannel).restart = _FALSE
@@ -1543,7 +1560,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                 IF nOperand THEN player.channel(nChannel).portamentoSpeed = nOperand
                 player.channel(nChannel).portamentoTo = player.channel(nChannel).lastPeriod
                 player.channel(nChannel).restart = _FALSE
-                IF nInstrument > 0 THEN
+                IF nInstrument > 0 _ANDALSO player.channel(nChannel).instrument < player.song.instruments THEN
                     IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH _ORELSE player.instrument(player.channel(nChannel).instrument).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
                         player.channel(nChannel).amLevel = 0
                         player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
@@ -1556,7 +1573,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
             CASE __MODPLAYER_FX_PORTAMENTO_VOLUME_SLIDE
                 player.channel(nChannel).portamentoTo = player.channel(nChannel).lastPeriod
                 player.channel(nChannel).restart = _FALSE
-                IF nInstrument > 0 THEN
+                IF nInstrument > 0 _ANDALSO player.channel(nChannel).instrument < player.song.instruments THEN
                     IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH _ORELSE player.instrument(player.channel(nChannel).instrument).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
                         player.channel(nChannel).amLevel = 0
                         player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
@@ -1582,10 +1599,12 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                 IF nOperand THEN player.channel(nChannel).lastSampleOffset = nOperand ELSE nOperand = player.channel(nChannel).lastSampleOffset
                 IF nNote < __MODPLAYER_NOTE_NONE THEN
                     player.channel(nChannel).startPosition = _SHL(nOperand, 8)
-                    IF player.instrument(player.channel(nChannel).instrument).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP _ANDALSO player.instrument(player.channel(nChannel).instrument).loopEnd > player.instrument(player.channel(nChannel).instrument).loopStart _ANDALSO player.channel(nChannel).startPosition >= player.instrument(player.channel(nChannel).instrument).loopEnd THEN
-                        player.channel(nChannel).startPosition = player.instrument(player.channel(nChannel).instrument).loopStart + ((player.channel(nChannel).startPosition - player.instrument(player.channel(nChannel).instrument).loopStart) MOD (player.instrument(player.channel(nChannel).instrument).loopEnd - player.instrument(player.channel(nChannel).instrument).loopStart))
-                    ELSEIF player.channel(nChannel).startPosition > player.instrument(player.channel(nChannel).instrument).length THEN
-                        player.channel(nChannel).startPosition = player.instrument(player.channel(nChannel).instrument).length
+                    IF player.channel(nChannel).instrument < player.song.instruments THEN
+                        IF player.instrument(player.channel(nChannel).instrument).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP _ANDALSO player.instrument(player.channel(nChannel).instrument).loopEnd > player.instrument(player.channel(nChannel).instrument).loopStart _ANDALSO player.channel(nChannel).startPosition >= player.instrument(player.channel(nChannel).instrument).loopEnd THEN
+                            player.channel(nChannel).startPosition = player.instrument(player.channel(nChannel).instrument).loopStart + ((player.channel(nChannel).startPosition - player.instrument(player.channel(nChannel).instrument).loopStart) MOD (player.instrument(player.channel(nChannel).instrument).loopEnd - player.instrument(player.channel(nChannel).instrument).loopStart))
+                        ELSEIF player.channel(nChannel).startPosition > player.instrument(player.channel(nChannel).instrument).length THEN
+                            player.channel(nChannel).startPosition = player.instrument(player.channel(nChannel).instrument).length
+                        END IF
                     END IF
                 END IF
 
@@ -2008,7 +2027,9 @@ SUB __MODPlayer_UpdateTick (player AS MODPlayer)
                         DIM arpY AS _UNSIGNED _BYTE: arpY = arpParam AND &HF
                         DIM c2SpdArp AS _UNSIGNED LONG
                         c2SpdArp = player.channel(nChannel).c2Spd
-                        IF c2SpdArp = 0 THEN c2SpdArp = player.instrument(player.channel(nChannel).instrument).c2Spd
+                        IF c2SpdArp = 0 _ANDALSO player.channel(nChannel).instrument < player.song.instruments THEN
+                            c2SpdArp = player.instrument(player.channel(nChannel).instrument).c2Spd
+                        END IF
                         IF c2SpdArp = 0 THEN c2SpdArp = 8363
                         SELECT CASE player.song.tick MOD 3
                             CASE 0
@@ -2454,6 +2475,7 @@ SUB __MODPlayer_DoInvertLoop (player AS MODPlayer, chan AS _UNSIGNED LONG)
     player.channel(chan).invertLoopDelay = player.channel(chan).invertLoopDelay + __MODPlayer_InvertLoopSpeedTable(player.channel(chan).invertLoopSpeed)
 
     DIM sampleNumber AS _UNSIGNED INTEGER: sampleNumber = player.channel(chan).instrument ' cache the sample number case we'll use this often below
+    IF sampleNumber >= player.song.instruments THEN EXIT SUB
 
     IF player.channel(chan).invertLoopDelay >= 128 _ANDALSO SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP = player.instrument(sampleNumber).playMode THEN
         player.channel(chan).invertLoopDelay = 0 ' reset delay

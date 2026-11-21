@@ -95,7 +95,7 @@ FUNCTION C669Loader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     player.song.channels = __C669LOADER_CHANNELS
     player.song.subtype = "669 "
     player.song.isStereo = _TRUE
-    player.song.pcmMasterGain = 64.0! / 128.0!
+    player.song.pcmMasterGain = 48.0! / 128.0! ' Matches OpenMPT 669 default pre-amp of 48
 
     ' Determine number of valid orders
     DIM numOrders AS LONG: numOrders = 0
@@ -317,13 +317,11 @@ FUNCTION C669Loader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
         ' Panning: alternating Left (0x30 = 48) and Right (0xD0 = 208)
         IF (ch AND 1) = 0 THEN
-            player.channel(ch).panning = 48
             player.channel(ch).defaultPanning = 48
-            SoftSynth_SetVoiceBalance player.synth, ch, -__MODPLAYER_STEREO_SEPARATION
+            __MODPlayer_SetChannelPanning player, ch, 48
         ELSE
-            player.channel(ch).panning = 208
             player.channel(ch).defaultPanning = 208
-            SoftSynth_SetVoiceBalance player.synth, ch, __MODPLAYER_STEREO_SEPARATION
+            __MODPlayer_SetChannelPanning player, ch, 208
         END IF
     NEXT ch
 
