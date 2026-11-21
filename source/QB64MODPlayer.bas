@@ -144,7 +144,7 @@ SUB App_PlayNextTrack
         App_PlayTrack nextIdx
     ELSE
         IF Player.song.isPlaying THEN MODPlayer_Stop Player
-        Bg.mode = Math_GetRandomBetween(BACKGROUND_MODE_STARS, BACKGROUND_MODE_SNAKES)
+        Background_SetRandomMode Bg
         _TITLE APP_NAME + _CHR_SPACE + _OS$
     END IF
 END SUB
@@ -166,7 +166,7 @@ SUB App_StopPlayback
     SHARED Bg AS Background
 
     IF Player.song.isPlaying THEN MODPlayer_Stop Player
-    Bg.mode = Math_GetRandomBetween(BACKGROUND_MODE_STARS, BACKGROUND_MODE_SNAKES)
+    Background_SetRandomMode Bg
     _TITLE APP_NAME + _CHR_SPACE + _OS$
 END SUB
 
@@ -395,8 +395,7 @@ SUB App_Initialize
     RANDOMIZE TIMER
 
     Playlist_Initialize GlobalPlaylist
-    Background_Initialize Bg
-    Bg.mode = Math_GetRandomBetween(BACKGROUND_MODE_STARS, BACKGROUND_MODE_SNAKES)
+    Background_Initialize Bg, UI_SCREEN_WIDTH, UI_SCREEN_HEIGHT - 1
     CurrentView = UI_VIEW_MODE_TRACKER
     TrackerChanOffset = 0
     SelectedInstrument = 1
