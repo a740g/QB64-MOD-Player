@@ -6,7 +6,9 @@
 $LET TEST_STRICT = TRUE
 $LET TEST_CONSOLE_ONLY = TRUE
 
-'$INCLUDE:'../source/Catch.bi'
+'$INCLUDE:'Catch.bi'
+
+'$INCLUDE:'../source/Time.bi'
 '$INCLUDE:'../source/File.bi'
 '$INCLUDE:'../source/StringFile.bi'
 '$INCLUDE:'../source/AudioConv.bi'
@@ -22,6 +24,23 @@ $LET TEST_CONSOLE_ONLY = TRUE
 '$INCLUDE:'../source/Vector2f.bi'
 '$INCLUDE:'../source/Vector3f.bi'
 '$INCLUDE:'../source/Background.bi'
+
+''' @brief Tests for Time.bi and _UPTIME functionality.
+SUB Test_Time
+    TEST_CASE_BEGIN "Time: _UPTIME monotonicity and resolution"
+    DIM t1 AS DOUBLE: t1 = _UPTIME
+    TEST_CHECK t1 > 0#, "_UPTIME returns positive number"
+    _DELAY 0.005 ' sleep ~5ms
+    DIM t2 AS DOUBLE: t2 = _UPTIME
+    TEST_CHECK t2 >= t1, "_UPTIME is monotonic (t2 >= t1)"
+    TEST_CHECK (t2 - t1) >= 0.002#, "Elapsed time reflects delay (~5ms)"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Time: Time_MeasureHertz call counting"
+    DIM hz1 AS _UNSIGNED LONG: hz1 = Time_MeasureHertz
+    TEST_CHECK hz1 >= 0, "Time_MeasureHertz returns a valid non-negative number"
+    TEST_CASE_END
+END SUB
 
 ''' @brief Tests for AudioConv.bi audio conversion functions.
 SUB Test_AudioConv
@@ -3236,6 +3255,7 @@ TEST_BEGIN_ALL
 Test_Vector2f
 Test_Vector3f
 Test_Background
+Test_Time
 Test_AudioConv
 Test_SoftSynth
 Test_StringFile

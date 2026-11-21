@@ -17,8 +17,6 @@ $ELSE
     $CONSOLE
 $END IF
 
-'$INCLUDE:'Time.bi'
-
 CONST __TEST_COLOR_HEADER = 36 ' light cyan
 CONST __TEST_COLOR_PASS = 32 ' light green
 CONST __TEST_COLOR_FAIL = 31 ' light red
@@ -38,7 +36,7 @@ TYPE __TestState
     currentTestFails AS LONG
     abortCurrentTest AS _BYTE
     skipCurrentTest AS _BYTE
-    testStart AS _UNSIGNED _INTEGER64
+    testStart AS DOUBLE
     filter AS STRING
     errorHandlerEnabled AS _BYTE
     colorDisabled AS _BYTE
@@ -147,7 +145,7 @@ SUB TEST_CASE_BEGIN (testName AS STRING)
     __TestState.abortCurrentTest = _FALSE
     __TestState.skipCurrentTest = _FALSE
     __TestState.testsRun = __TestState.testsRun + 1
-    __TestState.testStart = Time_GetTicks
+    __TestState.testStart = _UPTIME
 
     IF LEN(__TestState.filter) THEN
         IF INSTR(UCASE$(testName), UCASE$(__TestState.filter)) = 0 THEN
@@ -171,7 +169,7 @@ END SUB
 SUB TEST_CASE_END
     SHARED __TestState AS __TestState
 
-    DIM durMs AS _UNSIGNED _INTEGER64: durMs = Time_GetTicks - __TestState.testStart
+    DIM durMs AS _UNSIGNED LONG: durMs = (_UPTIME - __TestState.testStart) * 1000#
 
     __TestPrint "  "
     IF __TestState.skipCurrentTest THEN

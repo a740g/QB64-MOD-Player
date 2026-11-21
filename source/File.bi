@@ -6,7 +6,6 @@
 $INCLUDEONCE
 
 '$INCLUDE:'Pathname.bi'
-'$INCLUDE:'Time.bi'
 
 CONST __FILE_UPDATES_PER_SECOND_DEFAULT = 120 ' refresh happens 120 times a second
 CONST __FILE_TIMEOUT_DEFAULT = 60 * 5 ' timeout happens after 5 mins by default
@@ -15,7 +14,7 @@ CONST __FILE_TIMEOUT_DEFAULT = 60 * 5 ' timeout happens after 5 mins by default
 TYPE __FileState
     initialized AS _BYTE
     updatesPerSecond AS _UNSIGNED LONG
-    timeoutTicks AS _UNSIGNED _INTEGER64
+    timeoutSeconds AS DOUBLE
     percentCompleted AS _UNSIGNED _BYTE
 END TYPE
 
@@ -55,14 +54,14 @@ FUNCTION File_LoadFromURL$ (url AS STRING)
     DIM h AS LONG: h = _OPENCLIENT("HTTP:" + url)
 
     IF h <> 0 THEN
-        DIM startTick AS _UNSIGNED _INTEGER64: startTick = Time_GetTicks ' record the current tick
+        DIM startTime AS DOUBLE: startTime = _UPTIME ' record start time
         DIM AS STRING content, buffer
 
         WHILE NOT EOF(h)
             GET h, , buffer
             content = content + buffer
             IF __File.updatesPerSecond > 0 THEN _LIMIT __File.updatesPerSecond
-            IF __File.timeoutTicks > 0 _ANDALSO (Time_GetTicks - startTick) > __File.timeoutTicks THEN EXIT WHILE
+            IF __File.timeoutSeconds > 0 _ANDALSO (_UPTIME - startTime) > __File.timeoutSeconds THEN EXIT WHILE
             IF LOF(h) > 0 THEN __File.percentCompleted = (LEN(content) / LOF(h)) * 100!
         WEND
 
@@ -79,7 +78,7 @@ SUB File_SetDownloaderProperties (updatesPerSecond AS _UNSIGNED LONG, timeoutSec
     SHARED __File AS __FileState
 
     __File.updatesPerSecond = updatesPerSecond
-    __File.timeoutTicks = 1000 * timeoutSeconds ' convert to ticks
+    __File.timeoutSeconds = timeoutSeconds
     __File.initialized = _TRUE
 END SUB
 
