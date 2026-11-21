@@ -120,7 +120,6 @@ SUB App_PlayTrack (trackIdx AS LONG)
         SelectedInstrument = 1
         InstrumentScrollOffset = 1
         CommentScrollOffset = 1
-        IF CurrentView = UI_VIEW_MODE_OVERVIEW THEN CurrentView = UI_VIEW_MODE_TRACKER
 
         DIM winTitle AS STRING
         IF LEN(Pathname_GetDriveOrScheme(filePath)) > 2 THEN
@@ -138,14 +137,14 @@ END SUB
 SUB App_PlayNextTrack
     SHARED GlobalPlaylist AS Playlist
     SHARED Player AS MODPlayer
-    SHARED CurrentView AS INTEGER
+    SHARED Bg AS Background
 
     DIM nextIdx AS LONG: nextIdx = Playlist_GetNext(GlobalPlaylist)
     IF nextIdx > 0 THEN
         App_PlayTrack nextIdx
     ELSE
         IF Player.song.isPlaying THEN MODPlayer_Stop Player
-        CurrentView = UI_VIEW_MODE_OVERVIEW
+        Bg.mode = Math_GetRandomBetween(BACKGROUND_MODE_STARS, BACKGROUND_MODE_SNAKES)
         _TITLE APP_NAME + _CHR_SPACE + _OS$
     END IF
 END SUB
@@ -164,10 +163,10 @@ END SUB
 ''' @brief Stops playback and resets title.
 SUB App_StopPlayback
     SHARED Player AS MODPlayer
-    SHARED CurrentView AS INTEGER
+    SHARED Bg AS Background
 
     IF Player.song.isPlaying THEN MODPlayer_Stop Player
-    CurrentView = UI_VIEW_MODE_OVERVIEW
+    Bg.mode = Math_GetRandomBetween(BACKGROUND_MODE_STARS, BACKGROUND_MODE_SNAKES)
     _TITLE APP_NAME + _CHR_SPACE + _OS$
 END SUB
 
@@ -397,7 +396,8 @@ SUB App_Initialize
 
     Playlist_Initialize GlobalPlaylist
     Background_Initialize Bg
-    CurrentView = UI_VIEW_MODE_OVERVIEW
+    Bg.mode = Math_GetRandomBetween(BACKGROUND_MODE_STARS, BACKGROUND_MODE_SNAKES)
+    CurrentView = UI_VIEW_MODE_TRACKER
     TrackerChanOffset = 0
     SelectedInstrument = 1
     InstrumentScrollOffset = 1
@@ -481,6 +481,11 @@ DO
     ' Clear framebuffer
     CLS , Black
 
+    ' Draw animated background when idle
+    IF NOT Player.song.isPlaying THEN
+        Background_UpdateAndDraw Bg
+    END IF
+
     ' Dynamic softkey label updates
     DIM curPlayKeyText AS STRING
     IF Player.song.isPlaying _ANDALSO NOT Player.song.isPaused THEN
@@ -516,13 +521,6 @@ DO
     topAction = UI_DrawHeader(Player, GlobalPlaylist, SongElapsedTime, estDur, CurrentView, ShowHelpModal)
 
     SELECT CASE CurrentView
-        CASE UI_VIEW_MODE_OVERVIEW
-            DIM ovAction AS _BYTE: ovAction = UI_RenderOverview(Bg, GlobalPlaylist)
-            IF ovAction = UI_ACTION_OPEN_FILE THEN App_OpenFileDialog
-            IF ovAction = UI_ACTION_OPEN_FOLDER THEN App_OpenFolderDialog
-            IF ovAction = UI_ACTION_MODARCHIVE THEN App_PlayModArchiveRandom
-            IF ovAction = UI_ACTION_PLAY_INDEX THEN CurrentView = UI_VIEW_MODE_PLAYLIST
-
         CASE UI_VIEW_MODE_TRACKER
             UI_RenderTracker Player, TrackerChanOffset
 

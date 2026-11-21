@@ -3708,6 +3708,45 @@ SUB Test_TUI
     TUI_End
     TEST_CASE_END
 
+    TEST_CASE_BEGIN "TUI: Disabled Buttons and ToggleButtons"
+    TUI_Begin
+    Vector2f_Set 15!, 10!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE
+    __TUI.mousePressedL = _TRUE
+    DIM disBtnClicked AS _BYTE: disBtnClicked = TUI_ButtonEx(10, 10, 12, "Disabled", _TRUE)
+    TEST_CHECK NOT disBtnClicked, "Disabled TUI_ButtonEx does not trigger click even when hovered"
+    TEST_CHECK __TUI.widgetCount = 0, "Disabled button does not increment widget count"
+
+    DIM disTogClicked AS _BYTE: disTogClicked = TUI_ToggleButtonEx(25, 10, 12, "DisTog", _FALSE, _TRUE)
+    TEST_CHECK NOT disTogClicked, "Disabled TUI_ToggleButtonEx does not trigger click"
+    TEST_CHECK __TUI.widgetCount = 0, "Disabled toggle button does not increment widget count"
+    TUI_End
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "TUI: TabBar Disabled and Focus Navigation"
+    TUI_Begin
+    selectedTab = 1
+    Vector2f_Set 25!, 5!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE
+    DIM disTabChanged AS _BYTE
+    disTabChanged = TUI_TabBarEx(10, 5, tabs(), 4, selectedTab, _TRUE)
+    TEST_CHECK NOT disTabChanged, "Disabled TUI_TabBarEx does not change selection on click"
+    TEST_CHECK selectedTab = 1, "Selected tab unchanged when disabled"
+    TEST_CHECK __TUI.widgetCount = 0, "Disabled tab bar does not register interactive widgets"
+    TUI_End
+
+    ' Test keyboard focus confirmation on TabBar
+    TUI_Begin
+    Vector2f_Set 0!, 0!, __TUI.mousePos
+    __TUI.mouseClickedL = _FALSE
+    __TUI.focusedId = 3 ' Focus on 3rd tab ("Instruments")
+    __TUI.navConfirm = _TRUE
+    tabChanged = TUI_TabBarEx(10, 5, tabs(), 4, selectedTab, _FALSE)
+    TEST_CHECK tabChanged, "TUI_TabBarEx confirms selection via keyboard focus"
+    TEST_CHECK selectedTab = 3, "Selected tab updated to 3 via keyboard"
+    TUI_End
+    TEST_CASE_END
+
     TEST_CASE_BEGIN "TUI: VUMeter Rendering and Clamping"
     TUI_Begin
     TUI_VUMeter 10, 5, 12, 0.65!, 0.90!, _FALSE

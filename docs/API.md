@@ -104,17 +104,17 @@ CONST MODPLAYER_FORMAT_AMF~%  = 10~% ' Advanced Music Format (.AMF / DSMI / Asyl
 ```vb
 TYPE __MODPlayerPattern
     rows AS _UNSIGNED INTEGER
-    note(0 TO 0, 0 TO 0) _DYNAMIC AS __MODPlayerNote
+    _DYNAMIC note(0 TO 0, 0 TO 0) AS __MODPlayerNote
 END TYPE
 
 TYPE MODPlayer
     song AS __MODPlayerSong
     synth AS SoftSynth
     opl AS Opal
-    order(0 TO 0) _DYNAMIC AS _UNSIGNED INTEGER
-    pattern(0 TO 0) _DYNAMIC AS __MODPlayerPattern
-    instrument(0 TO 0) _DYNAMIC AS __MODPlayerInstrument
-    channel(0 TO 0) _DYNAMIC AS __MODPlayerChannel
+    _DYNAMIC order(0 TO 0) AS _UNSIGNED INTEGER
+    _DYNAMIC pattern(0 TO 0) AS __MODPlayerPattern
+    _DYNAMIC instrument(0 TO 0) AS __MODPlayerInstrument
+    _DYNAMIC channel(0 TO 0) AS __MODPlayerChannel
     initialized AS _BYTE
 END TYPE
 ```
@@ -672,8 +672,8 @@ CONST SOFTSYNTH_SOUND_BUFFER_TIME_DEFAULT! = 0.05! ' 50 ms default refill
 
 ```vb
 TYPE SoftSynth
-    sounds(0 TO 0) _DYNAMIC AS __SoftSynthSound
-    voices(0 TO 0) _DYNAMIC AS __SoftSynthVoice
+    _DYNAMIC sounds(0 TO 0) AS __SoftSynthSound
+    _DYNAMIC voices(0 TO 0) AS __SoftSynthVoice
     sampleRate AS _UNSIGNED LONG
     activeVoices AS _UNSIGNED LONG
     globalVolume AS SINGLE
@@ -685,7 +685,7 @@ TYPE SoftSynth
     soundBufferBytes AS _UNSIGNED LONG
     soundMasterVolume AS SINGLE
     soundHandle AS LONG
-    soundBuffer(0 TO 0) _DYNAMIC AS SINGLE
+    _DYNAMIC soundBuffer(0 TO 0) AS SINGLE
 END TYPE
 ```
 

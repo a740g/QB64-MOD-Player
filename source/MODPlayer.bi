@@ -118,7 +118,7 @@ END TYPE
 
 TYPE __MODPlayerPattern
     rows AS _UNSIGNED INTEGER ' number of rows in this pattern (typically 64, but can be 1 to 256 for XM, etc.)
-    note(0 TO 0, 0 TO 0) _DYNAMIC AS __MODPlayerNote ' note matrix: (0 TO rows - 1, 0 TO channels - 1)
+    _DYNAMIC note(0 TO 0, 0 TO 0) AS __MODPlayerNote ' note matrix: (0 TO rows - 1, 0 TO channels - 1)
 END TYPE
 
 TYPE __MODPlayerAMInfo
@@ -274,10 +274,10 @@ TYPE MODPlayer
     song AS __MODPlayerSong
     synth AS SoftSynth
     opl AS Opal
-    order(0 TO 0) _DYNAMIC AS _UNSIGNED INTEGER
-    pattern(0 TO 0) _DYNAMIC AS __MODPlayerPattern
-    instrument(0 TO 0) _DYNAMIC AS __MODPlayerInstrument
-    channel(0 TO 0) _DYNAMIC AS __MODPlayerChannel
+    _DYNAMIC order(0 TO 0) AS _UNSIGNED INTEGER
+    _DYNAMIC pattern(0 TO 0) AS __MODPlayerPattern
+    _DYNAMIC instrument(0 TO 0) AS __MODPlayerInstrument
+    _DYNAMIC channel(0 TO 0) AS __MODPlayerChannel
     initialized AS _BYTE
 END TYPE
 

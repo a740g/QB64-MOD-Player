@@ -25,7 +25,7 @@ TYPE BackgroundStar
 END TYPE
 
 TYPE BackgroundStarfield
-    stars(0 TO 0) _DYNAMIC AS BackgroundStar
+    _DYNAMIC stars(0 TO 0) AS BackgroundStar
     count AS LONG
 END TYPE
 
@@ -39,8 +39,8 @@ TYPE BackgroundSnake
 END TYPE
 
 TYPE BackgroundSnakes
-    snakes(0 TO 0) _DYNAMIC AS BackgroundSnake
-    grid(0 TO 0, 0 TO 0) _DYNAMIC AS _BYTE
+    _DYNAMIC snakes(0 TO 0) AS BackgroundSnake
+    _DYNAMIC grid(0 TO 0, 0 TO 0) AS _BYTE
     gridW AS LONG
     gridH AS LONG
     count AS LONG

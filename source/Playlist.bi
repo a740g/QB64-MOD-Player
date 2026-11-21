@@ -5,6 +5,8 @@
 
 $INCLUDEONCE
 
+$UNSTABLE:TYPEFIELDS
+
 '$INCLUDE:'Math.bi'
 '$INCLUDE:'Pathname.bi'
 '$INCLUDE:'File.bi'

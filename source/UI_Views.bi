@@ -11,7 +11,6 @@ $INCLUDEONCE
 '$INCLUDE:'Vector2f.bi'
 '$INCLUDE:'Bounds2f.bi'
 '$INCLUDE:'Vector3f.bi'
-'$INCLUDE:'Background.bi'
 '$INCLUDE:'AudioAnalyzer.bi'
 '$INCLUDE:'MODPlayer.bi'
 '$INCLUDE:'MODPlayer.bm'
@@ -20,13 +19,12 @@ $INCLUDEONCE
 '$INCLUDE:'Playlist.bi'
 
 ' View identifier constants
-CONST UI_VIEW_MODE_OVERVIEW% = 1%
-CONST UI_VIEW_MODE_TRACKER% = 2%
-CONST UI_VIEW_MODE_MIXER% = 3%
-CONST UI_VIEW_MODE_INSTRUMENTS% = 4%
-CONST UI_VIEW_MODE_PLAYLIST% = 5%
-CONST UI_VIEW_MODE_SONGINFO% = 6%
-CONST UI_VIEW_MODE_VISUALIZER% = 7%
+CONST UI_VIEW_MODE_TRACKER% = 1%
+CONST UI_VIEW_MODE_MIXER% = 2%
+CONST UI_VIEW_MODE_INSTRUMENTS% = 3%
+CONST UI_VIEW_MODE_PLAYLIST% = 4%
+CONST UI_VIEW_MODE_SONGINFO% = 5%
+CONST UI_VIEW_MODE_VISUALIZER% = 6%
 
 ' UI layout constants
 CONST UI_SCREEN_WIDTH& = 144&
@@ -223,11 +221,15 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, curTime AS DOUBLE
     END IF
 
     ' Rows 3 to 5: 3D Transport & Quick Action Toolbar
+    DIM isSongPlaying AS _BYTE: isSongPlaying = player.song.isPlaying
+    DIM hasMultiQueue AS _BYTE: hasMultiQueue = (pl.count > 1)
+    DIM hasQueue AS _BYTE: hasQueue = (pl.count > 0)
+
     DIM bx AS LONG: bx = 2
-    IF TUI_Button(bx, 3, 8, CHR$(17) + CHR$(17) + " Prev") THEN action = UI_ACTION_PREV_TRACK
+    IF TUI_ButtonEx(bx, 3, 8, CHR$(17) + CHR$(17) + " Prev", NOT (isSongPlaying _ORELSE hasMultiQueue)) THEN action = UI_ACTION_PREV_TRACK
     bx = bx + 9
 
-    IF TUI_Button(bx, 3, 7, CHR$(17) + " Rwd") THEN
+    IF TUI_ButtonEx(bx, 3, 7, CHR$(17) + " Rwd", NOT isSongPlaying) THEN
         IF player.song.isPlaying THEN MODPlayer_GoToPreviousPosition player
     END IF
     bx = bx + 8
@@ -238,7 +240,8 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, curTime AS DOUBLE
     ELSE
         playLabel = CHR$(16) + " Play "
     END IF
-    IF TUI_ToggleButton(bx, 3, 9, playLabel, player.song.isPlaying _ANDALSO NOT player.song.isPaused) THEN
+    DIM canPlay AS _BYTE: canPlay = isSongPlaying _ORELSE hasQueue
+    IF TUI_ToggleButtonEx(bx, 3, 9, playLabel, player.song.isPlaying _ANDALSO NOT player.song.isPaused, NOT canPlay) THEN
         IF player.song.isPlaying THEN
             player.song.isPaused = NOT player.song.isPaused
         ELSEIF pl.count > 0 THEN
@@ -247,15 +250,15 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, curTime AS DOUBLE
     END IF
     bx = bx + 10
 
-    IF TUI_Button(bx, 3, 8, CHR$(254) + " Stop") THEN action = UI_ACTION_STOP
+    IF TUI_ButtonEx(bx, 3, 8, CHR$(254) + " Stop", NOT isSongPlaying) THEN action = UI_ACTION_STOP
     bx = bx + 9
 
-    IF TUI_Button(bx, 3, 7, "Fwd " + CHR$(16)) THEN
+    IF TUI_ButtonEx(bx, 3, 7, "Fwd " + CHR$(16), NOT isSongPlaying) THEN
         IF player.song.isPlaying THEN MODPlayer_GoToNextPosition player
     END IF
     bx = bx + 8
 
-    IF TUI_Button(bx, 3, 8, "Next " + CHR$(16) + CHR$(16)) THEN action = UI_ACTION_NEXT_TRACK
+    IF TUI_ButtonEx(bx, 3, 8, "Next " + CHR$(16) + CHR$(16), NOT (isSongPlaying _ORELSE hasMultiQueue)) THEN action = UI_ACTION_NEXT_TRACK
     bx = bx + 9
 
     ' Repeat mode cycle button
@@ -307,12 +310,13 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, curTime AS DOUBLE
     tabs(5) = "F6: Song Info"
     tabs(6) = "F7: Visualizer"
 
-    DIM tabSel AS LONG: tabSel = currentView - 1 ' Map view 2..7 to tab 1..6
+    DIM tabSel AS LONG: tabSel = currentView
     IF tabSel < 1 THEN tabSel = 1
     IF tabSel > 6 THEN tabSel = 6
 
-    IF TUI_TabBar(2, 6, tabs(), 6, tabSel) THEN
-        currentView = tabSel + 1
+    DIM tabsDisabled AS _BYTE: tabsDisabled = NOT player.song.isPlaying
+    IF TUI_TabBarEx(2, 6, tabs(), 6, tabSel, tabsDisabled) THEN
+        currentView = tabSel
     END IF
 
     UI_DrawHeader = action
@@ -386,82 +390,28 @@ FUNCTION UI_DrawFooter% (player AS MODPlayer)
     END IF
 END FUNCTION
 
-''' @brief Renders View 1: Overview Dashboard with live starfield and capability overview.
-''' @param bg Background animation context.
-''' @param pl The Playlist instance.
-''' @return UI_ACTION code if an action was triggered.
-FUNCTION UI_RenderOverview%% (bg AS Background, pl AS Playlist)
-    DIM action AS _BYTE: action = UI_ACTION_NONE%%
-
-    ' Draw live starfield in view area
-    Background_UpdateAndDrawStars bg.starfield
-
-    ' Main 3D Panel
-    TUI_Panel 18, 10, 108, 68, "QB64-PE Universal Module Player - Engine Overview", _TRUE
-
-    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
-    _PRINTSTRING (30, 13), "Welcome to the Ultimate Retro Tracking Workstation for QB64-PE"
-
-    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
-    _PRINTSTRING (22, 16), "Supported Formats and Synthesis Engines:"
-
-    ' Format capability cards
-    COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK: _PRINTSTRING (22, 19), "[ MOD ]"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK: _PRINTSTRING (30, 19), "ProTracker 1.0-3.6, FastTracker, Startrekker AM Synthesizer (4-32 Ch)"
-
-    COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK: _PRINTSTRING (22, 22), "[ S3M ]"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK: _PRINTSTRING (30, 22), "Scream Tracker 3, AdLib FM (OPL2) Melodic & Drum Synthesis (1-32 Ch)"
-
-    COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK: _PRINTSTRING (22, 25), "[ MTM ]"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK: _PRINTSTRING (30, 25), "MultiTracker 16-channel Module Format with custom pan tables"
-
-    COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK: _PRINTSTRING (22, 28), "[ FAR ]"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK: _PRINTSTRING (30, 28), "Farandole Composer (up to 16 Ch, full chorus, depth & sustain)"
-
-    COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK: _PRINTSTRING (22, 31), "[ STM ]"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK: _PRINTSTRING (30, 31), "Scream Tracker 2.xx classic 4-channel PC soundtracker modules"
-
-    COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK: _PRINTSTRING (22, 34), "[ 669 ]"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK: _PRINTSTRING (30, 34), "Composer 669 & Extended UNIS 669 (8-channel tempo modulation)"
-
-    COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK: _PRINTSTRING (22, 37), "[ RAD ]"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK: _PRINTSTRING (30, 37), "Reality AdLib Tracker v1.0 pure OPL2 synthesizer tunes"
-
-    COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK: _PRINTSTRING (22, 40), "[ ULT ]"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK: _PRINTSTRING (30, 40), "UltraTracker v1.1-1.6 multi-channel stereo soundscapes"
-
-    COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK: _PRINTSTRING (22, 43), "[ MDL ]"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK: _PRINTSTRING (30, 43), "Digitrakker v0.0-1.1 multi-channel 8/16-bit tracker modules"
-
-    COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK: _PRINTSTRING (22, 46), "[ AMF ]"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK: _PRINTSTRING (30, 46), "DSMI Advanced Module Format v0.8-1.4 with full stereo panning"
-
-    ' 3D Quick Action Buttons
-    DIM btnY AS LONG: btnY = 52
-    IF TUI_Button(24, btnY, 20, CHR$(14) + " Open File(s)...") THEN action = UI_ACTION_OPEN_FILE
-    IF TUI_Button(47, btnY, 20, CHR$(14) + " Open Folder...") THEN action = UI_ACTION_OPEN_FOLDER
-    IF TUI_Button(70, btnY, 24, CHR$(15) + " ModArchive Random") THEN action = UI_ACTION_MODARCHIVE
-    IF TUI_Button(97, btnY, 18, "Playlist (" + _TRIM$(STR$(pl.count)) + ")") THEN action = UI_ACTION_PLAY_INDEX
-
-    ' Drag & Drop Zone
-    COLOR TUI_COLOR_LIGHT_GREEN, TUI_COLOR_BLACK
-    DIM dropPrompt AS STRING
-    dropPrompt = CHR$(25) + " Drag and drop any supported tracker file here to begin playback immediately " + CHR$(25)
-    _PRINTSTRING (30, 60), dropPrompt
-
-    COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-    _PRINTSTRING (42, 64), "Press F1 for Help | F2-F7 to switch Workstation Views"
-
-    UI_RenderOverview = action
-END FUNCTION
-
-''' @brief Renders View 2: Multi-channel tracker pattern matrix with 8-channel viewport.
+''' @brief Renders View 1: Multi-channel tracker pattern matrix with 8-channel viewport.
 ''' @param player The active MODPlayer instance.
 ''' @param chanOffset In/Out: 0-based channel viewport offset (0, 8, 16, 24...).
 SUB UI_RenderTracker (player AS MODPlayer, chanOffset AS LONG)
     IF NOT player.song.isPlaying THEN
+        ' Center floating 3D panel above the live background animation
+        TUI_Panel 22, 34, 100, 20, "QB64-PE Universal MOD Player - Workstation Ready", _TRUE
+
+        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+        _PRINTSTRING (30, 38), "Welcome to the Ultimate Retro Tracking Workstation for QB64-PE"
+
+        COLOR TUI_COLOR_LIGHT_GREEN, TUI_COLOR_BLACK
+        DIM promptMsg AS STRING
+        promptMsg = CHR$(25) + " Drag and drop any supported tracker file here to begin playback " + CHR$(25)
+        _PRINTSTRING (35, 42), promptMsg
+
+        COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+        _PRINTSTRING (28, 46), "Supported Formats: MOD, S3M, MTM, FAR, STM, 669, RAD, ULT, MDL, AMF"
+
         COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-        _PRINTSTRING (50, 45), "No module loaded. Select Open... or drop a file."
+        _PRINTSTRING (34, 49), "Press File... (or F5: Playlist) to browse files | Press F1 for Help"
+
         EXIT SUB
     END IF
 
@@ -498,7 +448,14 @@ SUB UI_RenderTracker (player AS MODPlayer, chanOffset AS LONG)
         DIM ch AS LONG: ch = chanOffset + vc
         DIM chBadgeX AS LONG: chBadgeX = 11 + vc * 16
 
-        DIM badgeText AS STRING: badgeText = MODPlayer_GetChannelSubtypeCaption(player, ch)
+        DIM chSub AS STRING: chSub = MODPlayer_GetChannelSubtypeCaption(player, ch)
+        DIM badgeText AS STRING
+        IF chSub = "PCM" THEN
+            badgeText = RIGHT$("0" + _TRIM$(STR$(ch + 1)), 2)
+        ELSE
+            badgeText = chSub
+        END IF
+
         DIM chAct AS _BYTE
         IF TUI_ChannelBadge(chBadgeX, 11, ch, badgeText, MODPlayer_IsChannelMuted(player, ch), MODPlayer_IsChannelSoloed(player, ch), chAct) THEN
             IF chAct = TUI_CHANNEL_ACTION_MUTE THEN
@@ -509,7 +466,7 @@ SUB UI_RenderTracker (player AS MODPlayer, chanOffset AS LONG)
         END IF
 
         COLOR TUI_COLOR_BLACK, TUI_COLOR_CYAN
-        _PRINTSTRING (chBadgeX + 4, 11), " NOTE S# FX OP"
+        _PRINTSTRING (chBadgeX + 4, 11), " S# FX OP   "
     NEXT vc
 
     ' Pattern data matrix: rows 12 to 86 (75 rows visible!)
@@ -1154,7 +1111,7 @@ SUB UI_RenderHelpModal (showHelpModal AS _BYTE)
     _PRINTSTRING (26, 50), "M                           Mute channel"
     _PRINTSTRING (26, 52), "Home / End                  Scroll to top / bottom of lists"
     _PRINTSTRING (26, 54), "PageUp / PageDown           Scroll fast through lists / patterns"
-    _PRINTSTRING (26, 56), "Esc                         Stop song / return to Overview / exit"
+    _PRINTSTRING (26, 56), "Esc                         Stop playback / exit player"
 
     COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
     _PRINTSTRING (24, 60), "Mouse & Gamepad Navigation:"

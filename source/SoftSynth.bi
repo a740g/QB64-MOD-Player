@@ -33,7 +33,7 @@ CONST __SOFTSYNTH_MULTIPLIER_8_TO_32! = 1! / 128!
 
 ' A single mono sound stored as floating-point frames
 TYPE __SoftSynthSound
-    frames(0 TO 0) _DYNAMIC AS SINGLE ' mono fp32 sample frames, independently sized per sound
+    _DYNAMIC frames(0 TO 0) AS SINGLE ' mono fp32 sample frames, independently sized per sound
     length AS _UNSIGNED LONG ' number of valid frames
 END TYPE
 
@@ -59,8 +59,8 @@ END TYPE
 
 ' Main synthesizer context - holds all sounds, voices, sound pipe, and mix buffer
 TYPE SoftSynth
-    sounds(0 TO 0) _DYNAMIC AS __SoftSynthSound ' managed sound slots
-    voices(0 TO 0) _DYNAMIC AS __SoftSynthVoice ' managed voice slots
+    _DYNAMIC sounds(0 TO 0) AS __SoftSynthSound ' managed sound slots
+    _DYNAMIC voices(0 TO 0) AS __SoftSynthVoice ' managed voice slots
     sampleRate AS _UNSIGNED LONG ' mixer output sample rate
     activeVoices AS _UNSIGNED LONG ' count of currently active voices
     globalVolume AS SINGLE ' global volume multiplier (0.0 - 1.0)
@@ -72,7 +72,7 @@ TYPE SoftSynth
     soundBufferBytes AS _UNSIGNED LONG ' size of the render buffer in bytes
     soundMasterVolume AS SINGLE ' QB64 sound pipe volume
     soundHandle AS LONG ' QB64 sound pipe handle
-    soundBuffer(0 TO 0) _DYNAMIC AS SINGLE ' mixer buffer (stereo interleaved)
+    _DYNAMIC soundBuffer(0 TO 0) AS SINGLE ' mixer buffer (stereo interleaved)
 END TYPE
 
 ''' @brief Resets a voice structure to defaults (does NOT reset pan position).

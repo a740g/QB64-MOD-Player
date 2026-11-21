@@ -233,14 +233,21 @@ SUB __TUI_DrawButton (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isSunken 
     _PRINTSTRING (x + 1, y + 2), hLine + CHR$(chBR)
 END SUB
 
-''' @brief Renders an interactive 3-line tall VB-DOS style push button using directional lighting.
+''' @brief Renders an interactive 3-line tall VB-DOS style push button with optional disabled state.
 ''' @param x Character column of top-left corner.
 ''' @param y Character row of top-left corner.
 ''' @param w Total button width in characters (including borders).
 ''' @param text The button caption text.
+''' @param isDisabled _TRUE to render grayed out and disable all mouse/keyboard interaction.
 ''' @return _TRUE if clicked by mouse release or confirmed via keyboard/controller, _FALSE otherwise.
-FUNCTION TUI_Button%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING)
+FUNCTION TUI_ButtonEx%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isDisabled AS _BYTE)
     SHARED __TUI AS __TUI_Context
+
+    IF isDisabled THEN
+        __TUI_DrawButton x, y, w, text, _FALSE, _FALSE, TUI_COLOR_BLACK, TUI_COLOR_GRAY, TUI_COLOR_GRAY, TUI_COLOR_GRAY
+        TUI_ButtonEx = _FALSE
+        EXIT FUNCTION
+    END IF
 
     __TUI.widgetCount = __TUI.widgetCount + 1
     DIM thisId AS LONG: thisId = __TUI.widgetCount
@@ -286,18 +293,35 @@ FUNCTION TUI_Button%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING)
         __TUI_DrawButton x, y, w, text, _FALSE, _FALSE, TUI_COLOR_BLUE, TUI_COLOR_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
     END IF
 
-    TUI_Button = isClicked
+    TUI_ButtonEx = isClicked
 END FUNCTION
 
-''' @brief Renders an interactive 3-line tall VB-DOS style toggle button with raised/sunken state.
+''' @brief Renders an interactive 3-line tall VB-DOS style push button.
+''' @param x Character column of top-left corner.
+''' @param y Character row of top-left corner.
+''' @param w Total button width in characters (including borders).
+''' @param text The button caption text.
+''' @return _TRUE if clicked by mouse release or confirmed via keyboard/controller, _FALSE otherwise.
+FUNCTION TUI_Button%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING)
+    TUI_Button = TUI_ButtonEx(x, y, w, text, _FALSE)
+END FUNCTION
+
+''' @brief Renders an interactive 3-line tall VB-DOS style toggle button with optional disabled state.
 ''' @param x Character column of top-left corner.
 ''' @param y Character row of top-left corner.
 ''' @param w Total button width in characters (including borders).
 ''' @param text The button caption text.
 ''' @param isToggled Current toggle state (_TRUE = active/sunken).
+''' @param isDisabled _TRUE to render grayed out and disable interaction.
 ''' @return _TRUE if clicked/confirmed to toggle state.
-FUNCTION TUI_ToggleButton%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isToggled AS _BYTE)
+FUNCTION TUI_ToggleButtonEx%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isToggled AS _BYTE, isDisabled AS _BYTE)
     SHARED __TUI AS __TUI_Context
+
+    IF isDisabled THEN
+        __TUI_DrawButton x, y, w, text, isToggled, _FALSE, TUI_COLOR_BLACK, TUI_COLOR_GRAY, TUI_COLOR_GRAY, TUI_COLOR_GRAY
+        TUI_ToggleButtonEx = _FALSE
+        EXIT FUNCTION
+    END IF
 
     __TUI.widgetCount = __TUI.widgetCount + 1
     DIM thisId AS LONG: thisId = __TUI.widgetCount
@@ -341,7 +365,18 @@ FUNCTION TUI_ToggleButton%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, is
         __TUI_DrawButton x, y, w, text, _FALSE, _FALSE, TUI_COLOR_BLUE, TUI_COLOR_GRAY, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
     END IF
 
-    TUI_ToggleButton = isClicked
+    TUI_ToggleButtonEx = isClicked
+END FUNCTION
+
+''' @brief Renders an interactive 3-line tall VB-DOS style toggle button with raised/sunken state.
+''' @param x Character column of top-left corner.
+''' @param y Character row of top-left corner.
+''' @param w Total button width in characters (including borders).
+''' @param text The button caption text.
+''' @param isToggled Current toggle state (_TRUE = active/sunken).
+''' @return _TRUE if clicked/confirmed to toggle state.
+FUNCTION TUI_ToggleButton%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isToggled AS _BYTE)
+    TUI_ToggleButton = TUI_ToggleButtonEx(x, y, w, text, isToggled, _FALSE)
 END FUNCTION
 
 ''' @brief Renders an interactive channel badge with live Mute and Solo indicators.
@@ -628,14 +663,15 @@ SUB TUI_Panel (x AS LONG, y AS LONG, w AS LONG, h AS LONG, title AS STRING, isDo
     _PRINTSTRING (x + 1, y + h - 1), botBar + CHR$(chBR)
 END SUB
 
-''' @brief Renders a 3D tab bar where clicking or activating a tab selects it.
+''' @brief Renders a 3D tab bar where clicking or activating a tab selects it, with focus & disabled support.
 ''' @param x Character column of top-left corner.
 ''' @param y Character row of top-left corner.
 ''' @param tabCaptions() Array of tab caption strings.
 ''' @param tabCount Number of tabs in tabCaptions().
 ''' @param selectedIdx In/Out: 1-based index of currently selected tab.
+''' @param isDisabled _TRUE to render all tabs grayed out and non-interactive.
 ''' @return _TRUE if tab selection changed this frame, _FALSE otherwise.
-FUNCTION TUI_TabBar%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG)
+FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG, isDisabled AS _BYTE)
     SHARED __TUI AS __TUI_Context
 
     DIM changed AS _BYTE: changed = _FALSE
@@ -647,50 +683,97 @@ FUNCTION TUI_TabBar%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount A
         DIM tabW AS LONG: tabW = LEN(tabText) + 4
         DIM isSelected AS _BYTE: isSelected = (i = selectedIdx)
 
-        __TUI.widgetCount = __TUI.widgetCount + 1
-        DIM thisId AS LONG: thisId = __TUI.widgetCount
-
-        DIM b AS Bounds2f
-        Bounds2f_Set curX, y, curX + tabW - 0.001!, y + 1.999!, b
-        DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos)
-
-        IF isHovered THEN
-            __TUI.hotId = thisId
-            IF __TUI.mousePressedL THEN
-                __TUI.activeId = thisId
-                __TUI.focusedId = thisId
-            END IF
-        END IF
-
-        IF (__TUI.activeId = thisId _ANDALSO __TUI.mouseClickedL _ANDALSO isHovered) _ORELSE (isHovered _ANDALSO __TUI.mouseClickedL) THEN
-            IF selectedIdx <> i THEN
-                selectedIdx = i
-                changed = _TRUE
-            END IF
-            __TUI.activeId = 0
-        END IF
-
-        ' Visual rendering of tab
-        DIM hLine AS STRING: hLine = STRING$(tabW - 2, 196)
-        IF isSelected THEN
-            COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLUE
-            _PRINTSTRING (curX, y), CHR$(218) + hLine + CHR$(191)
-            _PRINTSTRING (curX, y + 1), CHR$(179) + " " + tabText + " " + CHR$(179)
-        ELSEIF isHovered THEN
-            COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
-            _PRINTSTRING (curX, y), CHR$(218) + hLine + CHR$(191)
+        IF isDisabled THEN
+            ' Render disabled tab (flat single-line border in dark gray, gray text on black)
+            DIM hLineDis AS STRING: hLineDis = STRING$(tabW - 2, 196)
+            COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+            _PRINTSTRING (curX, y), CHR$(218) + hLineDis + CHR$(191)
             _PRINTSTRING (curX, y + 1), CHR$(179) + " " + tabText + " " + CHR$(179)
         ELSE
-            COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-            _PRINTSTRING (curX, y), CHR$(218) + hLine + CHR$(191)
-            COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
-            _PRINTSTRING (curX, y + 1), CHR$(179) + " " + tabText + " " + CHR$(179)
+            __TUI.widgetCount = __TUI.widgetCount + 1
+            DIM thisId AS LONG: thisId = __TUI.widgetCount
+
+            DIM b AS Bounds2f
+            Bounds2f_Set curX, y, curX + tabW - 0.001!, y + 1.999!, b
+            DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos)
+
+            IF isHovered THEN
+                __TUI.hotId = thisId
+                IF __TUI.mousePressedL THEN
+                    __TUI.activeId = thisId
+                    __TUI.focusedId = thisId
+                END IF
+            END IF
+
+            IF (__TUI.activeId = thisId _ANDALSO __TUI.mouseClickedL _ANDALSO isHovered) _ORELSE (isHovered _ANDALSO __TUI.mouseClickedL) THEN
+                IF selectedIdx <> i THEN
+                    selectedIdx = i
+                    changed = _TRUE
+                END IF
+                __TUI.activeId = 0
+            END IF
+
+            DIM isFocused AS _BYTE: isFocused = (__TUI.focusedId = thisId)
+            IF isFocused _ANDALSO __TUI.navConfirm THEN
+                IF selectedIdx <> i THEN
+                    selectedIdx = i
+                    changed = _TRUE
+                END IF
+            END IF
+
+            ' Line characters: double-line if focused, single-line if non-focused
+            DIM chTL AS LONG, chTR AS LONG, chH AS LONG, chV AS LONG
+            IF isFocused THEN
+                chTL = 201: chTR = 187: chH = 205: chV = 186
+            ELSE
+                chTL = 218: chTR = 191: chH = 196: chV = 179
+            END IF
+
+            DIM hLine AS STRING: hLine = STRING$(tabW - 2, chH)
+
+            ' Visual rendering of tab
+            IF isSelected THEN
+                IF isFocused THEN
+                    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLUE
+                    _PRINTSTRING (curX, y), CHR$(chTL) + hLine + CHR$(chTR)
+                    _PRINTSTRING (curX, y + 1), CHR$(chV) + " " + tabText + " " + CHR$(chV)
+                ELSE
+                    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLUE
+                    _PRINTSTRING (curX, y), CHR$(chTL) + hLine + CHR$(chTR)
+                    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLUE
+                    _PRINTSTRING (curX, y + 1), CHR$(chV) + " " + tabText + " " + CHR$(chV)
+                END IF
+            ELSEIF isHovered THEN
+                COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
+                _PRINTSTRING (curX, y), CHR$(chTL) + hLine + CHR$(chTR)
+                _PRINTSTRING (curX, y + 1), CHR$(chV) + " " + tabText + " " + CHR$(chV)
+            ELSEIF isFocused THEN
+                COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+                _PRINTSTRING (curX, y), CHR$(chTL) + hLine + CHR$(chTR)
+                _PRINTSTRING (curX, y + 1), CHR$(chV) + " " + tabText + " " + CHR$(chV)
+            ELSE
+                COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+                _PRINTSTRING (curX, y), CHR$(chTL) + hLine + CHR$(chTR)
+                COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+                _PRINTSTRING (curX, y + 1), CHR$(chV) + " " + tabText + " " + CHR$(chV)
+            END IF
         END IF
 
         curX = curX + tabW + 1
     NEXT i
 
-    TUI_TabBar = changed
+    TUI_TabBarEx = changed
+END FUNCTION
+
+''' @brief Renders a 3D tab bar where clicking or activating a tab selects it.
+''' @param x Character column of top-left corner.
+''' @param y Character row of top-left corner.
+''' @param tabCaptions() Array of tab caption strings.
+''' @param tabCount Number of tabs in tabCaptions().
+''' @param selectedIdx In/Out: 1-based index of currently selected tab.
+''' @return _TRUE if tab selection changed this frame, _FALSE otherwise.
+FUNCTION TUI_TabBar%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG)
+    TUI_TabBar = TUI_TabBarEx(x, y, tabCaptions(), tabCount, selectedIdx, _FALSE)
 END FUNCTION
 
 ''' @brief Renders a vertical 1-column VU meter with peak indicator dot.
