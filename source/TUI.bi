@@ -245,6 +245,183 @@ FUNCTION TUI_ToggleButton%% (x AS LONG, y AS LONG, text AS STRING, isToggled AS 
     TUI_ToggleButton = isClicked
 END FUNCTION
 
+''' @brief Internal helper to render a 3-line tall 3D button box with VB-DOS directional lighting without drop shadows.
+''' @param x Character column of top-left corner.
+''' @param y Character row of top-left corner.
+''' @param w Total button width in characters (including borders).
+''' @param text The button caption text.
+''' @param isSunken _TRUE if button is pressed or actively toggled, _FALSE if raised.
+''' @param isFocused _TRUE to draw double-line border for focused button, _FALSE for single-line.
+''' @param bgCol Background color index.
+''' @param fgCol Caption text color index.
+''' @param hiCol Highlight border color index (simulated top-left light).
+''' @param loCol Shadow border color index (simulated bottom-right shadow).
+SUB __TUI_DrawButton3D (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isSunken AS _BYTE, isFocused AS _BYTE, bgCol AS LONG, fgCol AS LONG, hiCol AS LONG, loCol AS LONG)
+    DIM innerW AS LONG: innerW = _MAX(1, w - 2)
+    DIM padLen AS LONG: padLen = innerW - LEN(text)
+    DIM lPad AS LONG, rPad AS LONG
+    IF padLen > 0 THEN
+        lPad = padLen \ 2
+        rPad = padLen - lPad
+    ELSE
+        lPad = 0
+        rPad = 0
+    END IF
+
+    ' In VB-DOS 1.0, interior label does not shift when pressed;
+    ' the directional lighting inversion alone simulates depression.
+    DIM faceStr AS STRING
+    faceStr = SPACE$(lPad) + text + SPACE$(rPad)
+    IF LEN(faceStr) > innerW THEN faceStr = MID$(faceStr, 1, innerW)
+
+    ' Select line drawing characters: double-line if focused, single-line if non-focused
+    DIM chTL AS LONG, chTR AS LONG, chBL AS LONG, chBR AS LONG, chH AS LONG, chV AS LONG
+    IF isFocused THEN
+        chTL = 201 ' Double top-left
+        chTR = 187 ' Double top-right
+        chBL = 200 ' Double bottom-left
+        chBR = 188 ' Double bottom-right
+        chH = 205  ' Double horizontal
+        chV = 186  ' Double vertical
+    ELSE
+        chTL = 218 ' Single top-left
+        chTR = 191 ' Single top-right
+        chBL = 192 ' Single bottom-left
+        chBR = 217 ' Single bottom-right
+        chH = 196  ' Single horizontal
+        chV = 179  ' Single vertical
+    END IF
+
+    DIM hLine AS STRING: hLine = STRING$(innerW, chH)
+
+    ' In VB-DOS directional lighting:
+    ' Raised: Top and Left are highlight (hiCol), Bottom and Right are shadow (loCol).
+    ' Sunken: Top and Left are shadow (loCol), Bottom and Right are highlight (hiCol).
+    DIM tlCol AS LONG, brCol AS LONG
+    IF isSunken THEN
+        tlCol = loCol: brCol = hiCol
+    ELSE
+        tlCol = hiCol: brCol = loCol
+    END IF
+
+    ' Line 1: Top border (top-left corner and horizontal line in tlCol, top-right corner in brCol)
+    COLOR tlCol, bgCol
+    _PRINTSTRING (x, y), CHR$(chTL) + hLine
+    COLOR brCol, bgCol
+    _PRINTSTRING (x + w - 1, y), CHR$(chTR)
+
+    ' Line 2: Left border (tlCol), Button face text (fgCol), Right border (brCol)
+    COLOR tlCol, bgCol
+    _PRINTSTRING (x, y + 1), CHR$(chV)
+    COLOR fgCol, bgCol
+    _PRINTSTRING (x + 1, y + 1), faceStr
+    COLOR brCol, bgCol
+    _PRINTSTRING (x + w - 1, y + 1), CHR$(chV)
+
+    ' Line 3: Bottom border (bottom-left corner in tlCol, horizontal line and bottom-right corner in brCol)
+    COLOR tlCol, bgCol
+    _PRINTSTRING (x, y + 2), CHR$(chBL)
+    COLOR brCol, bgCol
+    _PRINTSTRING (x + 1, y + 2), hLine + CHR$(chBR)
+END SUB
+
+''' @brief Renders a 3-line tall VB-DOS style 3D beveled push button using directional lighting.
+''' @param x Character column of top-left corner.
+''' @param y Character row of top-left corner.
+''' @param w Total button width in characters (including borders).
+''' @param text The button caption text.
+''' @return _TRUE if clicked by mouse or confirmed via keyboard/controller, _FALSE otherwise.
+FUNCTION TUI_Button3D%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING)
+    SHARED __TUI AS __TUI_Context
+
+    __TUI.widgetCount = __TUI.widgetCount + 1
+    DIM thisId AS LONG: thisId = __TUI.widgetCount
+    DIM isClicked AS _BYTE: isClicked = _FALSE
+
+    ' Hit detection across all 3 lines
+    DIM b AS Bounds2f
+    Bounds2f_Set x, y, x + w - 0.001!, y + 2.999!, b
+    DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos)
+
+    IF isHovered THEN
+        __TUI.hotId = thisId
+        IF __TUI.mouseClickedL THEN
+            __TUI.activeId = thisId
+            __TUI.focusedId = thisId
+            isClicked = _TRUE
+        END IF
+    END IF
+
+    DIM isFocused AS _BYTE: isFocused = (__TUI.focusedId = thisId)
+    IF isFocused _ANDALSO __TUI.navConfirm THEN
+        isClicked = _TRUE
+    END IF
+
+    DIM isPressed AS _BYTE: isPressed = (__TUI.activeId = thisId _ANDALSO __TUI.mouseDownL)
+
+    IF isPressed THEN
+        __TUI_DrawButton3D x, y, w, text, _TRUE, isFocused, TUI_COLOR_BLUE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    ELSEIF isHovered THEN
+        __TUI_DrawButton3D x, y, w, text, _FALSE, isFocused, TUI_COLOR_CYAN, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    ELSEIF isFocused THEN
+        __TUI_DrawButton3D x, y, w, text, _FALSE, _TRUE, TUI_COLOR_BLUE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    ELSE
+        __TUI_DrawButton3D x, y, w, text, _FALSE, _FALSE, TUI_COLOR_BLUE, TUI_COLOR_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    END IF
+
+    TUI_Button3D = isClicked
+END FUNCTION
+
+''' @brief Renders a 3-line tall VB-DOS style 3D toggle button with raised/sunken state.
+''' @param x Character column of top-left corner.
+''' @param y Character row of top-left corner.
+''' @param w Total button width in characters (including borders).
+''' @param text The button caption text.
+''' @param isToggled Current toggle state (_TRUE = active/sunken).
+''' @return _TRUE if clicked/confirmed to toggle state.
+FUNCTION TUI_ToggleButton3D%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isToggled AS _BYTE)
+    SHARED __TUI AS __TUI_Context
+
+    __TUI.widgetCount = __TUI.widgetCount + 1
+    DIM thisId AS LONG: thisId = __TUI.widgetCount
+    DIM isClicked AS _BYTE: isClicked = _FALSE
+
+    DIM b AS Bounds2f
+    Bounds2f_Set x, y, x + w - 0.001!, y + 2.999!, b
+    DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos)
+
+    IF isHovered THEN
+        __TUI.hotId = thisId
+        IF __TUI.mouseClickedL THEN
+            __TUI.activeId = thisId
+            __TUI.focusedId = thisId
+            isClicked = _TRUE
+        END IF
+    END IF
+
+    DIM isFocused AS _BYTE: isFocused = (__TUI.focusedId = thisId)
+    IF isFocused _ANDALSO __TUI.navConfirm THEN
+        isClicked = _TRUE
+    END IF
+
+    DIM isPressed AS _BYTE: isPressed = (__TUI.activeId = thisId _ANDALSO __TUI.mouseDownL)
+    DIM showSunken AS _BYTE: showSunken = isPressed _ORELSE isToggled
+
+    IF isPressed THEN
+        __TUI_DrawButton3D x, y, w, text, _TRUE, isFocused, TUI_COLOR_CYAN, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    ELSEIF isHovered THEN
+        __TUI_DrawButton3D x, y, w, text, showSunken, isFocused, TUI_COLOR_CYAN, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    ELSEIF isToggled THEN
+        __TUI_DrawButton3D x, y, w, text, _TRUE, isFocused, TUI_COLOR_GREEN, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    ELSEIF isFocused THEN
+        __TUI_DrawButton3D x, y, w, text, _FALSE, _TRUE, TUI_COLOR_BLUE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    ELSE
+        __TUI_DrawButton3D x, y, w, text, _FALSE, _FALSE, TUI_COLOR_BLUE, TUI_COLOR_GRAY, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    END IF
+
+    TUI_ToggleButton3D = isClicked
+END FUNCTION
+
 ''' @brief Renders an interactive channel badge with live Mute and Solo indicators.
 ''' @param x Character column.
 ''' @param y Character row.

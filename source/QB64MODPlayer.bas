@@ -126,64 +126,64 @@ FUNCTION Visualizer_Draw%%
 
     DIM x AS LONG: x = 1 + WindowWidth \ 2 - UI_TEXT_WIDTH_HEADER \ 2 ' find x so that we can center everything
 
-    ' Row 1: Top Playback Toolbar
-    DIM btnX AS LONG: btnX = x
-    IF TUI_Button(btnX, 1, "[Prev]") THEN
+    ' Rows 1-3: Top 3D Playback Toolbar
+    DIM btnX AS LONG: btnX = x + 2
+    IF TUI_Button3D(btnX, 1, 9, CHR$(17) + CHR$(17) + " Prev") THEN
         MODPlayer_GoToPreviousPosition Player
     END IF
-    btnX = btnX + 7
+    btnX = btnX + 10
 
-    IF TUI_ToggleButton(btnX, 1, _IIF(Player.song.isPaused, "[Play ]", "[Pause]"), NOT Player.song.isPaused) THEN
+    IF TUI_ToggleButton3D(btnX, 1, 9, _IIF(Player.song.isPaused, CHR$(16) + " Play ", CHR$(186) + " Pause"), NOT Player.song.isPaused) THEN
         Player.song.isPaused = NOT Player.song.isPaused
     END IF
-    btnX = btnX + 8
+    btnX = btnX + 10
 
-    IF TUI_Button(btnX, 1, "[Stop]") THEN
+    IF TUI_Button3D(btnX, 1, 9, CHR$(254) + " Stop ") THEN
         MODPlayer_Stop Player
         Visualizer_Draw = APP_EVENT_NONE
         EXIT FUNCTION
     END IF
-    btnX = btnX + 7
+    btnX = btnX + 10
 
-    IF TUI_Button(btnX, 1, "[Next]") THEN
+    IF TUI_Button3D(btnX, 1, 9, "Next " + CHR$(16) + CHR$(16)) THEN
         MODPlayer_GoToNextPosition Player
     END IF
-    btnX = btnX + 7
+    btnX = btnX + 10
 
-    IF TUI_ToggleButton(btnX, 1, "[Loop]", Player.song.isLooping) THEN
+    IF TUI_ToggleButton3D(btnX, 1, 9, CHR$(17) + CHR$(16) + " Loop", Player.song.isLooping) THEN
         MODPlayer_Loop Player, NOT MODPlayer_IsLooping(Player)
     END IF
-    btnX = btnX + 7
+    btnX = btnX + 10
 
-    IF TUI_Button(btnX, 1, "[Load]") THEN
+    IF TUI_Button3D(btnX, 1, 9, CHR$(14) + " Load ") THEN
         Visualizer_Draw = APP_EVENT_LOAD
         EXIT FUNCTION
     END IF
-    btnX = btnX + 7
+    btnX = btnX + 10
 
-    IF TUI_Button(btnX, 1, "[Web]") THEN
+    IF TUI_Button3D(btnX, 1, 9, CHR$(15) + " Web  ") THEN
         Visualizer_Draw = APP_EVENT_HTTP
         EXIT FUNCTION
     END IF
-    btnX = btnX + 6
+    btnX = btnX + 10
 
-    IF TUI_Button(btnX, 1, "[Quit]") THEN
+    IF TUI_Button3D(btnX, 1, 9, "X Quit ") THEN
         Visualizer_Draw = APP_EVENT_QUIT
         EXIT FUNCTION
     END IF
 
-    ' Row 2: Print song type and name
+    ' Row 4: Print song type and name
     COLOR BrightWhite, Magenta
-    LOCATE 2, x: PRINT USING " \  \: \                                                                          \ "; Player.song.subtype; Player.song.caption;
+    LOCATE 4, x: PRINT USING " \  \: \                                                                          \ "; Player.song.subtype; Player.song.caption;
 
-    ' Row 3: Header info & interactive order scrubbing
+    ' Row 5: Header info & interactive order scrubbing
     COLOR Blink, BrightWhite
     DIM curPatRows AS LONG: curPatRows = _IIF(startPat >= 0 _ANDALSO startPat < Player.song.patterns, Player.pattern(startPat).rows, 64)
-    LOCATE 3, x: PRINT USING " ORD: ### / ### | PAT: ### / ### | ROW: ### / ### | CHN: ### / ### | VOC: ### / ### "; Player.song.orderPosition; Player.song.orders - 1; startPat; Player.song.patterns - 1; Player.song.patternRow; curPatRows - 1; Player.song.activeChannels; Player.song.channels; SoftSynth_GetActiveVoices(Player.synth); SoftSynth_GetTotalVoices(Player.synth);
+    LOCATE 5, x: PRINT USING " ORD: ### / ### | PAT: ### / ### | ROW: ### / ### | CHN: ### / ### | VOC: ### / ### "; Player.song.orderPosition; Player.song.orders - 1; startPat; Player.song.patterns - 1; Player.song.patternRow; curPatRows - 1; Player.song.activeChannels; Player.song.channels; SoftSynth_GetActiveVoices(Player.synth); SoftSynth_GetTotalVoices(Player.synth);
 
     ' Interactive order position scrubber with rate-limiting cool-off
     DIM ordBounds AS Bounds2f
-    Bounds2f_Set x + 1, 3, x + 16, 3.999!, ordBounds
+    Bounds2f_Set x + 1, 5, x + 16, 5.999!, ordBounds
     IF Bounds2f_ContainsPoint(ordBounds, __TUI.mousePos) THEN
         IF __TUI.mouseDownL THEN
             DIM nowUptime AS DOUBLE: nowUptime = _UPTIME
@@ -197,20 +197,20 @@ FUNCTION Visualizer_Draw%%
         END IF
     END IF
 
-    ' Row 4: Playback parameters & interactive Volume Slider / Loop toggle
-    LOCATE 4, x: PRINT USING " BPM: ###       | SPD: ###       | VOL: ###%      | BUF: #######ms | REP: \       \ "; Player.song.BPM; Player.song.speed; SoftSynth_GetMasterVolume(Player.synth) * 100!; SoftSynth_GetBufferedSoundTime(Player.synth) * 1000#; _IIF(Player.song.isLooping, "Enabled", "Disabled");
+    ' Row 6: Playback parameters & interactive Volume Slider / Loop toggle
+    LOCATE 6, x: PRINT USING " BPM: ###       | SPD: ###       | VOL: ###%      | BUF: #######ms | REP: \       \ "; Player.song.BPM; Player.song.speed; SoftSynth_GetMasterVolume(Player.synth) * 100!; SoftSynth_GetBufferedSoundTime(Player.synth) * 1000#; _IIF(Player.song.isLooping, "Enabled", "Disabled");
 
     ' Interactive Master Volume Slider on VOL: ###%
     DIM curMasterVol AS SINGLE: curMasterVol = SoftSynth_GetMasterVolume(Player.synth)
     DIM newMasterVol AS SINGLE
-    newMasterVol = TUI_Slider(x + 34, 4, 8, curMasterVol, 0!, SOFTSYNTH_MASTER_VOLUME_MAX, "VOL")
+    newMasterVol = TUI_Slider(x + 34, 6, 8, curMasterVol, 0!, SOFTSYNTH_MASTER_VOLUME_MAX, "VOL")
     IF newMasterVol <> curMasterVol THEN
         SoftSynth_SetMasterVolume Player.synth, newMasterVol
     END IF
 
     ' Interactive Loop Toggle on REP:
     DIM repBounds AS Bounds2f
-    Bounds2f_Set x + 68, 4, x + 83, 4.999!, repBounds
+    Bounds2f_Set x + 68, 6, x + 83, 6.999!, repBounds
     IF Bounds2f_ContainsPoint(repBounds, __TUI.mousePos) _ANDALSO __TUI.mouseClickedL THEN
         MODPlayer_Loop Player, NOT MODPlayer_IsLooping(Player)
     END IF
@@ -218,17 +218,17 @@ FUNCTION Visualizer_Draw%%
     ' Clamp instrument scroll offset
     InstrumentScrollOffset = _CLAMP(InstrumentScrollOffset, 0, _MAX(0, Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS))
 
-    ' Row 5: Sample list header with interactive scroll buttons
+    ' Row 7: Sample list header with interactive scroll buttons
     COLOR Blink, Cyan
-    _PRINTSTRING (x, 5), "  S#  SAMPLE-NAME "
-    IF TUI_Button(x + 18, 5, "[^ Up]") THEN
+    _PRINTSTRING (x, 7), "  S#  SAMPLE-NAME "
+    IF TUI_Button(x + 18, 7, "[" + CHR$(30) + " Up]") THEN
         InstrumentScrollOffset = _MAX(0, InstrumentScrollOffset - 1)
     END IF
-    IF TUI_Button(x + 25, 5, "[v Dn]") THEN
+    IF TUI_Button(x + 25, 7, "[" + CHR$(31) + " Dn]") THEN
         InstrumentScrollOffset = _MIN(_MAX(0, Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS), InstrumentScrollOffset + 1)
     END IF
     COLOR Blink, Cyan
-    _PRINTSTRING (x + 32, 5), "  VOLUME C2SPD LENGTH LOOPING LOOP-START LOOP-STOP  "
+    _PRINTSTRING (x + 32, 7), "  VOLUME C2SPD LENGTH LOOPING LOOP-START LOOP-STOP  "
 
     ' Print the sample information
     DIM AS LONG i, j, rowIdx, maxInst
@@ -250,12 +250,12 @@ FUNCTION Visualizer_Draw%%
             END IF
         END IF
 
-        LOCATE 6 + rowIdx, x: PRINT USING " ###: \                       \ ######## ##### ###### \     \ ########## #########  "; i + 1; Player.instrument(i).caption; Player.instrument(i).volume; Player.instrument(i).c2Spd; Player.instrument(i).length; _IIF(Player.instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, "Yes", "No"); Player.instrument(i).loopStart; Player.instrument(i).loopEnd;
+        LOCATE 8 + rowIdx, x: PRINT USING " ###: \                       \ ######## ##### ###### \     \ ########## #########  "; i + 1; Player.instrument(i).caption; Player.instrument(i).volume; Player.instrument(i).c2Spd; Player.instrument(i).length; _IIF(Player.instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, "Yes", "No"); Player.instrument(i).loopStart; Player.instrument(i).loopEnd;
 
         rowIdx = rowIdx + 1
     NEXT
 
-    j = 6 + rowIdx ' we starting updating from this line next
+    j = 8 + rowIdx ' we starting updating from this line next
     x = 1 + WindowWidth \ 2 - PatternDisplayWidth \ 2 ' find x so that we can center everything
 
     ' Print the pattern header
@@ -689,12 +689,12 @@ FUNCTION App_OnWelcomeScreen%% (bg AS Background)
         Input_Update
 
         TUI_Begin
-        DIM menuX AS LONG: menuX = 1 + UI_TEXT_WIDTH_MIN \ 2 - 21
-        DIM menuY AS LONG: menuY = UI_TEXT_LINE_MAX - 3
+        DIM menuX AS LONG: menuX = 1 + UI_TEXT_WIDTH_MIN \ 2 - 31
+        DIM menuY AS LONG: menuY = UI_TEXT_LINE_MAX - 5
 
-        IF TUI_Button(menuX, menuY, "[Open (F1)]") THEN e = APP_EVENT_LOAD
-        IF TUI_Button(menuX + 13, menuY, "[ModArchive (F2)]") THEN e = APP_EVENT_HTTP
-        IF TUI_Button(menuX + 32, menuY, "[Quit (ESC)]") THEN e = APP_EVENT_QUIT
+        IF TUI_Button3D(menuX, menuY, 18, CHR$(14) + " Open (F1)") THEN e = APP_EVENT_LOAD
+        IF TUI_Button3D(menuX + 20, menuY, 23, CHR$(15) + " ModArchive (F2)") THEN e = APP_EVENT_HTTP
+        IF TUI_Button3D(menuX + 45, menuY, 17, "X Quit (ESC)") THEN e = APP_EVENT_QUIT
         TUI_End
 
         DIM k AS LONG: k = Input_GetKeyboardKey
@@ -751,7 +751,7 @@ SUB App_AdjustWindowSize
         IF PatternDisplayWidth <= UI_TEXT_WIDTH_HEADER THEN
             FFT.size.y = UI_TEXT_LINE_MAX
         ELSE
-            FFT.size.y = 5 + _MIN(Player.song.instruments, UI_MAX_VISIBLE_INSTRUMENTS)
+            FFT.size.y = 7 + _MIN(Player.song.instruments, UI_MAX_VISIBLE_INSTRUMENTS)
         END IF
     ELSE
         PatternDisplayWidth = 0

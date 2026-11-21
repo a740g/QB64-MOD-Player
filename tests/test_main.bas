@@ -3622,6 +3622,31 @@ SUB Test_TUI
 
     TUI_End
     TEST_CASE_END
+
+    TEST_CASE_BEGIN "TUI: 3D Buttons (TUI_Button3D and TUI_ToggleButton3D)"
+    TUI_Begin
+    ' Test 3-line tall bounding box hit detection:
+    ' Button placed at (10, 10), width 12 -> columns 10 to 21, rows 10 to 12
+    Vector2f_Set 15!, 11!, __TUI.mousePos ' cursor on row 11 (middle line of button)
+    __TUI.mouseClickedL = _TRUE
+
+    DIM btn3dClicked AS _BYTE: btn3dClicked = TUI_Button3D(10, 10, 12, "Play")
+    TEST_CHECK btn3dClicked, "TUI_Button3D clicked when mouse is inside middle row"
+    TEST_CHECK __TUI.widgetCount = 1, "TUI_Button3D registered as widget 1"
+    TEST_CHECK __TUI.focusedId = 1, "TUI_Button3D focused when clicked"
+
+    ' Toggle button placed at (25, 10), width 10 -> columns 25 to 34, rows 10 to 12
+    ' Click on row 12 (bottom border line of button)
+    Vector2f_Set 28!, 12!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE
+    DIM toggle3dClicked AS _BYTE: toggle3dClicked = TUI_ToggleButton3D(25, 10, 10, "Loop", _TRUE)
+    TEST_CHECK toggle3dClicked, "TUI_ToggleButton3D clicked when mouse is on bottom line"
+    TEST_CHECK __TUI.widgetCount = 2, "TUI_ToggleButton3D registered as widget 2"
+    TEST_CHECK __TUI.focusedId = 2, "TUI_ToggleButton3D focused when clicked"
+
+    TUI_End
+    TEST_CHECK __TUI.totalWidgets = 2, "TUI_End records totalWidgets = 2 for 3D buttons"
+    TEST_CASE_END
 END SUB
 
 IF _DIREXISTS("../mods") THEN CHDIR ".."
