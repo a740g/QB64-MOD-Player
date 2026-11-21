@@ -573,3 +573,270 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
 
     TUI_Slider = updatedVal
 END FUNCTION
+
+''' @brief Renders a beveled container panel frame with optional title.
+''' @param x Character column of top-left corner.
+''' @param y Character row of top-left corner.
+''' @param w Total panel width in characters.
+''' @param h Total panel height in characters.
+''' @param title Optional title string embedded in top border.
+''' @param isDoubleBorder _TRUE for double-line border, _FALSE for single-line.
+SUB TUI_Panel (x AS LONG, y AS LONG, w AS LONG, h AS LONG, title AS STRING, isDoubleBorder AS _BYTE)
+    IF w < 2 _ORELSE h < 2 THEN EXIT SUB
+
+    DIM innerW AS LONG: innerW = w - 2
+    DIM innerH AS LONG: innerH = h - 2
+
+    DIM chTL AS LONG, chTR AS LONG, chBL AS LONG, chBR AS LONG, chH AS LONG, chV AS LONG
+    IF isDoubleBorder THEN
+        chTL = 201: chTR = 187: chBL = 200: chBR = 188: chH = 205: chV = 186
+    ELSE
+        chTL = 218: chTR = 191: chBL = 192: chBR = 217: chH = 196: chV = 179
+    END IF
+
+    DIM topBar AS STRING
+    IF LEN(title) > 0 _ANDALSO innerW > LEN(title) + 2 THEN
+        DIM tStr AS STRING: tStr = " " + title + " "
+        DIM rLen AS LONG: rLen = innerW - 1 - LEN(tStr)
+        topBar = CHR$(chH) + tStr + STRING$(rLen, chH)
+    ELSE
+        topBar = STRING$(innerW, chH)
+    END IF
+
+    DIM botBar AS STRING: botBar = STRING$(innerW, chH)
+    DIM vChar AS STRING: vChar = CHR$(chV)
+
+    ' Top border
+    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    _PRINTSTRING (x, y), CHR$(chTL) + topBar
+    COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+    _PRINTSTRING (x + w - 1, y), CHR$(chTR)
+
+    ' Side borders
+    DIM row AS LONG
+    FOR row = 1 TO innerH
+        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+        _PRINTSTRING (x, y + row), vChar
+        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+        _PRINTSTRING (x + w - 1, y + row), vChar
+    NEXT row
+
+    ' Bottom border
+    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    _PRINTSTRING (x, y + h - 1), CHR$(chBL)
+    COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+    _PRINTSTRING (x + 1, y + h - 1), botBar + CHR$(chBR)
+END SUB
+
+''' @brief Renders a 3D tab bar where clicking or activating a tab selects it.
+''' @param x Character column of top-left corner.
+''' @param y Character row of top-left corner.
+''' @param tabCaptions() Array of tab caption strings.
+''' @param tabCount Number of tabs in tabCaptions().
+''' @param selectedIdx In/Out: 1-based index of currently selected tab.
+''' @return _TRUE if tab selection changed this frame, _FALSE otherwise.
+FUNCTION TUI_TabBar%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG)
+    SHARED __TUI AS __TUI_Context
+
+    DIM changed AS _BYTE: changed = _FALSE
+    DIM curX AS LONG: curX = x
+
+    DIM i AS LONG
+    FOR i = 1 TO tabCount
+        DIM tabText AS STRING: tabText = tabCaptions(i)
+        DIM tabW AS LONG: tabW = LEN(tabText) + 4
+        DIM isSelected AS _BYTE: isSelected = (i = selectedIdx)
+
+        __TUI.widgetCount = __TUI.widgetCount + 1
+        DIM thisId AS LONG: thisId = __TUI.widgetCount
+
+        DIM b AS Bounds2f
+        Bounds2f_Set curX, y, curX + tabW - 0.001!, y + 1.999!, b
+        DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos)
+
+        IF isHovered THEN
+            __TUI.hotId = thisId
+            IF __TUI.mousePressedL THEN
+                __TUI.activeId = thisId
+                __TUI.focusedId = thisId
+            END IF
+        END IF
+
+        IF (__TUI.activeId = thisId _ANDALSO __TUI.mouseClickedL _ANDALSO isHovered) _ORELSE (isHovered _ANDALSO __TUI.mouseClickedL) THEN
+            IF selectedIdx <> i THEN
+                selectedIdx = i
+                changed = _TRUE
+            END IF
+            __TUI.activeId = 0
+        END IF
+
+        ' Visual rendering of tab
+        DIM hLine AS STRING: hLine = STRING$(tabW - 2, 196)
+        IF isSelected THEN
+            COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLUE
+            _PRINTSTRING (curX, y), CHR$(218) + hLine + CHR$(191)
+            _PRINTSTRING (curX, y + 1), CHR$(179) + " " + tabText + " " + CHR$(179)
+        ELSEIF isHovered THEN
+            COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
+            _PRINTSTRING (curX, y), CHR$(218) + hLine + CHR$(191)
+            _PRINTSTRING (curX, y + 1), CHR$(179) + " " + tabText + " " + CHR$(179)
+        ELSE
+            COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+            _PRINTSTRING (curX, y), CHR$(218) + hLine + CHR$(191)
+            COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+            _PRINTSTRING (curX, y + 1), CHR$(179) + " " + tabText + " " + CHR$(179)
+        END IF
+
+        curX = curX + tabW + 1
+    NEXT i
+
+    TUI_TabBar = changed
+END FUNCTION
+
+''' @brief Renders a vertical 1-column VU meter with peak indicator dot.
+''' @param x Character column.
+''' @param y Character row of top of meter.
+''' @param h Total height in characters.
+''' @param level Normalized volume level (0.0 to 1.0).
+''' @param peak Normalized peak level (0.0 to 1.0).
+''' @param isMuted _TRUE if channel is muted (renders in gray).
+SUB TUI_VUMeter (x AS LONG, y AS LONG, h AS LONG, level AS SINGLE, peak AS SINGLE, isMuted AS _BYTE)
+    IF h < 1 THEN EXIT SUB
+
+    DIM nLevel AS SINGLE: nLevel = _CLAMP(level, 0!, 1!)
+    DIM nPeak AS SINGLE: nPeak = _CLAMP(peak, 0!, 1!)
+
+    DIM filledRows AS LONG: filledRows = _CLAMP(CLNG(nLevel * h), 0, h)
+    DIM peakRow AS LONG: peakRow = _CLAMP(CLNG(nPeak * (h - 1)), 0, h - 1)
+
+    DIM r AS LONG
+    FOR r = 0 TO h - 1
+        DIM rowFromBot AS LONG: rowFromBot = h - 1 - r
+        DIM drawY AS LONG: drawY = y + r
+
+        ' Color graduation: lower 60% green, middle 25% yellow, top 15% red
+        DIM fgCol AS LONG
+        IF isMuted THEN
+            fgCol = TUI_COLOR_GRAY
+        ELSEIF r < CLNG(h * 0.15!) THEN
+            fgCol = TUI_COLOR_LIGHT_RED
+        ELSEIF r < CLNG(h * 0.40!) THEN
+            fgCol = TUI_COLOR_YELLOW
+        ELSE
+            fgCol = TUI_COLOR_LIGHT_GREEN
+        END IF
+
+        COLOR fgCol, TUI_COLOR_BLACK
+
+        IF rowFromBot < filledRows THEN
+            _PRINTSTRING (x, drawY), CHR$(219) ' solid block
+        ELSEIF rowFromBot = peakRow _ANDALSO nPeak > 0.05! THEN
+            _PRINTSTRING (x, drawY), CHR$(223) ' top half block peak dot
+        ELSE
+            COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+            _PRINTSTRING (x, drawY), CHR$(250) ' inactive dot
+        END IF
+    NEXT r
+END SUB
+
+''' @brief Renders a scrollable selection list with item hover, selection, and scrollbar.
+''' @param x Character column of top-left corner.
+''' @param y Character row of top-left corner.
+''' @param w Total list width in characters.
+''' @param h Total visible lines.
+''' @param items() Array of string items.
+''' @param totalItems Number of valid items in items().
+''' @param selectedIdx In/Out: 1-based index of currently selected item.
+''' @param scrollOffset In/Out: 1-based index of top visible item.
+''' @return 1-based index of item activated by mouse click, or 0 if none.
+FUNCTION TUI_ScrollList& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS STRING, totalItems AS LONG, selectedIdx AS LONG, scrollOffset AS LONG)
+    SHARED __TUI AS __TUI_Context
+
+    __TUI.widgetCount = __TUI.widgetCount + 1
+    DIM thisId AS LONG: thisId = __TUI.widgetCount
+    DIM itemActivated AS LONG: itemActivated = 0
+
+    IF h < 1 _ORELSE w < 3 THEN EXIT FUNCTION
+
+    DIM maxScroll AS LONG: maxScroll = _MAX(1, totalItems - h + 1)
+    scrollOffset = _CLAMP(scrollOffset, 1, maxScroll)
+
+    DIM b AS Bounds2f
+    Bounds2f_Set x, y, x + w - 0.001!, y + h - 0.001!, b
+    DIM isListHovered AS _BYTE: isListHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos)
+
+    IF isListHovered THEN
+        __TUI.hotId = thisId
+        ' Mouse wheel scrolls the list
+        DIM wheel AS SINGLE: wheel = Input_GetMouseScrollWheelValue
+        IF wheel <> 0! THEN
+            scrollOffset = _CLAMP(scrollOffset - CLNG(wheel * 3!), 1, maxScroll)
+        END IF
+    END IF
+
+    DIM textW AS LONG: textW = w - 2 ' leave 1 column for border/scrollbar, 1 for padding
+
+    ' Draw items
+    DIM r AS LONG
+    FOR r = 0 TO h - 1
+        DIM itemIdx AS LONG: itemIdx = scrollOffset + r
+        DIM drawY AS LONG: drawY = y + r
+
+        IF itemIdx <= totalItems THEN
+            DIM itemStr AS STRING: itemStr = items(itemIdx)
+            IF LEN(itemStr) > textW THEN
+                itemStr = MID$(itemStr, 1, textW)
+            ELSE
+                itemStr = itemStr + SPACE$(textW - LEN(itemStr))
+            END IF
+
+            DIM isSelected AS _BYTE: isSelected = (itemIdx = selectedIdx)
+            DIM rowBounds AS Bounds2f
+            Bounds2f_Set x, drawY, x + textW - 0.001!, drawY + 0.999!, rowBounds
+            DIM isRowHovered AS _BYTE: isRowHovered = Bounds2f_ContainsPoint(rowBounds, __TUI.mousePos)
+
+            IF isRowHovered _ANDALSO __TUI.mouseClickedL THEN
+                selectedIdx = itemIdx
+                itemActivated = itemIdx
+            END IF
+
+            IF isSelected THEN
+                COLOR TUI_COLOR_BLACK, TUI_COLOR_WHITE
+            ELSEIF isRowHovered THEN
+                COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
+            ELSE
+                COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+            END IF
+
+            _PRINTSTRING (x, drawY), itemStr
+        ELSE
+            COLOR TUI_COLOR_BLACK, TUI_COLOR_BLACK
+            _PRINTSTRING (x, drawY), SPACE$(textW)
+        END IF
+
+        ' Right border / scrollbar indicator
+        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+        IF r = 0 THEN
+            _PRINTSTRING (x + w - 1, drawY), CHR$(30) ' Up arrow
+        ELSEIF r = h - 1 THEN
+            _PRINTSTRING (x + w - 1, drawY), CHR$(31) ' Down arrow
+        ELSE
+            ' Scroll thumb position
+            DIM thumbPos AS LONG
+            IF totalItems > h THEN
+                thumbPos = 1 + CLNG(((scrollOffset - 1) / CSNG(maxScroll - 1)) * (h - 3))
+            ELSE
+                thumbPos = -1
+            END IF
+            IF r = thumbPos THEN
+                COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+                _PRINTSTRING (x + w - 1, drawY), CHR$(219) ' Scroll thumb
+            ELSE
+                COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+                _PRINTSTRING (x + w - 1, drawY), CHR$(179) ' Scroll track
+            END IF
+        END IF
+    NEXT r
+
+    TUI_ScrollList = itemActivated
+END FUNCTION

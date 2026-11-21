@@ -1,5 +1,5 @@
 '-----------------------------------------------------------------------------------------------------------------------
-' QB64 MOD Player
+' QB64 MOD Player - Modular Workstation Audio Tracker & Player
 ' Copyright (c) 2026 Samuel Gomes
 '-----------------------------------------------------------------------------------------------------------------------
 
@@ -39,996 +39,35 @@ $COLOR:0
 '$INCLUDE:'MODPlayer.bm'
 '$INCLUDE:'Input.bi'
 '$INCLUDE:'TUI.bi'
+'$INCLUDE:'Playlist.bi'
+'$INCLUDE:'UI_Views.bi'
 
-CONST APP_NAME = "QB64 MOD Player" ' application name
-' We'll use a window with 1152 x 720 px (144 x 90 chars @ 8 x 8 px font) client area
-CONST UI_TEXT_WIDTH_MIN& = 144& ' minimum width we need
-CONST UI_TEXT_LINE_MAX& = 90& ' this the number of lines we need
-CONST UI_TEXT_WIDTH_HEADER& = 84& ' width of the main header on the vis screen
-CONST UI_MAX_VISIBLE_INSTRUMENTS& = 64& ' maximum number of instruments visible at a time
-CONST UI_ANALYZER_SCALE& = 9& ' this is used to scale the fft values
-CONST APP_FRAME_RATE& = 60& ' update frame rate
-CONST APP_VOLUME_STEP! = 0.01! ' the amount by which the audio volume is increased or decreased
-' Program events
-CONST APP_EVENT_NONE%% = 0%% ' idle
-CONST APP_EVENT_QUIT%% = 1%% ' user wants to quit
-CONST APP_EVENT_CMDS%% = 2%% ' process command line
-CONST APP_EVENT_LOAD%% = 3%% ' user want to load files
-CONST APP_EVENT_DROP%% = 4%% ' user dropped files
-CONST APP_EVENT_PLAY%% = 5%% ' play next song
-CONST APP_EVENT_HTTP%% = 6%% ' Downloads and plays random MODs from modarchive.org
+CONST APP_NAME = "QB64 MOD Player"
+CONST APP_FRAME_RATE& = 60&
+CONST APP_VOLUME_STEP! = 0.02!
 
-TYPE Size
-    x AS LONG
-    y AS LONG
-END TYPE
-
-TYPE FFTInfo
-    framesPerTick AS LONG
-    frames AS LONG
-    halfFrames AS LONG
-    bits AS LONG
-    size AS Size
-END TYPE
-
-REDIM NoteTable(0) AS STRING * 2 ' this contains the note stings
-DIM WindowWidth AS LONG ' the width of our windows in characters
-DIM PatternDisplayWidth AS LONG ' the width of the pattern display in characters
-DIM FFT AS FFTInfo ' global FFT info
-DIM AnalyzerL AS AudioAnalyzer, AnalyzerR AS AudioAnalyzer ' left & right audio analyzers
-REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0), SpectrumAnalyzerR(0) ' left & right channel FFT data
+' Global state variables
+DIM GlobalPlaylist AS Playlist
+DIM CurrentView AS INTEGER
+DIM TrackerChanOffset AS LONG
+DIM SelectedInstrument AS LONG
+DIM InstrumentScrollOffset AS LONG
+DIM SelectedPlaylistItem AS LONG
+DIM PlaylistScrollOffset AS LONG
+DIM CommentScrollOffset AS LONG
+DIM ShowHelpModal AS _BYTE
+DIM SongStartTime AS DOUBLE
+DIM SongElapsedTime AS DOUBLE
 DIM Bg AS Background
 DIM Player AS MODPlayer
-DIM InstrumentScrollOffset AS LONG ' current scroll offset in instrument list
-
-''' @brief Draws a horizontal text character line across the screen.
-''' @param lx Left X coordinate.
-''' @param ty Y coordinate.
-''' @param rx Right X coordinate.
-''' @param char ASCII character code to draw.
-SUB UI_DrawHorizontalLine (lx AS LONG, ty AS LONG, rx AS LONG, char AS _UNSIGNED _BYTE)
-    STATIC buffer AS STRING
-
-    DIM l AS LONG: l = lx
-    DIM r AS LONG: r = rx
-    IF l > r THEN SWAP l, r
-    buffer = STRING$(1 + r - l, char)
-
-    _PRINTSTRING (l, ty), buffer
-END SUB
-
-''' @brief Renders the tracker visualizer, pattern data, and FFT spectrum analyzers.
-''' @return Application event triggered from UI interaction (or APP_EVENT_NONE).
-FUNCTION Visualizer_Draw%%
-    SHARED NoteTable() AS STRING * 2
-    SHARED WindowWidth AS LONG
-    SHARED PatternDisplayWidth AS LONG
-    SHARED FFT AS FFTInfo
-    SHARED AS AudioAnalyzer AnalyzerL, AnalyzerR
-    SHARED AS _UNSIGNED INTEGER SpectrumAnalyzerL(), SpectrumAnalyzerR()
-
-    ' These are internal variables and arrays used by the MODPlayer library and are used for showing internal info and visualization
-    ' In a general use case, accessing these directly is not required at all
-    SHARED Player AS MODPlayer
-    SHARED InstrumentScrollOffset AS LONG
-    SHARED __TUI AS __TUI_Context
-
-    ' Subscript out of range bugfix for player when song is 128 orders long and the song reaches the end
-    ' In this case if the sub is allowed to proceed then Player.order(Player.song.orderPosition) will cause "subscript out of range"
-    ' Note this is only a problem with this demo and not the actual library since we are trying to access internal stuff directly
-    IF Player.song.orderPosition < 0 _ORELSE Player.song.orderPosition >= Player.song.orders THEN EXIT FUNCTION
-
-    DIM startPat AS LONG: startPat = Player.order(Player.song.orderPosition)
-
-    IF startPat < 0 _ORELSE startPat >= Player.song.patterns THEN EXIT FUNCTION ' this can happen when S3M tunes contain marker / end-of-song patterns
-
-    CLS , Black ' clear the framebuffer to black color
-
-    DIM x AS LONG: x = 1 + WindowWidth \ 2 - UI_TEXT_WIDTH_HEADER \ 2 ' find x so that we can center everything
-
-    ' Rows 1-3: Top 3D Playback Toolbar
-    DIM btnX AS LONG: btnX = x + 2
-    IF TUI_Button(btnX, 1, 9, CHR$(17) + CHR$(17) + " Prev") THEN
-        MODPlayer_GoToPreviousPosition Player
-    END IF
-    btnX = btnX + 10
-
-    IF TUI_ToggleButton(btnX, 1, 9, _IIF(Player.song.isPaused, CHR$(16) + " Play ", CHR$(186) + " Pause"), NOT Player.song.isPaused) THEN
-        Player.song.isPaused = NOT Player.song.isPaused
-    END IF
-    btnX = btnX + 10
-
-    IF TUI_Button(btnX, 1, 9, CHR$(254) + " Stop ") THEN
-        MODPlayer_Stop Player
-        Visualizer_Draw = APP_EVENT_NONE
-        EXIT FUNCTION
-    END IF
-    btnX = btnX + 10
-
-    IF TUI_Button(btnX, 1, 9, "Next " + CHR$(16) + CHR$(16)) THEN
-        MODPlayer_GoToNextPosition Player
-    END IF
-    btnX = btnX + 10
-
-    IF TUI_ToggleButton(btnX, 1, 9, CHR$(17) + CHR$(16) + " Loop", Player.song.isLooping) THEN
-        MODPlayer_Loop Player, NOT MODPlayer_IsLooping(Player)
-    END IF
-    btnX = btnX + 10
-
-    IF TUI_Button(btnX, 1, 9, CHR$(14) + " Load ") THEN
-        Visualizer_Draw = APP_EVENT_LOAD
-        EXIT FUNCTION
-    END IF
-    btnX = btnX + 10
-
-    IF TUI_Button(btnX, 1, 9, CHR$(15) + " Web  ") THEN
-        Visualizer_Draw = APP_EVENT_HTTP
-        EXIT FUNCTION
-    END IF
-    btnX = btnX + 10
-
-    IF TUI_Button(btnX, 1, 9, "X Quit ") THEN
-        Visualizer_Draw = APP_EVENT_QUIT
-        EXIT FUNCTION
-    END IF
-
-    ' Row 4: Print song type and name
-    COLOR BrightWhite, Magenta
-    LOCATE 4, x: PRINT USING " \  \: \                                                                          \ "; Player.song.subtype; Player.song.caption;
-
-    ' Row 5: Header info & interactive order scrubbing
-    COLOR Blink, BrightWhite
-    DIM curPatRows AS LONG: curPatRows = _IIF(startPat >= 0 _ANDALSO startPat < Player.song.patterns, Player.pattern(startPat).rows, 64)
-    LOCATE 5, x: PRINT USING " ORD: ### / ### | PAT: ### / ### | ROW: ### / ### | CHN: ### / ### | VOC: ### / ### "; Player.song.orderPosition; Player.song.orders - 1; startPat; Player.song.patterns - 1; Player.song.patternRow; curPatRows - 1; Player.song.activeChannels; Player.song.channels; SoftSynth_GetActiveVoices(Player.synth); SoftSynth_GetTotalVoices(Player.synth);
-
-    ' Interactive order position scrubber with rate-limiting cool-off
-    DIM ordBounds AS Bounds2f
-    Bounds2f_Set x + 1, 5, x + 16, 5.999!, ordBounds
-    IF Bounds2f_ContainsPoint(ordBounds, __TUI.mousePos) THEN
-        IF __TUI.mouseDownL THEN
-            DIM nowUptime AS DOUBLE: nowUptime = _UPTIME
-            IF nowUptime - __TUI.lastScrubTime >= TUI_SCRUB_COOLOFF_SECS# _ORELSE __TUI.mouseClickedL THEN
-                __TUI.lastScrubTime = nowUptime
-                DIM ordRatio AS SINGLE: ordRatio = _CLAMP((INT(__TUI.mousePos.x) - (x + 6)) / 9!, 0!, 1!)
-                DIM seekOrd AS LONG: seekOrd = _CLAMP(CLNG(ordRatio * (Player.song.orders - 1)), 0, Player.song.orders - 1)
-                Player.song.orderPosition = seekOrd
-                Player.song.patternRow = 0
-            END IF
-        END IF
-    END IF
-
-    ' Row 6: Playback parameters & interactive Volume Slider / Loop toggle
-    LOCATE 6, x: PRINT USING " BPM: ###       | SPD: ###       | VOL: ###%      | BUF: #######ms | REP: \       \ "; Player.song.BPM; Player.song.speed; SoftSynth_GetMasterVolume(Player.synth) * 100!; SoftSynth_GetBufferedSoundTime(Player.synth) * 1000#; _IIF(Player.song.isLooping, "Enabled", "Disabled");
-
-    ' Interactive Master Volume Slider on VOL: ###%
-    DIM curMasterVol AS SINGLE: curMasterVol = SoftSynth_GetMasterVolume(Player.synth)
-    DIM newMasterVol AS SINGLE
-    newMasterVol = TUI_Slider(x + 34, 6, 8, curMasterVol, 0!, SOFTSYNTH_MASTER_VOLUME_MAX, "VOL")
-    IF newMasterVol <> curMasterVol THEN
-        SoftSynth_SetMasterVolume Player.synth, newMasterVol
-    END IF
-
-    ' Interactive Loop Toggle on REP:
-    DIM repBounds AS Bounds2f
-    Bounds2f_Set x + 68, 6, x + 83, 6.999!, repBounds
-    IF Bounds2f_ContainsPoint(repBounds, __TUI.mousePos) _ANDALSO __TUI.mouseClickedL THEN
-        MODPlayer_Loop Player, NOT MODPlayer_IsLooping(Player)
-    END IF
-
-    ' Clamp instrument scroll offset
-    InstrumentScrollOffset = _CLAMP(InstrumentScrollOffset, 0, _MAX(0, Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS))
-
-    ' Row 7: Sample list header with interactive scroll buttons
-    COLOR Blink, Cyan
-    _PRINTSTRING (x, 7), "  S#  SAMPLE-NAME  [" + CHR$(30) + " Up] [" + CHR$(31) + " Dn]  VOLUME C2SPD LENGTH LOOPING LOOP-START LOOP-STOP  "
-    DIM upB AS Bounds2f, dnB AS Bounds2f
-    Bounds2f_Set x + 19, 7, x + 25, 7.999!, upB
-    Bounds2f_Set x + 27, 7, x + 33, 7.999!, dnB
-    IF Bounds2f_ContainsPoint(upB, __TUI.mousePos) _ANDALSO __TUI.mouseClickedL THEN
-        InstrumentScrollOffset = _MAX(0, InstrumentScrollOffset - 1)
-    ELSEIF Bounds2f_ContainsPoint(dnB, __TUI.mousePos) _ANDALSO __TUI.mouseClickedL THEN
-        InstrumentScrollOffset = _MIN(_MAX(0, Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS), InstrumentScrollOffset + 1)
-    END IF
-
-    ' Print the sample information
-    DIM AS LONG i, j, rowIdx, maxInst
-    maxInst = _MIN(Player.song.instruments, InstrumentScrollOffset + UI_MAX_VISIBLE_INSTRUMENTS)
-    rowIdx = 0
-    FOR i = InstrumentScrollOffset TO maxInst - 1
-        COLOR Yellow, Black
-
-        IF Player.song.patternRow >= 0 _ANDALSO startPat >= 0 _ANDALSO startPat < Player.song.patterns THEN
-            IF Player.song.patternRow < Player.pattern(startPat).rows THEN
-                j = 0
-                WHILE j < Player.song.channels
-                    IF i + 1 = Player.pattern(startPat).note(Player.song.patternRow, j).instrument THEN
-                        COLOR LightMagenta, Blue
-                    END IF
-
-                    j = j + 1
-                WEND
-            END IF
-        END IF
-
-        LOCATE 8 + rowIdx, x: PRINT USING " ###: \                       \ ######## ##### ###### \     \ ########## #########  "; i + 1; Player.instrument(i).caption; Player.instrument(i).volume; Player.instrument(i).c2Spd; Player.instrument(i).length; _IIF(Player.instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, "Yes", "No"); Player.instrument(i).loopStart; Player.instrument(i).loopEnd;
-
-        rowIdx = rowIdx + 1
-    NEXT
-
-    j = 8 + rowIdx ' we starting updating from this line next
-    x = 1 + WindowWidth \ 2 - PatternDisplayWidth \ 2 ' find x so that we can center everything
-
-    ' Print the pattern header
-    COLOR Black, Cyan
-    _PRINTSTRING (x, j), " PAT RW "
-    i = 0
-    WHILE i < Player.song.channels
-        DIM chanBadge AS STRING: chanBadge = MODPlayer_GetChannelSubtypeCaption(Player, i)
-        COLOR Black, Cyan
-        _PRINTSTRING (x + 8 + i * 19, j), " "
-        DIM chAction AS _BYTE
-        IF TUI_ChannelBadge(x + 8 + i * 19 + 1, j, i, chanBadge, MODPlayer_IsChannelMuted(Player, i), MODPlayer_IsChannelSoloed(Player, i), chAction) THEN
-            IF chAction = TUI_CHANNEL_ACTION_MUTE THEN
-                MODPlayer_ToggleChannelMute Player, i
-            ELSEIF chAction = TUI_CHANNEL_ACTION_SOLO THEN
-                MODPlayer_SoloChannel Player, i
-            END IF
-        END IF
-        COLOR Black, Cyan
-        _PRINTSTRING (x + 8 + i * 19 + 5, j), " NOT S# FX OP "
-        i = i + 1
-    WEND
-
-    DIM AS LONG nNote, nChan, nSample, nEffect, nOperand
-
-    j = j + 1 ' move to the current line number
-
-    DIM AS LONG cLine: cLine = j + (1 + UI_TEXT_LINE_MAX - j) \ 2
-
-    ' Find the starting order and row to display at line j
-    DIM blankLinesBefore AS LONG: blankLinesBefore = 0
-    DIM dispOrder AS LONG: dispOrder = Player.song.orderPosition
-    DIM dispRow AS LONG: dispRow = Player.song.patternRow
-    DIM kLines AS LONG: kLines = cLine - j
-
-    WHILE kLines > 0
-        IF dispRow >= kLines THEN
-            dispRow = dispRow - kLines
-            kLines = 0
-        ELSE
-            kLines = kLines - dispRow
-            IF dispOrder > 0 THEN
-                dispOrder = dispOrder - 1
-                DIM prevPat AS LONG: prevPat = Player.order(dispOrder)
-                IF prevPat >= 0 _ANDALSO prevPat < Player.song.patterns THEN
-                    dispRow = Player.pattern(prevPat).rows
-                ELSE
-                    blankLinesBefore = kLines
-                    dispRow = 0
-                    kLines = 0
-                END IF
-            ELSE
-                blankLinesBefore = kLines
-                dispRow = 0
-                kLines = 0
-            END IF
-        END IF
-    WEND
-
-    ' Now just dump everything to the screen
-    DIM AS LONG p
-    i = j
-    WHILE i < UI_TEXT_LINE_MAX
-        IF i < j + blankLinesBefore THEN
-            COLOR BrightWhite, Black
-            _PRINTSTRING (x, i), SPACE$(PatternDisplayWidth)
-        ELSE
-            DIM isValidRow AS _BYTE: isValidRow = _FALSE
-            DIM drawPat AS LONG: drawPat = -1
-            IF dispOrder >= 0 _ANDALSO dispOrder < Player.song.orders THEN
-                drawPat = Player.order(dispOrder)
-                IF drawPat >= 0 _ANDALSO drawPat < Player.song.patterns THEN
-                    IF dispRow >= 0 _ANDALSO dispRow < Player.pattern(drawPat).rows THEN
-                        isValidRow = _TRUE
-                    END IF
-                END IF
-            END IF
-
-            IF isValidRow THEN
-                COLOR BrightWhite, Black
-                IF i = cLine THEN
-                    COLOR BrightWhite, Blue
-                END IF
-
-                p = x
-
-                LOCATE i, p: PRINT USING " ### ##:"; drawPat; dispRow;
-
-                p = p + 8
-
-                nChan = 0
-                WHILE nChan < Player.song.channels
-                    COLOR LightCyan
-
-                    LOCATE i, p: PRINT USING " (##)"; nChan + 1;
-
-                    p = p + 5
-
-                    nNote = Player.pattern(drawPat).note(dispRow, nChan).note
-                    IF nNote = __MODPLAYER_NOTE_NONE THEN
-                        COLOR Gray
-                        _PRINTSTRING (p, i), "  -  "
-                    ELSEIF nNote = __MODPLAYER_NOTE_KEY_OFF THEN
-                        COLOR Green
-                        _PRINTSTRING (p, i), " ^^^ "
-                    ELSE
-                        COLOR LightGreen
-                        LOCATE i, p: PRINT USING " &# "; NoteTable(nNote MOD 12); 1 + nNote \ 12;
-                    END IF
-
-                    p = p + 5
-
-                    nSample = Player.pattern(drawPat).note(dispRow, nChan).instrument
-                    IF nSample = 0 THEN
-                        COLOR Gray
-                        _PRINTSTRING (p, i), "-- "
-                    ELSE
-                        COLOR Yellow
-                        LOCATE i, p: PRINT USING "## "; nSample;
-                    END IF
-
-                    p = p + 3
-
-                    nEffect = Player.pattern(drawPat).note(dispRow, nChan).effect
-                    nOperand = Player.pattern(drawPat).note(dispRow, nChan).operand
-
-                    IF nEffect = 0 _ANDALSO nOperand = 0 THEN
-                        COLOR Gray
-                        _PRINTSTRING (p, i), "-- "
-                    ELSE
-                        COLOR LightMagenta
-                        LOCATE i, p: PRINT RIGHT$("0" + HEX$(nEffect), 2); " ";
-                    END IF
-
-                    p = p + 3
-
-                    IF nOperand = 0 THEN
-                        COLOR Gray
-                        _PRINTSTRING (p, i), "-- "
-                    ELSE
-                        COLOR LightRed
-                        LOCATE i, p: PRINT RIGHT$("0" + HEX$(nOperand), 2); " ";
-                    END IF
-
-                    p = p + 3
-
-                    nChan = nChan + 1
-                WEND
-            ELSE
-                _PRINTSTRING (x, i), SPACE$(PatternDisplayWidth)
-            END IF
-
-            ' Advance row
-            dispRow = dispRow + 1
-            IF dispOrder >= 0 _ANDALSO dispOrder < Player.song.orders THEN
-                drawPat = Player.order(dispOrder)
-                IF drawPat >= 0 _ANDALSO drawPat < Player.song.patterns THEN
-                    IF dispRow >= Player.pattern(drawPat).rows THEN
-                        dispRow = 0
-                        dispOrder = dispOrder + 1
-                    END IF
-                ELSE
-                    dispOrder = Player.song.orders
-                END IF
-            END IF
-        END IF
-
-        i = i + 1
-    WEND
-
-    j = i ' save the line number
-
-    ' Print the footer
-    COLOR Blink, White
-    IF Player.song.isPaused THEN
-        _PRINTSTRING (x, j), "   ||  :"
-    ELSE
-        _PRINTSTRING (x, j), "   >>  :"
-    END IF
-
-    i = 0
-    WHILE i < Player.song.channels
-        LOCATE j, x + 8 + i * 19: PRINT USING " (##) V:### B:+### "; i + 1; SoftSynth_GetVoiceVolume(Player.synth, i) * 100!; SoftSynth_GetVoiceBalance(Player.synth, i) * 100!;
-
-        i = i + 1
-    WEND
-
-    ' Only re-allocate the array if Player.song.samplesPerTick has changed
-    IF FFT.framesPerTick <> Player.song.framesPerTick THEN
-        ' We need power of 2 for our FFT function
-        FFT.frames = Math_RoundDownToPowerOf2(Player.song.framesPerTick)
-
-        ' We need this too
-        FFT.halfFrames = FFT.frames \ 2
-
-        ' Get the count of bits that the FFT routine will need
-        FFT.bits = Math_GetHighestSetBitIndex(FFT.frames)
-
-        ' Setup the FFT arrays (half of fftSamples)
-        REDIM AS _UNSIGNED INTEGER SpectrumAnalyzerL(0 TO FFT.halfFrames - 1), SpectrumAnalyzerR(0 TO FFT.halfFrames - 1)
-
-        ' Save the frames / tick value
-        FFT.framesPerTick = Player.song.framesPerTick
-    END IF
-
-    ' Calculate stereo FFT data
-    AudioAnalyzer_CalculateFFT AnalyzerL, SpectrumAnalyzerL(), Player.synth.soundBuffer(), 0, 2, FFT.bits
-    AudioAnalyzer_CalculateFFT AnalyzerR, SpectrumAnalyzerR(), Player.synth.soundBuffer(), 1, 2, FFT.bits
-
-    COLOR Black, Black
-
-    i = 0
-    WHILE i < FFT.halfFrames
-        j = 1 + (i * FFT.size.y) \ FFT.halfFrames ' this is the y location where we need to draw the bar
-
-        ' First calculate and draw a bar on the left
-        x = _SHR(SpectrumAnalyzerL(i), UI_ANALYZER_SCALE)
-        IF x > 0 THEN ' only do something if x has a value > 0
-            IF x > FFT.size.x THEN x = FFT.size.x
-            p = FFT.size.x ' this is starting x position of the bar
-            COLOR LightGreen + x MOD Brown, Black
-            UI_DrawHorizontalLine p, j, p - x + 1, 254
-        END IF
-
-        ' Next calculate for the one on the right and draw
-        x = _SHR(SpectrumAnalyzerR(i), UI_ANALYZER_SCALE)
-        IF x > 0 THEN ' only do something if x has a value > 0
-            IF x > FFT.size.x THEN x = FFT.size.x
-            p = FFT.size.x + UI_TEXT_WIDTH_HEADER + 1 ' this is starting x position of the bar
-            COLOR LightGreen + x MOD Brown, Black
-            UI_DrawHorizontalLine p, j, p + x - 1, 254
-        END IF
-
-        i = i + 1
-    WEND
-
-    _DISPLAY ' flip the framebuffer
-    Visualizer_Draw = APP_EVENT_NONE
-END FUNCTION
-
-''' @brief Renders compressed ANSI art onto a graphic image canvas.
-''' @param img QB64 image handle to render onto.
-''' @param s Decompressed ANSI text data string.
-SUB UI_RenderTitleScreen (img AS LONG, s AS STRING)
-    ' ANSI to QB SCREEN 0 color mapping table:
-    ' ANSI 0 (Black), 1 (Red), 2 (Green), 3 (Yellow), 4 (Blue), 5 (Magenta), 6 (Cyan), 7 (White)
-    STATIC ansi2qb(0 TO 7) AS _UNSIGNED _BYTE
-    IF ansi2qb(White) = 0 THEN
-        ansi2qb(0) = Black
-        ansi2qb(1) = Red
-        ansi2qb(2) = Green
-        ansi2qb(3) = Brown
-        ansi2qb(4) = Blue
-        ansi2qb(5) = Magenta
-        ansi2qb(6) = Cyan
-        ansi2qb(7) = White
-    END IF
-
-    DIM oldDest AS LONG: oldDest = _DEST
-
-    _DEST img
-
-    DIM fg AS LONG: fg = White
-    DIM bg AS LONG: bg = Black
-    DIM bright AS _BYTE
-
-    COLOR fg, bg
-
-    DIM AS LONG col, row
-    DIM l AS LONG: l = LEN(s)
-    DIM i AS LONG: i = 1
-    DIM imgW AS LONG: imgW = _WIDTH(img)
-
-    WHILE i <= l
-        DIM ch AS _UNSIGNED _BYTE: ch = ASC(s, i)
-
-        SELECT CASE ch
-            CASE _ASC_SUB ' Ctrl+Z / EOF
-                EXIT WHILE
-
-            CASE _ASC_ESC
-                ' CSI SGR sequence?
-                IF MID$(s, i + 1, 1) = "[" THEN
-
-                    DIM j AS LONG
-                    j = i + 2
-
-                    DO WHILE j <= l
-                        IF MID$(s, j, 1) = "m" THEN EXIT DO
-                        j = j + 1
-                    LOOP
-
-                    IF j <= l THEN
-                        DIM seq AS STRING
-                        seq = MID$(s, i + 2, j - i - 2)
-
-                        DIM token AS STRING
-                        DIM p AS LONG
-
-                        p = 1
-
-                        DO
-                            DIM sep AS LONG
-                            sep = INSTR(p, seq, ";")
-
-                            IF sep THEN
-                                token = MID$(seq, p, sep - p)
-                                p = sep + 1
-                            ELSE
-                                token = MID$(seq, p)
-                            END IF
-
-                            DIM code AS LONG
-                            IF LEN(token) THEN
-                                code = VAL(token)
-                            ELSE
-                                code = 0
-                            END IF
-
-                            SELECT CASE code
-                                CASE 0
-                                    fg = White
-                                    bg = Black
-                                    bright = 0
-
-                                CASE 1
-                                    bright = -1
-                                    IF fg < 8 THEN fg = fg + 8
-
-                                CASE 2, 22
-                                    bright = 0
-                                    IF fg > 7 THEN fg = fg - 8
-
-                                CASE 30 TO 37
-                                    fg = ansi2qb(code - 30)
-                                    IF bright THEN fg = fg + 8
-
-                                CASE 39
-                                    fg = White
-                                    IF bright THEN fg = fg + 8
-
-                                CASE 40 TO 47
-                                    bg = ansi2qb(code - 40)
-
-                                CASE 49
-                                    bg = Black
-
-                                CASE 90 TO 97
-                                    fg = ansi2qb(code - 90) + 8
-
-                                CASE 100 TO 107
-                                    bg = ansi2qb(code - 100) + 8
-                            END SELECT
-
-                            IF sep = 0 THEN EXIT DO
-                        LOOP
-
-                        COLOR fg, bg
-
-                        i = j + 1
-                        _CONTINUE
-                    END IF
-                END IF
-
-                i = i + 1
-
-            CASE _ASC_CR
-                col = 0
-                i = i + 1
-
-            CASE _ASC_LF
-                row = row + 1
-                col = 0
-                i = i + 1
-
-            CASE ELSE
-                IF ch <> _ASC_SPACE THEN ' Skip spaces to keep background transparent
-                    _PRINTSTRING (1 + col, 1 + row), CHR$(ch)
-                END IF
-
-                col = col + 1
-
-                IF col >= imgW THEN
-                    col = 0
-                    row = row + 1
-                END IF
-
-                i = i + 1
-        END SELECT
-    WEND
-
-    _DEST oldDest
-END SUB
-
-''' @brief Runs the interactive welcome screen event loop.
-''' @param bg Background animation context.
-''' @return Next application event code.
-FUNCTION App_OnWelcomeScreen%% (bg AS Background)
-    ' Welcome ANSI (144 x 90 chars)
-    CONST SIZE_QB64MODPLAYER_ANS_15162& = 15162&
-    CONST DATA_QB64MODPLAYER_ANS_15162 = _
-        "eNqSjjbIlY42tDY2zlWgBAAoH6vbWKMYCD9fSA/fW+zQacjSbCFucbem6Iwcxp/MGriZTEJMGRv86u/v4WPiVIPn7oTzCsjy0PkwSZA10QCDarhM" + _
-        "54rMiPRwctZ7a8ftZYTScdCHCk+ynAtWKJPJ3r12nRZ+iNrAmjjwwxUKU+DB3ggYAQKPRu0a5XXM9kIUjQzGoml21VAL+vkCCnqa3myjwP/4OEQ+" + _
-        "RMbENC1QQ9O1mn6+6LQwZIELnTx1fW+11+q35Jfz909JpWpJi3Kk1Tg6zLTf7Uq68/KOXav38PzDc3kUqtt2KdAU1ABdDLKQeB1Qh+0CsG8WOm7E" + _
-        "QAD9j4pGWAynjM6uk1g1bGxvQFAOSaFj/Kh+Ys8bH4fKBzOC0MLT5K3Z8zH/eyAbsiEbsiEbsiEbsiEbsiHbdWbzPY9Cdvh9pZjdpflnfRvPeoTh" + _
-        "zl/98CtE7d4/GZZzyVeQPhPul8dDEXPLUoZyGlgoM06NP80df7vzj9bkvTUXnIk4aUFZKwFChUQHVVan198af/ivl4joy5Ozvly0phaz4L0hdeqK" + _
-        "Ge8LPq9oDTXBqTaz1ZG0aTNH/li0Bqmn1photjUXqyoSGyxrPDVa8/rwobdmhitMBpoSQ6GueCzQGk+N1qQOP863JqRoDVLPsIYfDrw1i6sorlSE" + _
-        "1iD11JpXqVWaNZo2mAzRGk+NNdQbb80iacpKN4hGa27VCLYPnKVANmRDNmRDNmQ7V73CFQrP9a8xERMxEdOfWxyGmlSAyBBCrSJIVkhEnIJQ4XSF" + _
-        "BCgJtsoMuE64aoBVkEyJ2yoVYGgtptIywnkrfe6umNiWiiEgEgg3Cowl2rqcQaRVRRMBDWarJ+n2qS5rJZKDAiWE+084kzTtO4y3urj3OZ2KSAw0" + _
-        "NLOWSmASaqUnxVREk+v4w1zqXBqNinXgshlSYAZInTBOSpw6pyvMVuOSlxa1nZvy3ubmZONFJtPtb/a2vqS/joeZz0+L2W4mybtQYSoafN5rr3tL" + _
-        "sZVyFTBPN4ldofCbxO4ESkhr+5uDNmx8XW+3R9AZr4PTKal1pjqlYXEE48neer/b24R7X++D+Tzcag+gMh62Nx5BPpsvwJKYpzWsGIbEAc1mL1DD" + _
-        "jJh1WT4etRvjQQfOhKPO5bKFH/tiycDAyDiBIYoBBJiZPZ18FcLcHU0NGJABAJPUQiY="
-
-    ' Load the ANSI art data and render it to a text surface
-    DIM titlePage AS LONG: titlePage = _NEWIMAGE(UI_TEXT_WIDTH_MIN, UI_TEXT_LINE_MAX, 0)
-    UI_RenderTitleScreen titlePage, _INFLATE$(_BASE64DECODE$(DATA_QB64MODPLAYER_ANS_15162), SIZE_QB64MODPLAYER_ANS_15162)
-    _CLEARCOLOR _ASC_SPACE + _SHL(White, 8), titlePage ' Set all blank cells to be transparent
-
-    bg.mode = Math_GetRandomBetween(0, BACKGROUND_MODE_MAX)
-
-    DIM e AS _BYTE: e = APP_EVENT_NONE
-
-    DO
-        CLS , Black ' Clear the framebuffer to black color
-
-        ' Draw the background
-        Background_UpdateAndDraw bg
-
-        _PUTIMAGE , titlePage
-
-        Input_Update
-
-        TUI_Begin
-        DIM menuX AS LONG: menuX = 1 + UI_TEXT_WIDTH_MIN \ 2 - 31
-        DIM menuY AS LONG: menuY = UI_TEXT_LINE_MAX - 5
-
-        IF TUI_Button(menuX, menuY, 18, CHR$(14) + " Open (F1)") THEN e = APP_EVENT_LOAD
-        IF TUI_Button(menuX + 20, menuY, 23, CHR$(15) + " ModArchive (F2)") THEN e = APP_EVENT_HTTP
-        IF TUI_Button(menuX + 45, menuY, 17, "X Quit (ESC)") THEN e = APP_EVENT_QUIT
-        TUI_End
-
-        DIM k AS LONG: k = Input_GetKeyboardKey
-
-        IF k = _KEY_ESC _ORELSE Input_NavCancel _ORELSE Input_WindowShouldClose THEN
-            e = APP_EVENT_QUIT
-        ELSEIF _TOTALDROPPEDFILES > 0 THEN
-            e = APP_EVENT_DROP
-        ELSEIF k = _KEY_F1 _ORELSE Input_NavConfirm THEN
-            e = APP_EVENT_LOAD
-        ELSEIF k = _KEY_F2 THEN
-            e = APP_EVENT_HTTP
-        END IF
-
-        _DISPLAY ' Flip the framebuffer
-
-        _LIMIT APP_FRAME_RATE
-    LOOP WHILE e = APP_EVENT_NONE
-
-    _FREEIMAGE titlePage
-
-    App_OnWelcomeScreen = e
-END FUNCTION
-
-''' @brief Loads note name string lookup table for UI display.
-SUB Visualizer_InitializeNoteTable
-    SHARED NoteTable() AS STRING * 2
-
-    DIM AS _UNSIGNED _BYTE n, v
-    RESTORE NoteTab
-    READ v
-    REDIM NoteTable(0 TO v - 1) AS STRING * 2
-    FOR n = 0 TO v - 1
-        READ NoteTable(n)
-    NEXT
-
-    ' Note string table for UI
-    NoteTab:
-    DATA 12
-    DATA "C-","C#","D-","D#","E-","F-","F#","G-","G#","A-","A#","B-"
-END SUB
-
-''' @brief Dynamically resizes the console window based on song channel count.
-SUB App_AdjustWindowSize
-    SHARED Player AS MODPlayer
-    SHARED WindowWidth AS LONG
-    SHARED PatternDisplayWidth AS LONG
-    SHARED FFT AS FFTInfo
-
-    IF Player.song.isPlaying THEN
-        PatternDisplayWidth = 8 + Player.song.channels * 19 ' find the actual width
-        WindowWidth = _MAX(PatternDisplayWidth, UI_TEXT_WIDTH_MIN) ' we don't want the width to be too small
-        FFT.size.x = (WindowWidth - UI_TEXT_WIDTH_HEADER) \ 2
-        IF PatternDisplayWidth <= UI_TEXT_WIDTH_HEADER THEN
-            FFT.size.y = UI_TEXT_LINE_MAX
-        ELSE
-            FFT.size.y = 7 + _MIN(Player.song.instruments, UI_MAX_VISIBLE_INSTRUMENTS)
-        END IF
-    ELSE
-        PatternDisplayWidth = 0
-        WindowWidth = UI_TEXT_WIDTH_MIN ' we don't want the width to be too small
-        FFT.size.x = 0
-        FFT.size.y = 0
-    END IF
-
-    WIDTH WindowWidth, UI_TEXT_LINE_MAX ' we need 75 lines for the vizualization stuff
-    _CONTROLCHR OFF ' turn off control characters
-    _FONT 8 ' force 8x8 pixel font
-    _BLINK OFF ' we want high intensity colors
-    CLS ' clear the screen
-    LOCATE , , _FALSE ' turn cursor off
-END SUB
-
-''' @brief Loads and plays a module file, handling UI redraw and user input loop.
-''' @param fileName File path or URL to play.
-''' @return Next application event code.
-FUNCTION App_OnPlayTune%% (fileName AS STRING)
-    SHARED Player AS MODPlayer
-    SHARED InstrumentScrollOffset AS LONG
-
-    InstrumentScrollOffset = 0 ' reset scroll position on song load
-    App_OnPlayTune = APP_EVENT_PLAY ' default event is to play next song
-
-    DIM buffer AS STRING
-    DIM success AS _BYTE
-
-    IF _FILEEXISTS(fileName) THEN
-        success = MODPlayer_LoadFromDisk(Player, fileName)
-    ELSE
-        buffer = File_Load(fileName)
-        success = MODPlayer_LoadFromMemory(Player, buffer)
-    END IF
-
-    IF NOT success THEN
-        _MESSAGEBOX APP_NAME, "Failed to load: " + fileName, "error"
-
-        EXIT FUNCTION
-    END IF
-
-    ' Set the app _TITLE to display the file name
-    DIM windowTitle AS STRING
-    IF LEN(Pathname_GetDriveOrScheme(fileName)) > 2 THEN
-        windowTitle = App_GetSaveFileName(fileName) + " - " + APP_NAME
-    ELSE
-        windowTitle = Pathname_GetFileName(fileName) + " - " + APP_NAME
-    END IF
-    _TITLE windowTitle
-
-    MODPlayer_Play Player
-    App_AdjustWindowSize
-
-    DIM AS LONG k
-
-    DO
-        MODPlayer_Update Player, SOFTSYNTH_SOUND_BUFFER_TIME_DEFAULT
-
-        Input_Update
-
-        IF Input_WindowShouldClose THEN
-            EXIT DO
-        END IF
-
-        TUI_Begin
-
-        DIM visEvent AS _BYTE: visEvent = Visualizer_Draw
-
-        TUI_End
-
-        IF visEvent <> APP_EVENT_NONE THEN
-            App_OnPlayTune = visEvent
-            EXIT DO
-        END IF
-
-        ' Mouse wheel scrolls visible instruments
-        DIM wheel AS SINGLE: wheel = Input_GetMouseScrollWheelValue
-        IF wheel <> 0! THEN
-            DIM maxScrollW AS LONG: maxScrollW = _MAX(0, Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS)
-            InstrumentScrollOffset = _CLAMP(InstrumentScrollOffset - CLNG(wheel * 3!), 0, maxScrollW)
-        END IF
-
-        ' Gamepad action triggers
-        IF Input_GetGamepadButtonPressed(GAMEPAD_BUTTON_X, 1) THEN
-            Player.song.isPaused = NOT Player.song.isPaused
-        END IF
-
-        IF Input_GetGamepadButtonPressed(GAMEPAD_BUTTON_Y, 1) THEN
-            MODPlayer_Loop Player, NOT MODPlayer_IsLooping(Player)
-        END IF
-
-        IF Input_IsGamepadButtonDown(GAMEPAD_BUTTON_RT, 1) THEN
-            SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) + APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
-        END IF
-
-        IF Input_IsGamepadButtonDown(GAMEPAD_BUTTON_LT, 1) THEN
-            SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) - APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
-        END IF
-
-        ' Check high-level TUI navigation triggers (combines Keyboard arrows and Gamepad stick tilt / bumpers)
-        IF Input_NavLeft THEN
-            MODPlayer_GoToPreviousPosition Player
-        ELSEIF Input_NavRight THEN
-            MODPlayer_GoToNextPosition Player
-        END IF
-
-        DIM maxScrollDown AS LONG: maxScrollDown = _MAX(0, Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS)
-
-        IF Input_NavUp THEN
-            InstrumentScrollOffset = _MAX(0, InstrumentScrollOffset - 1)
-        ELSEIF Input_NavDown THEN
-            InstrumentScrollOffset = _MIN(maxScrollDown, InstrumentScrollOffset + 1)
-        END IF
-
-        IF Input_NavPageUp THEN
-            InstrumentScrollOffset = _MAX(0, InstrumentScrollOffset - 10)
-        ELSEIF Input_NavPageDown THEN
-            InstrumentScrollOffset = _MIN(maxScrollDown, InstrumentScrollOffset + 10)
-        END IF
-
-        k = Input_GetKeyboardKey
-
-        SELECT CASE k
-            CASE _KEY_ESC
-                EXIT DO
-
-            CASE KEY_SPACE
-                Player.song.isPaused = NOT Player.song.isPaused
-
-            CASE KEY_PLUS, KEY_EQUAL
-                SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) + APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
-
-            CASE KEY_MINUS, KEY_UNDERSCORE
-                SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) - APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
-
-            CASE KEY_UPPER_L, KEY_LOWER_L
-                MODPlayer_Loop Player, NOT MODPlayer_IsLooping(Player)
-
-            CASE _KEY_HOME
-                InstrumentScrollOffset = 0
-
-            CASE _KEY_END
-                InstrumentScrollOffset = _MAX(0, Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS)
-
-            CASE _KEY_F1
-                App_OnPlayTune = APP_EVENT_LOAD
-                EXIT DO
-
-            CASE _KEY_F6 ' quick save for files loaded from ModArchive
-                IF LEN(buffer) = 0 THEN buffer = File_Load(fileName)
-                App_QuickSave buffer, fileName
-
-            CASE 21248 ' Shift + Delete - you known what it does
-                IF LEN(Pathname_GetDriveOrScheme(fileName)) > 2 THEN
-                    _MESSAGEBOX APP_NAME, "You cannot delete " + fileName + "!", "error"
-                ELSE
-                    IF _MESSAGEBOX(APP_NAME, "Are you sure you want to delete " + fileName + " permanently?", "yesno", "question", 0) = 1 THEN
-                        KILL fileName
-                        EXIT DO
-                    END IF
-                END IF
-        END SELECT
-
-        IF Input_NavCancel THEN
-            EXIT DO
-        END IF
-
-        IF _TOTALDROPPEDFILES > 0 THEN
-            App_OnPlayTune = APP_EVENT_DROP
-
-            EXIT DO
-        END IF
-
-        _LIMIT APP_FRAME_RATE
-    LOOP WHILE MODPlayer_IsPlaying(Player)
-
-    MODPlayer_Stop Player
-    App_AdjustWindowSize
-
-    _TITLE APP_NAME + _CHR_SPACE + _OS$ ' Set app title to the way it was
-END FUNCTION
-
-''' @brief Processes files passed via the application command-line arguments.
-''' @return Next application event code.
-FUNCTION App_OnCommandLine%%
-    DIM e AS _BYTE: e = APP_EVENT_NONE
-
-    IF (COMMAND$(1) = "/?" _ORELSE COMMAND$(1) = "-?") THEN
-        _MESSAGEBOX APP_NAME, APP_NAME + _STR_LF + "Syntax: " + Pathname_GetFileName(COMMAND$(0)) + " [modfile.mod / .s3m / .mtm / .far / .stm / .669 / .rad / .ult / .mdl / .amf / .stk / .m15]" + _STR_LF + "    /?: Shows this message" + _STR_LF + _STR_LF + "Copyright (c) 2024, Samuel Gomes" + _STR_LF + _STR_LF + "https://github.com/a740g/", "info"
-        e = APP_EVENT_QUIT
-    ELSE
-        DIM i AS LONG: FOR i = 1 TO _COMMANDCOUNT
-            e = App_OnPlayTune(COMMAND$(i))
-            IF e <> APP_EVENT_PLAY THEN EXIT FOR
-        NEXT
-    END IF
-
-    App_OnCommandLine = e
-END FUNCTION
-
-''' @brief Processes files drag-and-dropped onto the application window.
-''' @return Next application event code.
-FUNCTION App_OnDroppedFiles%%
-    ' Make a copy of the dropped file and clear the list
-    REDIM fileNames(1 TO _TOTALDROPPEDFILES) AS STRING
-
-    DIM e AS _BYTE: e = APP_EVENT_NONE
-
-    DIM i AS LONG: FOR i = 1 TO _TOTALDROPPEDFILES
-        fileNames(i) = _DROPPEDFILE$(i)
-    NEXT
-    _FINISHDROP ' This is critical
-
-    ' Now play the dropped file one at a time
-    FOR i = LBOUND(fileNames) TO UBOUND(fileNames)
-        e = App_OnPlayTune(fileNames(i))
-        IF e <> APP_EVENT_PLAY THEN EXIT FOR
-    NEXT
-
-    App_OnDroppedFiles = e
-END FUNCTION
-
-''' @brief Displays file open dialog and plays user-selected files.
-''' @return Next application event code.
-FUNCTION App_OnSelectedFiles%%
-    DIM ofdList AS STRING
-    DIM e AS _BYTE: e = APP_EVENT_NONE
-
-    ofdList = _OPENFILEDIALOG$(APP_NAME, , "*.mod|*.MOD|*.Mod|*.mtm|*.MTM|*.Mtm|*.s3m|*.S3M|*.S3m|*.far|*.FAR|*.Far|*.stm|*.STM|*.Stm|*.669|*.rad|*.RAD|*.Rad|*.ult|*.ULT|*.Ult|*.mdl|*.MDL|*.Mdl|*.amf|*.AMF|*.Amf|*.stk|*.STK|*.Stk|*.m15|*.M15|*.M15", "Music Tracker Files", _TRUE)
-
-    IF LEN(ofdList) = 0 THEN EXIT FUNCTION
-
-    REDIM fileNames(0 TO 0) AS STRING
-
-    DIM j AS LONG: j = String_Tokenize(ofdList, "|", _STR_LF, _FALSE, fileNames())
-
-    DIM i AS LONG: FOR i = 0 TO j - 1
-        e = App_OnPlayTune(fileNames(i))
-        IF e <> APP_EVENT_PLAY THEN EXIT FOR
-    NEXT
-
-    App_OnSelectedFiles = e
-END FUNCTION
-
-''' @brief Downloads and plays random tunes streamed from modarchive.org.
-''' @return Next application event code.
-FUNCTION App_OnModArchiveFiles%%
-    DIM e AS _BYTE: e = APP_EVENT_NONE
-    DIM AS STRING modArchiveFileName, fileExtension
-
-    DO
-        DO
-            Input_Update
-            IF _TOTALDROPPEDFILES > 0 THEN
-                e = APP_EVENT_DROP
-                EXIT DO
-            ELSEIF Input_GetKeyboardKey = _KEY_F1 _ORELSE Input_NavConfirm THEN
-                e = APP_EVENT_LOAD
-                EXIT DO
-            ELSEIF Input_WindowShouldClose _ORELSE Input_NavCancel THEN
-                e = APP_EVENT_QUIT
-                EXIT DO
-            END IF
-
-            modArchiveFileName = ModArchive_GetRandomFileName$
-            fileExtension = LCASE$(Pathname_GetFileExtension(modArchiveFileName))
-
-            _TITLE "Downloading: " + App_GetSaveFileName(modArchiveFileName) + " - " + APP_NAME
-        LOOP UNTIL fileExtension = ".mod" _ORELSE fileExtension = ".mtm" _ORELSE fileExtension = ".s3m" _ORELSE fileExtension = ".far" _ORELSE fileExtension = ".stm" _ORELSE fileExtension = ".669" _ORELSE fileExtension = ".rad" _ORELSE fileExtension = ".ult" _ORELSE fileExtension = ".mdl" _ORELSE fileExtension = ".amf" _ORELSE fileExtension = ".stk" _ORELSE fileExtension = ".m15"
-
-        e = App_OnPlayTune(modArchiveFileName)
-    LOOP WHILE e = APP_EVENT_NONE _ORELSE e = APP_EVENT_PLAY
-
-    _TITLE APP_NAME + _CHR_SPACE + _OS$ ' Set app title to the way it was
-
-    App_OnModArchiveFiles = e
+DIM AnalyzerL AS AudioAnalyzer, AnalyzerR AS AudioAnalyzer
+
+''' @brief Derives a sanitized local filename from a Mod Archive URL.
+''' @param url Download URL string.
+''' @return Sanitized filename string.
+FUNCTION App_GetSaveFileName$ (url AS STRING)
+    DIM saveFileName AS STRING: saveFileName = Pathname_GetFileName(url)
+    App_GetSaveFileName = Pathname_Sanitize(MID$(saveFileName, INSTR(saveFileName, "=") + 1))
 END FUNCTION
 
 ''' @brief Scrapes modarchive.org for a random module download URL.
@@ -1042,91 +81,447 @@ FUNCTION ModArchive_GetRandomFileName$
     END IF
 END FUNCTION
 
-''' @brief Derives a sanitized local filename from a Mod Archive URL.
-''' @param url Download URL string.
-''' @return Sanitized filename string.
-FUNCTION App_GetSaveFileName$ (url AS STRING)
-    DIM saveFileName AS STRING: saveFileName = Pathname_GetFileName(url)
-    App_GetSaveFileName = Pathname_Sanitize(MID$(saveFileName, INSTR(saveFileName, "=") + 1)) ' this will get a file name of type: 12312313#filename.mod
-END FUNCTION
+''' @brief Loads and starts playback of a track by 1-based playlist index.
+''' @param trackIdx 1-based index in GlobalPlaylist.
+SUB App_PlayTrack (trackIdx AS LONG)
+    SHARED GlobalPlaylist AS Playlist
+    SHARED Player AS MODPlayer
+    SHARED CurrentView AS INTEGER
+    SHARED SongStartTime AS DOUBLE
+    SHARED SongElapsedTime AS DOUBLE
+    SHARED TrackerChanOffset AS LONG
+    SHARED SelectedInstrument AS LONG
+    SHARED InstrumentScrollOffset AS LONG
+    SHARED CommentScrollOffset AS LONG
 
-''' @brief Prompts user and saves a downloaded module buffer to disk.
-''' @param buffer Binary file data to save.
-''' @param url Source URL used to generate destination filename.
-SUB App_QuickSave (buffer AS STRING, url AS STRING)
-    STATIC savePath AS STRING, alwaysUseSamePath AS _BYTE, stopNagging AS _BYTE
+    IF trackIdx < 1 _ORELSE trackIdx > GlobalPlaylist.count THEN EXIT SUB
 
-    IF LEN(Pathname_GetDriveOrScheme(url)) > 2 THEN
-        ' This is a file from the web
-        IF NOT _DIREXISTS(savePath) _ORELSE NOT alwaysUseSamePath THEN ' only get the path if path does not exist or user wants to use a new path
-            savePath = _SELECTFOLDERDIALOG$("Select a folder to save the file:", savePath)
-            IF LEN(savePath) = 0 THEN EXIT SUB ' exit if user cancelled
+    GlobalPlaylist.currentIndex = trackIdx
+    DIM filePath AS STRING: filePath = GlobalPlaylist.entries(trackIdx).filePath
 
-            savePath = Pathname_AddDirectorySeparator(savePath)
-        END IF
+    IF Player.song.isPlaying THEN MODPlayer_Stop Player
 
-        DIM saveFileName AS STRING: saveFileName = savePath + App_GetSaveFileName(url)
-
-        IF _FILEEXISTS(saveFileName) THEN
-            IF _MESSAGEBOX(APP_NAME, "Overwrite " + saveFileName + "?", "yesno", "warning", 0) = 0 THEN EXIT SUB
-        END IF
-
-        IF File_Save(buffer, saveFileName, _TRUE) THEN _MESSAGEBOX APP_NAME, saveFileName + " saved.", "info"
-
-        ' Check if user want to use the same path in the future
-        IF NOT stopNagging THEN
-            SELECT CASE _MESSAGEBOX(APP_NAME, "Do you want to use " + savePath + " for future saves?", "yesnocancel", "question", 1)
-                CASE 0
-                    stopNagging = _TRUE
-                CASE 1
-                    alwaysUseSamePath = _TRUE
-                CASE 2
-                    alwaysUseSamePath = _FALSE
-            END SELECT
-        END IF
+    DIM success AS _BYTE
+    IF _FILEEXISTS(filePath) THEN
+        success = MODPlayer_LoadFromDisk(Player, filePath)
     ELSE
-        ' This is a local file - do nothing
-        _MESSAGEBOX APP_NAME, "You cannot save local file " + url + "!", "error"
+        DIM buffer AS STRING: buffer = File_Load(filePath)
+        success = MODPlayer_LoadFromMemory(Player, buffer)
+    END IF
+
+    IF success THEN
+        MODPlayer_Play Player
+        Player.song.isLooping = (GlobalPlaylist.repeatMode = PLAYLIST_REPEAT_ONE)
+
+        SongStartTime = _UPTIME
+        SongElapsedTime = 0#
+        TrackerChanOffset = 0
+        SelectedInstrument = 1
+        InstrumentScrollOffset = 1
+        CommentScrollOffset = 1
+        IF CurrentView = UI_VIEW_MODE_OVERVIEW THEN CurrentView = UI_VIEW_MODE_TRACKER
+
+        DIM winTitle AS STRING
+        IF LEN(Pathname_GetDriveOrScheme(filePath)) > 2 THEN
+            winTitle = App_GetSaveFileName(filePath) + " - " + APP_NAME
+        ELSE
+            winTitle = Pathname_GetFileName(filePath) + " - " + APP_NAME
+        END IF
+        _TITLE winTitle
+    ELSE
+        _MESSAGEBOX APP_NAME, "Failed to load music module: " + filePath, "error"
+    END IF
+END SUB
+
+''' @brief Advances to next track in the playlist.
+SUB App_PlayNextTrack
+    SHARED GlobalPlaylist AS Playlist
+    SHARED Player AS MODPlayer
+    SHARED CurrentView AS INTEGER
+
+    DIM nextIdx AS LONG: nextIdx = Playlist_GetNext(GlobalPlaylist)
+    IF nextIdx > 0 THEN
+        App_PlayTrack nextIdx
+    ELSE
+        IF Player.song.isPlaying THEN MODPlayer_Stop Player
+        CurrentView = UI_VIEW_MODE_OVERVIEW
+        _TITLE APP_NAME + _CHR_SPACE + _OS$
+    END IF
+END SUB
+
+''' @brief Retreats to previous track in the playlist.
+SUB App_PlayPrevTrack
+    SHARED GlobalPlaylist AS Playlist
+    SHARED Player AS MODPlayer
+
+    DIM prevIdx AS LONG: prevIdx = Playlist_GetPrevious(GlobalPlaylist)
+    IF prevIdx > 0 THEN
+        App_PlayTrack prevIdx
+    END IF
+END SUB
+
+''' @brief Stops playback and resets title.
+SUB App_StopPlayback
+    SHARED Player AS MODPlayer
+    SHARED CurrentView AS INTEGER
+
+    IF Player.song.isPlaying THEN MODPlayer_Stop Player
+    CurrentView = UI_VIEW_MODE_OVERVIEW
+    _TITLE APP_NAME + _CHR_SPACE + _OS$
+END SUB
+
+''' @brief Scans a directory for supported tracker files and adds them to the playlist.
+''' @param folderPath Path to folder.
+SUB App_AddFolderToPlaylist (folderPath AS STRING)
+    SHARED GlobalPlaylist AS Playlist
+    IF NOT _DIREXISTS(folderPath) THEN EXIT SUB
+
+    DIM sepFolder AS STRING: sepFolder = Pathname_AddDirectorySeparator(folderPath)
+    DIM patterns(1 TO 10) AS STRING
+    patterns(1) = "*.mod"
+    patterns(2) = "*.s3m"
+    patterns(3) = "*.mtm"
+    patterns(4) = "*.far"
+    patterns(5) = "*.stm"
+    patterns(6) = "*.669"
+    patterns(7) = "*.rad"
+    patterns(8) = "*.ult"
+    patterns(9) = "*.mdl"
+    patterns(10) = "*.amf"
+
+    DIM p AS LONG
+    FOR p = 1 TO 10
+        DIM fName AS STRING: fName = _FILES$(sepFolder + patterns(p))
+        DO WHILE LEN(fName) > 0
+            IF RIGHT$(fName, 1) <> PATHNAME_DIR_SEPARATOR_WIN _ANDALSO RIGHT$(fName, 1) <> PATHNAME_DIR_SEPARATOR_NIX THEN
+                Playlist_Add GlobalPlaylist, sepFolder + fName, "", 0#
+            END IF
+            fName = _FILES$
+        LOOP
+    NEXT p
+END SUB
+
+''' @brief Displays native file open dialog and queues/plays selected files.
+SUB App_OpenFileDialog
+    SHARED GlobalPlaylist AS Playlist
+    SHARED Player AS MODPlayer
+
+    DIM ofdList AS STRING
+    ofdList = _OPENFILEDIALOG$(APP_NAME, , "*.mod|*.MOD|*.Mod|*.mtm|*.MTM|*.Mtm|*.s3m|*.S3M|*.S3m|*.far|*.FAR|*.Far|*.stm|*.STM|*.Stm|*.669|*.rad|*.RAD|*.Rad|*.ult|*.ULT|*.Ult|*.mdl|*.MDL|*.Mdl|*.amf|*.AMF|*.Amf|*.stk|*.STK|*.Stk|*.m15|*.M15|*.M15", "Music Tracker Files", _TRUE)
+    IF LEN(ofdList) = 0 THEN EXIT SUB
+
+    REDIM fileNames(0 TO 0) AS STRING
+    DIM j AS LONG: j = String_Tokenize(ofdList, "|", _STR_LF, _FALSE, fileNames())
+
+    DIM firstAdded AS LONG: firstAdded = GlobalPlaylist.count + 1
+    DIM i AS LONG
+    FOR i = 0 TO j - 1
+        IF LEN(fileNames(i)) > 0 THEN
+            Playlist_Add GlobalPlaylist, fileNames(i), "", 0#
+        END IF
+    NEXT i
+
+    IF NOT Player.song.isPlaying _ANDALSO firstAdded <= GlobalPlaylist.count THEN
+        App_PlayTrack firstAdded
+    END IF
+END SUB
+
+''' @brief Displays native folder selection dialog and queues music files.
+SUB App_OpenFolderDialog
+    SHARED GlobalPlaylist AS Playlist
+    SHARED Player AS MODPlayer
+
+    DIM folderPath AS STRING
+    folderPath = _SELECTFOLDERDIALOG$("Select folder containing module music:", "")
+    IF LEN(folderPath) = 0 THEN EXIT SUB
+
+    DIM firstAdded AS LONG: firstAdded = GlobalPlaylist.count + 1
+    App_AddFolderToPlaylist folderPath
+
+    IF NOT Player.song.isPlaying _ANDALSO firstAdded <= GlobalPlaylist.count THEN
+        App_PlayTrack firstAdded
+    END IF
+END SUB
+
+''' @brief Fetches and streams a random tune from modarchive.org.
+SUB App_PlayModArchiveRandom
+    SHARED GlobalPlaylist AS Playlist
+    _TITLE "Contacting ModArchive for random module..."
+    DIM url AS STRING: url = ModArchive_GetRandomFileName$
+    DIM ext AS STRING: ext = LCASE$(Pathname_GetFileExtension(url))
+
+    IF ext = ".mod" _ORELSE ext = ".mtm" _ORELSE ext = ".s3m" _ORELSE ext = ".far" _ORELSE ext = ".stm" _ORELSE ext = ".669" _ORELSE ext = ".rad" _ORELSE ext = ".ult" _ORELSE ext = ".mdl" _ORELSE ext = ".amf" _ORELSE ext = ".stk" _ORELSE ext = ".m15" THEN
+        Playlist_Add GlobalPlaylist, url, App_GetSaveFileName(url), 0#
+        App_PlayTrack GlobalPlaylist.count
+    ELSE
+        _MESSAGEBOX APP_NAME, "Failed to retrieve module from ModArchive.", "warning"
+        _TITLE APP_NAME + _CHR_SPACE + _OS$
+    END IF
+END SUB
+
+''' @brief Processes files dropped onto the window via drag & drop.
+SUB App_ProcessDroppedFiles
+    SHARED GlobalPlaylist AS Playlist
+    SHARED Player AS MODPlayer
+
+    IF _TOTALDROPPEDFILES <= 0 THEN EXIT SUB
+
+    REDIM dropFiles(1 TO _TOTALDROPPEDFILES) AS STRING
+    DIM count AS LONG: count = _TOTALDROPPEDFILES
+    DIM i AS LONG
+    FOR i = 1 TO count
+        dropFiles(i) = _DROPPEDFILE$(i)
+    NEXT i
+    _FINISHDROP
+
+    DIM firstAdded AS LONG: firstAdded = GlobalPlaylist.count + 1
+    FOR i = 1 TO count
+        IF _DIREXISTS(dropFiles(i)) THEN
+            App_AddFolderToPlaylist dropFiles(i)
+        ELSE
+            Playlist_Add GlobalPlaylist, dropFiles(i), "", 0#
+        END IF
+    NEXT i
+
+    IF firstAdded <= GlobalPlaylist.count THEN
+        App_PlayTrack firstAdded
+    END IF
+END SUB
+
+''' @brief Processes initial command-line arguments.
+SUB App_ProcessCommandLine
+    SHARED GlobalPlaylist AS Playlist
+    IF _COMMANDCOUNT > 0 THEN
+        IF COMMAND$(1) = "/?" _ORELSE COMMAND$(1) = "-?" THEN
+            _MESSAGEBOX APP_NAME, APP_NAME + _STR_LF + "Syntax: " + Pathname_GetFileName(COMMAND$(0)) + " [file1.mod file2.s3m ...]" + _STR_LF + "    /?: Shows this message" + _STR_LF + _STR_LF + "Copyright (c) 2026, Samuel Gomes" + _STR_LF + "https://github.com/a740g/", "info"
+            SYSTEM
+        END IF
+
+        DIM i AS LONG
+        FOR i = 1 TO _COMMANDCOUNT
+            Playlist_Add GlobalPlaylist, COMMAND$(i), "", 0#
+        NEXT i
+
+        IF GlobalPlaylist.count > 0 THEN
+            App_PlayTrack 1
+        END IF
     END IF
 END SUB
 
 '-----------------------------------------------------------------------------------------------------------------------
-' PROGRAM ENTRY POINT - Frankenstein retro TUI with drag & drop support
+' APPLICATION INITIALIZATION & MAIN WORKSTATION LOOP
 '-----------------------------------------------------------------------------------------------------------------------
-_TITLE APP_NAME + _CHR_SPACE + _OS$ ' set the program name in the titlebar
-CHDIR _STARTDIR$ ' change to the directory specifed by the environment
-_ACCEPTFILEDROP ' enable drag and drop of files
-Visualizer_InitializeNoteTable ' initialize note string table
-App_AdjustWindowSize ' set the initial window size
-_ALLOWFULLSCREEN _SQUAREPIXELS , _SMOOTH ' allow the user to press Alt+Enter to go fullscreen
+WIDTH UI_SCREEN_WIDTH, UI_SCREEN_HEIGHT
+_CONTROLCHR OFF
+_FONT 8
+_BLINK OFF
+LOCATE , , _FALSE
+CLS
+
+_TITLE APP_NAME + _CHR_SPACE + _OS$
+CHDIR _STARTDIR$
+_ACCEPTFILEDROP
+_ALLOWFULLSCREEN _SQUAREPIXELS, _SMOOTH
 RANDOMIZE TIMER
+
+Playlist_Initialize GlobalPlaylist
 Background_Initialize Bg
+CurrentView = UI_VIEW_MODE_OVERVIEW
+TrackerChanOffset = 0
+SelectedInstrument = 1
+InstrumentScrollOffset = 1
+SelectedPlaylistItem = 1
+PlaylistScrollOffset = 1
+CommentScrollOffset = 1
+ShowHelpModal = _FALSE
 
-DIM event AS _BYTE: event = APP_EVENT_CMDS ' default to command line event first
+App_ProcessCommandLine
 
-' Main loop
 DO
-    SELECT CASE event
-        CASE APP_EVENT_QUIT
-            EXIT DO
+    ' Audio synthesis & playback update
+    IF Player.song.isPlaying THEN
+        MODPlayer_Update Player, SOFTSYNTH_SOUND_BUFFER_TIME_DEFAULT
 
-        CASE APP_EVENT_DROP
-            event = App_OnDroppedFiles
+        ' Auto-advance when song finishes
+        IF NOT MODPlayer_IsPlaying(Player) THEN
+            App_PlayNextTrack
+        ELSEIF NOT Player.song.isPaused THEN
+            SongElapsedTime = _UPTIME - SongStartTime
+        END IF
+    END IF
 
-        CASE APP_EVENT_LOAD
-            event = App_OnSelectedFiles
+    ' Input polling
+    Input_Update
 
-        CASE APP_EVENT_CMDS
-            event = App_OnCommandLine
+    IF Input_WindowShouldClose THEN EXIT DO
+    IF _TOTALDROPPEDFILES > 0 THEN App_ProcessDroppedFiles
 
-        CASE APP_EVENT_HTTP
-            event = App_OnModArchiveFiles
+    ' Clear framebuffer
+    CLS , Black
 
-        CASE ELSE
-            event = App_OnWelcomeScreen(Bg)
+    ' Begin TUI frame
+    TUI_Begin
+
+    DIM estDur AS DOUBLE: estDur = 0#
+    IF GlobalPlaylist.currentIndex >= 1 _ANDALSO GlobalPlaylist.currentIndex <= GlobalPlaylist.count THEN
+        estDur = GlobalPlaylist.entries(GlobalPlaylist.currentIndex).duration
+    END IF
+
+    DIM topAction AS _BYTE
+    topAction = UI_DrawHeader(Player, GlobalPlaylist, SongElapsedTime, estDur, CurrentView, ShowHelpModal)
+
+    SELECT CASE CurrentView
+        CASE UI_VIEW_MODE_OVERVIEW
+            DIM ovAction AS _BYTE: ovAction = UI_RenderOverview(Bg, GlobalPlaylist)
+            IF ovAction = UI_ACTION_OPEN_FILE THEN App_OpenFileDialog
+            IF ovAction = UI_ACTION_OPEN_FOLDER THEN App_OpenFolderDialog
+            IF ovAction = UI_ACTION_MODARCHIVE THEN App_PlayModArchiveRandom
+            IF ovAction = UI_ACTION_PLAY_INDEX THEN CurrentView = UI_VIEW_MODE_PLAYLIST
+
+        CASE UI_VIEW_MODE_TRACKER
+            UI_RenderTracker Player, TrackerChanOffset
+
+        CASE UI_VIEW_MODE_MIXER
+            UI_RenderMixer Player
+
+        CASE UI_VIEW_MODE_INSTRUMENTS
+            UI_RenderInstruments Player, SelectedInstrument, InstrumentScrollOffset
+
+        CASE UI_VIEW_MODE_PLAYLIST
+            DIM plAction AS _BYTE: plAction = UI_RenderPlaylist(GlobalPlaylist, SelectedPlaylistItem, PlaylistScrollOffset)
+            IF plAction = UI_ACTION_OPEN_FILE THEN App_OpenFileDialog
+            IF plAction = UI_ACTION_OPEN_FOLDER THEN App_OpenFolderDialog
+            IF plAction = UI_ACTION_PLAY_INDEX THEN App_PlayTrack SelectedPlaylistItem
+
+        CASE UI_VIEW_MODE_SONGINFO
+            UI_RenderSongInfo Player, CommentScrollOffset
+
+        CASE UI_VIEW_MODE_VISUALIZER
+            UI_RenderVisualizer Player, AnalyzerL, AnalyzerR
     END SELECT
+
+    UI_DrawFooter Player
+
+    IF ShowHelpModal THEN
+        UI_RenderHelpModal ShowHelpModal
+    END IF
+
+    TUI_End
+
+    ' Process transport actions triggered from header
+    SELECT CASE topAction
+        CASE UI_ACTION_QUIT: EXIT DO
+        CASE UI_ACTION_OPEN_FILE: App_OpenFileDialog
+        CASE UI_ACTION_OPEN_FOLDER: App_OpenFolderDialog
+        CASE UI_ACTION_MODARCHIVE: App_PlayModArchiveRandom
+        CASE UI_ACTION_PREV_TRACK: App_PlayPrevTrack
+        CASE UI_ACTION_NEXT_TRACK: App_PlayNextTrack
+        CASE UI_ACTION_STOP: App_StopPlayback
+        CASE UI_ACTION_PLAY_INDEX
+            IF GlobalPlaylist.currentIndex >= 1 _ANDALSO GlobalPlaylist.currentIndex <= GlobalPlaylist.count THEN
+                App_PlayTrack GlobalPlaylist.currentIndex
+            END IF
+    END SELECT
+
+    ' Mouse wheel handling based on active view
+    DIM mWheel AS SINGLE: mWheel = Input_GetMouseScrollWheelValue
+    IF mWheel <> 0! THEN
+        SELECT CASE CurrentView
+            CASE UI_VIEW_MODE_TRACKER
+                IF mWheel > 0! THEN
+                    TrackerChanOffset = _MAX(0, TrackerChanOffset - UI_TRACKER_VISIBLE_CHANNELS)
+                ELSE
+                    TrackerChanOffset = _MIN(_MAX(0, ((Player.song.channels - 1) \ UI_TRACKER_VISIBLE_CHANNELS) * UI_TRACKER_VISIBLE_CHANNELS), TrackerChanOffset + UI_TRACKER_VISIBLE_CHANNELS)
+                END IF
+            CASE UI_VIEW_MODE_INSTRUMENTS
+                InstrumentScrollOffset = _CLAMP(InstrumentScrollOffset - CLNG(mWheel * 3!), 1, _MAX(1, Player.song.instruments))
+            CASE UI_VIEW_MODE_SONGINFO
+                CommentScrollOffset = _CLAMP(CommentScrollOffset - CLNG(mWheel * 3!), 1, 500)
+        END SELECT
+    END IF
+
+    ' Gamepad navigation
+    IF Input_GetGamepadButtonPressed(GAMEPAD_BUTTON_X, 1) THEN
+        IF Player.song.isPlaying THEN Player.song.isPaused = NOT Player.song.isPaused
+    END IF
+
+    IF Input_IsGamepadButtonDown(GAMEPAD_BUTTON_RT, 1) THEN
+        SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) + APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
+    END IF
+
+    IF Input_IsGamepadButtonDown(GAMEPAD_BUTTON_LT, 1) THEN
+        SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) - APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
+    END IF
+
+    ' Keyboard navigation & shortcuts
+    DIM k AS LONG: k = Input_GetKeyboardKey
+    SELECT CASE k
+        CASE _KEY_ESC
+            IF ShowHelpModal THEN
+                ShowHelpModal = _FALSE
+            ELSEIF Player.song.isPlaying THEN
+                App_StopPlayback
+            ELSE
+                EXIT DO
+            END IF
+
+        CASE _KEY_F1: ShowHelpModal = NOT ShowHelpModal
+        CASE _KEY_F2: CurrentView = UI_VIEW_MODE_TRACKER
+        CASE _KEY_F3: CurrentView = UI_VIEW_MODE_MIXER
+        CASE _KEY_F4: CurrentView = UI_VIEW_MODE_INSTRUMENTS
+        CASE _KEY_F5: CurrentView = UI_VIEW_MODE_PLAYLIST
+        CASE _KEY_F6: CurrentView = UI_VIEW_MODE_SONGINFO
+        CASE _KEY_F7: CurrentView = UI_VIEW_MODE_VISUALIZER
+
+        CASE _KEY_LEFT
+            IF Player.song.isPlaying THEN MODPlayer_GoToPreviousPosition Player
+
+        CASE _KEY_RIGHT
+            IF Player.song.isPlaying THEN MODPlayer_GoToNextPosition Player
+
+        CASE KEY_SPACE
+            IF Player.song.isPlaying THEN
+                Player.song.isPaused = NOT Player.song.isPaused
+                IF Player.song.isPaused THEN
+                    SongStartTime = _UPTIME - SongElapsedTime
+                ELSE
+                    SongStartTime = _UPTIME - SongElapsedTime
+                END IF
+            END IF
+
+        CASE KEY_PLUS, KEY_EQUAL
+            SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) + APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
+
+        CASE KEY_MINUS, KEY_UNDERSCORE
+            SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) - APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
+
+        CASE KEY_UPPER_L, KEY_LOWER_L
+            IF Player.song.isPlaying THEN
+                Player.song.isLooping = NOT Player.song.isLooping
+            END IF
+
+        CASE _KEY_PAGEUP
+            IF CurrentView = UI_VIEW_MODE_TRACKER THEN
+                TrackerChanOffset = _MAX(0, TrackerChanOffset - UI_TRACKER_VISIBLE_CHANNELS)
+            ELSEIF CurrentView = UI_VIEW_MODE_INSTRUMENTS THEN
+                InstrumentScrollOffset = _MAX(1, InstrumentScrollOffset - 10)
+            ELSEIF CurrentView = UI_VIEW_MODE_SONGINFO THEN
+                CommentScrollOffset = _MAX(1, CommentScrollOffset - 10)
+            END IF
+
+        CASE _KEY_PAGEDOWN
+            IF CurrentView = UI_VIEW_MODE_TRACKER THEN
+                TrackerChanOffset = _MIN(_MAX(0, ((Player.song.channels - 1) \ UI_TRACKER_VISIBLE_CHANNELS) * UI_TRACKER_VISIBLE_CHANNELS), TrackerChanOffset + UI_TRACKER_VISIBLE_CHANNELS)
+            ELSEIF CurrentView = UI_VIEW_MODE_INSTRUMENTS THEN
+                InstrumentScrollOffset = _MIN(_MAX(1, Player.song.instruments), InstrumentScrollOffset + 10)
+            ELSEIF CurrentView = UI_VIEW_MODE_SONGINFO THEN
+                CommentScrollOffset = _MIN(500, CommentScrollOffset + 10)
+            END IF
+    END SELECT
+
+    _DISPLAY
+    _LIMIT APP_FRAME_RATE
 LOOP
 
-_AUTODISPLAY
-
+MODPlayer_Stop Player
 SYSTEM

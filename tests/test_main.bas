@@ -27,6 +27,7 @@ $LET TEST_CONSOLE_ONLY = TRUE
 '$INCLUDE:'../source/Background.bi'
 '$INCLUDE:'../source/Input.bi'
 '$INCLUDE:'../source/TUI.bi'
+'$INCLUDE:'../source/Playlist.bi'
 
 ''' @brief Tests for Time.bi and _UPTIME functionality.
 SUB Test_Time
@@ -3674,6 +3675,199 @@ SUB Test_TUI
     TUI_End
     TEST_CHECK __TUI.totalWidgets = 2, "TUI_End records totalWidgets = 2 for 3D buttons"
     TEST_CASE_END
+
+    TEST_CASE_BEGIN "TUI: Panel Container"
+    TUI_Begin
+    TUI_Panel 5, 5, 30, 10, "Control Center", _TRUE
+    TUI_Panel 40, 5, 20, 10, "", _FALSE
+    TEST_CHECK __TUI.widgetCount = 0, "Panel does not increment interactive widget count"
+    TUI_End
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "TUI: TabBar Selection"
+    TUI_Begin
+    DIM tabs(1 TO 4) AS STRING
+    tabs(1) = "Tracker"
+    tabs(2) = "Mixer"
+    tabs(3) = "Instruments"
+    tabs(4) = "Playlist"
+    DIM selectedTab AS LONG: selectedTab = 1
+
+    ' Hover and click on tab 2 ("Mixer"):
+    ' Tab 1 is at x=10, width = LEN("Tracker") + 4 = 11 -> columns 10 to 20
+    ' Tab 2 is at x=10 + 11 + 1 = 22, width = LEN("Mixer") + 4 = 9 -> columns 22 to 30, rows 5 to 6
+    Vector2f_Set 25!, 5!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE
+    __TUI.activeId = 2
+
+    DIM tabChanged AS _BYTE
+    tabChanged = TUI_TabBar(10, 5, tabs(), 4, selectedTab)
+    TEST_CHECK tabChanged, "TUI_TabBar returns true when tab is clicked"
+    TEST_CHECK selectedTab = 2, "Selected tab updated to 2"
+    TEST_CHECK __TUI.widgetCount = 4, "TUI_TabBar registers all tabs as widgets"
+    TUI_End
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "TUI: VUMeter Rendering and Clamping"
+    TUI_Begin
+    TUI_VUMeter 10, 5, 12, 0.65!, 0.90!, _FALSE
+    TUI_VUMeter 12, 5, 12, 1.50!, 2.00!, _TRUE  ' Over-range should clamp safely
+    TUI_VUMeter 14, 5, 0, 0.50!, 0.50!, _FALSE  ' Height < 1 should exit safely
+    TEST_CHECK __TUI.widgetCount = 0, "VUMeter does not increment interactive widget count"
+    TUI_End
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "TUI: ScrollList Selection and Navigation"
+    TUI_Begin
+    DIM listItems(1 TO 8) AS STRING
+    DIM itemI AS LONG
+    FOR itemI = 1 TO 8
+        listItems(itemI) = "Song Track " + STR$(itemI)
+    NEXT itemI
+
+    DIM listSel AS LONG: listSel = 1
+    DIM listScroll AS LONG: listScroll = 1
+
+    ' Click row 2 inside list: list placed at (10, 5), width 25, height 5
+    ' Row 0 is y=5 (item 1), row 1 is y=6 (item 2)
+    Vector2f_Set 15!, 6!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE
+
+    DIM activatedItem AS LONG
+    activatedItem = TUI_ScrollList(10, 5, 25, 5, listItems(), 8, listSel, listScroll)
+    TEST_CHECK activatedItem = 2, "TUI_ScrollList activates clicked item index 2"
+    TEST_CHECK listSel = 2, "Selected index updated to 2"
+    TEST_CHECK __TUI.widgetCount = 1, "TUI_ScrollList registered as widget 1"
+    TUI_End
+    TEST_CASE_END
+END SUB
+
+''' @brief Tests for Playlist.bi queue management, shuffle, repeat, and M3U support.
+SUB Test_Playlist
+    TEST_CASE_BEGIN "Playlist: Initialization and Clear"
+    DIM pl AS Playlist
+    Playlist_Initialize pl
+    TEST_CHECK pl.count = 0, "Initial count is 0"
+    TEST_CHECK pl.currentIndex = 0, "Initial currentIndex is 0"
+    TEST_CHECK NOT pl.isShuffle, "Initial shuffle is disabled"
+    TEST_CHECK pl.repeatMode = PLAYLIST_REPEAT_NONE, "Initial repeat mode is NONE"
+
+    Playlist_Add pl, "mods/test1.mod", "Test Song 1", 120#
+    TEST_CHECK pl.count = 1, "Count is 1 after add"
+    TEST_CHECK pl.currentIndex = 1, "CurrentIndex is 1 after initial add"
+
+    Playlist_Clear pl
+    TEST_CHECK pl.count = 0, "Count is 0 after clear"
+    TEST_CHECK pl.currentIndex = 0, "CurrentIndex is 0 after clear"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Playlist: Add and Remove"
+    Playlist_Initialize pl
+    Playlist_Add pl, "mods/track1.mod", "Track 1", 60#
+    Playlist_Add pl, "mods/track2.s3m", "Track 2", 90#
+    Playlist_Add pl, "mods/track3.xm", "", 150# ' empty title tests filename fallback
+
+    TEST_CHECK pl.count = 3, "Added 3 tracks"
+    TEST_CHECK pl.entries(1).title = "Track 1", "Track 1 title preserved"
+    TEST_CHECK pl.entries(2).duration = 90#, "Track 2 duration preserved"
+    TEST_CHECK pl.entries(3).title = "track3.xm", "Track 3 title defaults to filename"
+
+    ' Remove middle track
+    DIM rmOk AS _BYTE: rmOk = Playlist_Remove(pl, 2)
+    TEST_CHECK rmOk, "Remove middle track returns true"
+    TEST_CHECK pl.count = 2, "Count is now 2"
+    TEST_CHECK pl.entries(2).title = "track3.xm", "Track 3 shifted to position 2"
+
+    ' Remove invalid index
+    DIM rmFail AS _BYTE: rmFail = Playlist_Remove(pl, 99)
+    TEST_CHECK NOT rmFail, "Remove invalid index returns false"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Playlist: Sequential and Repeat Modes"
+    Playlist_Initialize pl
+    Playlist_Add pl, "song1.mod", "Song 1", 10#
+    Playlist_Add pl, "song2.mod", "Song 2", 20#
+    Playlist_Add pl, "song3.mod", "Song 3", 30#
+
+    ' Sequential advance without repeat
+    Playlist_SetRepeatMode pl, PLAYLIST_REPEAT_NONE
+    pl.currentIndex = 1
+    TEST_CHECK Playlist_GetNext(pl) = 2, "1 -> 2"
+    TEST_CHECK Playlist_GetNext(pl) = 3, "2 -> 3"
+    TEST_CHECK Playlist_GetNext(pl) = 0, "3 -> 0 (end of playlist reached)"
+
+    ' Previous navigation
+    pl.currentIndex = 3
+    TEST_CHECK Playlist_GetPrevious(pl) = 2, "3 -> 2"
+    TEST_CHECK Playlist_GetPrevious(pl) = 1, "2 -> 1"
+    TEST_CHECK Playlist_GetPrevious(pl) = 1, "1 -> 1 (clamps at 1 when repeat none)"
+
+    ' Repeat All
+    Playlist_SetRepeatMode pl, PLAYLIST_REPEAT_ALL
+    pl.currentIndex = 3
+    TEST_CHECK Playlist_GetNext(pl) = 1, "3 -> 1 with repeat all"
+    pl.currentIndex = 1
+    TEST_CHECK Playlist_GetPrevious(pl) = 3, "1 -> 3 with repeat all"
+
+    ' Repeat One
+    Playlist_SetRepeatMode pl, PLAYLIST_REPEAT_ONE
+    pl.currentIndex = 2
+    TEST_CHECK Playlist_GetNext(pl) = 2, "Repeat one returns same track on next"
+    TEST_CHECK Playlist_GetPrevious(pl) = 2, "Repeat one returns same track on previous"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Playlist: Shuffle Mode"
+    Playlist_Initialize pl
+    DIM sI AS LONG
+    FOR sI = 1 TO 10
+        Playlist_Add pl, "song" + STR$(sI) + ".mod", "Song " + STR$(sI), 60#
+    NEXT sI
+
+    Playlist_SetShuffle pl, _TRUE
+    TEST_CHECK pl.isShuffle, "Shuffle mode enabled"
+    TEST_CHECK pl.shufflePos = 1, "Shuffle position starts at 1"
+
+    ' Verify all indices 1..10 are present in shuffleOrder
+    DIM present(1 TO 10) AS _BYTE
+    FOR sI = 1 TO 10
+        DIM ordIdx AS LONG: ordIdx = pl.shuffleOrder(sI)
+        TEST_CHECK ordIdx >= 1 _ANDALSO ordIdx <= 10, "Order index in range"
+        present(ordIdx) = _TRUE
+    NEXT sI
+    DIM allPresent AS _BYTE: allPresent = _TRUE
+    FOR sI = 1 TO 10
+        IF NOT present(sI) THEN allPresent = _FALSE
+    NEXT sI
+    TEST_CHECK allPresent, "All tracks present exactly once in shuffle permutation"
+
+    Playlist_SetShuffle pl, _FALSE
+    TEST_CHECK NOT pl.isShuffle, "Shuffle mode disabled"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Playlist: M3U Load and Save"
+    Playlist_Initialize pl
+    Playlist_Add pl, "mods/tune1.mod", "Tune 1", 125#
+    Playlist_Add pl, "mods/tune2.s3m", "Tune 2", 210#
+
+    DIM tempM3U AS STRING: tempM3U = "test_playlist_temp.m3u"
+    DIM saveOk AS _BYTE: saveOk = Playlist_SaveM3U(pl, tempM3U)
+    TEST_CHECK saveOk, "Playlist saved to temporary M3U file"
+    TEST_CHECK _FILEEXISTS(tempM3U), "Temporary M3U file exists on disk"
+
+    DIM pl2 AS Playlist
+    Playlist_Initialize pl2
+    DIM loadOk AS _BYTE: loadOk = Playlist_LoadM3U(pl2, tempM3U)
+    TEST_CHECK loadOk, "Playlist loaded from M3U file"
+    TEST_CHECK pl2.count = 2, "Loaded 2 entries from M3U"
+    TEST_CHECK pl2.entries(1).title = "Tune 1", "First entry title restored"
+    TEST_CHECK pl2.entries(1).duration = 125#, "First entry duration restored"
+    TEST_CHECK pl2.entries(2).title = "Tune 2", "Second entry title restored"
+    TEST_CHECK pl2.entries(2).duration = 210#, "Second entry duration restored"
+
+    ' Cleanup temporary file
+    IF _FILEEXISTS(tempM3U) THEN KILL tempM3U
+    TEST_CHECK NOT _FILEEXISTS(tempM3U), "Cleaned up temporary M3U file"
+    TEST_CASE_END
 END SUB
 
 IF _DIREXISTS("../mods") THEN CHDIR ".."
@@ -3732,5 +3926,6 @@ Test_MODPlayer_TypePromotions
 Test_MODPlayer_Errors
 Test_MODPlayer_ChannelMuteSolo
 Test_TUI
+Test_Playlist
 
 TEST_END_ALL

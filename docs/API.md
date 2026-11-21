@@ -62,6 +62,11 @@ Synthesizer / Sample Mixer, and Audio Spectrum Analyzer.
   - [Types](#tui-types)
   - [Frame Lifecycle Management](#tui-frame-lifecycle-management)
   - [Immediate Widgets](#tui-immediate-widgets)
+- [Playlist Management API (`Playlist.bi`)](#playlist-management-api-playlistbi)
+  - [Constants](#playlist-constants)
+  - [Types](#playlist-types)
+  - [Queue Management and Navigation](#playlist-queue-management-and-navigation)
+  - [M3U File I/O](#playlist-m3u-file-io)
 
 ---
 
@@ -1542,3 +1547,187 @@ SUB TUI_Label (x AS LONG, y AS LONG, text AS STRING, fgColor AS LONG, bgColor AS
   - `text`: Text string.
   - `fgColor`: Foreground color index (`TUI_COLOR_*`).
   - `bgColor`: Background color index (`TUI_COLOR_*`).
+
+#### `TUI_Panel`
+
+```vb
+SUB TUI_Panel (x AS LONG, y AS LONG, w AS LONG, h AS LONG, title AS STRING, isDoubleBorder AS _BYTE)
+```
+
+- **Description**: Renders a beveled container panel frame with an optional title string embedded into the top border.
+- **Parameters**:
+  - `x`: Column coordinate of the top-left corner.
+  - `y`: Row coordinate of the top-left corner.
+  - `w`: Width in characters.
+  - `h`: Height in characters.
+  - `title`: Header caption displayed in the top border.
+  - `isDoubleBorder`: Nonzero for double-line border style, zero for single-line style.
+
+#### `TUI_TabBar%%`
+
+```vb
+FUNCTION TUI_TabBar%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG)
+```
+
+- **Description**: Renders a horizontal bar of tabs. Clicking or triggering an inactive tab updates `selectedIdx` and returns `_TRUE`.
+- **Parameters**:
+  - `x`: Column coordinate of the start of the tab bar.
+  - `y`: Row coordinate.
+  - `tabCaptions()`: Array of tab caption strings.
+  - `tabCount`: Total number of tabs in the array.
+  - `selectedIdx`: In/Out 1-based index of the currently active tab.
+- **Return Value**: `_TRUE` if tab selection changed this frame, `_FALSE` otherwise.
+
+#### `TUI_VUMeter`
+
+```vb
+SUB TUI_VUMeter (x AS LONG, y AS LONG, h AS LONG, level AS SINGLE, peak AS SINGLE, isMuted AS _BYTE)
+```
+
+- **Description**: Renders a vertical 1-column VU meter with 3-color graduation (green, yellow, red), peak hold indicator, and muted state support.
+- **Parameters**:
+  - `x`: Column coordinate.
+  - `y`: Top row coordinate.
+  - `h`: Height in character rows.
+  - `level`: Normalized volume level (0.0 to 1.0).
+  - `peak`: Normalized peak volume level (0.0 to 1.0).
+  - `isMuted`: Nonzero to render in muted gray tone.
+
+#### `TUI_ScrollList&`
+
+```vb
+FUNCTION TUI_ScrollList& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS STRING, totalItems AS LONG, selectedIdx AS LONG, scrollOffset AS LONG)
+```
+
+- **Description**: Renders a scrollable selection list with item hover, click selection, scrollbar track, thumb, and mouse wheel navigation.
+- **Parameters**:
+  - `x`: Column coordinate of the top-left corner.
+  - `y`: Row coordinate of the top-left corner.
+  - `w`: Total list width in characters.
+  - `h`: Total visible line height.
+  - `items()`: Array of item strings.
+  - `totalItems`: Valid item count in the array.
+  - `selectedIdx`: In/Out 1-based index of currently selected item.
+  - `scrollOffset`: In/Out 1-based index of top visible item.
+- **Return Value**: 1-based index of item clicked this frame, or 0 if none.
+
+---
+
+## Playlist Management API (`Playlist.bi`)
+
+Include header:
+
+```vb
+'$INCLUDE:'source/Playlist.bi'
+```
+
+### Playlist Constants
+
+```vb
+CONST PLAYLIST_MAX_FILES& = 1024&
+
+CONST PLAYLIST_REPEAT_NONE%% = 0%%
+CONST PLAYLIST_REPEAT_ALL%% = 1%%
+CONST PLAYLIST_REPEAT_ONE%% = 2%%
+```
+
+### Playlist Types
+
+#### `PlaylistEntry`
+
+```vb
+TYPE PlaylistEntry
+    filePath AS STRING
+    title AS STRING
+    duration AS DOUBLE
+END TYPE
+```
+
+#### `Playlist`
+
+```vb
+TYPE Playlist
+    entries(1 TO PLAYLIST_MAX_FILES) AS PlaylistEntry
+    count AS LONG
+    currentIndex AS LONG
+    isShuffle AS _BYTE
+    repeatMode AS _BYTE
+    shuffleOrder(1 TO PLAYLIST_MAX_FILES) AS LONG
+    shufflePos AS LONG
+END TYPE
+```
+
+### Playlist Queue Management and Navigation
+
+#### `Playlist_Initialize` / `Playlist_Clear`
+
+```vb
+SUB Playlist_Initialize (pl AS Playlist)
+SUB Playlist_Clear (pl AS Playlist)
+```
+
+- **Description**: Resets or clears a playlist structure to empty state.
+
+#### `Playlist_Add`
+
+```vb
+FUNCTION Playlist_Add%% (pl AS Playlist, filePath AS STRING, title AS STRING, duration AS DOUBLE)
+SUB Playlist_Add (pl AS Playlist, filePath AS STRING, title AS STRING, duration AS DOUBLE)
+```
+
+- **Description**: Appends a file to the playlist queue. If `title` is empty, the file name is automatically extracted.
+
+#### `Playlist_Remove`
+
+```vb
+FUNCTION Playlist_Remove%% (pl AS Playlist, index AS LONG)
+SUB Playlist_Remove (pl AS Playlist, index AS LONG)
+```
+
+- **Description**: Removes an entry by 1-based index and shifts remaining entries.
+
+#### `Playlist_Shuffle` / `Playlist_SetShuffle`
+
+```vb
+SUB Playlist_Shuffle (pl AS Playlist)
+SUB Playlist_SetShuffle (pl AS Playlist, enable AS _BYTE)
+```
+
+- **Description**: Generates a Fisher-Yates randomized permutation of playlist entries for non-repeating shuffle playback.
+
+#### `Playlist_SetRepeatMode`
+
+```vb
+SUB Playlist_SetRepeatMode (pl AS Playlist, mode AS _BYTE)
+```
+
+- **Description**: Sets repeat behavior (`PLAYLIST_REPEAT_NONE`, `PLAYLIST_REPEAT_ALL`, or `PLAYLIST_REPEAT_ONE`).
+
+#### `Playlist_GetNext&` / `Playlist_GetPrevious&`
+
+```vb
+FUNCTION Playlist_GetNext& (pl AS Playlist)
+FUNCTION Playlist_GetPrevious& (pl AS Playlist)
+```
+
+- **Description**: Advances or retreats through the queue according to shuffle and repeat modes. Returns 0 when the end of a non-repeating playlist is reached.
+
+### Playlist M3U File I/O
+
+#### `Playlist_LoadM3U`
+
+```vb
+FUNCTION Playlist_LoadM3U%% (pl AS Playlist, m3uFilePath AS STRING)
+SUB Playlist_LoadM3U (pl AS Playlist, m3uFilePath AS STRING)
+```
+
+- **Description**: Loads entries and `#EXTINF` metadata from an `.m3u` or `.m3u8` playlist file.
+
+#### `Playlist_SaveM3U`
+
+```vb
+FUNCTION Playlist_SaveM3U%% (pl AS Playlist, m3uFilePath AS STRING)
+SUB Playlist_SaveM3U (pl AS Playlist, m3uFilePath AS STRING)
+```
+
+- **Description**: Exports the current playlist queue and metadata to an `.m3u` file.
