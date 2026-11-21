@@ -830,7 +830,8 @@ SUB Test_STMLoader
     TEST_CHECK player.song.defaultBPM = 125, "Default BPM is 125"
     TEST_CHECK ABS(player.song.pcmMasterGain - (48.0! / 128.0!)) < 0.001!, "PCM master gain matches OpenMPT 48/128"
     TEST_CHECK MODPlayer_IsStereo(player), "STM is stereo"
-    TEST_CHECK player.song.isS3M = _TRUE, "STM uses S3M playback engine"
+    TEST_CHECK player.song.format = MODPLAYER_FORMAT_STM, "STM format is MODPLAYER_FORMAT_STM"
+    TEST_CHECK MODPlayer_GetFormat(player) = MODPLAYER_FORMAT_STM, "MODPlayer_GetFormat returns STM"
     TEST_CHECK player.song.useST2Tempo = _TRUE, "STM sets useST2Tempo flag"
     TEST_CHECK player.song.useST2Vibrato = _TRUE, "STM sets useST2Vibrato flag"
     TEST_CHECK MODPlayer_GetPatternRows(player, 0) = 64, "Pattern 0 has 64 rows"
@@ -1106,7 +1107,8 @@ SUB Test_RADLoader
     DIM player AS MODPlayer
     TEST_REQUIRE RADLoader_LoadFromDisk(player, "mods/ALLOYRUN.RAD"), "RADLoader loads ALLOYRUN.RAD"
     TEST_CHECK MODPlayer_GetType(player) = "RAD1", "Song subtype is RAD1"
-    TEST_CHECK player.song.isRAD, "isRAD flag is true"
+    TEST_CHECK player.song.format = MODPLAYER_FORMAT_RAD, "format is MODPLAYER_FORMAT_RAD"
+    TEST_CHECK MODPlayer_GetFormat(player) = MODPLAYER_FORMAT_RAD, "MODPlayer_GetFormat returns RAD"
     TEST_CHECK player.song.channels = 9, "RAD song has 9 channels"
     TEST_CHECK player.song.instruments > 0, "RAD song has instruments"
     TEST_CHECK player.song.orders > 0, "RAD song has orders"
@@ -1130,7 +1132,8 @@ SUB Test_RADLoader
     TEST_REQUIRE RADLoader_LoadFromMemory(pMem, buf), "RADLoader loads from memory"
     TEST_CHECK MODPlayer_GetType(pMem) = "RAD1", "Memory load subtype is RAD1"
     TEST_CHECK pMem.song.channels = 9, "Memory load channels is 9"
-    TEST_CHECK pMem.song.isRAD, "Memory load isRAD is true"
+    TEST_CHECK pMem.song.format = MODPLAYER_FORMAT_RAD, "Memory load format is RAD"
+    TEST_CHECK MODPlayer_GetFormat(pMem) = MODPLAYER_FORMAT_RAD, "MODPlayer_GetFormat returns RAD"
     MODPlayer_Finalize pMem
     TEST_CASE_END
 
@@ -1206,7 +1209,8 @@ SUB Test_RAD_Playback
         DIM radPlayer AS MODPlayer
         TEST_REQUIRE MODPlayer_LoadFromDisk(radPlayer, radFiles(rIdx)), "Load " + radFiles(rIdx)
         TEST_CHECK MODPlayer_GetType(radPlayer) = "RAD1", "Subtype is RAD1: " + radFiles(rIdx)
-        TEST_CHECK radPlayer.song.isRAD, "isRAD flag is true: " + radFiles(rIdx)
+        TEST_CHECK radPlayer.song.format = MODPLAYER_FORMAT_RAD, "format is RAD: " + radFiles(rIdx)
+        TEST_CHECK MODPlayer_GetFormat(radPlayer) = MODPLAYER_FORMAT_RAD, "MODPlayer_GetFormat returns RAD: " + radFiles(rIdx)
         TEST_CHECK radPlayer.song.channels = 9, "Channel count is 9: " + radFiles(rIdx)
         TEST_CHECK radPlayer.song.instruments > 0, "Has instruments: " + radFiles(rIdx)
         TEST_CHECK radPlayer.song.orders > 0, "Has orders: " + radFiles(rIdx)
@@ -1236,7 +1240,8 @@ SUB Test_ULTLoader
     TEST_CHECK player.song.channels = 11, "Channels is 11"
     TEST_CHECK player.song.instruments = 11, "Instruments is 11"
     TEST_CHECK player.song.patterns = 16, "Patterns is 16"
-    TEST_CHECK player.song.isULT, "isULT is true"
+    TEST_CHECK player.song.format = MODPLAYER_FORMAT_ULT, "format is ULT"
+    TEST_CHECK MODPlayer_GetFormat(player) = MODPLAYER_FORMAT_ULT, "MODPlayer_GetFormat returns ULT"
     TEST_CHECK player.song.isStereo, "isStereo is true"
     MODPlayer_Finalize player
 
@@ -1246,7 +1251,8 @@ SUB Test_ULTLoader
     TEST_CHECK player.song.channels = 19, "Channels is 19"
     TEST_CHECK player.song.instruments = 16, "Instruments is 16"
     TEST_CHECK player.song.patterns = 39, "Patterns is 39"
-    TEST_CHECK player.song.isULT, "isULT is true"
+    TEST_CHECK player.song.format = MODPLAYER_FORMAT_ULT, "format is ULT"
+    TEST_CHECK MODPlayer_GetFormat(player) = MODPLAYER_FORMAT_ULT, "MODPlayer_GetFormat returns ULT"
     MODPlayer_Finalize player
 
     ' v1.5 (ver 3)
@@ -1255,7 +1261,8 @@ SUB Test_ULTLoader
     TEST_CHECK player.song.channels = 6, "Channels is 6"
     TEST_CHECK player.song.instruments = 5, "Instruments is 5"
     TEST_CHECK player.song.patterns = 18, "Patterns is 18"
-    TEST_CHECK player.song.isULT, "isULT is true"
+    TEST_CHECK player.song.format = MODPLAYER_FORMAT_ULT, "format is ULT"
+    TEST_CHECK MODPlayer_GetFormat(player) = MODPLAYER_FORMAT_ULT, "MODPlayer_GetFormat returns ULT"
     MODPlayer_Finalize player
 
     ' v1.6 (ver 4)
@@ -1264,7 +1271,8 @@ SUB Test_ULTLoader
     TEST_CHECK player.song.channels = 18, "Channels is 18"
     TEST_CHECK player.song.instruments = 26, "Instruments is 26"
     TEST_CHECK player.song.patterns = 40, "Patterns is 40"
-    TEST_CHECK player.song.isULT, "isULT is true"
+    TEST_CHECK player.song.format = MODPLAYER_FORMAT_ULT, "format is ULT"
+    TEST_CHECK MODPlayer_GetFormat(player) = MODPLAYER_FORMAT_ULT, "MODPlayer_GetFormat returns ULT"
     MODPlayer_Finalize player
     TEST_CASE_END
 
@@ -1275,7 +1283,8 @@ SUB Test_ULTLoader
     TEST_REQUIRE ULTLoader_LoadFromMemory(pMem, buf), "ULTLoader loads from memory"
     TEST_CHECK MODPlayer_GetType(pMem) = "ULT1", "Memory load subtype is ULT1"
     TEST_CHECK pMem.song.channels = 11, "Memory load channels is 11"
-    TEST_CHECK pMem.song.isULT, "Memory load isULT is true"
+    TEST_CHECK pMem.song.format = MODPLAYER_FORMAT_ULT, "Memory load format is ULT"
+    TEST_CHECK MODPlayer_GetFormat(pMem) = MODPLAYER_FORMAT_ULT, "MODPlayer_GetFormat returns ULT"
     MODPlayer_Finalize pMem
     TEST_CASE_END
 
@@ -1284,7 +1293,8 @@ SUB Test_ULTLoader
     TEST_REQUIRE MODPlayer_LoadFromDisk(pAuto, "mods/CybOccultation.ult"), "Unified loader loads CybOccultation.ult"
     TEST_CHECK MODPlayer_GetType(pAuto) = "ULT4", "Auto-detected subtype is ULT4"
     TEST_CHECK pAuto.song.channels = 18, "Auto-detected channels count is 18"
-    TEST_CHECK pAuto.song.isULT, "Auto-detected isULT is true"
+    TEST_CHECK pAuto.song.format = MODPLAYER_FORMAT_ULT, "Auto-detected format is ULT"
+    TEST_CHECK MODPlayer_GetFormat(pAuto) = MODPLAYER_FORMAT_ULT, "MODPlayer_GetFormat returns ULT"
     MODPlayer_Finalize pAuto
     TEST_CASE_END
 
@@ -1364,7 +1374,8 @@ SUB Test_MDLLoader
     TEST_CHECK MODPlayer_GetType(player) = "MDL0", "Subtype is MDL0"
     TEST_CHECK player.song.channels = 4, "Channels is 4"
     TEST_CHECK player.song.instruments = 1, "Instruments is 1"
-    TEST_CHECK player.song.isMDL, "isMDL is true"
+    TEST_CHECK player.song.format = MODPLAYER_FORMAT_MDL, "format is MDL"
+    TEST_CHECK MODPlayer_GetFormat(player) = MODPLAYER_FORMAT_MDL, "MODPlayer_GetFormat returns MDL"
     TEST_CHECK player.song.isStereo, "isStereo is true"
     MODPlayer_Finalize player
 
@@ -1372,7 +1383,8 @@ SUB Test_MDLLoader
     TEST_CHECK MODPlayer_GetType(player) = "MDL0", "Subtype is MDL0"
     TEST_CHECK player.song.channels = 8, "Channels is 8"
     TEST_CHECK player.song.instruments = 17, "Instruments is 17"
-    TEST_CHECK player.song.isMDL, "isMDL is true"
+    TEST_CHECK player.song.format = MODPLAYER_FORMAT_MDL, "format is MDL"
+    TEST_CHECK MODPlayer_GetFormat(player) = MODPLAYER_FORMAT_MDL, "MODPlayer_GetFormat returns MDL"
     MODPlayer_Finalize player
 
     ' v1.0 (Digitrakker 2.9 / 3.0 early)
@@ -1380,7 +1392,8 @@ SUB Test_MDLLoader
     TEST_CHECK MODPlayer_GetType(player) = "MDL1", "Subtype is MDL1"
     TEST_CHECK player.song.channels = 6, "Channels is 6"
     TEST_CHECK player.song.instruments = 4, "Instruments is 4"
-    TEST_CHECK player.song.isMDL, "isMDL is true"
+    TEST_CHECK player.song.format = MODPLAYER_FORMAT_MDL, "format is MDL"
+    TEST_CHECK MODPlayer_GetFormat(player) = MODPLAYER_FORMAT_MDL, "MODPlayer_GetFormat returns MDL"
     MODPlayer_Finalize player
 
     ' v1.1 (Digitrakker 3.0+)
@@ -1388,20 +1401,23 @@ SUB Test_MDLLoader
     TEST_CHECK MODPlayer_GetType(player) = "MDL2", "Subtype is MDL2"
     TEST_CHECK player.song.channels = 2, "Channels is 2"
     TEST_CHECK player.song.instruments = 2, "Instruments is 2"
-    TEST_CHECK player.song.isMDL, "isMDL is true"
+    TEST_CHECK player.song.format = MODPLAYER_FORMAT_MDL, "format is MDL"
+    TEST_CHECK MODPlayer_GetFormat(player) = MODPLAYER_FORMAT_MDL, "MODPlayer_GetFormat returns MDL"
     MODPlayer_Finalize player
 
     TEST_REQUIRE MDLLoader_LoadFromDisk(player, "mods/4s.mdl"), "Load 4s.mdl (v1.1)"
     TEST_CHECK MODPlayer_GetType(player) = "MDL2", "Subtype is MDL2"
     TEST_CHECK player.song.channels = 12, "Channels is 12"
     TEST_CHECK player.song.instruments = 24, "Instruments is 24"
-    TEST_CHECK player.song.isMDL, "isMDL is true"
+    TEST_CHECK player.song.format = MODPLAYER_FORMAT_MDL, "format is MDL"
+    TEST_CHECK MODPlayer_GetFormat(player) = MODPLAYER_FORMAT_MDL, "MODPlayer_GetFormat returns MDL"
     MODPlayer_Finalize player
 
     ' 16-bit packed samples
     TEST_REQUIRE MDLLoader_LoadFromDisk(player, "mods/Calliope.mdl"), "Load Calliope.mdl (16-bit packed samples)"
     TEST_CHECK MODPlayer_GetType(player) = "MDL2", "Subtype is MDL2"
-    TEST_CHECK player.song.isMDL, "isMDL is true"
+    TEST_CHECK player.song.format = MODPLAYER_FORMAT_MDL, "format is MDL"
+    TEST_CHECK MODPlayer_GetFormat(player) = MODPLAYER_FORMAT_MDL, "MODPlayer_GetFormat returns MDL"
     MODPlayer_Finalize player
     TEST_CASE_END
 
@@ -1412,7 +1428,8 @@ SUB Test_MDLLoader
     TEST_REQUIRE MDLLoader_LoadFromMemory(pMem, buf), "MDLLoader loads from memory"
     TEST_CHECK MODPlayer_GetType(pMem) = "MDL2", "Memory load subtype is MDL2"
     TEST_CHECK pMem.song.channels = 2, "Memory load channels is 2"
-    TEST_CHECK pMem.song.isMDL, "Memory load isMDL is true"
+    TEST_CHECK pMem.song.format = MODPLAYER_FORMAT_MDL, "Memory load format is MDL"
+    TEST_CHECK MODPlayer_GetFormat(pMem) = MODPLAYER_FORMAT_MDL, "MODPlayer_GetFormat returns MDL"
     MODPlayer_Finalize pMem
     TEST_CASE_END
 
@@ -1421,7 +1438,8 @@ SUB Test_MDLLoader
     TEST_REQUIRE MODPlayer_LoadFromDisk(pAuto, "mods/Chip Zone.mdl"), "Unified loader loads Chip Zone.mdl"
     TEST_CHECK MODPlayer_GetType(pAuto) = "MDL1", "Auto-detected subtype is MDL1"
     TEST_CHECK pAuto.song.channels = 6, "Auto-detected channels count is 6"
-    TEST_CHECK pAuto.song.isMDL, "Auto-detected isMDL is true"
+    TEST_CHECK pAuto.song.format = MODPLAYER_FORMAT_MDL, "Auto-detected format is MDL"
+    TEST_CHECK MODPlayer_GetFormat(pAuto) = MODPLAYER_FORMAT_MDL, "MODPlayer_GetFormat returns MDL"
     MODPlayer_Finalize pAuto
     TEST_CASE_END
 
@@ -2811,7 +2829,8 @@ SUB Test_STM_Effects
     TEST_CHECK pSynth.song.channels = 4, "STM has 4 channels"
     TEST_CHECK pSynth.song.defaultSpeed = 6, "Default speed is 6"
     TEST_CHECK pSynth.song.defaultBPM = 125, "Default BPM is 125"
-    TEST_CHECK pSynth.song.isS3M = _TRUE, "isS3M is _TRUE"
+    TEST_CHECK pSynth.song.format = MODPLAYER_FORMAT_STM, "format is STM"
+    TEST_CHECK MODPlayer_GetFormat(pSynth) = MODPLAYER_FORMAT_STM, "MODPlayer_GetFormat returns STM"
     TEST_CHECK pSynth.instrument(0).length = 16, "Sample 0 length is 16"
     TEST_CHECK pSynth.instrument(0).volume = 64, "Sample 0 volume is 64"
     TEST_CHECK pSynth.instrument(0).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, "Sample 0 is looped"
@@ -3139,6 +3158,76 @@ SUB Test_MODPlayer_TypePromotions
     TEST_CASE_END
 END SUB
 
+''' @brief Tests MODPlayer format constants and MODPlayer_GetFormat function across all formats.
+SUB Test_MODPlayer_FormatConstants
+    TEST_CASE_BEGIN "Format Constants: Freshly initialized player has MODPLAYER_FORMAT_NONE"
+    DIM pNone AS MODPlayer
+    TEST_REQUIRE MODPlayer_Initialize(pNone), "Initialize player"
+    TEST_CHECK pNone.song.format = MODPLAYER_FORMAT_NONE, "Format is MODPLAYER_FORMAT_NONE"
+    TEST_CHECK MODPlayer_GetFormat(pNone) = MODPLAYER_FORMAT_NONE, "GetFormat returns MODPLAYER_FORMAT_NONE"
+    MODPlayer_Finalize pNone
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Format Constants: Verification across all 9 tracker formats"
+    DIM pTest AS MODPlayer
+
+    ' 1. MOD
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pTest, "mods/Enigma.mod"), "Load MOD"
+    TEST_CHECK pTest.song.format = MODPLAYER_FORMAT_MOD, "MOD format is MODPLAYER_FORMAT_MOD"
+    TEST_CHECK MODPlayer_GetFormat(pTest) = MODPLAYER_FORMAT_MOD, "MODPlayer_GetFormat returns MOD"
+    MODPlayer_Finalize pTest
+
+    ' 2. STM
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pTest, "mods/OXYGENE.STM"), "Load STM"
+    TEST_CHECK pTest.song.format = MODPLAYER_FORMAT_STM, "STM format is MODPLAYER_FORMAT_STM"
+    TEST_CHECK MODPlayer_GetFormat(pTest) = MODPLAYER_FORMAT_STM, "MODPlayer_GetFormat returns STM"
+    MODPlayer_Finalize pTest
+
+    ' 3. S3M
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pTest, "mods/A Touch of Spring.s3m"), "Load S3M"
+    TEST_CHECK pTest.song.format = MODPLAYER_FORMAT_S3M, "S3M format is MODPLAYER_FORMAT_S3M"
+    TEST_CHECK MODPlayer_GetFormat(pTest) = MODPLAYER_FORMAT_S3M, "MODPlayer_GetFormat returns S3M"
+    MODPlayer_Finalize pTest
+
+    ' 4. 669
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pTest, "mods/Blue Waters.669"), "Load 669"
+    TEST_CHECK pTest.song.format = MODPLAYER_FORMAT_669, "669 format is MODPLAYER_FORMAT_669"
+    TEST_CHECK MODPlayer_GetFormat(pTest) = MODPLAYER_FORMAT_669, "MODPlayer_GetFormat returns 669"
+    MODPlayer_Finalize pTest
+
+    ' 5. MTM
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pTest, "mods/cougarstory-ii.mtm"), "Load MTM"
+    TEST_CHECK pTest.song.format = MODPLAYER_FORMAT_MTM, "MTM format is MODPLAYER_FORMAT_MTM"
+    TEST_CHECK MODPlayer_GetFormat(pTest) = MODPLAYER_FORMAT_MTM, "MODPlayer_GetFormat returns MTM"
+    MODPlayer_Finalize pTest
+
+    ' 6. FAR
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pTest, "mods/M31.far"), "Load FAR"
+    TEST_CHECK pTest.song.format = MODPLAYER_FORMAT_FAR, "FAR format is MODPLAYER_FORMAT_FAR"
+    TEST_CHECK MODPlayer_GetFormat(pTest) = MODPLAYER_FORMAT_FAR, "MODPlayer_GetFormat returns FAR"
+    MODPlayer_Finalize pTest
+
+    ' 7. RAD
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pTest, "mods/ALLOYRUN.RAD"), "Load RAD"
+    TEST_CHECK pTest.song.format = MODPLAYER_FORMAT_RAD, "RAD format is MODPLAYER_FORMAT_RAD"
+    TEST_CHECK MODPlayer_GetFormat(pTest) = MODPLAYER_FORMAT_RAD, "MODPlayer_GetFormat returns RAD"
+    MODPlayer_Finalize pTest
+
+    ' 8. ULT
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pTest, "mods/4th Dimension.ult"), "Load ULT"
+    TEST_CHECK pTest.song.format = MODPLAYER_FORMAT_ULT, "ULT format is MODPLAYER_FORMAT_ULT"
+    TEST_CHECK MODPlayer_GetFormat(pTest) = MODPLAYER_FORMAT_ULT, "MODPlayer_GetFormat returns ULT"
+    MODPlayer_Finalize pTest
+
+    ' 9. MDL
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pTest, "mods/Bare Bones Chip.mdl"), "Load MDL"
+    TEST_CHECK pTest.song.format = MODPLAYER_FORMAT_MDL, "MDL format is MODPLAYER_FORMAT_MDL"
+    TEST_CHECK MODPlayer_GetFormat(pTest) = MODPLAYER_FORMAT_MDL, "MODPlayer_GetFormat returns MDL"
+    MODPlayer_Finalize pTest
+
+    TEST_CASE_END
+END SUB
+
 IF _DIREXISTS("../mods") THEN CHDIR ".."
 
 ' Run all test suites
@@ -3157,6 +3246,7 @@ Test_Opal_SoundGeneration
 Test_Opal_RhythmMode
 Test_Opal_OPL2_OPL3_Modes
 Test_MODPlayer_Lifecycle
+Test_MODPlayer_FormatConstants
 Test_MODPlayer_MOD
 Test_MODPlayer_Startrekker_AM
 Test_MOD_Effects

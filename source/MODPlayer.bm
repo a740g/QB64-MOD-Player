@@ -150,6 +150,13 @@ SUB MODPlayer_Finalize (player AS MODPlayer)
     END IF
 END SUB
 
+''' @brief Checks whether the loaded song uses S3M effect and volume semantics (S3M or STM).
+''' @param player The MOD player instance.
+''' @return _TRUE if S3M/STM semantics apply, _FALSE otherwise.
+FUNCTION __MODPlayer_UsesS3MSemantics%% (player AS MODPlayer)
+    __MODPlayer_UsesS3MSemantics = (player.song.format = MODPLAYER_FORMAT_S3M _ORELSE player.song.format = MODPLAYER_FORMAT_STM)
+END FUNCTION
+
 ''' @brief Prepares channels, initializes the audio mixer, and begins song playback.
 SUB MODPlayer_Play (player AS MODPlayer)
     IF NOT player.initialized THEN EXIT SUB
@@ -168,7 +175,7 @@ SUB MODPlayer_Play (player AS MODPlayer)
     player.song.patternDelay = 0
     player.song.isPaused = _FALSE
 
-    IF player.song.isS3M THEN
+    IF __MODPlayer_UsesS3MSemantics(player) THEN
         player.song.globalVolume = player.song.defaultGlobalVolume
         SoftSynth_SetGlobalVolume player.synth, player.song.globalVolume / __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
     END IF
@@ -203,7 +210,7 @@ SUB MODPlayer_Play (player AS MODPlayer)
             player.channel(channelIndex).delayedStartPosition = 0
             player.channel(channelIndex).patternLoopRow = 0
             player.channel(channelIndex).patternLoopRowCounter = 0
-            IF player.song.isS3M _ORELSE player.song.isRAD THEN
+            IF __MODPlayer_UsesS3MSemantics(player) _ORELSE player.song.format = MODPLAYER_FORMAT_RAD THEN
                 player.channel(channelIndex).channelVolume = __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
                 player.channel(channelIndex).panning = player.channel(channelIndex).defaultPanning
                 SoftSynth_SetVoiceSurround player.synth, channelIndex, _FALSE
@@ -249,7 +256,7 @@ SUB MODPlayer_Play (player AS MODPlayer)
                         Opal_SetPan player.opl, player.channel(channelIndex).oplChannel, 64
                     END IF
                 END IF
-            ELSEIF player.song.subtype = "FAR" THEN
+            ELSEIF player.song.format = MODPLAYER_FORMAT_FAR THEN
                 player.channel(channelIndex).panning = player.channel(channelIndex).defaultPanning
                 SoftSynth_SetVoiceSurround player.synth, channelIndex, _FALSE
                 player.channel(channelIndex).portamentoSpeed = 0
@@ -490,7 +497,7 @@ SUB __MODPlayer_SetVoiceVolume (player AS MODPlayer, nChannel AS _UNSIGNED LONG,
     DIM outputVolume AS SINGLE
     outputVolume = _CLAMP(volume, 0!, 1!)
 
-    IF player.song.isS3M _ORELSE player.song.subtype = "FAR" THEN
+    IF __MODPlayer_UsesS3MSemantics(player) _ORELSE player.song.format = MODPLAYER_FORMAT_FAR THEN
         outputVolume = outputVolume * (player.channel(nChannel).channelVolume / __MODPLAYER_S3M_GLOBAL_VOLUME_MAX)
     END IF
     outputVolume = outputVolume * player.song.pcmMasterGain
@@ -831,7 +838,7 @@ SUB __MODPlayer_UpdateFMVolume (player AS MODPlayer, nChannel AS _UNSIGNED LONG)
 
     DIM vol AS LONG
     vol = player.channel(nChannel).volume
-    IF player.song.isS3M THEN vol = (vol * player.channel(nChannel).channelVolume) \ __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
+    IF __MODPlayer_UsesS3MSemantics(player) THEN vol = (vol * player.channel(nChannel).channelVolume) \ __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
     IF player.channel(nChannel).tremorMuted THEN vol = 0
     vol = _CLAMP(vol, 0, __MODPLAYER_INSTRUMENT_VOLUME_MAX)
 
@@ -947,7 +954,7 @@ SUB __MODPlayer_UpdateFMChannelRow (player AS MODPlayer, nChannel AS _UNSIGNED L
     IF nVolume <= __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN
         player.channel(nChannel).volume = nVolume
         __MODPlayer_UpdateFMVolume player, nChannel
-    ELSEIF player.song.isS3M THEN
+    ELSEIF __MODPlayer_UsesS3MSemantics(player) THEN
         SELECT CASE nVolume
             CASE 65 TO 74
                 player.channel(nChannel).volume = _CLAMP(player.channel(nChannel).volume + nVolume - 65, 0, __MODPLAYER_INSTRUMENT_VOLUME_MAX)
@@ -1128,7 +1135,7 @@ SUB __MODPlayer_UpdateFMChannelTick (player AS MODPlayer, nChannel AS _UNSIGNED 
                 IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_FM_MELODY _ANDALSO player.channel(nChannel).oplKeyOn THEN regB0Porta = regB0Porta OR &H20
                 Opal_Write player.opl, &HB0 + oplChan, regB0Porta
             END IF
-            IF nEffect = __MODPLAYER_FX_PORTAMENTO_VOLUME_SLIDE _ANDALSO player.song.isRAD THEN
+            IF nEffect = __MODPLAYER_FX_PORTAMENTO_VOLUME_SLIDE _ANDALSO player.song.format = MODPLAYER_FORMAT_RAD THEN
                 DIM radVolDelta5 AS LONG
                 IF nOperand >= 50 THEN
                     radVolDelta5 = CLNG(nOperand) - 50
@@ -1140,7 +1147,7 @@ SUB __MODPlayer_UpdateFMChannelTick (player AS MODPlayer, nChannel AS _UNSIGNED 
             END IF
 
         CASE __MODPLAYER_FX_VOLUME_SLIDE
-            IF player.song.isRAD THEN
+            IF player.song.format = MODPLAYER_FORMAT_RAD THEN
                 DIM radVolDelta AS LONG
                 IF nOperand >= 50 THEN
                     radVolDelta = CLNG(nOperand) - 50
@@ -1272,7 +1279,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
             END IF
 
             ' S3M and RAD song and channel-volume effects remain meaningful on OPL rows.
-            IF player.song.isS3M _ORELSE player.song.isRAD THEN
+            IF __MODPlayer_UsesS3MSemantics(player) _ORELSE player.song.format = MODPLAYER_FORMAT_RAD THEN
                 SELECT CASE nEffect
                     CASE __MODPLAYER_FX_SPEED
                         IF nOperand THEN
@@ -1299,7 +1306,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                     CASE __MODPLAYER_FX_PATTERN_BREAK
                         DIM breakTargetRowFM AS LONG
                         breakTargetRowFM = (nOpX * 10) + nOpY
-                        IF NOT (player.song.isS3M _ANDALSO breakTargetRowFM >= 64) THEN
+                        IF NOT (__MODPlayer_UsesS3MSemantics(player) _ANDALSO breakTargetRowFM >= 64) THEN
                             player.song.patternRow = breakTargetRowFM - 1
                             IF NOT breakEffectFlag _ANDALSO NOT jumpEffectFlag THEN
                                 player.song.orderPosition = player.song.orderPosition + 1
@@ -1425,7 +1432,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                                 END IF
                                 IF player.channel(loopChannelFM).patternLoopRowCounter THEN
                                     player.song.patternRow = player.channel(loopChannelFM).patternLoopRow - 1
-                                ELSEIF player.song.isS3M THEN
+                                ELSEIF __MODPlayer_UsesS3MSemantics(player) THEN
                                     player.channel(loopChannelFM).patternLoopRow = player.song.tickPatternRow + 1
                                 END IF
                             END IF
@@ -1449,13 +1456,13 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
             player.channel(nChannel).panbrelloActive = _FALSE
             __MODPlayer_SetChannelPanning player, nChannel, player.channel(nChannel).panbrelloBasePanning
         END IF
-        IF player.song.isS3M _ANDALSO player.channel(nChannel).tremorMuted _ANDALSO nEffect <> __MODPLAYER_FX_TREMOR THEN
+        IF __MODPlayer_UsesS3MSemantics(player) _ANDALSO player.channel(nChannel).tremorMuted _ANDALSO nEffect <> __MODPLAYER_FX_TREMOR THEN
             player.channel(nChannel).tremorMuted = _FALSE
             __MODPlayer_ApplyChannelVolume player, nChannel
         END IF
 
         delayedNoteRow = (nEffect = __MODPLAYER_FX_EXT _ANDALSO nOpX = __MODPLAYER_FX_EXT_NOTE_DELAY _ANDALSO nOpY > 0)
-        IF player.song.isS3M _ANDALSO nEffect = __MODPLAYER_FX_EXT _ANDALSO nOpX = __MODPLAYER_FX_EXT_NOTE_DELAY THEN delayedNoteRow = _TRUE
+        IF __MODPlayer_UsesS3MSemantics(player) _ANDALSO nEffect = __MODPLAYER_FX_EXT _ANDALSO nOpX = __MODPLAYER_FX_EXT_NOTE_DELAY THEN delayedNoteRow = _TRUE
         player.channel(nChannel).noteDelayPending = _FALSE
 
         IF delayedNoteRow THEN
@@ -1525,7 +1532,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                     IF _SHR(player.channel(nChannel).waveControl, 4) < 4 THEN player.channel(nChannel).tremoloPosition = 0
 
                     ' A tone-portamento volume column keeps the current note running.
-                    IF nEffect <> __MODPLAYER_FX_PORTAMENTO _ANDALSO nEffect <> __MODPLAYER_FX_PORTAMENTO_VOLUME_SLIDE _ANDALSO nEffect <> __MODPLAYER_FX_PORTA_VOL_FINE_SLIDE _ANDALSO NOT (player.song.isS3M _ANDALSO nVolume = 125) THEN
+                    IF nEffect <> __MODPLAYER_FX_PORTAMENTO _ANDALSO nEffect <> __MODPLAYER_FX_PORTAMENTO_VOLUME_SLIDE _ANDALSO nEffect <> __MODPLAYER_FX_PORTA_VOL_FINE_SLIDE _ANDALSO NOT (__MODPlayer_UsesS3MSemantics(player) _ANDALSO nVolume = 125) THEN
                         player.channel(nChannel).period = player.channel(nChannel).lastPeriod
                     END IF
                 ELSE
@@ -1539,7 +1546,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
 
         IF NOT delayedNoteRow _ANDALSO nVolume <= __MODPLAYER_INSTRUMENT_VOLUME_MAX THEN
             player.channel(nChannel).volume = nVolume
-        ELSEIF NOT delayedNoteRow _ANDALSO player.song.isS3M THEN
+        ELSEIF NOT delayedNoteRow _ANDALSO __MODPlayer_UsesS3MSemantics(player) THEN
             SELECT CASE nVolume
                 CASE 65 TO 74
                     player.channel(nChannel).volume = _CLAMP(player.channel(nChannel).volume + nVolume - 65, 0, __MODPLAYER_INSTRUMENT_VOLUME_MAX)
@@ -1552,7 +1559,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
 
         IF nNote = __MODPLAYER_NOTE_KEY_OFF THEN
             player.channel(nChannel).volume = 0
-            IF player.song.isS3M THEN SoftSynth_StopVoice player.synth, nChannel
+            IF __MODPlayer_UsesS3MSemantics(player) THEN SoftSynth_StopVoice player.synth, nChannel
             IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
                 player.channel(nChannel).amLevel = 0
                 player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
@@ -1561,7 +1568,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                 SoftSynth_SetVoiceVolume player.synth, nChannel, 0!
             END IF
         END IF
-        IF player.song.isS3M _ANDALSO nVolume = 125 _ANDALSO nNote < __MODPLAYER_NOTE_NONE _ANDALSO NOT delayedNoteRow THEN
+        IF __MODPlayer_UsesS3MSemantics(player) _ANDALSO nVolume = 125 _ANDALSO nNote < __MODPLAYER_NOTE_NONE _ANDALSO NOT delayedNoteRow THEN
             player.channel(nChannel).portamentoTo = player.channel(nChannel).lastPeriod
             player.channel(nChannel).restart = _FALSE
         END IF
@@ -1621,7 +1628,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                 END IF
 
             CASE __MODPLAYER_FX_ARPEGGIO
-                IF player.song.isS3M THEN
+                IF __MODPlayer_UsesS3MSemantics(player) THEN
                     IF nOperand THEN player.channel(nChannel).lastArpeggio = nOperand
                 END IF
 
@@ -1641,12 +1648,12 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
 
             CASE __MODPLAYER_FX_PATTERN_BREAK
                 DIM breakTargetRow AS LONG
-                IF LEFT$(player.song.subtype, 3) = "MTM" THEN
+                IF player.song.format = MODPLAYER_FORMAT_MTM THEN
                     breakTargetRow = nOperand
                 ELSE
                     breakTargetRow = (nOpX * 10) + nOpY
                 END IF
-                IF NOT (player.song.isS3M _ANDALSO breakTargetRow >= 64) THEN
+                IF NOT (__MODPlayer_UsesS3MSemantics(player) _ANDALSO breakTargetRow >= 64) THEN
                     player.song.patternRow = breakTargetRow - 1
                     IF NOT breakEffectFlag _ANDALSO NOT jumpEffectFlag THEN
                         player.song.orderPosition = player.song.orderPosition + 1
@@ -1688,7 +1695,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                         player.channel(nChannel).c2Spd = __MODPlayer_GetS3MC2Spd(nOpY)
                         IF player.channel(nChannel).note < __MODPLAYER_NOTE_NONE THEN
                             player.channel(nChannel).lastPeriod = (8363 * __MODPlayer_PeriodTable(player.channel(nChannel).note)) \ player.channel(nChannel).c2Spd
-                            IF player.song.isS3M THEN
+                            IF __MODPlayer_UsesS3MSemantics(player) THEN
                                 player.channel(nChannel).period = player.channel(nChannel).lastPeriod
                             ELSEIF nNote < __MODPLAYER_NOTE_NONE _ANDALSO nEffect <> __MODPLAYER_FX_PORTAMENTO _ANDALSO nEffect <> __MODPLAYER_FX_PORTAMENTO_VOLUME_SLIDE _ANDALSO nEffect <> __MODPLAYER_FX_PORTA_VOL_FINE_SLIDE THEN
                                 player.channel(nChannel).period = player.channel(nChannel).lastPeriod
@@ -1698,7 +1705,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                     CASE __MODPLAYER_FX_EXT_PATTERN_LOOP
                         DIM loopChannel AS LONG
                         loopChannel = nChannel
-                        IF player.song.isS3M THEN loopChannel = 0
+                        IF __MODPlayer_UsesS3MSemantics(player) THEN loopChannel = 0
                         IF nOpY = 0 THEN
                             player.channel(loopChannel).patternLoopRow = player.song.tickPatternRow
                         ELSE
@@ -1709,7 +1716,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                             END IF
                             IF player.channel(loopChannel).patternLoopRowCounter THEN
                                 player.song.patternRow = player.channel(loopChannel).patternLoopRow - 1
-                            ELSEIF player.song.isS3M THEN
+                            ELSEIF __MODPlayer_UsesS3MSemantics(player) THEN
                                 player.channel(loopChannel).patternLoopRow = player.song.tickPatternRow + 1
                             END IF
                         END IF
@@ -1733,7 +1740,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                     CASE __MODPLAYER_FX_EXT_NOTE_CUT
                         IF nOpY = 0 THEN
                             player.channel(nChannel).volume = 0
-                            IF player.song.isS3M THEN SoftSynth_StopVoice player.synth, nChannel
+                            IF __MODPlayer_UsesS3MSemantics(player) THEN SoftSynth_StopVoice player.synth, nChannel
                             IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
                                 player.channel(nChannel).amLevel = 0
                                 player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
@@ -1781,7 +1788,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
                 END IF
 
             CASE __MODPLAYER_FX_VOLUME_FINE_SLIDE
-                IF player.song.isS3M THEN
+                IF __MODPlayer_UsesS3MSemantics(player) THEN
                     IF nOperand THEN player.channel(nChannel).lastVolumeSlide = nOperand ELSE nOperand = player.channel(nChannel).lastVolumeSlide
                     nOpX = _SHR(nOperand, 4)
                     nOpY = nOperand AND &HF
@@ -1930,7 +1937,7 @@ SUB __MODPlayer_UpdateRow (player AS MODPlayer)
             IF NOT noFrequency THEN
                 IF nEffect <> __MODPLAYER_FX_TREMOLO THEN
                     __MODPlayer_ApplyChannelVolume player, nChannel
-                ELSEIF player.song.isS3M THEN
+                ELSEIF __MODPlayer_UsesS3MSemantics(player) THEN
                     __MODPlayer_ApplyChannelVolume player, nChannel
                 END IF
                 IF player.channel(nChannel).period > 0 THEN
@@ -1966,7 +1973,7 @@ SUB __MODPlayer_UpdateTick (player AS MODPlayer)
             nVolume = player.pattern(player.song.tickPattern).note(player.song.tickPatternRow, nChannel).volume
             nEffect = player.pattern(player.song.tickPattern).note(player.song.tickPatternRow, nChannel).effect
             nOperand = player.pattern(player.song.tickPattern).note(player.song.tickPatternRow, nChannel).operand
-            IF player.song.isS3M THEN
+            IF __MODPlayer_UsesS3MSemantics(player) THEN
                 SELECT CASE nVolume
                     CASE 85 TO 94
                         player.channel(nChannel).volume = _CLAMP(player.channel(nChannel).volume - nVolume + 85, 0, __MODPLAYER_INSTRUMENT_VOLUME_MAX)
@@ -2026,14 +2033,14 @@ SUB __MODPlayer_UpdateTick (player AS MODPlayer)
         nOpY = nOperand AND &HF
         __MODPlayer_TriggerDelayedNote player, nChannel
 
-        IF player.song.isS3M _ORELSE player.channel(nChannel).period > 0 THEN
+        IF __MODPlayer_UsesS3MSemantics(player) _ORELSE player.channel(nChannel).period > 0 THEN
             IF player.channel(nChannel).period > 0 THEN __MODPlayer_DoInvertLoop player, nChannel ' called every tick
 
             SELECT CASE nEffect
                 CASE __MODPLAYER_FX_ARPEGGIO
                     DIM arpParam AS _UNSIGNED _BYTE
                     arpParam = nOperand
-                    IF arpParam = 0 _ANDALSO player.song.isS3M THEN arpParam = player.channel(nChannel).lastArpeggio
+                    IF arpParam = 0 _ANDALSO __MODPlayer_UsesS3MSemantics(player) THEN arpParam = player.channel(nChannel).lastArpeggio
                     IF arpParam _ANDALSO player.channel(nChannel).period > 0 THEN
                         DIM arpX AS _UNSIGNED _BYTE: arpX = _SHR(arpParam, 4)
                         DIM arpY AS _UNSIGNED _BYTE: arpY = arpParam AND &HF
@@ -2105,9 +2112,9 @@ SUB __MODPlayer_UpdateTick (player AS MODPlayer)
 
                         CASE __MODPLAYER_FX_EXT_NOTE_CUT
                             IF player.song.tick = nOpY THEN
-                                IF nOpY > 0 _ORELSE NOT player.song.isS3M THEN
+                                IF nOpY > 0 _ORELSE NOT __MODPlayer_UsesS3MSemantics(player) THEN
                                     player.channel(nChannel).volume = 0
-                                    IF player.song.isS3M THEN SoftSynth_StopVoice player.synth, nChannel
+                                    IF __MODPlayer_UsesS3MSemantics(player) THEN SoftSynth_StopVoice player.synth, nChannel
                                     IF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
                                         player.channel(nChannel).amLevel = 0
                                         player.channel(nChannel).amStage = __MODPLAYER_AM_STAGE_IDLE
@@ -2227,7 +2234,7 @@ SUB __MODPlayer_UpdateTick (player AS MODPlayer)
                                 __MODPlayer_ApplyChannelVolume player, nChannel
                             END IF
 
-                            IF player.song.isS3M THEN player.channel(nChannel).startPosition = 0
+                            IF __MODPlayer_UsesS3MSemantics(player) THEN player.channel(nChannel).startPosition = 0
                             __MODPlayer_PlayPCMChannelVoice player, nChannel
                         END IF
                     END IF
@@ -2254,8 +2261,8 @@ SUB __MODPlayer_UpdateTick (player AS MODPlayer)
 
             DIM suppressVolumeColumn AS _BYTE
             suppressVolumeColumn = player.channel(nChannel).noteDelayPending
-            IF player.song.isS3M _ANDALSO nEffect = __MODPLAYER_FX_EXT _ANDALSO nOpX = __MODPLAYER_FX_EXT_NOTE_DELAY _ANDALSO (nOpY = 0 _ORELSE nOpY >= player.song.speed) THEN suppressVolumeColumn = _TRUE
-            IF player.song.isS3M _ANDALSO NOT suppressVolumeColumn THEN
+            IF __MODPlayer_UsesS3MSemantics(player) _ANDALSO nEffect = __MODPLAYER_FX_EXT _ANDALSO nOpX = __MODPLAYER_FX_EXT_NOTE_DELAY _ANDALSO (nOpY = 0 _ORELSE nOpY >= player.song.speed) THEN suppressVolumeColumn = _TRUE
+            IF __MODPlayer_UsesS3MSemantics(player) _ANDALSO NOT suppressVolumeColumn THEN
                 SELECT CASE nVolume
                     CASE 85 TO 94
                         player.channel(nChannel).volume = _CLAMP(player.channel(nChannel).volume - nVolume + 85, 0, __MODPLAYER_INSTRUMENT_VOLUME_MAX)
@@ -2371,7 +2378,7 @@ END SUB
 ''' @param isNotFine _TRUE for regular volume slide, _FALSE for fine volume slide.
 SUB __MODPlayer_DoVolumeSlide (player AS MODPlayer, chan AS _UNSIGNED LONG, x AS _UNSIGNED _BYTE, y AS _UNSIGNED _BYTE, isNotFine AS _BYTE)
     IF isNotFine THEN
-        IF player.song.isS3M _ANDALSO y > 0 THEN
+        IF __MODPlayer_UsesS3MSemantics(player) _ANDALSO y > 0 THEN
             player.channel(chan).volume = player.channel(chan).volume - y
         ELSE
             player.channel(chan).volume = player.channel(chan).volume + x - y
@@ -2523,6 +2530,13 @@ END FUNCTION
 ''' @return Format string (e.g. "M.K.", "SCRM", "MTM1").
 FUNCTION MODPlayer_GetType$ (player AS MODPlayer)
     MODPlayer_GetType = _TRIM$(player.song.subtype)
+END FUNCTION
+
+''' @brief Gets the format constant of the currently loaded tune.
+''' @param player The MOD player instance.
+''' @return Format constant (e.g. MODPLAYER_FORMAT_MOD, MODPLAYER_FORMAT_S3M, etc.).
+FUNCTION MODPlayer_GetFormat~% (player AS MODPlayer)
+    MODPlayer_GetFormat = player.song.format
 END FUNCTION
 
 ''' @brief Checks whether the loaded song uses stereo channel panning.

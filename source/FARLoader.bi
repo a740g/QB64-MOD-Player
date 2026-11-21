@@ -367,10 +367,10 @@ FUNCTION FARLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
     player.song.caption = songTitle
     player.song.subtype = "FAR"
+    player.song.format = MODPLAYER_FORMAT_FAR
     player.song.channels = __FARLOADER_CHANNELS
     player.song.pcmMasterGain = 32.0! / 128.0! ' Matches OpenMPT FAR pre-amp of 32
     player.song.isStereo = _TRUE
-    player.song.isS3M = _FALSE
     player.song.hasFMChannels = _FALSE
 
     IF defaultSpeed > 0 THEN

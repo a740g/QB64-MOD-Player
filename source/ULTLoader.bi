@@ -171,9 +171,7 @@ FUNCTION ULTLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     player.song.useAmigaSlides = _FALSE
     player.song.useVolumeOptimization = _FALSE
     player.song.useFilterSFX = _FALSE
-    player.song.isS3M = _FALSE
-    player.song.isRAD = _FALSE
-    player.song.isULT = _TRUE
+    player.song.format = MODPLAYER_FORMAT_ULT
     player.song.isStereo = _TRUE
     player.song.hasFMChannels = _FALSE
     player.song.subtype = "ULT" + CHR$(verChar)

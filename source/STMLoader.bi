@@ -92,7 +92,7 @@ FUNCTION STMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     player.song.channels = __STMLOADER_CHANNELS
     player.song.instruments = __STMLOADER_INSTRUMENTS
     player.song.subtype = "STM "
-    player.song.isS3M = _TRUE
+    player.song.format = MODPLAYER_FORMAT_STM
     player.song.useST2Tempo = _TRUE
     player.song.useST2Vibrato = _TRUE
     player.song.isStereo = _TRUE

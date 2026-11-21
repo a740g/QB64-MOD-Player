@@ -10,6 +10,18 @@ $UNSTABLE:TYPEFIELDS
 '$INCLUDE:'SoftSynth.bi'
 '$INCLUDE:'Opal.bi'
 
+' Tracker format identifiers
+CONST MODPLAYER_FORMAT_NONE~% = 0~%
+CONST MODPLAYER_FORMAT_MOD~% = 1~%
+CONST MODPLAYER_FORMAT_STM~% = 2~%
+CONST MODPLAYER_FORMAT_S3M~% = 3~%
+CONST MODPLAYER_FORMAT_669~% = 4~%
+CONST MODPLAYER_FORMAT_MTM~% = 5~%
+CONST MODPLAYER_FORMAT_FAR~% = 6~%
+CONST MODPLAYER_FORMAT_RAD~% = 7~%
+CONST MODPLAYER_FORMAT_ULT~% = 8~%
+CONST MODPLAYER_FORMAT_MDL~% = 9~%
+
 CONST __MODPLAYER_NOTE_NONE~%% = 132~%% ' Note will be set to this when there is nothing
 CONST __MODPLAYER_NOTE_KEY_OFF~%% = 133~%% ' We'll use this in a future version
 CONST __MODPLAYER_NOTE_NO_VOLUME~%% = 255~%% ' When a note has no volume, then it will be set to this
@@ -214,6 +226,7 @@ END TYPE
 TYPE __MODPlayerSong
     caption AS STRING ' song name
     subtype AS STRING * 4 ' 4 char MOD type - use this to find out what tracker was used
+    format AS _UNSIGNED INTEGER ' tracker module format (MODPLAYER_FORMAT_*)
     comment AS STRING ' song comment / message (if any)
     channels AS _UNSIGNED LONG ' number of channels in the song
     instruments AS _UNSIGNED LONG ' number of instruments in the song
@@ -236,10 +249,6 @@ TYPE __MODPlayerSong
     rowTickDelay AS _UNSIGNED INTEGER ' accumulated S3M S6x extra ticks on the current row
     globalVolume AS _UNSIGNED _BYTE ' current S3M Vxx global volume (0-64)
     defaultGlobalVolume AS _UNSIGNED _BYTE ' S3M header global volume (0-64)
-    isS3M AS _BYTE ' true when the loaded song uses S3M effect and volume semantics
-    isRAD AS _BYTE ' true when the loaded song is Reality Adlib Tracker (.RAD)
-    isULT AS _BYTE ' true when the loaded song is UltraTracker (.ULT)
-    isMDL AS _BYTE ' true when the loaded song is Digitrakker (.MDL)
     tempoTimerValue AS _UNSIGNED LONG ' (mixer_sample_rate * default_bpm) / 50
     framesPerTick AS _UNSIGNED LONG ' this is the amount of sample frames we have to mix per tick based on mixerRate & bpm
     activeChannels AS _UNSIGNED LONG ' just a count of channels that are "active"

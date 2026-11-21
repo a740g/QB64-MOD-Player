@@ -213,6 +213,8 @@ FUNCTION MODLoader_LoadWithCompanion%% (player AS MODPlayer, buffer AS STRING, c
     ' Sanity check
     IF player.song.instruments = 0 _ORELSE player.song.channels = 0 THEN EXIT FUNCTION
 
+    player.song.format = MODPLAYER_FORMAT_MOD
+
     ' Set PCM master gain based on channel count (matches OpenMPT MOD pre-amp)
     DIM pcmPreAmp AS LONG
     pcmPreAmp = _CLAMP(256 \ player.song.channels, 32, 128)

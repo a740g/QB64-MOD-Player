@@ -9,6 +9,7 @@ Synthesizer / Sample Mixer, and Audio Spectrum Analyzer.
 ## Table of Contents
 
 - [Core Player API (`MODPlayer.bi` & `MODPlayer.bm`)](#core-player-api-modplayerbi--modplayerbm)
+  - [Constants](#modplayer-constants)
   - [Types](#modplayer-types)
   - [Lifecycle Management](#modplayer-lifecycle-management)
   - [Module Loading (Unified Dispatcher)](#module-loading-unified-dispatcher)
@@ -52,6 +53,25 @@ Include headers:
 ```vb
 '$INCLUDE:'source/MODPlayer.bi'
 '$INCLUDE:'source/MODPlayer.bm'
+```
+
+### MODPlayer Constants
+
+#### Format Constants
+
+Format identifiers stored in `player.song.format` and returned by `MODPlayer_GetFormat~%`:
+
+```vb
+CONST MODPLAYER_FORMAT_NONE~% = 0~% ' Uninitialized / unknown format
+CONST MODPLAYER_FORMAT_MOD~%  = 1~% ' ProTracker / NoiseTracker / FastTracker 1 (.MOD)
+CONST MODPLAYER_FORMAT_STM~%  = 2~% ' Scream Tracker 2 (.STM)
+CONST MODPLAYER_FORMAT_S3M~%  = 3~% ' Scream Tracker 3 (.S3M)
+CONST MODPLAYER_FORMAT_669~%  = 4~% ' Composer 669 / Extended 669 (.669)
+CONST MODPLAYER_FORMAT_MTM~%  = 5~% ' MultiTracker Module (.MTM)
+CONST MODPLAYER_FORMAT_FAR~%  = 6~% ' Farandole Composer (.FAR)
+CONST MODPLAYER_FORMAT_RAD~%  = 7~% ' Reality Adlib Tracker (.RAD)
+CONST MODPLAYER_FORMAT_ULT~%  = 8~% ' UltraTracker (.ULT)
+CONST MODPLAYER_FORMAT_MDL~%  = 9~% ' Digitrakker (.MDL)
 ```
 
 ### MODPlayer Types
@@ -274,6 +294,18 @@ FUNCTION MODPlayer_GetType$ (player AS MODPlayer)
   - `player`: Target MOD player instance.
 - **Returns**: The detected format identifier or subtype string (e.g.
   `"M.K."`, `"SCRM"`, `"MTM1"`, `"4CHN"`).
+
+#### `MODPlayer_GetFormat~%`
+
+```vb
+FUNCTION MODPlayer_GetFormat~% (player AS MODPlayer)
+```
+
+- **Description**: Returns the format constant of the currently loaded tune.
+- **Parameters**:
+  - `player`: Target MOD player instance.
+- **Returns**: Format constant (e.g. `MODPLAYER_FORMAT_MOD`, `MODPLAYER_FORMAT_S3M`,
+  `MODPLAYER_FORMAT_MDL`, etc.), or `MODPLAYER_FORMAT_NONE` if uninitialized.
 
 #### `MODPlayer_GetPosition&`
 

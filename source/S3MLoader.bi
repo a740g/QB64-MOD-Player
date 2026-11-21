@@ -36,7 +36,7 @@ FUNCTION S3MLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
     ' Check if this is really an S3M file
     IF player.song.subtype <> "SCRM" THEN EXIT FUNCTION
-    player.song.isS3M = _TRUE
+    player.song.format = MODPLAYER_FORMAT_S3M
 
     ' Seek to the beginning of the file and get the song title
     StringFile_Seek memFile, 0

@@ -94,6 +94,7 @@ FUNCTION C669Loader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
     player.song.channels = __C669LOADER_CHANNELS
     player.song.subtype = "669 "
+    player.song.format = MODPLAYER_FORMAT_669
     player.song.isStereo = _TRUE
     player.song.pcmMasterGain = 48.0! / 128.0! ' Matches OpenMPT 669 default pre-amp of 48
 

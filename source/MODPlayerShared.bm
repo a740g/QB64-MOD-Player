@@ -80,6 +80,7 @@ END SUB
 SUB __MODPlayer_InitializeSong (player AS MODPlayer)
     player.song.caption = _STR_EMPTY
     player.song.subtype = _STR_EMPTY
+    player.song.format = MODPLAYER_FORMAT_NONE
     player.song.comment = _STR_EMPTY
     player.song.channels = 0
     player.song.instruments = 0
@@ -102,7 +103,6 @@ SUB __MODPlayer_InitializeSong (player AS MODPlayer)
     player.song.rowTickDelay = 0
     player.song.globalVolume = __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
     player.song.defaultGlobalVolume = __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
-    player.song.isS3M = _FALSE
     player.song.tempoTimerValue = 0
     player.song.framesPerTick = 0
     player.song.activeChannels = 0
@@ -120,9 +120,6 @@ SUB __MODPlayer_InitializeSong (player AS MODPlayer)
     player.song.isStereo = _FALSE
     player.song.pcmMasterGain = 1.0!
     player.song.fmMasterGain = 1.0!
-    player.song.isRAD = _FALSE
-    player.song.isULT = _FALSE
-    player.song.isMDL = _FALSE
 END SUB
 
 ''' @brief Calculates middle-C playback speed in Hertz for a ProTracker finetune nibble.

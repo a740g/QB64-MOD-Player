@@ -307,8 +307,7 @@ FUNCTION RADLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     ' Configure song
     player.song.channels = __RADLOADER_CHANNELS
     player.song.isStereo = _FALSE
-    player.song.isRAD = _TRUE
-    player.song.isS3M = _FALSE
+    player.song.format = MODPLAYER_FORMAT_RAD
     player.song.subtype = "RAD1"
     player.song.speed = spd
     player.song.defaultSpeed = spd

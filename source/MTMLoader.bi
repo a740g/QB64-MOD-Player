@@ -40,6 +40,7 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
     ' Read the MTM song title (20 bytes)
     player.song.caption = String_MakePrintable(StringFile_ReadString(memFile, 20)) ' MTM song name is 20 bytes
+    player.song.format = MODPLAYER_FORMAT_MTM
     player.song.isStereo = _TRUE
 
     ' Read the number of tracks saved

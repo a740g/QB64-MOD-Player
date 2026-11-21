@@ -777,7 +777,7 @@ FUNCTION MDLLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     __MODPlayer_InitializeSong player
     player.song.caption = songTitle
     player.song.comment = comments
-    player.song.isMDL = _TRUE
+    player.song.format = MODPLAYER_FORMAT_MDL
 
     SELECT CASE version
         CASE &H00: player.song.subtype = "MDL0"
