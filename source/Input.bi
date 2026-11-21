@@ -423,12 +423,19 @@ FUNCTION Input_PeekKeyboardKey&
     Input_PeekKeyboardKey = __Input.kbdKeyCode
 END FUNCTION
 
-''' @brief Returns the last key code and consumes it.
-FUNCTION Input_GetKeyboardKey&
+''' @brief Explicitly consumes the current keyboard key and resets navigation flags.
+SUB Input_ConsumeKeyboardKey
     SHARED __Input AS __Input
-    Input_GetKeyboardKey = __Input.kbdKeyCode
     __Input.kbdKeyCode = 0
-END FUNCTION
+    __Input.navUp = _FALSE
+    __Input.navDown = _FALSE
+    __Input.navLeft = _FALSE
+    __Input.navRight = _FALSE
+    __Input.navConfirm = _FALSE
+    __Input.navCancel = _FALSE
+    __Input.navPageUp = _FALSE
+    __Input.navPageDown = _FALSE
+END SUB
 
 ''' @brief Checks if a specific key is currently held down.
 FUNCTION Input_IsKeyDown%% (keyCode AS LONG)

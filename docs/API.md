@@ -1248,7 +1248,7 @@ Include header:
 
 - `FUNCTION Input_HasKeyboardEvent%%`: Returns `_TRUE` if a key was pressed this frame.
 - `FUNCTION Input_PeekKeyboardKey&`: Returns the last `_KEYHIT` key code without clearing it.
-- `FUNCTION Input_GetKeyboardKey&`: Returns the last `_KEYHIT` key code and clears it.
+- `SUB Input_ConsumeKeyboardKey`: Explicitly consumes the current keyboard key and resets navigation action flags.
 - `FUNCTION Input_IsKeyDown%% (keyCode AS LONG)`: Returns `_TRUE` if the specified key is currently held down.
 - `FUNCTION Input_IsKeyPressed%% (keyCode AS LONG)`: Alias for `Input_IsKeyDown`.
 - `FUNCTION Input_IsShiftDown%%`: Returns `_TRUE` if either Left or Right Shift is held down.

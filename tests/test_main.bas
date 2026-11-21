@@ -3228,9 +3228,10 @@ END SUB
 
 ''' @brief Tests for Background.bi starfield, snakes, fireworks, fire, plasma, balls, and matrix routines.
 SUB Test_Background
-    TEST_CASE_BEGIN "Background: Starfield initialization"
     DIM bg AS Background
-    Background_InitializeStars bg
+    Background_Initialize bg, 114, 90
+
+    TEST_CASE_BEGIN "Background: Starfield initialization"
     TEST_CHECK bg.starfield.count = __BACKGROUND_STAR_COUNT, "Starfield star count allocated"
     TEST_CHECK bg.starfield.stars(1).p.z >= 4096!, "Star 1 initialized with z depth >= 4096"
     TEST_CHECK bg.starfield.stars(1).c >= 9 AND bg.starfield.stars(1).c <= 15, "Star 1 has valid color [9..15]"
@@ -3238,7 +3239,6 @@ SUB Test_Background
     TEST_CASE_END
 
     TEST_CASE_BEGIN "Background: Snakes initialization"
-    Background_InitializeSnakes bg
     TEST_CHECK bg.snakes.count = __BACKGROUND_SNAKE_COUNT, "Snakes count allocated"
     TEST_CHECK bg.snakes.snakes(1).speed >= 0.2! AND bg.snakes.snakes(1).speed <= 0.65!, "Snake 1 speed in valid range"
     TEST_CHECK bg.snakes.snakes(1).c >= 9 AND bg.snakes.snakes(1).c <= 14, "Snake 1 color in valid range"
@@ -3262,31 +3262,26 @@ SUB Test_Background
     TEST_CASE_END
 
     TEST_CASE_BEGIN "Background: Fireworks initialization and lifecycle"
-    Background_InitializeFireworks bg
     TEST_CHECK bg.fireworks.count = __BACKGROUND_FIREWORK_ROCKETS, "Fireworks rocket count allocated"
     TEST_CHECK bg.fireworks.rockets(1).state = 0, "Initial rocket state is countdown"
     TEST_CHECK bg.fireworks.particles(1).active = _FALSE, "Initial particles inactive"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "Background: Fire grid allocation"
-    Background_InitializeFire bg
     TEST_CHECK bg.fire.gridW > 0 AND bg.fire.gridH > 0, "Fire grid initialized with valid dimensions"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "Background: Plasma LUT generation"
-    Background_InitializePlasma bg
     TEST_CHECK bg.plasma.lutReady = _TRUE, "Plasma LUT generated"
     TEST_CHECK bg.plasma.sinLUT(0) >= 0 AND bg.plasma.sinLUT(0) <= 64, "Plasma sine LUT values in range"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "Background: Bouncing Balls initialization"
-    Background_InitializeBalls bg
     TEST_CHECK bg.balls.count = __BACKGROUND_BALL_COUNT, "Balls count allocated"
     TEST_CHECK bg.balls.balls(1).radius >= 1.0! AND bg.balls.balls(1).radius <= 2.5!, "Ball 1 radius in valid range"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "Background: Matrix digital rain initialization"
-    Background_InitializeMatrix bg
     TEST_CHECK bg.matrix.drops(1).length >= 8 AND bg.matrix.drops(1).length <= 26, "Matrix drop length in valid range"
     TEST_CASE_END
 
@@ -3537,6 +3532,15 @@ SUB Test_Input
     TEST_CHECK GAMEPAD_BUTTON_Y = 4, "GAMEPAD_BUTTON_Y is 4"
     TEST_CHECK GAMEPAD_BUTTON_START = 10, "GAMEPAD_BUTTON_START is 10"
     TEST_CASE_END
+
+    TEST_CASE_BEGIN "Input: Peek and Consume keyboard keys"
+    SHARED __Input AS __Input
+    __Input.kbdKeyCode = KEY_SPACE
+    TEST_CHECK Input_PeekKeyboardKey = KEY_SPACE, "Input_PeekKeyboardKey returns pending key"
+    TEST_CHECK Input_PeekKeyboardKey = KEY_SPACE, "Input_PeekKeyboardKey does not consume key"
+    Input_ConsumeKeyboardKey
+    TEST_CHECK Input_PeekKeyboardKey = 0, "Input_ConsumeKeyboardKey clears pending key"
+    TEST_CASE_END
 END SUB
 
 ''' @brief Tests for channel mute, solo, and unmute operations.
@@ -3782,6 +3786,20 @@ SUB Test_TUI
     tabChanged = TUI_TabBarEx(10, 5, tabs(), 4, selectedTab, _FALSE)
     TEST_CHECK tabChanged, "TUI_TabBarEx confirms selection via keyboard focus"
     TEST_CHECK selectedTab = 3, "Selected tab updated to 3 via keyboard"
+    TUI_End
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "TUI: Non-consuming key peeking in TUI_Begin"
+    SHARED __Input AS __Input
+    __Input.kbdKeyCode = KEY_SPACE
+    TUI_Begin
+    TEST_CHECK Input_PeekKeyboardKey = KEY_SPACE, "Space key not consumed by TUI_Begin"
+    TUI_End
+    Input_ConsumeKeyboardKey
+
+    __Input.kbdKeyCode = KEY_TAB
+    TUI_Begin
+    TEST_CHECK Input_PeekKeyboardKey = 0, "Tab key consumed by TUI_Begin for focus navigation"
     TUI_End
     TEST_CASE_END
 

@@ -90,12 +90,13 @@ SUB TUI_Begin
         __TUI.activeId = 0
     END IF
 
-    ' Poll navigation keys and gamepad controls
-    DIM k AS LONG: k = Input_GetKeyboardKey
+    ' Poll navigation keys and gamepad controls without consuming prematurely
+    DIM k AS LONG: k = Input_PeekKeyboardKey
     __TUI.navNext = _FALSE
     __TUI.navPrev = _FALSE
 
     IF k = KEY_TAB THEN
+        Input_ConsumeKeyboardKey
         IF Input_IsShiftDown THEN
             __TUI.navPrev = _TRUE
         ELSE
@@ -123,9 +124,9 @@ SUB TUI_Begin
         END IF
     END IF
 
-    ' Action confirmations
-    __TUI.navConfirm = (k = KEY_ENTER _ORELSE k = KEY_SPACE _ORELSE Input_GetGamepadButtonPressed(GAMEPAD_BUTTON_A, 1))
-    __TUI.navSolo = (k = KEY_UPPER_S _ORELSE k = KEY_LOWER_S _ORELSE (k = KEY_ENTER _ANDALSO Input_IsShiftDown) _ORELSE Input_GetGamepadButtonPressed(GAMEPAD_BUTTON_Y, 1))
+    ' Action confirmations (only active when nav focus is engaged)
+    __TUI.navConfirm = (__TUI.hasNavFocus _ANDALSO (k = KEY_ENTER _ORELSE k = KEY_SPACE)) _ORELSE Input_GetGamepadButtonPressed(GAMEPAD_BUTTON_A, 1)
+    __TUI.navSolo = (__TUI.hasNavFocus _ANDALSO (k = KEY_UPPER_S _ORELSE k = KEY_LOWER_S _ORELSE (k = KEY_ENTER _ANDALSO Input_IsShiftDown))) _ORELSE Input_GetGamepadButtonPressed(GAMEPAD_BUTTON_Y, 1)
 END SUB
 
 ''' @brief Ends the Immediate-Mode TUI frame, clamping focus and flushing state.
@@ -277,6 +278,7 @@ FUNCTION TUI_ButtonEx%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isDisa
     DIM isFocused AS _BYTE: isFocused = (__TUI.focusedId = thisId)
     IF isFocused _ANDALSO __TUI.navConfirm THEN
         isClicked = _TRUE
+        Input_ConsumeKeyboardKey
     END IF
 
     ' Button is pressed (sunken) when held down by mouse while hovering, or during keyboard confirmation
@@ -347,6 +349,7 @@ FUNCTION TUI_ToggleButtonEx%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, 
     DIM isFocused AS _BYTE: isFocused = (__TUI.focusedId = thisId)
     IF isFocused _ANDALSO __TUI.navConfirm THEN
         isClicked = _TRUE
+        Input_ConsumeKeyboardKey
     END IF
 
     DIM isPressed AS _BYTE
@@ -416,8 +419,10 @@ FUNCTION TUI_ChannelBadge%% (x AS LONG, y AS LONG, ch AS LONG, badgeText AS STRI
     IF isFocused _ANDALSO __TUI.hasNavFocus THEN
         IF __TUI.navSolo THEN
             outAction = TUI_CHANNEL_ACTION_SOLO
+            Input_ConsumeKeyboardKey
         ELSEIF __TUI.navConfirm THEN
             outAction = TUI_CHANNEL_ACTION_MUTE
+            Input_ConsumeKeyboardKey
         END IF
     END IF
 
@@ -506,8 +511,10 @@ FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS LONG, maxV
     IF isFocused _ANDALSO __TUI.hasNavFocus THEN
         IF Input_NavLeft THEN
             targetVal = _MAX(0, curVal - 1)
+            Input_ConsumeKeyboardKey
         ELSEIF Input_NavRight THEN
             targetVal = _MIN(maxVal, curVal + 1)
+            Input_ConsumeKeyboardKey
         END IF
     END IF
 
@@ -580,8 +587,10 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
         DIM stepSize AS SINGLE: stepSize = (maxVal - minVal) * 0.05!
         IF Input_NavLeft THEN
             updatedVal = _CLAMP(curVal - stepSize, minVal, maxVal)
+            Input_ConsumeKeyboardKey
         ELSEIF Input_NavRight THEN
             updatedVal = _CLAMP(curVal + stepSize, minVal, maxVal)
+            Input_ConsumeKeyboardKey
         END IF
     END IF
 
@@ -738,6 +747,7 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount
                     selectedIdx = i
                     changed = _TRUE
                 END IF
+                Input_ConsumeKeyboardKey
             END IF
 
             ' Line characters: double-line if focused, single-line if non-focused

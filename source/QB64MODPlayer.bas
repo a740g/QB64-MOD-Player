@@ -597,9 +597,10 @@ DO
     END IF
 
     ' Keyboard navigation & shortcuts
-    DIM k AS LONG: k = Input_GetKeyboardKey
+    DIM k AS LONG: k = Input_PeekKeyboardKey
     SELECT CASE k
         CASE _KEY_ESC
+            Input_ConsumeKeyboardKey
             IF ShowHelpModal THEN
                 ShowHelpModal = _FALSE
             ELSEIF Player.song.isPlaying THEN
@@ -609,12 +610,15 @@ DO
             END IF
 
         CASE _KEY_LEFT
+            Input_ConsumeKeyboardKey
             IF Player.song.isPlaying THEN MODPlayer_GoToPreviousPosition Player
 
         CASE _KEY_RIGHT
+            Input_ConsumeKeyboardKey
             IF Player.song.isPlaying THEN MODPlayer_GoToNextPosition Player
 
         CASE KEY_SPACE
+            Input_ConsumeKeyboardKey
             IF Player.song.isPlaying THEN
                 Player.song.isPaused = NOT Player.song.isPaused
                 IF Player.song.isPaused THEN
@@ -625,22 +629,27 @@ DO
             END IF
 
         CASE KEY_PLUS, KEY_EQUAL
+            Input_ConsumeKeyboardKey
             SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) + APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
 
         CASE KEY_MINUS, KEY_UNDERSCORE
+            Input_ConsumeKeyboardKey
             SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) - APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
 
         CASE KEY_UPPER_L, KEY_LOWER_L
+            Input_ConsumeKeyboardKey
             IF Player.song.isPlaying THEN
                 Player.song.isLooping = NOT Player.song.isLooping
             END IF
 
         CASE KEY_UPPER_B, KEY_LOWER_B
+            Input_ConsumeKeyboardKey
             IF NOT Player.song.isPlaying THEN
                 Background_CycleMode Bg
             END IF
 
         CASE _KEY_PAGEUP
+            Input_ConsumeKeyboardKey
             IF CurrentView = UI_VIEW_MODE_TRACKER THEN
                 TrackerChanOffset = _MAX(0, TrackerChanOffset - UI_TRACKER_VISIBLE_CHANNELS)
             ELSEIF CurrentView = UI_VIEW_MODE_INSTRUMENTS THEN
@@ -650,6 +659,7 @@ DO
             END IF
 
         CASE _KEY_PAGEDOWN
+            Input_ConsumeKeyboardKey
             IF CurrentView = UI_VIEW_MODE_TRACKER THEN
                 TrackerChanOffset = _MIN(_MAX(0, ((Player.song.channels - 1) \ UI_TRACKER_VISIBLE_CHANNELS) * UI_TRACKER_VISIBLE_CHANNELS), TrackerChanOffset + UI_TRACKER_VISIBLE_CHANNELS)
             ELSEIF CurrentView = UI_VIEW_MODE_INSTRUMENTS THEN

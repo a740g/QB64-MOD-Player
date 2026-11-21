@@ -155,7 +155,7 @@ END TYPE
 ''' @brief Initializes star positions and colors for background starfield effect.
 ''' @param ctx Background context to initialize.
 ''' @param starCount Number of stars to allocate (defaults to BACKGROUND_STAR_COUNT if <= 0).
-SUB Background_InitializeStars (ctx AS Background)
+SUB __Background_InitializeStars (ctx AS Background)
     CONST Z_DIVIDER = 4096!
 
     DIM nStars AS LONG: nStars = __BACKGROUND_STAR_COUNT
@@ -182,7 +182,7 @@ END SUB
 
 ''' @brief Updates starfield positions and renders stars on screen with 3D depth shading.
 ''' @param ctx Background context.
-SUB Background_UpdateAndDrawStars (ctx AS Background)
+SUB __Background_UpdateAndDrawStars (ctx AS Background)
     CONST Z_DIVIDER = 4096!
     CONST STAR_SPEED! = 1.2!
 
@@ -240,7 +240,7 @@ END SUB
 ''' @brief Initializes bouncing snake positions and colors with collision-free placement.
 ''' @param ctx Background context to initialize.
 ''' @param snakeCount Number of snakes to allocate (defaults to BACKGROUND_SNAKE_COUNT if <= 0).
-SUB Background_InitializeSnakes (ctx AS Background)
+SUB __Background_InitializeSnakes (ctx AS Background)
     CONST SNAKE_SIZE_MIN = 6
     CONST SNAKE_SIZE_MAX = 28
 
@@ -286,7 +286,7 @@ END SUB
 
 ''' @brief Updates snake segments with collision detection/avoidance and renders bouncing snakes on screen.
 ''' @param ctx Background context.
-SUB Background_UpdateAndDrawSnakes (ctx AS Background)
+SUB __Background_UpdateAndDrawSnakes (ctx AS Background)
     CONST SNAKE_HEAD = CHR$(2) ' Smiley head glyph
     CONST SNAKE_BODY = CHR$(254) ' Block body glyph
 
@@ -532,7 +532,7 @@ END SUB
 
 ''' @brief Initializes firework rockets and particle pool.
 ''' @param ctx Background context to initialize.
-SUB Background_InitializeFireworks (ctx AS Background)
+SUB __Background_InitializeFireworks (ctx AS Background)
     DIM W AS LONG: W = CLNG(ctx.size.x)
     DIM H AS LONG: H = CLNG(ctx.size.y)
 
@@ -555,7 +555,7 @@ END SUB
 
 ''' @brief Updates ascending rockets and exploding spark particles.
 ''' @param ctx Background context.
-SUB Background_UpdateAndDrawFireworks (ctx AS Background)
+SUB __Background_UpdateAndDrawFireworks (ctx AS Background)
     DIM W AS LONG: W = CLNG(ctx.size.x)
     DIM H AS LONG: H = CLNG(ctx.size.y)
 
@@ -667,7 +667,7 @@ END SUB
 
 ''' @brief Initializes cellular fire grid buffer.
 ''' @param ctx Background context to initialize.
-SUB Background_InitializeFire (ctx AS Background)
+SUB __Background_InitializeFire (ctx AS Background)
     DIM W AS LONG: W = CLNG(ctx.size.x)
     DIM H AS LONG: H = CLNG(ctx.size.y)
     ctx.fire.gridW = W: ctx.fire.gridH = H
@@ -676,7 +676,7 @@ END SUB
 
 ''' @brief Updates retro cellular automata fire simulation and renders flames.
 ''' @param ctx Background context.
-SUB Background_UpdateAndDrawFire (ctx AS Background)
+SUB __Background_UpdateAndDrawFire (ctx AS Background)
     DIM W AS LONG: W = CLNG(ctx.size.x)
     DIM H AS LONG: H = CLNG(ctx.size.y)
 
@@ -762,7 +762,7 @@ END SUB
 
 ''' @brief Initializes 512-entry sine LUT for demoscene plasma.
 ''' @param ctx Background context to initialize.
-SUB Background_InitializePlasma (ctx AS Background)
+SUB __Background_InitializePlasma (ctx AS Background)
     REDIM ctx.plasma.sinLUT(0 TO 511) AS LONG
     DIM i AS LONG
     FOR i = 0 TO 511
@@ -776,9 +776,7 @@ END SUB
 
 ''' @brief Updates and renders multi-frequency demoscene plasma interference waves.
 ''' @param ctx Background context.
-SUB Background_UpdateAndDrawPlasma (ctx AS Background)
-    IF NOT ctx.plasma.lutReady THEN Background_InitializePlasma ctx
-
+SUB __Background_UpdateAndDrawPlasma (ctx AS Background)
     DIM W AS LONG: W = CLNG(ctx.size.x)
     DIM H AS LONG: H = CLNG(ctx.size.y)
 
@@ -844,7 +842,7 @@ END SUB
 
 ''' @brief Initializes kinetic bouncing balls with physics attributes.
 ''' @param ctx Background context to initialize.
-SUB Background_InitializeBalls (ctx AS Background)
+SUB __Background_InitializeBalls (ctx AS Background)
     ctx.balls.count = __BACKGROUND_BALL_COUNT
     DIM W AS LONG: W = CLNG(ctx.size.x)
     DIM H AS LONG: H = CLNG(ctx.size.y)
@@ -868,7 +866,7 @@ END SUB
 
 ''' @brief Updates ball physics, wall rebounds, elastic collisions, and motion trails.
 ''' @param ctx Background context.
-SUB Background_UpdateAndDrawBalls (ctx AS Background)
+SUB __Background_UpdateAndDrawBalls (ctx AS Background)
     DIM W AS LONG: W = CLNG(ctx.size.x)
     DIM H AS LONG: H = CLNG(ctx.size.y)
 
@@ -952,7 +950,7 @@ END SUB
 
 ''' @brief Initializes digital matrix rain streams.
 ''' @param ctx Background context to initialize.
-SUB Background_InitializeMatrix (ctx AS Background)
+SUB __Background_InitializeMatrix (ctx AS Background)
     DIM W AS LONG: W = CLNG(ctx.size.x)
 
     REDIM ctx.matrix.drops(1 to w) AS __BACKGROUND_MATRIXDROP
@@ -970,7 +968,7 @@ END SUB
 
 ''' @brief Updates and renders green falling matrix code streams.
 ''' @param ctx Background context.
-SUB Background_UpdateAndDrawMatrix (ctx AS Background)
+SUB __Background_UpdateAndDrawMatrix (ctx AS Background)
     DIM W AS LONG: W = CLNG(ctx.size.x)
     DIM H AS LONG: H = CLNG(ctx.size.y)
 
@@ -1029,13 +1027,13 @@ SUB Background_Initialize (ctx AS Background, w AS LONG, h AS LONG)
     DIM scrH AS LONG: scrH = h: IF scrH <= 0 THEN scrH = _HEIGHT
     Vector2f_Initialize CSNG(scrW), CSNG(scrH), ctx.size
 
-    Background_InitializeStars ctx
-    Background_InitializeSnakes ctx
-    Background_InitializeFireworks ctx
-    Background_InitializeFire ctx
-    Background_InitializePlasma ctx
-    Background_InitializeBalls ctx
-    Background_InitializeMatrix ctx
+    __Background_InitializeStars ctx
+    __Background_InitializeSnakes ctx
+    __Background_InitializeFireworks ctx
+    __Background_InitializeFire ctx
+    __Background_InitializePlasma ctx
+    __Background_InitializeBalls ctx
+    __Background_InitializeMatrix ctx
 
     Background_SetRandomMode ctx
 END SUB
@@ -1044,13 +1042,13 @@ END SUB
 ''' @param ctx Background context.
 SUB Background_UpdateAndDraw (ctx AS Background)
     SELECT CASE ctx.mode
-        CASE BACKGROUND_MODE_STARS: Background_UpdateAndDrawStars ctx
-        CASE BACKGROUND_MODE_SNAKES: Background_UpdateAndDrawSnakes ctx
-        CASE BACKGROUND_MODE_FIREWORKS: Background_UpdateAndDrawFireworks ctx
-        CASE BACKGROUND_MODE_FIRE: Background_UpdateAndDrawFire ctx
-        CASE BACKGROUND_MODE_PLASMA: Background_UpdateAndDrawPlasma ctx
-        CASE BACKGROUND_MODE_BALLS: Background_UpdateAndDrawBalls ctx
-        CASE BACKGROUND_MODE_MATRIX: Background_UpdateAndDrawMatrix ctx
+        CASE BACKGROUND_MODE_STARS: __Background_UpdateAndDrawStars ctx
+        CASE BACKGROUND_MODE_SNAKES: __Background_UpdateAndDrawSnakes ctx
+        CASE BACKGROUND_MODE_FIREWORKS: __Background_UpdateAndDrawFireworks ctx
+        CASE BACKGROUND_MODE_FIRE: __Background_UpdateAndDrawFire ctx
+        CASE BACKGROUND_MODE_PLASMA: __Background_UpdateAndDrawPlasma ctx
+        CASE BACKGROUND_MODE_BALLS: __Background_UpdateAndDrawBalls ctx
+        CASE BACKGROUND_MODE_MATRIX: __Background_UpdateAndDrawMatrix ctx
     END SELECT
 END SUB
 
@@ -1072,13 +1070,13 @@ END SUB
 ''' @return Mode name string.
 FUNCTION Background_GetModeName$ (mode AS LONG)
     SELECT CASE mode
-        CASE BACKGROUND_MODE_STARS: Background_GetModeName$ = "Starfield"
-        CASE BACKGROUND_MODE_SNAKES: Background_GetModeName$ = "Kinetic Snakes"
-        CASE BACKGROUND_MODE_FIREWORKS: Background_GetModeName$ = "Fireworks"
-        CASE BACKGROUND_MODE_FIRE: Background_GetModeName$ = "Retro Fire"
-        CASE BACKGROUND_MODE_PLASMA: Background_GetModeName$ = "Demoscene Plasma"
-        CASE BACKGROUND_MODE_BALLS: Background_GetModeName$ = "Bouncing Balls"
-        CASE BACKGROUND_MODE_MATRIX: Background_GetModeName$ = "Digital Matrix Rain"
-        CASE ELSE: Background_GetModeName$ = "None"
+        CASE BACKGROUND_MODE_STARS: Background_GetModeName = "Starfield"
+        CASE BACKGROUND_MODE_SNAKES: Background_GetModeName = "Kinetic Snakes"
+        CASE BACKGROUND_MODE_FIREWORKS: Background_GetModeName = "Fireworks"
+        CASE BACKGROUND_MODE_FIRE: Background_GetModeName = "Retro Fire"
+        CASE BACKGROUND_MODE_PLASMA: Background_GetModeName = "Demoscene Plasma"
+        CASE BACKGROUND_MODE_BALLS: Background_GetModeName = "Bouncing Balls"
+        CASE BACKGROUND_MODE_MATRIX: Background_GetModeName = "Digital Matrix Rain"
+        CASE ELSE: Background_GetModeName = "None"
     END SELECT
 END FUNCTION
