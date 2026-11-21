@@ -241,7 +241,7 @@ DIM __Input_MouseButtonState(MOUSE_BUTTON_FIRST TO MOUSE_BUTTON_LAST) AS __Input
 
 ''' @brief Normalizes raw stick axis (1..254 with center ~127) to [-1.0, 1.0] with deadzone filtering.
 FUNCTION __Input_NormalizeAxis! (rawValue AS INTEGER, deadzone AS SINGLE)
-    DIM norm AS SINGLE: norm = Math_ClampSingle((rawValue - 127.5!) / 126.5!, -1!, 1!)
+    DIM norm AS SINGLE: norm = _CLAMP((rawValue - 127.5!) / 126.5!, -1!, 1!)
     IF ABS(norm) < deadzone THEN
         __Input_NormalizeAxis = 0!
     ELSE
@@ -597,10 +597,10 @@ END SUB
 ''' @brief Tests if the mouse cursor is inside a rectangular region.
 FUNCTION Input_IsMouseInRect%% (x1 AS SINGLE, y1 AS SINGLE, x2 AS SINGLE, y2 AS SINGLE)
     SHARED __Input AS __Input
-    DIM minX AS SINGLE: minX = _IIF(x1 <= x2, x1, x2)
-    DIM maxX AS SINGLE: maxX = _IIF(x1 <= x2, x2, x1)
-    DIM minY AS SINGLE: minY = _IIF(y1 <= y2, y1, y2)
-    DIM maxY AS SINGLE: maxY = _IIF(y1 <= y2, y2, y1)
+    DIM minX AS SINGLE: minX = _MIN(x1, x2)
+    DIM maxX AS SINGLE: maxX = _MAX(x1, x2)
+    DIM minY AS SINGLE: minY = _MIN(y1, y2)
+    DIM maxY AS SINGLE: maxY = _MAX(y1, y2)
     Input_IsMouseInRect = __Input.mse.position.x >= minX _ANDALSO __Input.mse.position.x <= maxX _ANDALSO __Input.mse.position.y >= minY _ANDALSO __Input.mse.position.y <= maxY
 END FUNCTION
 
@@ -614,10 +614,10 @@ FUNCTION Input_IsMouseClickInRect%% (button AS LONG, x1 AS SINGLE, y1 AS SINGLE,
     SHARED __Input_MouseButtonState() AS __Input_MouseButtonState
     IF button < MOUSE_BUTTON_FIRST _ORELSE button > MOUSE_BUTTON_LAST THEN EXIT FUNCTION
     IF __Input_MouseButtonState(button).wasClicked THEN
-        DIM minX AS SINGLE: minX = _IIF(x1 <= x2, x1, x2)
-        DIM maxX AS SINGLE: maxX = _IIF(x1 <= x2, x2, x1)
-        DIM minY AS SINGLE: minY = _IIF(y1 <= y2, y1, y2)
-        DIM maxY AS SINGLE: maxY = _IIF(y1 <= y2, y2, y1)
+        DIM minX AS SINGLE: minX = _MIN(x1, x2)
+        DIM maxX AS SINGLE: maxX = _MAX(x1, x2)
+        DIM minY AS SINGLE: minY = _MIN(y1, y2)
+        DIM maxY AS SINGLE: maxY = _MAX(y1, y2)
         DIM px AS SINGLE: px = __Input_MouseButtonState(button).upPosition.x
         DIM py AS SINGLE: py = __Input_MouseButtonState(button).upPosition.y
         Input_IsMouseClickInRect = px >= minX _ANDALSO px <= maxX _ANDALSO py >= minY _ANDALSO py <= maxY
@@ -634,10 +634,10 @@ FUNCTION Input_IsMousePressInRect%% (button AS LONG, x1 AS SINGLE, y1 AS SINGLE,
     SHARED __Input_MouseButtonState() AS __Input_MouseButtonState
     IF button < MOUSE_BUTTON_FIRST _ORELSE button > MOUSE_BUTTON_LAST THEN EXIT FUNCTION
     IF __Input_MouseButtonState(button).wasPressed THEN
-        DIM minX AS SINGLE: minX = _IIF(x1 <= x2, x1, x2)
-        DIM maxX AS SINGLE: maxX = _IIF(x1 <= x2, x2, x1)
-        DIM minY AS SINGLE: minY = _IIF(y1 <= y2, y1, y2)
-        DIM maxY AS SINGLE: maxY = _IIF(y1 <= y2, y2, y1)
+        DIM minX AS SINGLE: minX = _MIN(x1, x2)
+        DIM maxX AS SINGLE: maxX = _MAX(x1, x2)
+        DIM minY AS SINGLE: minY = _MIN(y1, y2)
+        DIM maxY AS SINGLE: maxY = _MAX(y1, y2)
         DIM px AS SINGLE: px = __Input_MouseButtonState(button).downPosition.x
         DIM py AS SINGLE: py = __Input_MouseButtonState(button).downPosition.y
         Input_IsMousePressInRect = px >= minX _ANDALSO px <= maxX _ANDALSO py >= minY _ANDALSO py <= maxY
@@ -763,7 +763,7 @@ END FUNCTION
 ''' @brief Sets the analog stick deadzone (clamped between 0.0 and 0.99).
 SUB Input_SetGamepadDeadzone (deadzone AS SINGLE)
     SHARED __Input AS __Input
-    __Input.deadzone = Math_ClampSingle(deadzone, 0!, 0.99!)
+    __Input.deadzone = _CLAMP(deadzone, 0!, 0.99!)
 END SUB
 
 ''' @brief Returns the current analog stick deadzone.

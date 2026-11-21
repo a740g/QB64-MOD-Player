@@ -129,17 +129,13 @@ SUB Visualizer_Draw
 
     ' Print the header
     COLOR Blink, BrightWhite
-    DIM curPatRows AS LONG
-    IF startPat >= 0 _ANDALSO startPat < Player.song.patterns THEN curPatRows = Player.pattern(startPat).rows ELSE curPatRows = 64
+    DIM curPatRows AS LONG: curPatRows = _IIF(startPat >= 0 _ANDALSO startPat < Player.song.patterns, Player.pattern(startPat).rows, 64)
     LOCATE 2, x: PRINT USING " ORD: ### / ### | PAT: ### / ### | ROW: ### / ### | CHN: ### / ### | VOC: ### / ### "; Player.song.orderPosition; Player.song.orders - 1; startPat; Player.song.patterns - 1; Player.song.patternRow; curPatRows - 1; Player.song.activeChannels; Player.song.channels; SoftSynth_GetActiveVoices(Player.synth); SoftSynth_GetTotalVoices(Player.synth);
 
     LOCATE 3, x: PRINT USING " BPM: ###       | SPD: ###       | VOL: ###%      | BUF: #######ms | REP: \       \ "; Player.song.BPM; Player.song.speed; SoftSynth_GetMasterVolume(Player.synth) * 100!; SoftSynth_GetBufferedSoundTime(Player.synth) * 1000#; _IIF(Player.song.isLooping, "Enabled", "Disabled");
 
     ' Clamp instrument scroll offset
-    IF InstrumentScrollOffset > Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS THEN
-        InstrumentScrollOffset = Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS
-    END IF
-    IF InstrumentScrollOffset < 0 THEN InstrumentScrollOffset = 0
+    InstrumentScrollOffset = _CLAMP(InstrumentScrollOffset, 0, _MAX(0, Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS))
 
     ' Print the sample list header
     COLOR Blink, Cyan
@@ -659,8 +655,7 @@ SUB App_AdjustWindowSize
 
     IF Player.song.isPlaying THEN
         PatternDisplayWidth = 8 + Player.song.channels * 19 ' find the actual width
-        WindowWidth = PatternDisplayWidth
-        IF WindowWidth < UI_TEXT_WIDTH_MIN THEN WindowWidth = UI_TEXT_WIDTH_MIN ' we don't want the width to be too small
+        WindowWidth = _MAX(PatternDisplayWidth, UI_TEXT_WIDTH_MIN) ' we don't want the width to be too small
         FFT.size.x = (WindowWidth - UI_TEXT_WIDTH_HEADER) \ 2
         IF PatternDisplayWidth <= UI_TEXT_WIDTH_HEADER THEN
             FFT.size.y = UI_TEXT_LINE_MAX
@@ -736,14 +731,8 @@ FUNCTION App_OnPlayTune%% (fileName AS STRING)
         ' Mouse wheel scrolls visible instruments
         DIM wheel AS SINGLE: wheel = Input_GetMouseScrollWheelValue
         IF wheel <> 0! THEN
-            InstrumentScrollOffset = InstrumentScrollOffset - CLNG(wheel * 3!)
-            IF InstrumentScrollOffset < 0 THEN
-                InstrumentScrollOffset = 0
-            ELSE
-                DIM maxScrollW AS LONG: maxScrollW = Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS
-                IF maxScrollW < 0 THEN maxScrollW = 0
-                IF InstrumentScrollOffset > maxScrollW THEN InstrumentScrollOffset = maxScrollW
-            END IF
+            DIM maxScrollW AS LONG: maxScrollW = _MAX(0, Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS)
+            InstrumentScrollOffset = _CLAMP(InstrumentScrollOffset - CLNG(wheel * 3!), 0, maxScrollW)
         END IF
 
         ' Gamepad action triggers
@@ -756,11 +745,11 @@ FUNCTION App_OnPlayTune%% (fileName AS STRING)
         END IF
 
         IF Input_IsGamepadButtonDown(GAMEPAD_BUTTON_RT, 1) THEN
-            SoftSynth_SetMasterVolume Player.synth, SoftSynth_GetMasterVolume(Player.synth) + APP_VOLUME_STEP
+            SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) + APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
         END IF
 
         IF Input_IsGamepadButtonDown(GAMEPAD_BUTTON_LT, 1) THEN
-            SoftSynth_SetMasterVolume Player.synth, SoftSynth_GetMasterVolume(Player.synth) - APP_VOLUME_STEP
+            SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) - APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
         END IF
 
         ' Check high-level TUI navigation triggers (combines Keyboard arrows and Gamepad stick tilt / bumpers)
@@ -770,22 +759,18 @@ FUNCTION App_OnPlayTune%% (fileName AS STRING)
             MODPlayer_GoToNextPosition Player
         END IF
 
+        DIM maxScrollDown AS LONG: maxScrollDown = _MAX(0, Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS)
+
         IF Input_NavUp THEN
-            IF InstrumentScrollOffset > 0 THEN InstrumentScrollOffset = InstrumentScrollOffset - 1
+            InstrumentScrollOffset = _MAX(0, InstrumentScrollOffset - 1)
         ELSEIF Input_NavDown THEN
-            IF InstrumentScrollOffset < Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS THEN
-                InstrumentScrollOffset = InstrumentScrollOffset + 1
-            END IF
+            InstrumentScrollOffset = _MIN(maxScrollDown, InstrumentScrollOffset + 1)
         END IF
 
         IF Input_NavPageUp THEN
-            InstrumentScrollOffset = InstrumentScrollOffset - 10
-            IF InstrumentScrollOffset < 0 THEN InstrumentScrollOffset = 0
+            InstrumentScrollOffset = _MAX(0, InstrumentScrollOffset - 10)
         ELSEIF Input_NavPageDown THEN
-            DIM maxScrollDown AS LONG: maxScrollDown = Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS
-            IF maxScrollDown < 0 THEN maxScrollDown = 0
-            InstrumentScrollOffset = InstrumentScrollOffset + 10
-            IF InstrumentScrollOffset > maxScrollDown THEN InstrumentScrollOffset = maxScrollDown
+            InstrumentScrollOffset = _MIN(maxScrollDown, InstrumentScrollOffset + 10)
         END IF
 
         k = Input_GetKeyboardKey
@@ -798,10 +783,10 @@ FUNCTION App_OnPlayTune%% (fileName AS STRING)
                 Player.song.isPaused = NOT Player.song.isPaused
 
             CASE KEY_PLUS, KEY_EQUAL
-                SoftSynth_SetMasterVolume Player.synth, SoftSynth_GetMasterVolume(Player.synth) + APP_VOLUME_STEP
+                SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) + APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
 
             CASE KEY_MINUS, KEY_UNDERSCORE
-                SoftSynth_SetMasterVolume Player.synth, SoftSynth_GetMasterVolume(Player.synth) - APP_VOLUME_STEP
+                SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) - APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
 
             CASE KEY_UPPER_L, KEY_LOWER_L
                 MODPlayer_Loop Player, NOT MODPlayer_IsLooping(Player)
@@ -810,9 +795,7 @@ FUNCTION App_OnPlayTune%% (fileName AS STRING)
                 InstrumentScrollOffset = 0
 
             CASE _KEY_END
-                DIM maxScrollEnd AS LONG: maxScrollEnd = Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS
-                IF maxScrollEnd < 0 THEN maxScrollEnd = 0
-                InstrumentScrollOffset = maxScrollEnd
+                InstrumentScrollOffset = _MAX(0, Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS)
 
             CASE _KEY_F1
                 App_OnPlayTune = APP_EVENT_LOAD
