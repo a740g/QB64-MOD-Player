@@ -1,5 +1,5 @@
 '-----------------------------------------------------------------------------------------------------------------------
-' Background visual animation routines (Stars, Snakes, Fireworks, Fire, Plasma, Balls, Matrix)
+' Background visual animations
 ' Copyright (c) 2026 Samuel Gomes
 '-----------------------------------------------------------------------------------------------------------------------
 
@@ -102,8 +102,15 @@ END TYPE
 
 TYPE __Background_Fire
     _DYNAMIC grid(0 TO 0, 0 TO 0) AS _BYTE
+    _DYNAMIC decayRate(0 TO 0) AS SINGLE
     gridW AS LONG
     gridH AS LONG
+    phase1 AS SINGLE
+    phase2 AS SINGLE
+    phase3 AS SINGLE
+    flareX AS LONG
+    flareIntensity AS SINGLE
+    flareTimer AS LONG
 END TYPE
 
 TYPE __Background_Plasma
@@ -686,6 +693,14 @@ SUB __Background_InitializeFire (ctx AS Background)
 
     ctx.fire.gridW = maxX: ctx.fire.gridH = maxY
     REDIM ctx.fire.grid(1 TO maxX, 1 TO maxY) AS _BYTE
+    REDIM ctx.fire.decayRate(1 TO maxX) AS SINGLE
+
+    ctx.fire.phase1 = RND * 6.2831853!
+    ctx.fire.phase2 = RND * 6.2831853!
+    ctx.fire.phase3 = RND * 6.2831853!
+    ctx.fire.flareX = (CLNG(ctx.viewport.lt.x) + maxX) \ 2
+    ctx.fire.flareIntensity = 0!
+    ctx.fire.flareTimer = Math_GetRandomBetween(30, 90)
 END SUB
 
 ''' @brief Updates retro cellular automata fire simulation and renders flames.
@@ -696,25 +711,87 @@ SUB __Background_UpdateAndDrawFire (ctx AS Background)
     DIM minY AS LONG: minY = CLNG(ctx.viewport.lt.y)
     DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
     DIM H AS LONG: H = CLNG(ctx.size.y)
+    IF H < 5 THEN EXIT SUB
 
-    ' Seed bottom line (row maxY) with hot flame energy
+    ' Base flame height scales with viewport height (approx 62% of viewport height)
+    DIM baseFlameHeight AS SINGLE: baseFlameHeight = CSNG(H) * 0.62!
+    DIM maxFlameReach AS LONG: maxFlameReach = CLNG(CSNG(H) * 0.85!)
+    DIM topFireY AS LONG: topFireY = _MAX(minY + 1, maxY - maxFlameReach)
+
+    ' Gradually advance traveling wave phases for subtle, organic undulations
+    ctx.fire.phase1 = ctx.fire.phase1 + 0.016!
+    IF ctx.fire.phase1 > 6.2831853! THEN ctx.fire.phase1 = ctx.fire.phase1 - 6.2831853!
+
+    ctx.fire.phase2 = ctx.fire.phase2 + 0.011!
+    IF ctx.fire.phase2 > 6.2831853! THEN ctx.fire.phase2 = ctx.fire.phase2 - 6.2831853!
+
+    ctx.fire.phase3 = ctx.fire.phase3 + 0.024!
+    IF ctx.fire.phase3 > 6.2831853! THEN ctx.fire.phase3 = ctx.fire.phase3 - 6.2831853!
+
+    ' Update subtle random flare-up bursts
+    ctx.fire.flareIntensity = ctx.fire.flareIntensity * 0.94!
+    ctx.fire.flareTimer = ctx.fire.flareTimer - 1
+    IF ctx.fire.flareTimer <= 0 THEN
+        DIM safeMinX AS LONG: safeMinX = _MIN(minX + 3, maxX)
+        DIM safeMaxX AS LONG: safeMaxX = _MAX(minX, maxX - 3)
+        IF safeMinX > safeMaxX THEN safeMinX = minX: safeMaxX = maxX
+        ctx.fire.flareX = Math_GetRandomBetween(safeMinX, safeMaxX)
+        ctx.fire.flareIntensity = 0.22! + RND * 0.28!
+        ctx.fire.flareTimer = Math_GetRandomBetween(45, 120)
+    END IF
+
+    ' 1D precomputation across columns: calculate dynamic flame height and decay rate
     DIM x AS LONG
     FOR x = minX TO maxX
-        IF RND < 0.68! THEN
-            ctx.fire.grid(x, maxY) = Math_GetRandomBetween(13, 17)
+        ' Organic traveling harmonic wave modulation
+        DIM waveMod AS SINGLE
+        waveMod = 0.18! * SIN(CSNG(x) * 0.065! + ctx.fire.phase1) + _
+                  0.12! * SIN(CSNG(x) * 0.125! - ctx.fire.phase2) + _
+                  0.08! * COS(CSNG(x) * 0.032! + ctx.fire.phase3)
+
+        ' Localized subtle flare-up influence
+        DIM flareMod AS SINGLE: flareMod = 0!
+        IF ctx.fire.flareIntensity > 0.01! THEN
+            DIM distToFlare AS SINGLE: distToFlare = ABS(CSNG(x - ctx.fire.flareX))
+            IF distToFlare < 10! THEN
+                flareMod = ctx.fire.flareIntensity * (1.0! - distToFlare / 10!)
+            END IF
+        END IF
+
+        DIM heightFactor AS SINGLE: heightFactor = _CLAMP(1.0! + waveMod + flareMod, 0.50!, 1.40!)
+        DIM colTargetH AS SINGLE: colTargetH = _CLAMP(baseFlameHeight * heightFactor, 5!, CSNG(maxY - topFireY))
+
+        ' Target decay rate per vertical row step to reach zero heat at colTargetH
+        ctx.fire.decayRate(x) = 16.5! / colTargetH
+
+        ' Seed bottom line (row maxY): fuel intensity gently correlates with tongue height
+        DIM seedChance AS SINGLE: seedChance = _CLAMP(0.55! + (heightFactor - 1.0!) * 0.35!, 0.35!, 0.88!)
+        IF RND < seedChance THEN
+            ctx.fire.grid(x, maxY) = Math_GetRandomBetween(15, 18)
         ELSE
-            ctx.fire.grid(x, maxY) = 0
+            ctx.fire.grid(x, maxY) = Math_GetRandomBetween(0, 3)
         END IF
     NEXT x
 
-    ' Propagate heat upward with decay and wind
-    DIM topFireY AS LONG: topFireY = minY + (H * 3) \ 10
+    ' Propagate heat upward with column-dependent probabilistic decay and wind drift
     DIM y AS LONG
     FOR y = topFireY TO maxY - 1
         FOR x = minX TO maxX
-            DIM decay AS LONG: decay = Math_GetRandomBetween(0, 2)
             DIM wind AS LONG: wind = Math_GetRandomBetween(-1, 1)
             DIM srcX AS LONG: srcX = _CLAMP(x + wind, minX, maxX)
+            DIM rate AS SINGLE: rate = ctx.fire.decayRate(srcX)
+
+            DIM decay AS LONG
+            IF rate <= 1.0! THEN
+                decay = 0
+                IF RND < rate THEN decay = 1
+                IF decay = 1 _ANDALSO RND < 0.18! THEN decay = 2
+            ELSE
+                decay = 1
+                IF RND < (rate - 1.0!) THEN decay = 2
+                IF decay = 1 _ANDALSO RND < 0.12! THEN decay = 0
+            END IF
+
             DIM heat AS LONG: heat = CLNG(ctx.fire.grid(srcX, y + 1)) - decay
             IF heat < 0 THEN heat = 0
             ctx.fire.grid(x, y) = heat
@@ -722,7 +799,7 @@ SUB __Background_UpdateAndDrawFire (ctx AS Background)
     NEXT y
 
     ' Render flame rows with horizontal run-length batching
-    DIM startRenderY AS LONG: startRenderY = topFireY + 2
+    DIM startRenderY AS LONG: startRenderY = topFireY
     FOR y = startRenderY TO maxY
         DIM runStart AS LONG: runStart = 0
         DIM lastCol AS LONG: lastCol = -1
@@ -952,7 +1029,7 @@ SUB __Background_UpdateAndDrawBalls (ctx AS Background)
         IF ctx.balls.balls(i).position.y < CSNG(minY + 1) THEN
             ctx.balls.balls(i).position.y = CSNG(minY + 1)
             ctx.balls.balls(i).velocity.y = ABS(ctx.balls.balls(i).velocity.y) * 0.94!
-        ' Bottom floor trampoline rebound
+            ' Bottom floor trampoline rebound
         ELSEIF ctx.balls.balls(i).position.y > CSNG(maxY - 1) THEN
             ctx.balls.balls(i).position.y = CSNG(maxY - 1)
             DIM reboundVy AS SINGLE: reboundVy = ABS(ctx.balls.balls(i).velocity.y) * 0.94!
@@ -1090,9 +1167,9 @@ SUB Background_InitializeEx (ctx AS Background, viewport AS Bounds2f)
     IF ctx.viewport.lt.x < 1! _ORELSE ctx.viewport.lt.y < 1! _ORELSE ctx.viewport.rb.x < 1! _ORELSE ctx.viewport.rb.y < 1! THEN
         ctx.viewport.lt.x = 1!
         ctx.viewport.lt.y = 1!
-        ctx.viewport.rb.x = _WIDTH
-        ctx.viewport.rb.y = _HEIGHT
-    END IF 
+        ctx.viewport.rb.x = _MAX(_WIDTH, 1)
+        ctx.viewport.rb.y = _MAX(_HEIGHT, 1)
+    END IF
 
     ctx.size.x = Bounds2f_GetDiscreteWidth(ctx.viewport)
     ctx.size.y = Bounds2f_GetDiscreteHeight(ctx.viewport)
@@ -1100,10 +1177,10 @@ SUB Background_InitializeEx (ctx AS Background, viewport AS Bounds2f)
     IF ctx.size.x < 1! _ORELSE ctx.size.y < 1! THEN
         ctx.viewport.lt.x = 1!
         ctx.viewport.lt.y = 1!
-        ctx.viewport.rb.x = _WIDTH
-        ctx.viewport.rb.y = _HEIGHT
-        ctx.size.x = _WIDTH
-        ctx.size.y = _HEIGHT
+        ctx.viewport.rb.x = _MAX(_WIDTH, 1)
+        ctx.viewport.rb.y = _MAX(_HEIGHT, 1)
+        ctx.size.x = _MAX(_WIDTH, 1)
+        ctx.size.y = _MAX(_HEIGHT, 1)
     END IF
 
     __Background_InitializeStars ctx

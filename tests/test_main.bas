@@ -3269,6 +3269,8 @@ SUB Test_Background
 
     TEST_CASE_BEGIN "Background: Fire grid allocation"
     TEST_CHECK bg.fire.gridW > 0 AND bg.fire.gridH > 0, "Fire grid initialized with valid dimensions"
+    TEST_CHECK UBOUND(bg.fire.decayRate, 1) > 0, "Fire decay rate buffer allocated"
+    TEST_CHECK bg.fire.phase1 >= 0! AND bg.fire.phase1 <= 6.2831853!, "Fire phase1 initialized in valid range"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "Background: Plasma LUT generation"
