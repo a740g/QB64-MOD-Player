@@ -12,8 +12,8 @@ $VERSIONINFO:OriginalFilename='QB64MODPlayer.exe'
 $VERSIONINFO:ProductName='QB64 MOD Player'
 $VERSIONINFO:Web='https://github.com/a740g'
 $VERSIONINFO:Comments='https://github.com/a740g'
-$VERSIONINFO:FILEVERSION#=2,2,0,0
-$VERSIONINFO:PRODUCTVERSION#=2,2,0,0
+$VERSIONINFO:FILEVERSION#=3,0,0,0
+$VERSIONINFO:PRODUCTVERSION#=3,0,0,0
 $EXEICON:'./QB64MODPlayer.ico'
 
 _DEFINE A-Z AS LONG
@@ -56,6 +56,7 @@ DIM SelectedPlaylistItem AS LONG
 DIM PlaylistScrollOffset AS LONG
 DIM CommentScrollOffset AS LONG
 DIM ShowHelpModal AS _BYTE
+DIM QuitRequested AS _BYTE
 DIM SongStartTime AS DOUBLE
 DIM SongElapsedTime AS DOUBLE
 DIM Bg AS Background
@@ -168,6 +169,65 @@ SUB App_StopPlayback
     IF Player.song.isPlaying THEN MODPlayer_Stop Player
     CurrentView = UI_VIEW_MODE_OVERVIEW
     _TITLE APP_NAME + _CHR_SPACE + _OS$
+END SUB
+
+''' @brief Handles F1-F12 hotkey events and status bar mouse clicks.
+''' @param k Key index: 1-10 (F1-F10), 30 (F11), 31 (F12).
+SUB App_HandleFKey (k AS INTEGER)
+    SHARED CurrentView AS INTEGER
+    SHARED ShowHelpModal AS _BYTE
+    SHARED Player AS MODPlayer
+    SHARED GlobalPlaylist AS Playlist
+    SHARED SongStartTime AS DOUBLE
+    SHARED SongElapsedTime AS DOUBLE
+    SHARED QuitRequested AS _BYTE
+
+    SELECT CASE k
+        CASE 1 ' F1: Help
+            ShowHelpModal = NOT ShowHelpModal
+
+        CASE 2 ' F2: Tracker
+            CurrentView = UI_VIEW_MODE_TRACKER
+
+        CASE 3 ' F3: Mixer
+            CurrentView = UI_VIEW_MODE_MIXER
+
+        CASE 4 ' F4: Instruments
+            CurrentView = UI_VIEW_MODE_INSTRUMENTS
+
+        CASE 5 ' F5: Playlist
+            CurrentView = UI_VIEW_MODE_PLAYLIST
+
+        CASE 6 ' F6: Song Info
+            CurrentView = UI_VIEW_MODE_SONGINFO
+
+        CASE 7 ' F7: Visualizer
+            CurrentView = UI_VIEW_MODE_VISUALIZER
+
+        CASE 8 ' F8: Play / Pause
+            IF Player.song.isPlaying THEN
+                Player.song.isPaused = NOT Player.song.isPaused
+                SongStartTime = _UPTIME - SongElapsedTime
+            ELSEIF GlobalPlaylist.count > 0 THEN
+                DIM pIdx AS LONG: pIdx = GlobalPlaylist.currentIndex
+                IF pIdx < 1 THEN pIdx = 1
+                App_PlayTrack pIdx
+            END IF
+
+        CASE 9 ' F9: Prev Track
+            App_PlayPrevTrack
+
+        CASE 10 ' F10: Next Track
+            App_PlayNextTrack
+
+        CASE 30 ' F11: Loop Mode
+            IF Player.song.isPlaying THEN
+                Player.song.isLooping = NOT Player.song.isLooping
+            END IF
+
+        CASE 31 ' F12: Quit
+            QuitRequested = _TRUE
+    END SELECT
 END SUB
 
 ''' @brief Scans a directory for supported tracker files and adds them to the playlist.
@@ -308,34 +368,96 @@ SUB App_ProcessCommandLine
     END IF
 END SUB
 
+''' @brief Initializes application state, UI, and event handlers.
+SUB App_Initialize
+    SHARED GlobalPlaylist AS Playlist
+    SHARED Bg AS Background
+    SHARED CurrentView AS INTEGER
+    SHARED TrackerChanOffset AS LONG
+    SHARED SelectedInstrument AS LONG
+    SHARED InstrumentScrollOffset AS LONG
+    SHARED SelectedPlaylistItem AS LONG
+    SHARED PlaylistScrollOffset AS LONG
+    SHARED CommentScrollOffset AS LONG
+    SHARED ShowHelpModal AS _BYTE
+    SHARED QuitRequested AS _BYTE
+
+    WIDTH UI_SCREEN_WIDTH, UI_SCREEN_HEIGHT
+    _CONTROLCHR OFF
+    _FONT 8
+    _BLINK OFF
+    LOCATE , , _FALSE
+    CLS
+
+    _TITLE APP_NAME + _CHR_SPACE + _OS$
+    CHDIR _STARTDIR$
+    _ACCEPTFILEDROP
+    _ALLOWFULLSCREEN _SQUAREPIXELS , _SMOOTH
+    RANDOMIZE TIMER
+
+    Playlist_Initialize GlobalPlaylist
+    Background_Initialize Bg
+    CurrentView = UI_VIEW_MODE_OVERVIEW
+    TrackerChanOffset = 0
+    SelectedInstrument = 1
+    InstrumentScrollOffset = 1
+    SelectedPlaylistItem = 1
+    PlaylistScrollOffset = 1
+    CommentScrollOffset = 1
+    ShowHelpModal = _FALSE
+    QuitRequested = _FALSE
+
+    ' Initialize retro softkeys on row 90 and event trapping
+    KEY 1, " HELP"
+    KEY 2, " TRACKER"
+    KEY 3, " MIXER"
+    KEY 4, " INSTRS"
+    KEY 5, " PLAYLIST"
+    KEY 6, " INFO"
+    KEY 7, " VIS"
+    KEY 8, " PLAY"
+    KEY 9, " PREV"
+    KEY 10, " NEXT"
+    KEY 30, " LOOP"
+    KEY 31, " QUIT"
+    KEY ON
+
+    ON KEY(1) App_HandleFKey 1
+    ON KEY(2) App_HandleFKey 2
+    ON KEY(3) App_HandleFKey 3
+    ON KEY(4) App_HandleFKey 4
+    ON KEY(5) App_HandleFKey 5
+    ON KEY(6) App_HandleFKey 6
+    ON KEY(7) App_HandleFKey 7
+    ON KEY(8) App_HandleFKey 8
+    ON KEY(9) App_HandleFKey 9
+    ON KEY(10) App_HandleFKey 10
+    ON KEY(30) App_HandleFKey 30
+    ON KEY(31) App_HandleFKey 31
+
+    KEY(1) ON
+    KEY(2) ON
+    KEY(3) ON
+    KEY(4) ON
+    KEY(5) ON
+    KEY(6) ON
+    KEY(7) ON
+    KEY(8) ON
+    KEY(9) ON
+    KEY(10) ON
+    KEY(30) ON
+    KEY(31) ON
+END SUB
+
 '-----------------------------------------------------------------------------------------------------------------------
 ' APPLICATION INITIALIZATION & MAIN WORKSTATION LOOP
 '-----------------------------------------------------------------------------------------------------------------------
-WIDTH UI_SCREEN_WIDTH, UI_SCREEN_HEIGHT
-_CONTROLCHR OFF
-_FONT 8
-_BLINK OFF
-LOCATE , , _FALSE
-CLS
 
-_TITLE APP_NAME + _CHR_SPACE + _OS$
-CHDIR _STARTDIR$
-_ACCEPTFILEDROP
-_ALLOWFULLSCREEN _SQUAREPIXELS, _SMOOTH
-RANDOMIZE TIMER
-
-Playlist_Initialize GlobalPlaylist
-Background_Initialize Bg
-CurrentView = UI_VIEW_MODE_OVERVIEW
-TrackerChanOffset = 0
-SelectedInstrument = 1
-InstrumentScrollOffset = 1
-SelectedPlaylistItem = 1
-PlaylistScrollOffset = 1
-CommentScrollOffset = 1
-ShowHelpModal = _FALSE
-
+App_Initialize
 App_ProcessCommandLine
+
+DIM lastPlayKeyText AS STRING: lastPlayKeyText = " PLAY"
+DIM lastLoopKeyText AS STRING: lastLoopKeyText = " LOOP"
 
 DO
     ' Audio synthesis & playback update
@@ -353,11 +475,34 @@ DO
     ' Input polling
     Input_Update
 
-    IF Input_WindowShouldClose THEN EXIT DO
+    IF Input_WindowShouldClose _ORELSE QuitRequested THEN EXIT DO
     IF _TOTALDROPPEDFILES > 0 THEN App_ProcessDroppedFiles
 
     ' Clear framebuffer
     CLS , Black
+
+    ' Dynamic softkey label updates
+    DIM curPlayKeyText AS STRING
+    IF Player.song.isPlaying _ANDALSO NOT Player.song.isPaused THEN
+        curPlayKeyText = " PAUSE"
+    ELSE
+        curPlayKeyText = " PLAY"
+    END IF
+    IF curPlayKeyText <> lastPlayKeyText THEN
+        KEY 8, curPlayKeyText
+        lastPlayKeyText = curPlayKeyText
+    END IF
+
+    DIM curLoopKeyText AS STRING
+    IF Player.song.isPlaying _ANDALSO Player.song.isLooping THEN
+        curLoopKeyText = " LOOP"
+    ELSE
+        curLoopKeyText = " ONCE"
+    END IF
+    IF curLoopKeyText <> lastLoopKeyText THEN
+        KEY 30, curLoopKeyText
+        lastLoopKeyText = curLoopKeyText
+    END IF
 
     ' Begin TUI frame
     TUI_Begin
@@ -400,7 +545,8 @@ DO
             UI_RenderVisualizer Player, AnalyzerL, AnalyzerR
     END SELECT
 
-    UI_DrawFooter Player
+    DIM footerKey AS INTEGER: footerKey = UI_DrawFooter(Player)
+    IF footerKey > 0 THEN App_HandleFKey footerKey
 
     IF ShowHelpModal THEN
         UI_RenderHelpModal ShowHelpModal
@@ -465,13 +611,18 @@ DO
                 EXIT DO
             END IF
 
-        CASE _KEY_F1: ShowHelpModal = NOT ShowHelpModal
-        CASE _KEY_F2: CurrentView = UI_VIEW_MODE_TRACKER
-        CASE _KEY_F3: CurrentView = UI_VIEW_MODE_MIXER
-        CASE _KEY_F4: CurrentView = UI_VIEW_MODE_INSTRUMENTS
-        CASE _KEY_F5: CurrentView = UI_VIEW_MODE_PLAYLIST
-        CASE _KEY_F6: CurrentView = UI_VIEW_MODE_SONGINFO
-        CASE _KEY_F7: CurrentView = UI_VIEW_MODE_VISUALIZER
+        CASE _KEY_F1: App_HandleFKey 1
+        CASE _KEY_F2: App_HandleFKey 2
+        CASE _KEY_F3: App_HandleFKey 3
+        CASE _KEY_F4: App_HandleFKey 4
+        CASE _KEY_F5: App_HandleFKey 5
+        CASE _KEY_F6: App_HandleFKey 6
+        CASE _KEY_F7: App_HandleFKey 7
+        CASE _KEY_F8: App_HandleFKey 8
+        CASE _KEY_F9: App_HandleFKey 9
+        CASE _KEY_F10: App_HandleFKey 10
+        CASE _KEY_F11: App_HandleFKey 30
+        CASE _KEY_F12: App_HandleFKey 31
 
         CASE _KEY_LEFT
             IF Player.song.isPlaying THEN MODPlayer_GoToPreviousPosition Player
@@ -523,5 +674,4 @@ DO
     _LIMIT APP_FRAME_RATE
 LOOP
 
-MODPlayer_Stop Player
 SYSTEM

@@ -304,9 +304,13 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, curTime AS DOUBLE
     UI_DrawHeader = action
 END FUNCTION
 
-''' @brief Renders the fixed bottom footer across rows 89 and 90.
+''' @brief Renders the fixed bottom footer across row 89 (Row 90 is managed by KEY ON).
 ''' @param player The active MODPlayer instance.
-SUB UI_DrawFooter (player AS MODPlayer)
+''' @return Softkey number (1..10, 30, 31) if user clicked on Row 90, or 0 if none.
+FUNCTION UI_DrawFooter% (player AS MODPlayer)
+    SHARED __TUI AS __TUI_Context
+    UI_DrawFooter = 0
+
     ' Row 89: Mini VU Meter Ribbon across all song channels
     COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
     _PRINTSTRING (2, 89), "CH:"
@@ -355,13 +359,18 @@ SUB UI_DrawFooter (player AS MODPlayer)
         END IF
     NEXT c
 
-    ' Row 90: Global hotkey legend and status
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLUE
-    DIM legend AS STRING
-    legend = " F1: Help | F2: Tracker | F3: Mixer | F4: Insts | F5: Playlist | F6: Info | F7: Vis | Space: Pause | Esc: Return "
-    IF LEN(legend) < UI_SCREEN_WIDTH THEN legend = legend + SPACE$(UI_SCREEN_WIDTH - LEN(legend))
-    _PRINTSTRING (1, 90), legend
-END SUB
+    ' Detect mouse click on Row 90 softkeys (144 columns / 12 keys = 12 columns per key)
+    IF INT(__TUI.mousePos.y) = UI_SCREEN_HEIGHT _ANDALSO __TUI.mouseClickedL THEN
+        DIM slot AS LONG: slot = (CLNG(__TUI.mousePos.x) - 1) \ 12 + 1
+        IF slot >= 1 _ANDALSO slot <= 10 THEN
+            UI_DrawFooter = slot
+        ELSEIF slot = 11 THEN
+            UI_DrawFooter = 30
+        ELSEIF slot = 12 THEN
+            UI_DrawFooter = 31
+        END IF
+    END IF
+END FUNCTION
 
 ''' @brief Renders View 1: Overview Dashboard with live starfield and capability overview.
 ''' @param bg Background animation context.
@@ -1118,24 +1127,27 @@ SUB UI_RenderHelpModal (showHelpModal AS _BYTE)
     _PRINTSTRING (26, 29), "F7             Visualizer View (Stereo FFT spectrum analyzer & oscilloscope)"
 
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
-    _PRINTSTRING (24, 33), "Playback & Transport Controls:"
+    _PRINTSTRING (24, 32), "Playback & Transport Controls:"
     COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
-    _PRINTSTRING (26, 35), "Space / Gamepad X           Play / Pause playback"
-    _PRINTSTRING (26, 37), "Left / Right / Gamepad DPad Jump previous / next order position"
-    _PRINTSTRING (26, 39), "+ / - / Gamepad Triggers    Master volume up / down"
-    _PRINTSTRING (26, 41), "L                           Toggle song loop mode"
-    _PRINTSTRING (26, 43), "S                           Solo channel (in Mixer / Tracker view)"
-    _PRINTSTRING (26, 45), "M                           Mute channel"
-    _PRINTSTRING (26, 47), "Home / End                  Scroll to top / bottom of lists"
-    _PRINTSTRING (26, 49), "PageUp / PageDown           Scroll fast through lists / patterns"
-    _PRINTSTRING (26, 51), "Esc                         Stop song / return to Overview / exit"
+    _PRINTSTRING (26, 34), "F8 / Space / Gamepad X      Play / Pause playback"
+    _PRINTSTRING (26, 36), "F9                          Previous track in playlist"
+    _PRINTSTRING (26, 38), "F10                         Next track in playlist"
+    _PRINTSTRING (26, 40), "F11 / L                     Toggle song loop mode"
+    _PRINTSTRING (26, 42), "F12                         Quit MOD Player"
+    _PRINTSTRING (26, 44), "Left / Right / Gamepad DPad Jump previous / next order position"
+    _PRINTSTRING (26, 46), "+ / - / Gamepad Triggers    Master volume up / down"
+    _PRINTSTRING (26, 48), "S                           Solo channel (in Mixer / Tracker view)"
+    _PRINTSTRING (26, 50), "M                           Mute channel"
+    _PRINTSTRING (26, 52), "Home / End                  Scroll to top / bottom of lists"
+    _PRINTSTRING (26, 54), "PageUp / PageDown           Scroll fast through lists / patterns"
+    _PRINTSTRING (26, 56), "Esc                         Stop song / return to Overview / exit"
 
     COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
-    _PRINTSTRING (24, 56), "Mouse & Gamepad Navigation:"
+    _PRINTSTRING (24, 60), "Mouse & Gamepad Navigation:"
     COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
-    _PRINTSTRING (26, 58), "Tab / Shift+Tab             Navigate interactive 3D buttons & controls"
-    _PRINTSTRING (26, 60), "Enter / Space / Gamepad A   Activate focused button / select item"
-    _PRINTSTRING (26, 62), "Mouse Wheel                 Scroll active list / pattern rows / channels"
+    _PRINTSTRING (26, 62), "Tab / Shift+Tab             Navigate interactive 3D buttons & controls"
+    _PRINTSTRING (26, 64), "Enter / Space / Gamepad A   Activate focused button / select item"
+    _PRINTSTRING (26, 66), "Mouse Wheel                 Scroll active list / pattern rows / channels"
 
     IF TUI_Button(56, 69, 30, "Close Help (F1 / Esc)") THEN
         showHelpModal = _FALSE
