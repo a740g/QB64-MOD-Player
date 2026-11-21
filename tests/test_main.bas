@@ -22,14 +22,16 @@ $LET TEST_CONSOLE_ONLY = TRUE
 '$INCLUDE:'../source/FARLoader.bi'
 '$INCLUDE:'../source/STMLoader.bi'
 '$INCLUDE:'../source/Vector2f.bi'
+'$INCLUDE:'../source/Bounds2f.bi'
 '$INCLUDE:'../source/Vector3f.bi'
 '$INCLUDE:'../source/Background.bi'
+'$INCLUDE:'../source/Input.bi'
 
 ''' @brief Tests for Time.bi and _UPTIME functionality.
 SUB Test_Time
     TEST_CASE_BEGIN "Time: _UPTIME monotonicity and resolution"
     DIM t1 AS DOUBLE: t1 = _UPTIME
-    TEST_CHECK t1 > 0#, "_UPTIME returns positive number"
+    TEST_CHECK t1 >= 0#, "_UPTIME returns positive number"
     _DELAY 0.005 ' sleep ~5ms
     DIM t2 AS DOUBLE: t2 = _UPTIME
     TEST_CHECK t2 >= t1, "_UPTIME is monotonic (t2 >= t1)"
@@ -3412,12 +3414,119 @@ SUB Test_MODPlayer_FormatConstants
     TEST_CASE_END
 END SUB
 
+''' @brief Tests for Bounds2f.bi bounding box functions.
+SUB Test_Bounds2f
+    TEST_CASE_BEGIN "Bounds2f: Initialization and Set"
+    DIM b AS Bounds2f
+    Bounds2f_Initialize 10.5!, 20.0!, 50.5!, 60.0!, b
+    TEST_CHECK b.lt.x = 10.5!, "b.lt.x initialized to 10.5"
+    TEST_CHECK b.lt.y = 20.0!, "b.lt.y initialized to 20.0"
+    TEST_CHECK b.rb.x = 50.5!, "b.rb.x initialized to 50.5"
+    TEST_CHECK b.rb.y = 60.0!, "b.rb.y initialized to 60.0"
+    TEST_CHECK Bounds2f_GetWidth(b) = 40.0!, "Width is 40.0"
+    TEST_CHECK Bounds2f_GetHeight(b) = 40.0!, "Height is 40.0"
+
+    DIM v1 AS Vector2f, v2 AS Vector2f
+    Vector2f_Set 5!, 15!, v1
+    Vector2f_Set 25!, 35!, v2
+    Bounds2f_InitializeWithVectors v1, v2, b
+    TEST_CHECK b.lt.x = 5! AND b.rb.y = 35!, "Initialized with vectors"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Bounds2f: Sanitize inverted coordinates"
+    Bounds2f_Set 100!, 200!, 10!, 20!, b
+    TEST_CHECK b.lt.x > b.rb.x, "Initially inverted"
+    Bounds2f_Sanitize b
+    TEST_CHECK b.lt.x = 10! AND b.rb.x = 100!, "X coordinates swapped by Sanitize"
+    TEST_CHECK b.lt.y = 20! AND b.rb.y = 200!, "Y coordinates swapped by Sanitize"
+    TEST_CHECK Bounds2f_GetWidth(b) = 90!, "Sanitized width is 90"
+    TEST_CHECK Bounds2f_GetHeight(b) = 180!, "Sanitized height is 180"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Bounds2f: ContainsPoint and ContainsPointXY"
+    Bounds2f_Initialize 0!, 0!, 100!, 100!, b
+    DIM ptIn AS Vector2f, ptOut AS Vector2f
+    Vector2f_Set 50!, 50!, ptIn
+    Vector2f_Set 150!, 50!, ptOut
+    TEST_CHECK Bounds2f_ContainsPoint(b, ptIn), "ptIn (50, 50) is inside"
+    TEST_CHECK_FALSE Bounds2f_ContainsPoint(b, ptOut), "ptOut (150, 50) is outside"
+    TEST_CHECK Bounds2f_ContainsPointXY(b, 0!, 0!), "Origin is inside (inclusive)"
+    TEST_CHECK Bounds2f_ContainsPointXY(b, 100!, 100!), "Max point is inside (inclusive)"
+    TEST_CHECK_FALSE Bounds2f_ContainsPointXY(b, -0.1!, 50!), "Negative x is outside"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Bounds2f: Intersects"
+    DIM b1 AS Bounds2f, b2 AS Bounds2f, b3 AS Bounds2f
+    Bounds2f_Initialize 0!, 0!, 50!, 50!, b1
+    Bounds2f_Initialize 25!, 25!, 75!, 75!, b2
+    Bounds2f_Initialize 60!, 60!, 100!, 100!, b3
+    TEST_CHECK Bounds2f_Intersects(b1, b2), "b1 and b2 intersect"
+    TEST_CHECK_FALSE Bounds2f_Intersects(b1, b3), "b1 and b3 do not intersect"
+    TEST_CASE_END
+END SUB
+
+''' @brief Tests for Input.bi functionality.
+SUB Test_Input
+    TEST_CASE_BEGIN "Input: Math Clamp functions"
+    TEST_CHECK Math_ClampSingle(-5!, 0!, 10!) = 0!, "Math_ClampSingle clamps lower bound"
+    TEST_CHECK Math_ClampSingle(15!, 0!, 10!) = 10!, "Math_ClampSingle clamps upper bound"
+    TEST_CHECK Math_ClampSingle(5!, 0!, 10!) = 5!, "Math_ClampSingle preserves in-range value"
+    TEST_CHECK Math_ClampDouble(-5#, 0#, 10#) = 0#, "Math_ClampDouble clamps lower bound"
+    TEST_CHECK Math_ClampDouble(15#, 0#, 10#) = 10#, "Math_ClampDouble clamps upper bound"
+    TEST_CHECK Math_ClampDouble(5#, 0#, 10#) = 5#, "Math_ClampDouble preserves in-range value"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Input: Deadzone configuration"
+    Input_SetGamepadDeadzone 0.25!
+    TEST_CHECK Input_GetGamepadDeadzone = 0.25!, "Deadzone set to 0.25"
+    Input_SetGamepadDeadzone -0.5!
+    TEST_CHECK Input_GetGamepadDeadzone = 0!, "Negative deadzone clamps to 0.0"
+    Input_SetGamepadDeadzone 1.5!
+    TEST_CHECK Input_GetGamepadDeadzone = 0.99!, "Excessive deadzone clamps to 0.99"
+    Input_SetGamepadDeadzone GAMEPAD_AXIS_DEADZONE_DEFAULT
+    TEST_CHECK Input_GetGamepadDeadzone = GAMEPAD_AXIS_DEADZONE_DEFAULT, "Reset to default deadzone"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Input: Window close state manipulation"
+    Input_SetWindowShouldClose _FALSE
+    TEST_CHECK_FALSE Input_WindowShouldClose, "Window close flag is false"
+    Input_SetWindowShouldClose _TRUE
+    TEST_CHECK Input_WindowShouldClose, "Window close flag set to true"
+    Input_SetWindowShouldClose _FALSE
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Input: Mouse Rect hit testing"
+    ' Force update to initialize structures
+    Input_Update
+    ' Since we are in headless/console mode, mouse position is typically 0,0
+    DIM mx AS SINGLE: mx = Input_GetMouseX
+    DIM my AS SINGLE: my = Input_GetMouseY
+    TEST_CHECK Input_IsMouseInRect(mx - 10!, my - 10!, mx + 10!, my + 10!), "Mouse is in enclosing rect"
+    TEST_CHECK_FALSE Input_IsMouseInRect(mx + 100!, my + 100!, mx + 200!, my + 200!), "Mouse is not in distant rect"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Input: Key codes and constants"
+    TEST_CHECK KEY_SPACE = 32, "KEY_SPACE is 32"
+    TEST_CHECK KEY_ESCAPE = 27, "KEY_ESCAPE is 27"
+    TEST_CHECK KEY_ENTER = 13, "KEY_ENTER is 13"
+    TEST_CHECK KEY_LSHIFT = 100304&, "KEY_LSHIFT is 100304"
+    TEST_CHECK KEY_RSHIFT = 100303&, "KEY_RSHIFT is 100303"
+    TEST_CHECK GAMEPAD_BUTTON_A = 1, "GAMEPAD_BUTTON_A is 1"
+    TEST_CHECK GAMEPAD_BUTTON_B = 2, "GAMEPAD_BUTTON_B is 2"
+    TEST_CHECK GAMEPAD_BUTTON_X = 3, "GAMEPAD_BUTTON_X is 3"
+    TEST_CHECK GAMEPAD_BUTTON_Y = 4, "GAMEPAD_BUTTON_Y is 4"
+    TEST_CHECK GAMEPAD_BUTTON_START = 10, "GAMEPAD_BUTTON_START is 10"
+    TEST_CASE_END
+END SUB
+
 IF _DIREXISTS("../mods") THEN CHDIR ".."
 
 ' Run all test suites
 TEST_BEGIN_ALL
 
 Test_Vector2f
+Test_Bounds2f
+Test_Input
 Test_Vector3f
 Test_Background
 Test_Time

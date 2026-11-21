@@ -42,3 +42,33 @@ END FUNCTION
 FUNCTION Math_GetRandomBetween& (lo AS LONG, hi AS LONG)
     Math_GetRandomBetween = INT(RND * (hi - lo + 1)) + lo
 END FUNCTION
+
+''' @brief Clamps a single-precision floating point value to the range [lo, hi].
+''' @param v The value to clamp.
+''' @param lo The minimum value.
+''' @param hi The maximum value.
+''' @return The clamped value.
+FUNCTION Math_ClampSingle! (v AS SINGLE, lo AS SINGLE, hi AS SINGLE)
+    IF v < lo THEN
+        Math_ClampSingle = lo
+    ELSEIF v > hi THEN
+        Math_ClampSingle = hi
+    ELSE
+        Math_ClampSingle = v
+    END IF
+END FUNCTION
+
+''' @brief Clamps a double-precision floating point value to the range [lo, hi].
+''' @param v The value to clamp.
+''' @param lo The minimum value.
+''' @param hi The maximum value.
+''' @return The clamped value.
+FUNCTION Math_ClampDouble# (v AS DOUBLE, lo AS DOUBLE, hi AS DOUBLE)
+    IF v < lo THEN
+        Math_ClampDouble = lo
+    ELSEIF v > hi THEN
+        Math_ClampDouble = hi
+    ELSE
+        Math_ClampDouble = v
+    END IF
+END FUNCTION

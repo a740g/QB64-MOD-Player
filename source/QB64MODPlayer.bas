@@ -31,11 +31,13 @@ $COLOR:0
 '$INCLUDE:'Pathname.bi'
 '$INCLUDE:'File.bi'
 '$INCLUDE:'Vector2f.bi'
+'$INCLUDE:'Bounds2f.bi'
 '$INCLUDE:'Vector3f.bi'
 '$INCLUDE:'Background.bi'
 '$INCLUDE:'AudioAnalyzer.bi'
 '$INCLUDE:'MODPlayer.bi'
 '$INCLUDE:'MODPlayer.bm'
+'$INCLUDE:'Input.bi'
 
 CONST APP_NAME = "QB64 MOD Player" ' application name
 ' We'll use a window with 1152 x 720 px (144 x 90 chars @ 8 x 8 px font) client area
@@ -54,14 +56,6 @@ CONST APP_EVENT_LOAD%% = 3%% ' user want to load files
 CONST APP_EVENT_DROP%% = 4%% ' user dropped files
 CONST APP_EVENT_PLAY%% = 5%% ' play next song
 CONST APP_EVENT_HTTP%% = 6%% ' Downloads and plays random MODs from modarchive.org
-' Keyboard constants
-CONST KEY_SPACE& = _ASC_SPACE
-CONST KEY_PLUS& = _ASC_PLUS
-CONST KEY_EQUAL& = _ASC_EQUAL
-CONST KEY_MINUS& = _ASC_MINUS
-CONST KEY_UNDERSCORE& = _ASC_UNDERSCORE
-CONST KEY_UPPER_L& = ASC_UPPER_L
-CONST KEY_LOWER_L& = ASC_LOWER_L
 
 TYPE Size
     x AS LONG
@@ -614,13 +608,15 @@ FUNCTION App_OnWelcomeScreen%% (bg AS Background)
 
         _PUTIMAGE , titlePage
 
-        DIM k AS LONG: k = _KEYHIT
+        Input_Update
 
-        IF k = _KEY_ESC THEN
+        DIM k AS LONG: k = Input_GetKeyboardKey
+
+        IF k = _KEY_ESC _ORELSE Input_NavCancel _ORELSE Input_WindowShouldClose THEN
             e = APP_EVENT_QUIT
         ELSEIF _TOTALDROPPEDFILES > 0 THEN
             e = APP_EVENT_DROP
-        ELSEIF k = _KEY_F1 THEN
+        ELSEIF k = _KEY_F1 _ORELSE Input_NavConfirm THEN
             e = APP_EVENT_LOAD
         ELSEIF k = _KEY_F2 THEN
             e = APP_EVENT_HTTP
@@ -731,7 +727,68 @@ FUNCTION App_OnPlayTune%% (fileName AS STRING)
 
         Visualizer_Draw
 
-        k = _KEYHIT
+        Input_Update
+
+        IF Input_WindowShouldClose THEN
+            EXIT DO
+        END IF
+
+        ' Mouse wheel scrolls visible instruments
+        DIM wheel AS SINGLE: wheel = Input_GetMouseScrollWheelValue
+        IF wheel <> 0! THEN
+            InstrumentScrollOffset = InstrumentScrollOffset - CLNG(wheel * 3!)
+            IF InstrumentScrollOffset < 0 THEN
+                InstrumentScrollOffset = 0
+            ELSE
+                DIM maxScrollW AS LONG: maxScrollW = Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS
+                IF maxScrollW < 0 THEN maxScrollW = 0
+                IF InstrumentScrollOffset > maxScrollW THEN InstrumentScrollOffset = maxScrollW
+            END IF
+        END IF
+
+        ' Gamepad action triggers
+        IF Input_GetGamepadButtonPressed(GAMEPAD_BUTTON_X, 1) THEN
+            Player.song.isPaused = NOT Player.song.isPaused
+        END IF
+
+        IF Input_GetGamepadButtonPressed(GAMEPAD_BUTTON_Y, 1) THEN
+            MODPlayer_Loop Player, NOT MODPlayer_IsLooping(Player)
+        END IF
+
+        IF Input_IsGamepadButtonDown(GAMEPAD_BUTTON_RT, 1) THEN
+            SoftSynth_SetMasterVolume Player.synth, SoftSynth_GetMasterVolume(Player.synth) + APP_VOLUME_STEP
+        END IF
+
+        IF Input_IsGamepadButtonDown(GAMEPAD_BUTTON_LT, 1) THEN
+            SoftSynth_SetMasterVolume Player.synth, SoftSynth_GetMasterVolume(Player.synth) - APP_VOLUME_STEP
+        END IF
+
+        ' Check high-level TUI navigation triggers (combines Keyboard arrows and Gamepad stick tilt / bumpers)
+        IF Input_NavLeft THEN
+            MODPlayer_GoToPreviousPosition Player
+        ELSEIF Input_NavRight THEN
+            MODPlayer_GoToNextPosition Player
+        END IF
+
+        IF Input_NavUp THEN
+            IF InstrumentScrollOffset > 0 THEN InstrumentScrollOffset = InstrumentScrollOffset - 1
+        ELSEIF Input_NavDown THEN
+            IF InstrumentScrollOffset < Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS THEN
+                InstrumentScrollOffset = InstrumentScrollOffset + 1
+            END IF
+        END IF
+
+        IF Input_NavPageUp THEN
+            InstrumentScrollOffset = InstrumentScrollOffset - 10
+            IF InstrumentScrollOffset < 0 THEN InstrumentScrollOffset = 0
+        ELSEIF Input_NavPageDown THEN
+            DIM maxScrollDown AS LONG: maxScrollDown = Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS
+            IF maxScrollDown < 0 THEN maxScrollDown = 0
+            InstrumentScrollOffset = InstrumentScrollOffset + 10
+            IF InstrumentScrollOffset > maxScrollDown THEN InstrumentScrollOffset = maxScrollDown
+        END IF
+
+        k = Input_GetKeyboardKey
 
         SELECT CASE k
             CASE _KEY_ESC
@@ -748,30 +805,6 @@ FUNCTION App_OnPlayTune%% (fileName AS STRING)
 
             CASE KEY_UPPER_L, KEY_LOWER_L
                 MODPlayer_Loop Player, NOT MODPlayer_IsLooping(Player)
-
-            CASE _KEY_LEFT
-                MODPlayer_GoToPreviousPosition Player
-
-            CASE _KEY_RIGHT
-                MODPlayer_GoToNextPosition Player
-
-            CASE _KEY_UP
-                IF InstrumentScrollOffset > 0 THEN InstrumentScrollOffset = InstrumentScrollOffset - 1
-
-            CASE _KEY_DOWN
-                IF InstrumentScrollOffset < Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS THEN
-                    InstrumentScrollOffset = InstrumentScrollOffset + 1
-                END IF
-
-            CASE _KEY_PAGEUP
-                InstrumentScrollOffset = InstrumentScrollOffset - 10
-                IF InstrumentScrollOffset < 0 THEN InstrumentScrollOffset = 0
-
-            CASE _KEY_PAGEDOWN
-                DIM maxScrollDown AS LONG: maxScrollDown = Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS
-                IF maxScrollDown < 0 THEN maxScrollDown = 0
-                InstrumentScrollOffset = InstrumentScrollOffset + 10
-                IF InstrumentScrollOffset > maxScrollDown THEN InstrumentScrollOffset = maxScrollDown
 
             CASE _KEY_HOME
                 InstrumentScrollOffset = 0
@@ -799,6 +832,10 @@ FUNCTION App_OnPlayTune%% (fileName AS STRING)
                     END IF
                 END IF
         END SELECT
+
+        IF Input_NavCancel THEN
+            EXIT DO
+        END IF
 
         IF _TOTALDROPPEDFILES > 0 THEN
             App_OnPlayTune = APP_EVENT_DROP
@@ -885,11 +922,15 @@ FUNCTION App_OnModArchiveFiles%%
 
     DO
         DO
+            Input_Update
             IF _TOTALDROPPEDFILES > 0 THEN
                 e = APP_EVENT_DROP
                 EXIT DO
-            ELSEIF _KEYHIT = _KEY_F1 THEN
+            ELSEIF Input_GetKeyboardKey = _KEY_F1 _ORELSE Input_NavConfirm THEN
                 e = APP_EVENT_LOAD
+                EXIT DO
+            ELSEIF Input_WindowShouldClose _ORELSE Input_NavCancel THEN
+                e = APP_EVENT_QUIT
                 EXIT DO
             END IF
 

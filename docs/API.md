@@ -44,6 +44,18 @@ Synthesizer / Sample Mixer, and Audio Spectrum Analyzer.
   - [Lifecycle Management](#opal-lifecycle-management)
   - [Register Programming and I/O](#opal-register-programming-and-io)
   - [Audio Generation](#opal-audio-generation)
+- [Geometry and Bounding Box API (`Bounds2f.bi`)](#geometry-and-bounding-box-api-bounds2fbi)
+  - [Types](#bounds2f-types)
+  - [Initialization and Sanitization](#bounds2f-initialization-and-sanitization)
+  - [Geometric Queries](#bounds2f-geometric-queries)
+- [Input Management API (`Input.bi`)](#input-management-api-inputbi)
+  - [Constants](#input-constants)
+  - [Frame Polling](#input-frame-polling)
+  - [Keyboard APIs](#input-keyboard-apis)
+  - [Mouse APIs](#input-mouse-apis)
+  - [Game Controller APIs](#input-game-controller-apis)
+  - [TUI Navigation Actions](#input-tui-navigation-actions)
+  - [Window Event APIs](#input-window-event-apis)
 
 ---
 
@@ -1079,3 +1091,148 @@ SUB Opal_GenerateSample (self AS Opal, left AS INTEGER, right AS INTEGER)
   - `self`: Opal instance context.
   - `left`: Output variable receiving signed 16-bit left channel sample.
   - `right`: Output variable receiving signed 16-bit right channel sample.
+
+---
+
+## Geometry and Bounding Box API (`Bounds2f.bi`)
+
+Include header:
+
+```vb
+'$INCLUDE:'source/Bounds2f.bi'
+```
+
+### Bounds2f Types
+
+```vb
+TYPE Bounds2f
+    lt AS Vector2f ' Left-Top coordinate
+    rb AS Vector2f ' Right-Bottom coordinate
+END TYPE
+```
+
+### Bounds2f Initialization and Sanitization
+
+- `SUB Bounds2f_Initialize (x1 AS SINGLE, y1 AS SINGLE, x2 AS SINGLE, y2 AS SINGLE, dst AS Bounds2f)`: Initializes a bounding box with coordinates.
+- `SUB Bounds2f_InitializeWithVectors (lt AS Vector2f, rb AS Vector2f, dst AS Bounds2f)`: Initializes with two Vector2f corner points.
+- `SUB Bounds2f_Set (x1 AS SINGLE, y1 AS SINGLE, x2 AS SINGLE, y2 AS SINGLE, dst AS Bounds2f)`: Sets box coordinates.
+- `SUB Bounds2f_Sanitize (b AS Bounds2f)`: Ensures `lt.x <= rb.x` and `lt.y <= rb.y` by swapping if inverted.
+
+### Bounds2f Geometric Queries
+
+- `FUNCTION Bounds2f_GetWidth! (b AS Bounds2f)`: Returns the width (`rb.x - lt.x`).
+- `FUNCTION Bounds2f_GetHeight! (b AS Bounds2f)`: Returns the height (`rb.y - lt.y`).
+- `FUNCTION Bounds2f_ContainsPoint%% (b AS Bounds2f, pt AS Vector2f)`: Tests if point is inside or on the boundaries.
+- `FUNCTION Bounds2f_ContainsPointXY%% (b AS Bounds2f, x AS SINGLE, y AS SINGLE)`: Tests if `(x, y)` is inside.
+- `FUNCTION Bounds2f_Intersects%% (a AS Bounds2f, b AS Bounds2f)`: Tests if two bounding boxes overlap.
+
+---
+
+## Input Management API (`Input.bi`)
+
+Unified frame-based input polling for keyboard, mouse, game controller, and window events with discrete TUI navigation actions.
+
+Include header:
+
+```vb
+'$INCLUDE:'source/Input.bi'
+```
+
+### Input Constants
+
+- **Mouse Buttons**: `MOUSE_BUTTON_LEFT` (1), `MOUSE_BUTTON_RIGHT` (2), `MOUSE_BUTTON_MIDDLE` / `MOUSE_BUTTON_CENTER` (3).
+- **Gamepad Buttons**: `GAMEPAD_BUTTON_A` (1), `GAMEPAD_BUTTON_B` (2), `GAMEPAD_BUTTON_X` (3), `GAMEPAD_BUTTON_Y` (4), `GAMEPAD_BUTTON_LB` (5), `GAMEPAD_BUTTON_RB` (6), `GAMEPAD_BUTTON_LT` (7), `GAMEPAD_BUTTON_RT` (8), `GAMEPAD_BUTTON_BACK` (9), `GAMEPAD_BUTTON_START` (10).
+- **Gamepad Axes**: `GAMEPAD_AXIS_LX` (1), `GAMEPAD_AXIS_LY` (2), `GAMEPAD_AXIS_RX` (3), `GAMEPAD_AXIS_RY` (4).
+- **Deadzone**: `GAMEPAD_AXIS_DEADZONE_DEFAULT` (0.20 / 20%).
+- **Modifier Keys**: `KEY_LSHIFT`, `KEY_RSHIFT`, `KEY_LCTRL`, `KEY_RCTRL`, `KEY_LALT`, `KEY_RALT`, `KEY_LSUPER`, `KEY_RSUPER`.
+- **Navigation & Function Keys**: `KEY_SPACE`, `KEY_ENTER`, `KEY_ESCAPE`, `KEY_TAB`, `KEY_BACKSPACE`, `KEY_UP`, `KEY_DOWN`, `KEY_LEFT`, `KEY_RIGHT`, `KEY_PAGE_UP`, `KEY_PAGE_DOWN`, `KEY_HOME`, `KEY_END`, `KEY_INSERT`, `KEY_DELETE`, `KEY_F1` to `KEY_F12`.
+
+### Input Frame Polling
+
+- `SUB Input_Update`: Polls all input devices (keyboard, mouse, game controllers, window events) and computes frame deltas, transitions, and navigation actions. Call once per frame in the main application loop.
+- `SUB Input_Poll`: Alias for `Input_Update`.
+- `FUNCTION Input_HasEvent%%`: Returns `_TRUE` if any keyboard, mouse, window, or gamepad event is pending.
+
+### Input Keyboard APIs
+
+- `FUNCTION Input_HasKeyboardEvent%%`: Returns `_TRUE` if a key was pressed this frame.
+- `FUNCTION Input_PeekKeyboardKey&`: Returns the last `_KEYHIT` key code without clearing it.
+- `FUNCTION Input_GetKeyboardKey&`: Returns the last `_KEYHIT` key code and clears it.
+- `FUNCTION Input_IsKeyDown%% (keyCode AS LONG)`: Returns `_TRUE` if the specified key is currently held down.
+- `FUNCTION Input_IsKeyPressed%% (keyCode AS LONG)`: Alias for `Input_IsKeyDown`.
+- `FUNCTION Input_IsShiftDown%%`: Returns `_TRUE` if either Left or Right Shift is held down.
+- `FUNCTION Input_IsCtrlDown%%`: Returns `_TRUE` if either Left or Right Ctrl is held down.
+- `FUNCTION Input_IsAltDown%%`: Returns `_TRUE` if either Left or Right Alt is held down.
+- `FUNCTION Input_IsSuperDown%%`: Returns `_TRUE` if either Left or Right Windows/Command key is held down.
+
+### Input Mouse APIs
+
+- `FUNCTION Input_HasMouseEvent%%`: Returns `_TRUE` if mouse movement, wheel, or button activity occurred.
+- `SUB Input_GetMousePosition (position AS Vector2f)`: Retrieves cursor position in a `Vector2f`.
+- `SUB Input_GetMousePositionXY (x AS SINGLE, y AS SINGLE)`: Retrieves cursor position in scalar variables.
+- `FUNCTION Input_GetMouseX! ()`: Returns current mouse X coordinate.
+- `FUNCTION Input_GetMouseY! ()`: Returns current mouse Y coordinate.
+- `SUB Input_GetMouseDelta (delta AS Vector2f)`: Retrieves mouse movement vector since previous frame.
+- `SUB Input_GetMouseDeltaXY (dx AS SINGLE, dy AS SINGLE)`: Retrieves mouse movement delta in scalar variables.
+- `FUNCTION Input_GetMouseDeltaX! ()`: Returns mouse X movement delta.
+- `FUNCTION Input_GetMouseDeltaY! ()`: Returns mouse Y movement delta.
+- `FUNCTION Input_GetMouseScrollWheelValue! ()`: Returns accumulated scroll wheel delta for the frame.
+- `FUNCTION Input_GetMouseWheel! ()`: Alias for `Input_GetMouseScrollWheelValue`.
+- `FUNCTION Input_IsMouseButtonDown%% (button AS LONG)`: Checks if a button is held down.
+- `FUNCTION Input_IsMouseButtonPressed%% (button AS LONG)`: Alias for `Input_IsMouseButtonDown`.
+- `FUNCTION Input_WasMouseButtonPressed%% (button AS LONG)`: Checks if a button transitioned from UP to DOWN this frame.
+- `FUNCTION Input_GetMouseButtonPressed%% (button AS LONG)`: Checks button press transition and consumes it.
+- `FUNCTION Input_WasMouseButtonClicked%% (button AS LONG)`: Checks if a button transitioned from DOWN to UP this frame.
+- `FUNCTION Input_GetMouseButtonClicked%% (button AS LONG)`: Checks button release/click transition and consumes it.
+- `SUB Input_GetMouseButtonDownPosition (button AS LONG, position AS Vector2f)`: Gets coordinate where button was pressed down.
+- `SUB Input_GetMouseButtonUpPosition (button AS LONG, position AS Vector2f)`: Gets coordinate where button was released.
+- `SUB Input_GetMouseButtonClickBounds (button AS LONG, bounds AS Bounds2f)`: Gets sanitized bounding box enclosing the click.
+- `FUNCTION Input_IsMouseInRect%% (x1 AS SINGLE, y1 AS SINGLE, x2 AS SINGLE, y2 AS SINGLE)`: Tests if mouse cursor is within rectangle.
+- `FUNCTION Input_IsMouseInBounds%% (bounds AS Bounds2f)`: Tests if mouse cursor is within bounding box.
+- `FUNCTION Input_IsMouseClickInRect%% (button AS LONG, x1 AS SINGLE, y1 AS SINGLE, x2 AS SINGLE, y2 AS SINGLE)`: Tests if a button click occurred inside rectangle.
+- `FUNCTION Input_IsMouseClickInBounds%% (button AS LONG, bounds AS Bounds2f)`: Tests if a button click occurred inside bounding box.
+- `FUNCTION Input_IsMousePressInRect%% (button AS LONG, x1 AS SINGLE, y1 AS SINGLE, x2 AS SINGLE, y2 AS SINGLE)`: Tests if a button press occurred inside rectangle.
+- `FUNCTION Input_IsMousePressInBounds%% (button AS LONG, bounds AS Bounds2f)`: Tests if a button press occurred inside bounding box.
+
+### Input Game Controller APIs
+
+- `FUNCTION Input_HasGamepadEvent%%`: Returns `_TRUE` if gamepad activity occurred this frame.
+- `FUNCTION Input_IsGamepadConnected%% (gamepadIndex AS LONG)`: Checks if gamepad (1 or 2) is connected.
+- `FUNCTION Input_GetGamepadStickLX! (gamepadIndex AS LONG)`: Returns normalized left stick X in range `[-1.0, 1.0]`.
+- `FUNCTION Input_GetGamepadStickLY! (gamepadIndex AS LONG)`: Returns normalized left stick Y in range `[-1.0, 1.0]`.
+- `FUNCTION Input_GetGamepadStickRX! (gamepadIndex AS LONG)`: Returns normalized right stick X in range `[-1.0, 1.0]`.
+- `FUNCTION Input_GetGamepadStickRY! (gamepadIndex AS LONG)`: Returns normalized right stick Y in range `[-1.0, 1.0]`.
+- `SUB Input_GetGamepadStickL (vec AS Vector2f, gamepadIndex AS LONG)`: Retrieves normalized left stick vector.
+- `SUB Input_GetGamepadStickR (vec AS Vector2f, gamepadIndex AS LONG)`: Retrieves normalized right stick vector.
+- `FUNCTION Input_GetGamepadAxis! (axisIndex AS LONG, gamepadIndex AS LONG)`: Queries stick axis by `GAMEPAD_AXIS_*` constant.
+- `FUNCTION Input_IsGamepadButtonDown%% (buttonIndex AS LONG, gamepadIndex AS LONG)`: Checks if gamepad button is held down.
+- `FUNCTION Input_WasGamepadButtonPressed%% (buttonIndex AS LONG, gamepadIndex AS LONG)`: Checks if button was pressed this frame.
+- `FUNCTION Input_GetGamepadButtonPressed%% (buttonIndex AS LONG, gamepadIndex AS LONG)`: Checks button press transition and consumes it.
+- `FUNCTION Input_WasGamepadButtonReleased%% (buttonIndex AS LONG, gamepadIndex AS LONG)`: Checks if button was released this frame.
+- `SUB Input_SetGamepadDeadzone (deadzone AS SINGLE)`: Sets stick deadzone threshold (clamped to `[0.0, 0.99]`).
+- `FUNCTION Input_GetGamepadDeadzone! ()`: Returns current analog stick deadzone.
+- `FUNCTION Input_GetControllerAxis% (axis AS INTEGER)`: GlyphUI compatibility returning raw stick coordinate (1..254).
+- `FUNCTION Input_IsControllerButtonPressed% (button AS INTEGER)`: GlyphUI compatibility returning button state for Gamepad 1.
+
+### Input TUI Navigation Actions
+
+Synthesizes discrete, edge-triggered navigation pulses combining Keyboard, Gamepad, and Mouse to prevent runaway scrolling:
+
+- `FUNCTION Input_NavUp%%`: Returns `_TRUE` on Up Arrow, Keypad Up, or Gamepad Stick Up pulse.
+- `FUNCTION Input_NavDown%%`: Returns `_TRUE` on Down Arrow, Keypad Down, or Gamepad Stick Down pulse.
+- `FUNCTION Input_NavLeft%%`: Returns `_TRUE` on Left Arrow, Keypad Left, or Gamepad Stick Left pulse.
+- `FUNCTION Input_NavRight%%`: Returns `_TRUE` on Right Arrow, Keypad Right, or Gamepad Stick Right pulse.
+- `FUNCTION Input_NavConfirm%%`: Returns `_TRUE` on Enter, Space, or Gamepad Button A / Start.
+- `FUNCTION Input_NavCancel%%`: Returns `_TRUE` on Escape or Gamepad Button B / Back.
+- `FUNCTION Input_NavPageUp%%`: Returns `_TRUE` on Page Up or Gamepad Left Bumper.
+- `FUNCTION Input_NavPageDown%%`: Returns `_TRUE` on Page Down or Gamepad Right Bumper.
+
+### Input Window Event APIs
+
+- `FUNCTION Input_HasWindowEvent%%`: Returns `_TRUE` if a window resize or exit request occurred.
+- `FUNCTION Input_WindowShouldClose%%`: Returns `_TRUE` if the window close button (`_EXIT`) was clicked.
+- `SUB Input_SetWindowShouldClose (shouldClose AS _BYTE)`: Programmatically sets the window close request state.
+- `FUNCTION Input_WasWindowResized%%`: Returns `_TRUE` if the window was resized (`_RESIZE`) this frame.
+- `FUNCTION Input_GetWindowResizeWidth! ()`: Returns new window width if resized.
+- `FUNCTION Input_GetWindowResizeHeight! ()`: Returns new window height if resized.
+- `SUB Input_GetWindowResizeSize (size AS Vector2f)`: Retrieves new window dimensions in a `Vector2f`.
