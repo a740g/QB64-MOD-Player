@@ -3577,11 +3577,11 @@ SUB Test_TUI
     ' Mock mouse away from widgets (e.g. at 0, 0)
     Vector2f_Set 0!, 0!, __TUI.mousePos
 
-    DIM b1 AS _BYTE: b1 = TUI_Button(10, 10, "[Test]")
+    DIM b1 AS _BYTE: b1 = TUI_Button(10, 10, 8, "Test")
     TEST_CHECK NOT b1, "Button not clicked when mouse is away"
     TEST_CHECK __TUI.widgetCount = 1, "Button registered as widget 1"
 
-    DIM b2 AS _BYTE: b2 = TUI_ToggleButton(20, 10, "[Toggle]", _TRUE)
+    DIM b2 AS _BYTE: b2 = TUI_ToggleButton(20, 10, 10, "Toggle", _TRUE)
     TEST_CHECK NOT b2, "Toggle button not clicked when mouse is away"
     TEST_CHECK __TUI.widgetCount = 2, "Toggle button registered as widget 2"
 
@@ -3605,44 +3605,71 @@ SUB Test_TUI
     TEST_CHECK __TUI.focusedId >= 1 _ANDALSO __TUI.focusedId <= 5, "TUI_End clamps focus to valid widget range"
     TEST_CASE_END
 
-    TEST_CASE_BEGIN "TUI: Hit Detection with Mouse Bounds"
+    TEST_CASE_BEGIN "TUI: Hit Detection and Press-and-Hold States"
+    ' Frame 1: Mouse button pressed down over button
     TUI_Begin
-    ' Position mouse right over button at (15, 5), width = 8 -> columns 15 to 22
-    Vector2f_Set 17!, 5!, __TUI.mousePos
-    __TUI.mouseClickedL = _TRUE ' simulate mouse click
+    Vector2f_Set 17!, 6!, __TUI.mousePos
+    __TUI.mousePressedL = _TRUE
+    __TUI.mouseDownL = _TRUE
+    __TUI.mouseClickedL = _FALSE
 
-    DIM clicked AS _BYTE: clicked = TUI_Button(15, 5, "[Click]")
-    TEST_CHECK clicked, "Button clicked when mouse is inside bounding box"
+    DIM pressClicked AS _BYTE: pressClicked = TUI_Button(15, 5, 8, "Click")
+    TEST_CHECK NOT pressClicked, "Button not triggered while holding down"
     TEST_CHECK __TUI.hotId = 1, "Button marked as hot widget"
-    TEST_CHECK __TUI.activeId = 1, "Button marked as active widget"
+    TEST_CHECK __TUI.activeId = 1, "Button marked as active widget on press"
+    TUI_End
+
+    ' Frame 2: Mouse button still held down (activeId preserved across frames)
+    TUI_Begin
+    Vector2f_Set 17!, 6!, __TUI.mousePos
+    __TUI.mousePressedL = _FALSE
+    __TUI.mouseDownL = _TRUE
+    __TUI.mouseClickedL = _FALSE
+    __TUI.activeId = 1
+
+    DIM holdClicked AS _BYTE: holdClicked = TUI_Button(15, 5, 8, "Click")
+    TEST_CHECK NOT holdClicked, "Button still not triggered while held down"
+    TEST_CHECK __TUI.activeId = 1, "Button remains active widget while held"
+    TUI_End
+
+    ' Frame 3: Mouse released inside button
+    TUI_Begin
+    Vector2f_Set 17!, 6!, __TUI.mousePos
+    __TUI.mousePressedL = _FALSE
+    __TUI.mouseDownL = _FALSE
+    __TUI.mouseClickedL = _TRUE
+    __TUI.activeId = 1
+
+    DIM releaseClicked AS _BYTE: releaseClicked = TUI_Button(15, 5, 8, "Click")
+    TEST_CHECK releaseClicked, "Button triggered on mouse release"
+    TEST_CHECK __TUI.activeId = 0, "activeId reset after release click"
 
     ' Button at (30, 5) should NOT be clicked
-    DIM otherClicked AS _BYTE: otherClicked = TUI_Button(30, 5, "[Other]")
+    DIM otherClicked AS _BYTE: otherClicked = TUI_Button(30, 5, 8, "Other")
     TEST_CHECK NOT otherClicked, "Other button not clicked"
-
     TUI_End
     TEST_CASE_END
 
-    TEST_CASE_BEGIN "TUI: 3D Buttons (TUI_Button3D and TUI_ToggleButton3D)"
+    TEST_CASE_BEGIN "TUI: Buttons (TUI_Button and TUI_ToggleButton)"
     TUI_Begin
     ' Test 3-line tall bounding box hit detection:
     ' Button placed at (10, 10), width 12 -> columns 10 to 21, rows 10 to 12
     Vector2f_Set 15!, 11!, __TUI.mousePos ' cursor on row 11 (middle line of button)
     __TUI.mouseClickedL = _TRUE
+    __TUI.activeId = 1 ' simulate button was active
 
-    DIM btn3dClicked AS _BYTE: btn3dClicked = TUI_Button3D(10, 10, 12, "Play")
-    TEST_CHECK btn3dClicked, "TUI_Button3D clicked when mouse is inside middle row"
-    TEST_CHECK __TUI.widgetCount = 1, "TUI_Button3D registered as widget 1"
-    TEST_CHECK __TUI.focusedId = 1, "TUI_Button3D focused when clicked"
+    DIM btnClicked AS _BYTE: btnClicked = TUI_Button(10, 10, 12, "Play")
+    TEST_CHECK btnClicked, "TUI_Button clicked when mouse is inside middle row"
+    TEST_CHECK __TUI.widgetCount = 1, "TUI_Button registered as widget 1"
 
     ' Toggle button placed at (25, 10), width 10 -> columns 25 to 34, rows 10 to 12
     ' Click on row 12 (bottom border line of button)
     Vector2f_Set 28!, 12!, __TUI.mousePos
     __TUI.mouseClickedL = _TRUE
-    DIM toggle3dClicked AS _BYTE: toggle3dClicked = TUI_ToggleButton3D(25, 10, 10, "Loop", _TRUE)
-    TEST_CHECK toggle3dClicked, "TUI_ToggleButton3D clicked when mouse is on bottom line"
-    TEST_CHECK __TUI.widgetCount = 2, "TUI_ToggleButton3D registered as widget 2"
-    TEST_CHECK __TUI.focusedId = 2, "TUI_ToggleButton3D focused when clicked"
+    __TUI.activeId = 2 ' simulate toggle button was active
+    DIM toggleClicked AS _BYTE: toggleClicked = TUI_ToggleButton(25, 10, 10, "Loop", _TRUE)
+    TEST_CHECK toggleClicked, "TUI_ToggleButton clicked when mouse is on bottom line"
+    TEST_CHECK __TUI.widgetCount = 2, "TUI_ToggleButton registered as widget 2"
 
     TUI_End
     TEST_CHECK __TUI.totalWidgets = 2, "TUI_End records totalWidgets = 2 for 3D buttons"

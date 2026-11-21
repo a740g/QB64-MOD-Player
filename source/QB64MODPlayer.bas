@@ -128,46 +128,46 @@ FUNCTION Visualizer_Draw%%
 
     ' Rows 1-3: Top 3D Playback Toolbar
     DIM btnX AS LONG: btnX = x + 2
-    IF TUI_Button3D(btnX, 1, 9, CHR$(17) + CHR$(17) + " Prev") THEN
+    IF TUI_Button(btnX, 1, 9, CHR$(17) + CHR$(17) + " Prev") THEN
         MODPlayer_GoToPreviousPosition Player
     END IF
     btnX = btnX + 10
 
-    IF TUI_ToggleButton3D(btnX, 1, 9, _IIF(Player.song.isPaused, CHR$(16) + " Play ", CHR$(186) + " Pause"), NOT Player.song.isPaused) THEN
+    IF TUI_ToggleButton(btnX, 1, 9, _IIF(Player.song.isPaused, CHR$(16) + " Play ", CHR$(186) + " Pause"), NOT Player.song.isPaused) THEN
         Player.song.isPaused = NOT Player.song.isPaused
     END IF
     btnX = btnX + 10
 
-    IF TUI_Button3D(btnX, 1, 9, CHR$(254) + " Stop ") THEN
+    IF TUI_Button(btnX, 1, 9, CHR$(254) + " Stop ") THEN
         MODPlayer_Stop Player
         Visualizer_Draw = APP_EVENT_NONE
         EXIT FUNCTION
     END IF
     btnX = btnX + 10
 
-    IF TUI_Button3D(btnX, 1, 9, "Next " + CHR$(16) + CHR$(16)) THEN
+    IF TUI_Button(btnX, 1, 9, "Next " + CHR$(16) + CHR$(16)) THEN
         MODPlayer_GoToNextPosition Player
     END IF
     btnX = btnX + 10
 
-    IF TUI_ToggleButton3D(btnX, 1, 9, CHR$(17) + CHR$(16) + " Loop", Player.song.isLooping) THEN
+    IF TUI_ToggleButton(btnX, 1, 9, CHR$(17) + CHR$(16) + " Loop", Player.song.isLooping) THEN
         MODPlayer_Loop Player, NOT MODPlayer_IsLooping(Player)
     END IF
     btnX = btnX + 10
 
-    IF TUI_Button3D(btnX, 1, 9, CHR$(14) + " Load ") THEN
+    IF TUI_Button(btnX, 1, 9, CHR$(14) + " Load ") THEN
         Visualizer_Draw = APP_EVENT_LOAD
         EXIT FUNCTION
     END IF
     btnX = btnX + 10
 
-    IF TUI_Button3D(btnX, 1, 9, CHR$(15) + " Web  ") THEN
+    IF TUI_Button(btnX, 1, 9, CHR$(15) + " Web  ") THEN
         Visualizer_Draw = APP_EVENT_HTTP
         EXIT FUNCTION
     END IF
     btnX = btnX + 10
 
-    IF TUI_Button3D(btnX, 1, 9, "X Quit ") THEN
+    IF TUI_Button(btnX, 1, 9, "X Quit ") THEN
         Visualizer_Draw = APP_EVENT_QUIT
         EXIT FUNCTION
     END IF
@@ -220,15 +220,15 @@ FUNCTION Visualizer_Draw%%
 
     ' Row 7: Sample list header with interactive scroll buttons
     COLOR Blink, Cyan
-    _PRINTSTRING (x, 7), "  S#  SAMPLE-NAME "
-    IF TUI_Button(x + 18, 7, "[" + CHR$(30) + " Up]") THEN
+    _PRINTSTRING (x, 7), "  S#  SAMPLE-NAME  [" + CHR$(30) + " Up] [" + CHR$(31) + " Dn]  VOLUME C2SPD LENGTH LOOPING LOOP-START LOOP-STOP  "
+    DIM upB AS Bounds2f, dnB AS Bounds2f
+    Bounds2f_Set x + 19, 7, x + 25, 7.999!, upB
+    Bounds2f_Set x + 27, 7, x + 33, 7.999!, dnB
+    IF Bounds2f_ContainsPoint(upB, __TUI.mousePos) _ANDALSO __TUI.mouseClickedL THEN
         InstrumentScrollOffset = _MAX(0, InstrumentScrollOffset - 1)
-    END IF
-    IF TUI_Button(x + 25, 7, "[" + CHR$(31) + " Dn]") THEN
+    ELSEIF Bounds2f_ContainsPoint(dnB, __TUI.mousePos) _ANDALSO __TUI.mouseClickedL THEN
         InstrumentScrollOffset = _MIN(_MAX(0, Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS), InstrumentScrollOffset + 1)
     END IF
-    COLOR Blink, Cyan
-    _PRINTSTRING (x + 32, 7), "  VOLUME C2SPD LENGTH LOOPING LOOP-START LOOP-STOP  "
 
     ' Print the sample information
     DIM AS LONG i, j, rowIdx, maxInst
@@ -692,9 +692,9 @@ FUNCTION App_OnWelcomeScreen%% (bg AS Background)
         DIM menuX AS LONG: menuX = 1 + UI_TEXT_WIDTH_MIN \ 2 - 31
         DIM menuY AS LONG: menuY = UI_TEXT_LINE_MAX - 5
 
-        IF TUI_Button3D(menuX, menuY, 18, CHR$(14) + " Open (F1)") THEN e = APP_EVENT_LOAD
-        IF TUI_Button3D(menuX + 20, menuY, 23, CHR$(15) + " ModArchive (F2)") THEN e = APP_EVENT_HTTP
-        IF TUI_Button3D(menuX + 45, menuY, 17, "X Quit (ESC)") THEN e = APP_EVENT_QUIT
+        IF TUI_Button(menuX, menuY, 18, CHR$(14) + " Open (F1)") THEN e = APP_EVENT_LOAD
+        IF TUI_Button(menuX + 20, menuY, 23, CHR$(15) + " ModArchive (F2)") THEN e = APP_EVENT_HTTP
+        IF TUI_Button(menuX + 45, menuY, 17, "X Quit (ESC)") THEN e = APP_EVENT_QUIT
         TUI_End
 
         DIM k AS LONG: k = Input_GetKeyboardKey

@@ -46,9 +46,11 @@ TYPE __TUI_Context
     hotId AS LONG                       ' Currently hovered widget ID
     activeId AS LONG                    ' Widget currently being pressed or dragged
     mousePos AS Vector2f                ' Current mouse position (character column/row)
-    mouseClickedL AS _BYTE              ' Left mouse button clicked this frame
+    mousePressedL AS _BYTE              ' Left mouse button pressed down this frame
+    mouseClickedL AS _BYTE              ' Left mouse button released (clicked) this frame
     mouseDownL AS _BYTE                 ' Left mouse button held down this frame
-    mouseClickedR AS _BYTE              ' Right mouse button clicked this frame
+    mousePressedR AS _BYTE              ' Right mouse button pressed down this frame
+    mouseClickedR AS _BYTE              ' Right mouse button released (clicked) this frame
     navNext AS _BYTE                    ' Advance focus (Tab, Gamepad RB)
     navPrev AS _BYTE                    ' Retreat focus (Shift+Tab, Gamepad LB)
     navConfirm AS _BYTE                 ' Trigger focused widget (Enter, Space, Gamepad A)
@@ -68,21 +70,23 @@ SUB TUI_Begin
     __TUI.widgetCount = 0
     __TUI.hotId = 0
 
-    ' Poll mouse state
-    __TUI.mouseClickedL = Input_GetMouseButtonClicked(MOUSE_BUTTON_LEFT)
+    ' Poll mouse state: track press down, held state, and click release
+    __TUI.mousePressedL = Input_GetMouseButtonPressed(MOUSE_BUTTON_LEFT)
     __TUI.mouseDownL = Input_IsMouseButtonDown(MOUSE_BUTTON_LEFT)
+    __TUI.mouseClickedL = Input_GetMouseButtonClicked(MOUSE_BUTTON_LEFT)
+    __TUI.mousePressedR = Input_GetMouseButtonPressed(MOUSE_BUTTON_RIGHT)
     __TUI.mouseClickedR = Input_GetMouseButtonClicked(MOUSE_BUTTON_RIGHT)
 
     __TUI.prevMousePos = __TUI.mousePos
     Input_GetMousePosition __TUI.mousePos
 
     ' If mouse moved or was clicked, prefer mouse over keyboard focus ring
-    IF (INT(__TUI.mousePos.x) <> INT(__TUI.prevMousePos.x) _ORELSE INT(__TUI.mousePos.y) <> INT(__TUI.prevMousePos.y) _ORELSE __TUI.mouseClickedL _ORELSE __TUI.mouseClickedR) THEN
+    IF (INT(__TUI.mousePos.x) <> INT(__TUI.prevMousePos.x) _ORELSE INT(__TUI.mousePos.y) <> INT(__TUI.prevMousePos.y) _ORELSE __TUI.mousePressedL _ORELSE __TUI.mousePressedR) THEN
         __TUI.hasNavFocus = _FALSE
     END IF
 
-    ' If mouse released, clear active drag state
-    IF NOT __TUI.mouseDownL THEN
+    ' If mouse released and no click was registered this frame, clear active drag state
+    IF NOT __TUI.mouseDownL _ANDALSO NOT __TUI.mouseClickedL THEN
         __TUI.activeId = 0
     END IF
 
@@ -149,102 +153,6 @@ SUB TUI_Label (x AS LONG, y AS LONG, text AS STRING, fgColor AS LONG, bgColor AS
     _PRINTSTRING (x, y), text
 END SUB
 
-''' @brief Renders an interactive push button.
-''' @param x Character column.
-''' @param y Character row.
-''' @param text The button text (e.g. "[Prev]").
-''' @return _TRUE if clicked by mouse or confirmed via keyboard/controller, _FALSE otherwise.
-FUNCTION TUI_Button%% (x AS LONG, y AS LONG, text AS STRING)
-    SHARED __TUI AS __TUI_Context
-
-    __TUI.widgetCount = __TUI.widgetCount + 1
-    DIM thisId AS LONG: thisId = __TUI.widgetCount
-    DIM w AS LONG: w = LEN(text)
-    DIM isClicked AS _BYTE: isClicked = _FALSE
-
-    ' Hit detection
-    DIM b AS Bounds2f
-    Bounds2f_Set x, y, x + w - 0.001!, y + 0.999!, b
-    DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos)
-
-    IF isHovered THEN
-        __TUI.hotId = thisId
-        IF __TUI.mouseClickedL THEN
-            __TUI.activeId = thisId
-            isClicked = _TRUE
-        END IF
-    END IF
-
-    ' Focus & keyboard confirmation
-    DIM isFocused AS _BYTE: isFocused = (__TUI.focusedId = thisId)
-    IF isFocused _ANDALSO __TUI.hasNavFocus _ANDALSO __TUI.navConfirm THEN
-        isClicked = _TRUE
-    END IF
-
-    ' Visual rendering
-    IF __TUI.activeId = thisId THEN
-        COLOR TUI_COLOR_BLACK, TUI_COLOR_WHITE
-    ELSEIF isHovered THEN
-        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
-    ELSEIF isFocused _ANDALSO __TUI.hasNavFocus THEN
-        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
-    ELSE
-        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLUE
-    END IF
-
-    _PRINTSTRING (x, y), text
-
-    TUI_Button = isClicked
-END FUNCTION
-
-''' @brief Renders an interactive toggle button with active/inactive visual styling.
-''' @param x Character column.
-''' @param y Character row.
-''' @param text The button text.
-''' @param isToggled Current toggle state (_TRUE = active/highlighted).
-''' @return _TRUE if clicked/confirmed to toggle state.
-FUNCTION TUI_ToggleButton%% (x AS LONG, y AS LONG, text AS STRING, isToggled AS _BYTE)
-    SHARED __TUI AS __TUI_Context
-
-    __TUI.widgetCount = __TUI.widgetCount + 1
-    DIM thisId AS LONG: thisId = __TUI.widgetCount
-    DIM w AS LONG: w = LEN(text)
-    DIM isClicked AS _BYTE: isClicked = _FALSE
-
-    DIM b AS Bounds2f
-    Bounds2f_Set x, y, x + w - 0.001!, y + 0.999!, b
-    DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos)
-
-    IF isHovered THEN
-        __TUI.hotId = thisId
-        IF __TUI.mouseClickedL THEN
-            __TUI.activeId = thisId
-            isClicked = _TRUE
-        END IF
-    END IF
-
-    DIM isFocused AS _BYTE: isFocused = (__TUI.focusedId = thisId)
-    IF isFocused _ANDALSO __TUI.hasNavFocus _ANDALSO __TUI.navConfirm THEN
-        isClicked = _TRUE
-    END IF
-
-    IF __TUI.activeId = thisId THEN
-        COLOR TUI_COLOR_BLACK, TUI_COLOR_WHITE
-    ELSEIF isHovered THEN
-        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
-    ELSEIF isFocused _ANDALSO __TUI.hasNavFocus THEN
-        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
-    ELSEIF isToggled THEN
-        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GREEN
-    ELSE
-        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLUE
-    END IF
-
-    _PRINTSTRING (x, y), text
-
-    TUI_ToggleButton = isClicked
-END FUNCTION
-
 ''' @brief Internal helper to render a 3-line tall 3D button box with VB-DOS directional lighting without drop shadows.
 ''' @param x Character column of top-left corner.
 ''' @param y Character row of top-left corner.
@@ -256,7 +164,7 @@ END FUNCTION
 ''' @param fgCol Caption text color index.
 ''' @param hiCol Highlight border color index (simulated top-left light).
 ''' @param loCol Shadow border color index (simulated bottom-right shadow).
-SUB __TUI_DrawButton3D (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isSunken AS _BYTE, isFocused AS _BYTE, bgCol AS LONG, fgCol AS LONG, hiCol AS LONG, loCol AS LONG)
+SUB __TUI_DrawButton (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isSunken AS _BYTE, isFocused AS _BYTE, bgCol AS LONG, fgCol AS LONG, hiCol AS LONG, loCol AS LONG)
     DIM innerW AS LONG: innerW = _MAX(1, w - 2)
     DIM padLen AS LONG: padLen = innerW - LEN(text)
     DIM lPad AS LONG, rPad AS LONG
@@ -325,13 +233,13 @@ SUB __TUI_DrawButton3D (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isSunke
     _PRINTSTRING (x + 1, y + 2), hLine + CHR$(chBR)
 END SUB
 
-''' @brief Renders a 3-line tall VB-DOS style 3D beveled push button using directional lighting.
+''' @brief Renders an interactive 3-line tall VB-DOS style push button using directional lighting.
 ''' @param x Character column of top-left corner.
 ''' @param y Character row of top-left corner.
 ''' @param w Total button width in characters (including borders).
 ''' @param text The button caption text.
-''' @return _TRUE if clicked by mouse or confirmed via keyboard/controller, _FALSE otherwise.
-FUNCTION TUI_Button3D%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING)
+''' @return _TRUE if clicked by mouse release or confirmed via keyboard/controller, _FALSE otherwise.
+FUNCTION TUI_Button%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING)
     SHARED __TUI AS __TUI_Context
 
     __TUI.widgetCount = __TUI.widgetCount + 1
@@ -345,41 +253,50 @@ FUNCTION TUI_Button3D%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING)
 
     IF isHovered THEN
         __TUI.hotId = thisId
-        IF __TUI.mouseClickedL THEN
+        ' Mouse press down captures active state
+        IF __TUI.mousePressedL THEN
             __TUI.activeId = thisId
             __TUI.focusedId = thisId
-            isClicked = _TRUE
         END IF
     END IF
 
+    ' If this button is active or hovered, clicking occurs on mouse release
+    IF (__TUI.activeId = thisId _ANDALSO __TUI.mouseClickedL _ANDALSO isHovered) _ORELSE (isHovered _ANDALSO __TUI.mouseClickedL) THEN
+        isClicked = _TRUE
+        __TUI.activeId = 0
+    END IF
+
+    ' Keyboard / Controller focus confirmation
     DIM isFocused AS _BYTE: isFocused = (__TUI.focusedId = thisId)
     IF isFocused _ANDALSO __TUI.navConfirm THEN
         isClicked = _TRUE
     END IF
 
-    DIM isPressed AS _BYTE: isPressed = (__TUI.activeId = thisId _ANDALSO __TUI.mouseDownL)
+    ' Button is pressed (sunken) when held down by mouse while hovering, or during keyboard confirmation
+    DIM isPressed AS _BYTE
+    isPressed = ((__TUI.activeId = thisId _ANDALSO __TUI.mouseDownL _ANDALSO isHovered) _ORELSE (isFocused _ANDALSO __TUI.navConfirm))
 
     IF isPressed THEN
-        __TUI_DrawButton3D x, y, w, text, _TRUE, isFocused, TUI_COLOR_BLUE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+        __TUI_DrawButton x, y, w, text, _TRUE, isFocused, TUI_COLOR_BLUE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
     ELSEIF isHovered THEN
-        __TUI_DrawButton3D x, y, w, text, _FALSE, isFocused, TUI_COLOR_CYAN, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+        __TUI_DrawButton x, y, w, text, _FALSE, isFocused, TUI_COLOR_CYAN, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
     ELSEIF isFocused THEN
-        __TUI_DrawButton3D x, y, w, text, _FALSE, _TRUE, TUI_COLOR_BLUE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+        __TUI_DrawButton x, y, w, text, _FALSE, _TRUE, TUI_COLOR_BLUE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
     ELSE
-        __TUI_DrawButton3D x, y, w, text, _FALSE, _FALSE, TUI_COLOR_BLUE, TUI_COLOR_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+        __TUI_DrawButton x, y, w, text, _FALSE, _FALSE, TUI_COLOR_BLUE, TUI_COLOR_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
     END IF
 
-    TUI_Button3D = isClicked
+    TUI_Button = isClicked
 END FUNCTION
 
-''' @brief Renders a 3-line tall VB-DOS style 3D toggle button with raised/sunken state.
+''' @brief Renders an interactive 3-line tall VB-DOS style toggle button with raised/sunken state.
 ''' @param x Character column of top-left corner.
 ''' @param y Character row of top-left corner.
 ''' @param w Total button width in characters (including borders).
 ''' @param text The button caption text.
 ''' @param isToggled Current toggle state (_TRUE = active/sunken).
 ''' @return _TRUE if clicked/confirmed to toggle state.
-FUNCTION TUI_ToggleButton3D%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isToggled AS _BYTE)
+FUNCTION TUI_ToggleButton%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isToggled AS _BYTE)
     SHARED __TUI AS __TUI_Context
 
     __TUI.widgetCount = __TUI.widgetCount + 1
@@ -392,11 +309,15 @@ FUNCTION TUI_ToggleButton3D%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, 
 
     IF isHovered THEN
         __TUI.hotId = thisId
-        IF __TUI.mouseClickedL THEN
+        IF __TUI.mousePressedL THEN
             __TUI.activeId = thisId
             __TUI.focusedId = thisId
-            isClicked = _TRUE
         END IF
+    END IF
+
+    IF (__TUI.activeId = thisId _ANDALSO __TUI.mouseClickedL _ANDALSO isHovered) _ORELSE (isHovered _ANDALSO __TUI.mouseClickedL) THEN
+        isClicked = _TRUE
+        __TUI.activeId = 0
     END IF
 
     DIM isFocused AS _BYTE: isFocused = (__TUI.focusedId = thisId)
@@ -404,22 +325,23 @@ FUNCTION TUI_ToggleButton3D%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, 
         isClicked = _TRUE
     END IF
 
-    DIM isPressed AS _BYTE: isPressed = (__TUI.activeId = thisId _ANDALSO __TUI.mouseDownL)
+    DIM isPressed AS _BYTE
+    isPressed = ((__TUI.activeId = thisId _ANDALSO __TUI.mouseDownL _ANDALSO isHovered) _ORELSE (isFocused _ANDALSO __TUI.navConfirm))
     DIM showSunken AS _BYTE: showSunken = isPressed _ORELSE isToggled
 
     IF isPressed THEN
-        __TUI_DrawButton3D x, y, w, text, _TRUE, isFocused, TUI_COLOR_CYAN, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+        __TUI_DrawButton x, y, w, text, _TRUE, isFocused, TUI_COLOR_CYAN, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
     ELSEIF isHovered THEN
-        __TUI_DrawButton3D x, y, w, text, showSunken, isFocused, TUI_COLOR_CYAN, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+        __TUI_DrawButton x, y, w, text, showSunken, isFocused, TUI_COLOR_CYAN, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
     ELSEIF isToggled THEN
-        __TUI_DrawButton3D x, y, w, text, _TRUE, isFocused, TUI_COLOR_GREEN, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+        __TUI_DrawButton x, y, w, text, _TRUE, isFocused, TUI_COLOR_GREEN, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
     ELSEIF isFocused THEN
-        __TUI_DrawButton3D x, y, w, text, _FALSE, _TRUE, TUI_COLOR_BLUE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+        __TUI_DrawButton x, y, w, text, _FALSE, _TRUE, TUI_COLOR_BLUE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
     ELSE
-        __TUI_DrawButton3D x, y, w, text, _FALSE, _FALSE, TUI_COLOR_BLUE, TUI_COLOR_GRAY, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+        __TUI_DrawButton x, y, w, text, _FALSE, _FALSE, TUI_COLOR_BLUE, TUI_COLOR_GRAY, TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
     END IF
 
-    TUI_ToggleButton3D = isClicked
+    TUI_ToggleButton = isClicked
 END FUNCTION
 
 ''' @brief Renders an interactive channel badge with live Mute and Solo indicators.

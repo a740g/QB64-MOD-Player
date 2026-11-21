@@ -1428,44 +1428,17 @@ SUB TUI_End
 #### `TUI_Button%%`
 
 ```vb
-FUNCTION TUI_Button%% (x AS LONG, y AS LONG, text AS STRING)
+FUNCTION TUI_Button%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING)
 ```
 
-- **Description**: Renders an interactive push button.
-- **Parameters**:
-  - `x`: 1-based character column coordinate.
-  - `y`: 1-based character row coordinate.
-  - `text`: Display label string (e.g. `"[Prev]"`).
-- **Returns**: `_TRUE` if clicked with left mouse button or triggered via
-  keyboard / controller confirmation while focused; `_FALSE` otherwise.
-
-#### `TUI_ToggleButton%%`
-
-```vb
-FUNCTION TUI_ToggleButton%% (x AS LONG, y AS LONG, text AS STRING, isToggled AS _BYTE)
-```
-
-- **Description**: Renders an interactive toggle button with active/inactive
-  visual styling.
-- **Parameters**:
-  - `x`: 1-based character column coordinate.
-  - `y`: 1-based character row coordinate.
-  - `text`: Display label string.
-  - `isToggled`: `_TRUE` if active (highlighted green), `_FALSE` otherwise.
-- **Returns**: `_TRUE` if activated; `_FALSE` otherwise.
-
-#### `TUI_Button3D%%`
-
-```vb
-FUNCTION TUI_Button3D%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING)
-```
-
-- **Description**: Renders a 3-line tall VB-DOS style 3D push button using
-  in-boundary directional lighting (no drop shadows). In normal raised state,
-  top and left borders are highlighted (`Bright White`) while bottom and right
-  borders are in shadow (`Black`). When pressed, lighting inverts to simulate
-  physical button depression without shifting the centered interior label.
-  The currently focused button is rendered with a double-line border
+- **Description**: Renders an interactive 3-line tall VB-DOS style 3D push button
+  using in-boundary directional lighting (no drop shadows). In normal raised
+  state, top and left borders are highlighted (`Bright White`) while bottom and
+  right borders are in shadow (`Black`). When clicked and held down by the mouse
+  or during keyboard confirmation, lighting inverts to simulate physical button
+  depression without shifting the centered interior label. Action triggers on
+  mouse button release while hovering over the button. The currently focused
+  button is rendered with a double-line border
   (`CHR$(201)`, `CHR$(205)`, `CHR$(187)`, `CHR$(186)`, `CHR$(200)`, `CHR$(188)`),
   while non-focused buttons use a single-line border
   (`CHR$(218)`, `CHR$(196)`, `CHR$(191)`, `CHR$(179)`, `CHR$(192)`, `CHR$(217)`).
@@ -1474,20 +1447,21 @@ FUNCTION TUI_Button3D%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING)
   - `y`: 1-based character row coordinate of top-left corner.
   - `w`: Total width in characters including borders.
   - `text`: Display label string.
-- **Returns**: `_TRUE` if clicked with left mouse button or triggered via
-  keyboard / controller confirmation while focused; `_FALSE` otherwise.
+- **Returns**: `_TRUE` if clicked (mouse release inside bounds) or confirmed via
+  keyboard / controller while focused; `_FALSE` otherwise.
 
-#### `TUI_ToggleButton3D%%`
+#### `TUI_ToggleButton%%`
 
 ```vb
-FUNCTION TUI_ToggleButton3D%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isToggled AS _BYTE)
+FUNCTION TUI_ToggleButton%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isToggled AS _BYTE)
 ```
 
-- **Description**: Renders a 3-line tall VB-DOS style 3D toggle button with
-  raised / sunken visual states and directional lighting (no drop shadows).
-  Displays sunken in green when `isToggled` is true without shifting interior
-  label text. The currently focused button is rendered with a double-line border,
-  while non-focused buttons use a single-line border.
+- **Description**: Renders an interactive 3-line tall VB-DOS style 3D toggle
+  button with raised / sunken visual states and directional lighting (no drop
+  shadows). Displays sunken in green when `isToggled` is true without shifting
+  interior label text. When pressed and held, it visibly depresses. The currently
+  focused button is rendered with a double-line border, while non-focused
+  buttons use a single-line border.
 - **Parameters**:
   - `x`: 1-based character column coordinate of top-left corner.
   - `y`: 1-based character row coordinate of top-left corner.
