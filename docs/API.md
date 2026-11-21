@@ -23,6 +23,7 @@ Synthesizer / Sample Mixer, and Audio Spectrum Analyzer.
   - [Composer 669 Loader (`C669Loader.bi`)](#composer-669-loader-c669loaderbi)
   - [Reality Adlib Tracker Loader (`RADLoader.bi`)](#reality-adlib-tracker-loader-radloaderbi)
   - [UltraTracker Loader (`ULTLoader.bi`)](#ultratracker-loader-ultloaderbi)
+  - [Digitrakker Loader (`MDLLoader.bi`)](#digitrakker-loader-mdlloaderbi)
 - [Software Synthesizer API (`SoftSynth.bi`)](#software-synthesizer-api-softsynthbi)
   - [Constants](#softsynth-constants)
   - [Types](#softsynth-types)
@@ -469,6 +470,24 @@ FUNCTION ULTLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
   song subtype `"ULT1"` through `"ULT4"`, 1 to 32 channels, 64 rows per pattern, up to 64 samples
   (8-bit and 16-bit signed PCM), per-channel panning tables, RLE track unpacking, and dual-effect
   command translation.
+- **Parameters**:
+  - `player`: Target MOD player instance.
+  - `fileName`: Path to the module file.
+  - `buffer`: In-memory binary representation of the module file.
+- **Returns**: `_TRUE` on successful parse; `_FALSE` if incompatible or invalid.
+
+### Digitrakker Loader (`MDLLoader.bi`)
+
+```vb
+FUNCTION MDLLoader_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
+FUNCTION MDLLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
+```
+
+- **Supported Formats**: Digitrakker (`DMDL` signature) modules across versions `0x00` (v0.0 / v2.0),
+  `0x10` (v1.0 / v2.9 / v3.0 early), and `0x11` (v1.1 / v3.0+) with song subtypes `"MDL0"`, `"MDL1"`, and `"MDL2"`.
+  Supports 4 to 32 channels, variable pattern lengths (1 to 256 rows), 8-bit and 16-bit signed PCM samples,
+  entropy-coded Huffman delta sample decompression (packing methods 1 and 2), multi-sample instruments with note split maps,
+  forward and bidirectional (ping-pong) looping, and dual-effect command translation.
 - **Parameters**:
   - `player`: Target MOD player instance.
   - `fileName`: Path to the module file.

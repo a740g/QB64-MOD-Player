@@ -122,6 +122,7 @@ SUB __MODPlayer_InitializeSong (player AS MODPlayer)
     player.song.fmMasterGain = 1.0!
     player.song.isRAD = _FALSE
     player.song.isULT = _FALSE
+    player.song.isMDL = _FALSE
 END SUB
 
 ''' @brief Calculates middle-C playback speed in Hertz for a ProTracker finetune nibble.

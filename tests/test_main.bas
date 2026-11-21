@@ -1354,6 +1354,144 @@ SUB Test_ULTLoader
     TEST_CASE_END
 END SUB
 
+''' @brief Tests for Digitrakker (MDL) format loader.
+SUB Test_MDLLoader
+    TEST_CASE_BEGIN "MDLLoader: Load Digitrakker modules across versions (v0.0, v1.0, v1.1)"
+    DIM player AS MODPlayer
+
+    ' v0.0 (Digitrakker 2.0)
+    TEST_REQUIRE MDLLoader_LoadFromDisk(player, "mods/Ultrashort.mdl"), "Load Ultrashort.mdl (v0.0)"
+    TEST_CHECK MODPlayer_GetType(player) = "MDL0", "Subtype is MDL0"
+    TEST_CHECK player.song.channels = 4, "Channels is 4"
+    TEST_CHECK player.song.instruments = 1, "Instruments is 1"
+    TEST_CHECK player.song.isMDL, "isMDL is true"
+    TEST_CHECK player.song.isStereo, "isStereo is true"
+    MODPlayer_Finalize player
+
+    TEST_REQUIRE MDLLoader_LoadFromDisk(player, "mods/Breaking The Walls.mdl"), "Load Breaking The Walls.mdl (v0.0)"
+    TEST_CHECK MODPlayer_GetType(player) = "MDL0", "Subtype is MDL0"
+    TEST_CHECK player.song.channels = 8, "Channels is 8"
+    TEST_CHECK player.song.instruments = 17, "Instruments is 17"
+    TEST_CHECK player.song.isMDL, "isMDL is true"
+    MODPlayer_Finalize player
+
+    ' v1.0 (Digitrakker 2.9 / 3.0 early)
+    TEST_REQUIRE MDLLoader_LoadFromDisk(player, "mods/Chip Zone.mdl"), "Load Chip Zone.mdl (v1.0)"
+    TEST_CHECK MODPlayer_GetType(player) = "MDL1", "Subtype is MDL1"
+    TEST_CHECK player.song.channels = 6, "Channels is 6"
+    TEST_CHECK player.song.instruments = 4, "Instruments is 4"
+    TEST_CHECK player.song.isMDL, "isMDL is true"
+    MODPlayer_Finalize player
+
+    ' v1.1 (Digitrakker 3.0+)
+    TEST_REQUIRE MDLLoader_LoadFromDisk(player, "mods/Bare Bones Chip.mdl"), "Load Bare Bones Chip.mdl (v1.1)"
+    TEST_CHECK MODPlayer_GetType(player) = "MDL2", "Subtype is MDL2"
+    TEST_CHECK player.song.channels = 2, "Channels is 2"
+    TEST_CHECK player.song.instruments = 2, "Instruments is 2"
+    TEST_CHECK player.song.isMDL, "isMDL is true"
+    MODPlayer_Finalize player
+
+    TEST_REQUIRE MDLLoader_LoadFromDisk(player, "mods/4s.mdl"), "Load 4s.mdl (v1.1)"
+    TEST_CHECK MODPlayer_GetType(player) = "MDL2", "Subtype is MDL2"
+    TEST_CHECK player.song.channels = 12, "Channels is 12"
+    TEST_CHECK player.song.instruments = 24, "Instruments is 24"
+    TEST_CHECK player.song.isMDL, "isMDL is true"
+    MODPlayer_Finalize player
+
+    ' 16-bit packed samples
+    TEST_REQUIRE MDLLoader_LoadFromDisk(player, "mods/Calliope.mdl"), "Load Calliope.mdl (16-bit packed samples)"
+    TEST_CHECK MODPlayer_GetType(player) = "MDL2", "Subtype is MDL2"
+    TEST_CHECK player.song.isMDL, "isMDL is true"
+    MODPlayer_Finalize player
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MDLLoader: Load from memory"
+    DIM buf AS STRING: buf = File_Load("mods/Bare Bones Chip.mdl")
+    TEST_REQUIRE LEN(buf) > 0, "Read Bare Bones Chip.mdl into buffer"
+    DIM pMem AS MODPlayer
+    TEST_REQUIRE MDLLoader_LoadFromMemory(pMem, buf), "MDLLoader loads from memory"
+    TEST_CHECK MODPlayer_GetType(pMem) = "MDL2", "Memory load subtype is MDL2"
+    TEST_CHECK pMem.song.channels = 2, "Memory load channels is 2"
+    TEST_CHECK pMem.song.isMDL, "Memory load isMDL is true"
+    MODPlayer_Finalize pMem
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MDLLoader: Unified dispatcher auto-detection"
+    DIM pAuto AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pAuto, "mods/Chip Zone.mdl"), "Unified loader loads Chip Zone.mdl"
+    TEST_CHECK MODPlayer_GetType(pAuto) = "MDL1", "Auto-detected subtype is MDL1"
+    TEST_CHECK pAuto.song.channels = 6, "Auto-detected channels count is 6"
+    TEST_CHECK pAuto.song.isMDL, "Auto-detected isMDL is true"
+    MODPlayer_Finalize pAuto
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MDLLoader: Playback and audio synthesis"
+    DIM pPlay AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pPlay, "mods/Bare Bones Chip.mdl"), "Load Bare Bones Chip for playback"
+    MODPlayer_Play pPlay
+    TEST_CHECK pPlay.song.isPlaying, "Player is in playing state"
+
+    DIM u AS LONG
+    FOR u = 1 TO 40
+        MODPlayer_Update pPlay, 0.05
+    NEXT u
+
+    DIM hasAudio AS _BYTE: hasAudio = _FALSE
+    DIM i AS LONG
+    FOR i = 0 TO UBOUND(pPlay.synth.soundBuffer)
+        IF pPlay.synth.soundBuffer(i) <> 0! THEN
+            hasAudio = _TRUE
+            EXIT FOR
+        END IF
+    NEXT i
+    TEST_CHECK hasAudio, "Synthesized audible PCM audio during MDL playback"
+
+    MODPlayer_Stop pPlay
+    TEST_CHECK_FALSE pPlay.song.isPlaying, "Player stopped"
+    MODPlayer_Finalize pPlay
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MDLLoader: Bidirectional looping sample setup"
+    DIM pBidi AS MODPlayer
+    TEST_REQUIRE MDLLoader_LoadFromDisk(pBidi, "mods/Beyond All Cognitive.mdl"), "Load Beyond All Cognitive.mdl for bidi loop inspection"
+    DIM foundBidi AS _BYTE: foundBidi = _FALSE
+    DIM sIdx AS LONG
+    FOR sIdx = 0 TO pBidi.song.instruments - 1
+        IF pBidi.instrument(sIdx).playMode = SOFTSYNTH_VOICE_PLAY_BIDIRECTIONAL_LOOP THEN
+            foundBidi = _TRUE
+            TEST_CHECK pBidi.instrument(sIdx).loopEnd > pBidi.instrument(sIdx).loopStart, "Bidi loop end > start"
+        END IF
+    NEXT sIdx
+    TEST_CHECK foundBidi, "Found bidirectional looping instruments in Beyond All Cognitive.mdl"
+    MODPlayer_Finalize pBidi
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MDLLoader: Reject incompatible formats and invalid headers"
+    DIM pFail AS MODPlayer
+    TEST_CHECK_FALSE MDLLoader_LoadFromDisk(pFail, "mods/Enigma.mod"), "MDLLoader rejects MOD"
+    TEST_CHECK_FALSE MDLLoader_LoadFromDisk(pFail, "mods/A Touch of Spring.s3m"), "MDLLoader rejects S3M"
+    TEST_CHECK_FALSE MDLLoader_LoadFromDisk(pFail, "mods/cougarstory-ii.mtm"), "MDLLoader rejects MTM"
+    TEST_CHECK_FALSE MDLLoader_LoadFromDisk(pFail, "mods/M31.far"), "MDLLoader rejects FAR"
+    TEST_CHECK_FALSE MDLLoader_LoadFromDisk(pFail, "mods/OXYGENE.STM"), "MDLLoader rejects STM"
+    TEST_CHECK_FALSE MDLLoader_LoadFromDisk(pFail, "mods/crystals.669"), "MDLLoader rejects 669"
+    TEST_CHECK_FALSE MDLLoader_LoadFromDisk(pFail, "mods/ALLOYRUN.RAD"), "MDLLoader rejects RAD"
+    TEST_CHECK_FALSE MDLLoader_LoadFromDisk(pFail, "mods/4th Dimension.ult"), "MDLLoader rejects ULT"
+
+    DIM dummyBuf AS STRING: dummyBuf = STRING$(100, 0)
+    TEST_CHECK_FALSE MDLLoader_LoadFromMemory(pFail, dummyBuf), "Rejects invalid header magic"
+
+    ' Header with "DMDL" and invalid version 0x05
+    DIM v5Buf AS STRING: v5Buf = "DMDL" + CHR$(5) + STRING$(100, 0)
+    TEST_CHECK_FALSE MDLLoader_LoadFromMemory(pFail, v5Buf), "Rejects invalid version 5"
+
+    ' Header with "DMDL" and invalid version 0x20
+    DIM v20Buf AS STRING: v20Buf = "DMDL" + CHR$(&H20) + STRING$(100, 0)
+    TEST_CHECK_FALSE MDLLoader_LoadFromMemory(pFail, v20Buf), "Rejects invalid version 0x20"
+
+    MODPlayer_Finalize pFail
+    TEST_CASE_END
+END SUB
+
 ''' @brief Tests for multi-instance isolation and concurrent state handling.
 SUB Test_MODPlayer_MultiInstance
     TEST_CASE_BEGIN "MODPlayer: Multi-instance independent playback"
@@ -3045,6 +3183,7 @@ Test_C669_Effects
 Test_RADLoader
 Test_RAD_Playback
 Test_ULTLoader
+Test_MDLLoader
 Test_MODPlayer_MultiInstance
 Test_MODPlayer_PatternRows
 Test_MODPlayer_TypePromotions
