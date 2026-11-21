@@ -25,6 +25,7 @@ Synthesizer / Sample Mixer, and Audio Spectrum Analyzer.
   - [Reality Adlib Tracker Loader (`RADLoader.bi`)](#reality-adlib-tracker-loader-radloaderbi)
   - [UltraTracker Loader (`ULTLoader.bi`)](#ultratracker-loader-ultloaderbi)
   - [Digitrakker Loader (`MDLLoader.bi`)](#digitrakker-loader-mdlloaderbi)
+  - [Advanced Music Format Loader (`AMFLoader.bi`)](#advanced-music-format-loader-amfloaderbi)
 - [Software Synthesizer API (`SoftSynth.bi`)](#software-synthesizer-api-softsynthbi)
   - [Constants](#softsynth-constants)
   - [Types](#softsynth-types)
@@ -72,6 +73,7 @@ CONST MODPLAYER_FORMAT_FAR~%  = 6~% ' Farandole Composer (.FAR)
 CONST MODPLAYER_FORMAT_RAD~%  = 7~% ' Reality Adlib Tracker (.RAD)
 CONST MODPLAYER_FORMAT_ULT~%  = 8~% ' UltraTracker (.ULT)
 CONST MODPLAYER_FORMAT_MDL~%  = 9~% ' Digitrakker (.MDL)
+CONST MODPLAYER_FORMAT_AMF~%  = 10~% ' Advanced Music Format (.AMF / DSMI / Asylum)
 ```
 
 ### MODPlayer Types
@@ -520,6 +522,20 @@ FUNCTION MDLLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
   Supports 4 to 32 channels, variable pattern lengths (1 to 256 rows), 8-bit and 16-bit signed PCM samples,
   entropy-coded Huffman delta sample decompression (packing methods 1 and 2), multi-sample instruments with note split maps,
   forward and bidirectional (ping-pong) looping, and dual-effect command translation.
+- **Parameters**:
+  - `player`: Target MOD player instance.
+  - `fileName`: Path to the module file.
+  - `buffer`: In-memory binary representation of the module file.
+- **Returns**: `_TRUE` on successful parse; `_FALSE` if incompatible or invalid.
+
+### Advanced Music Format Loader (`AMFLoader.bi`)
+
+```vb
+FUNCTION AMFLoader_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
+FUNCTION AMFLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
+```
+
+- **Supported Formats**: Otto Chrons' Advanced Music Format (DSMI / DMP `.AMF` across revisions `v1.0` through `v1.4`, signatures `AMF\x01` and `AMF\x08` through `AMF\x0E`) and Asylum Music Format (`ASYLUM Music Format V1.0\0`). Supports 1 to 32 channels, track matrix mapping, per-channel panning, variable pattern rows (up to 256 rows in v1.4), 8-bit unsigned and signed PCM audio samples, and tracker effect translation.
 - **Parameters**:
   - `player`: Target MOD player instance.
   - `fileName`: Path to the module file.

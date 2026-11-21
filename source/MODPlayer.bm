@@ -17,6 +17,7 @@ $INCLUDEONCE
 '$INCLUDE:'RADLoader.bi'
 '$INCLUDE:'ULTLoader.bi'
 '$INCLUDE:'MDLLoader.bi'
+'$INCLUDE:'AMFLoader.bi'
 '$INCLUDE:'MODPlayerShared.bm'
 
 ''' @brief Loads a tracker module with optional companion data (e.g. StarTrekker .mod.nt).
@@ -65,6 +66,11 @@ FUNCTION MODPlayer_LoadWithCompanion%% (player AS MODPlayer, buffer AS STRING, c
     END IF
 
     IF MDLLoader_LoadFromMemory(player, buffer) THEN
+        MODPlayer_LoadWithCompanion = _TRUE
+        EXIT FUNCTION
+    END IF
+
+    IF AMFLoader_LoadFromMemory(player, buffer) THEN
         MODPlayer_LoadWithCompanion = _TRUE
         EXIT FUNCTION
     END IF

@@ -21,6 +21,7 @@ CONST MODPLAYER_FORMAT_FAR~% = 6~%
 CONST MODPLAYER_FORMAT_RAD~% = 7~%
 CONST MODPLAYER_FORMAT_ULT~% = 8~%
 CONST MODPLAYER_FORMAT_MDL~% = 9~%
+CONST MODPLAYER_FORMAT_AMF~% = 10~%
 
 CONST __MODPLAYER_NOTE_NONE~%% = 132~%% ' Note will be set to this when there is nothing
 CONST __MODPLAYER_NOTE_KEY_OFF~%% = 133~%% ' We'll use this in a future version

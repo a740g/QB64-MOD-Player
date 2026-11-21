@@ -1547,6 +1547,147 @@ SUB Test_MDLLoader
     TEST_CASE_END
 END SUB
 
+''' @brief Tests for Advanced Music Format (AMF / DSMI) format loader.
+SUB Test_AMFLoader
+    TEST_CASE_BEGIN "AMFLoader: Load DSMI AMF modules across versions (v0.8-v1.4)"
+    DIM player AS MODPlayer
+
+    ' v1.4 (version 14)
+    TEST_REQUIRE AMFLoader_LoadFromDisk(player, "mods/DSMI Example.amf"), "Load DSMI Example.amf (v1.4)"
+    TEST_CHECK MODPlayer_GetType(player) = "AMF", "Subtype is AMF"
+    TEST_CHECK player.song.channels = 12, "Channels is 12"
+    TEST_CHECK player.song.instruments = 18, "Instruments is 18"
+    TEST_CHECK player.song.orders = 19, "Orders is 19"
+    TEST_CHECK player.song.format = MODPLAYER_FORMAT_AMF, "format is AMF"
+    TEST_CHECK MODPlayer_GetFormat(player) = MODPLAYER_FORMAT_AMF, "MODPlayer_GetFormat returns AMF"
+    TEST_CHECK player.song.isStereo, "isStereo is true"
+    MODPlayer_Finalize player
+
+    ' v0.8 (version 8)
+    TEST_REQUIRE AMFLoader_LoadFromDisk(player, "mods/Avoid.amf"), "Load Avoid.amf (v0.8)"
+    TEST_CHECK MODPlayer_GetType(player) = "AMF", "Subtype is AMF"
+    TEST_CHECK player.song.channels = 4, "Channels is 4"
+    TEST_CHECK player.song.instruments = 31, "Instruments is 31"
+    TEST_CHECK player.song.orders = 27, "Orders is 27"
+    TEST_CHECK player.song.format = MODPLAYER_FORMAT_AMF, "format is AMF"
+    TEST_CHECK MODPlayer_GetFormat(player) = MODPLAYER_FORMAT_AMF, "MODPlayer_GetFormat returns AMF"
+    MODPlayer_Finalize player
+
+    ' v1.1 (version 11)
+    TEST_REQUIRE AMFLoader_LoadFromDisk(player, "mods/Beat It Up.amf"), "Load Beat It Up.amf (v1.1)"
+    TEST_CHECK MODPlayer_GetType(player) = "AMF", "Subtype is AMF"
+    TEST_CHECK player.song.channels = 4, "Channels is 4"
+    TEST_CHECK player.song.instruments = 31, "Instruments is 31"
+    TEST_CHECK player.song.orders = 18, "Orders is 18"
+    TEST_CHECK player.song.format = MODPLAYER_FORMAT_AMF, "format is AMF"
+    TEST_CHECK MODPlayer_GetFormat(player) = MODPLAYER_FORMAT_AMF, "MODPlayer_GetFormat returns AMF"
+    MODPlayer_Finalize player
+
+    ' v1.0 (version 10)
+    TEST_REQUIRE AMFLoader_LoadFromDisk(player, "mods/Dont You Want My Lovin.amf"), "Load Dont You Want My Lovin.amf (v1.0)"
+    TEST_CHECK MODPlayer_GetType(player) = "AMF", "Subtype is AMF"
+    TEST_CHECK player.song.channels = 4, "Channels is 4"
+    TEST_CHECK player.song.instruments = 31, "Instruments is 31"
+    TEST_CHECK player.song.orders = 21, "Orders is 21"
+    TEST_CHECK player.song.format = MODPLAYER_FORMAT_AMF, "format is AMF"
+    TEST_CHECK MODPlayer_GetFormat(player) = MODPLAYER_FORMAT_AMF, "MODPlayer_GetFormat returns AMF"
+    MODPlayer_Finalize player
+
+    ' v1.3 (version 13)
+    TEST_REQUIRE AMFLoader_LoadFromDisk(player, "mods/Cyclemania - Cm0001.amf"), "Load Cyclemania - Cm0001.amf (v1.3)"
+    TEST_CHECK MODPlayer_GetType(player) = "AMF", "Subtype is AMF"
+    TEST_CHECK player.song.channels = 4, "Channels is 4"
+    TEST_CHECK player.song.instruments = 7, "Instruments is 7"
+    TEST_CHECK player.song.orders = 8, "Orders is 8"
+    TEST_CHECK player.song.format = MODPLAYER_FORMAT_AMF, "format is AMF"
+    TEST_CHECK MODPlayer_GetFormat(player) = MODPLAYER_FORMAT_AMF, "MODPlayer_GetFormat returns AMF"
+    MODPlayer_Finalize player
+
+    ' v0.9 (version 9)
+    TEST_REQUIRE AMFLoader_LoadFromDisk(player, "mods/Test6.amf"), "Load Test6.amf (v0.9)"
+    TEST_CHECK MODPlayer_GetType(player) = "AMF", "Subtype is AMF"
+    TEST_CHECK player.song.channels = 6, "Channels is 6"
+    TEST_CHECK player.song.instruments = 31, "Instruments is 31"
+    TEST_CHECK player.song.orders = 1, "Orders is 1"
+    TEST_CHECK player.song.format = MODPLAYER_FORMAT_AMF, "format is AMF"
+    TEST_CHECK MODPlayer_GetFormat(player) = MODPLAYER_FORMAT_AMF, "MODPlayer_GetFormat returns AMF"
+    MODPlayer_Finalize player
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "AMFLoader: Load from memory"
+    DIM buf AS STRING: buf = File_Load("mods/DSMI Example.amf")
+    TEST_REQUIRE LEN(buf) > 0, "Read DSMI Example.amf into buffer"
+    DIM pMem AS MODPlayer
+    TEST_REQUIRE AMFLoader_LoadFromMemory(pMem, buf), "AMFLoader loads from memory"
+    TEST_CHECK MODPlayer_GetType(pMem) = "AMF", "Memory load subtype is AMF"
+    TEST_CHECK pMem.song.channels = 12, "Memory load channels is 12"
+    TEST_CHECK pMem.song.format = MODPLAYER_FORMAT_AMF, "Memory load format is AMF"
+    TEST_CHECK MODPlayer_GetFormat(pMem) = MODPLAYER_FORMAT_AMF, "MODPlayer_GetFormat returns AMF"
+    MODPlayer_Finalize pMem
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "AMFLoader: Unified dispatcher auto-detection"
+    DIM pAuto AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pAuto, "mods/Cosmos.amf"), "Unified loader loads Cosmos.amf"
+    TEST_CHECK MODPlayer_GetType(pAuto) = "AMF", "Auto-detected subtype is AMF"
+    TEST_CHECK pAuto.song.channels = 8, "Auto-detected channels count is 8"
+    TEST_CHECK pAuto.song.format = MODPLAYER_FORMAT_AMF, "Auto-detected format is AMF"
+    TEST_CHECK MODPlayer_GetFormat(pAuto) = MODPLAYER_FORMAT_AMF, "MODPlayer_GetFormat returns AMF"
+    MODPlayer_Finalize pAuto
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "AMFLoader: Playback and audio synthesis"
+    DIM pPlay AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pPlay, "mods/DSMI Example.amf"), "Load DSMI Example for playback"
+    MODPlayer_Play pPlay
+    TEST_CHECK pPlay.song.isPlaying, "Player is in playing state"
+
+    DIM u AS LONG
+    FOR u = 1 TO 40
+        MODPlayer_Update pPlay, 0.05
+    NEXT u
+
+    DIM hasAudio AS _BYTE: hasAudio = _FALSE
+    DIM i AS LONG
+    FOR i = 0 TO UBOUND(pPlay.synth.soundBuffer)
+        IF pPlay.synth.soundBuffer(i) <> 0! THEN
+            hasAudio = _TRUE
+            EXIT FOR
+        END IF
+    NEXT i
+    TEST_CHECK hasAudio, "Synthesized audible PCM audio during AMF playback"
+
+    MODPlayer_Stop pPlay
+    TEST_CHECK_FALSE pPlay.song.isPlaying, "Player stopped"
+    MODPlayer_Finalize pPlay
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "AMFLoader: Reject incompatible formats and invalid headers"
+    DIM pFail AS MODPlayer
+    TEST_CHECK_FALSE AMFLoader_LoadFromDisk(pFail, "mods/Enigma.mod"), "AMFLoader rejects MOD"
+    TEST_CHECK_FALSE AMFLoader_LoadFromDisk(pFail, "mods/A Touch of Spring.s3m"), "AMFLoader rejects S3M"
+    TEST_CHECK_FALSE AMFLoader_LoadFromDisk(pFail, "mods/cougarstory-ii.mtm"), "AMFLoader rejects MTM"
+    TEST_CHECK_FALSE AMFLoader_LoadFromDisk(pFail, "mods/M31.far"), "AMFLoader rejects FAR"
+    TEST_CHECK_FALSE AMFLoader_LoadFromDisk(pFail, "mods/OXYGENE.STM"), "AMFLoader rejects STM"
+    TEST_CHECK_FALSE AMFLoader_LoadFromDisk(pFail, "mods/crystals.669"), "AMFLoader rejects 669"
+    TEST_CHECK_FALSE AMFLoader_LoadFromDisk(pFail, "mods/ALLOYRUN.RAD"), "AMFLoader rejects RAD"
+    TEST_CHECK_FALSE AMFLoader_LoadFromDisk(pFail, "mods/4th Dimension.ult"), "AMFLoader rejects ULT"
+    TEST_CHECK_FALSE AMFLoader_LoadFromDisk(pFail, "mods/Bare Bones Chip.mdl"), "AMFLoader rejects MDL"
+
+    DIM dummyBuf AS STRING: dummyBuf = STRING$(100, 0)
+    TEST_CHECK_FALSE AMFLoader_LoadFromMemory(pFail, dummyBuf), "Rejects invalid header magic"
+
+    ' Header with "AMF" and invalid version 0x05
+    DIM v5Buf AS STRING: v5Buf = "AMF" + CHR$(5) + STRING$(100, 0)
+    TEST_CHECK_FALSE AMFLoader_LoadFromMemory(pFail, v5Buf), "Rejects invalid version 5"
+
+    ' Header with "AMF" and invalid version 0x20
+    DIM v20Buf AS STRING: v20Buf = "AMF" + CHR$(&H20) + STRING$(100, 0)
+    TEST_CHECK_FALSE AMFLoader_LoadFromMemory(pFail, v20Buf), "Rejects invalid version 0x20"
+    MODPlayer_Finalize pFail
+    TEST_CASE_END
+END SUB
+
 ''' @brief Tests for multi-instance isolation and concurrent state handling.
 SUB Test_MODPlayer_MultiInstance
     TEST_CASE_BEGIN "MODPlayer: Multi-instance independent playback"
@@ -3205,7 +3346,7 @@ SUB Test_MODPlayer_FormatConstants
     MODPlayer_Finalize pNone
     TEST_CASE_END
 
-    TEST_CASE_BEGIN "Format Constants: Verification across all 9 tracker formats"
+    TEST_CASE_BEGIN "Format Constants: Verification across all 10 tracker formats"
     DIM pTest AS MODPlayer
 
     ' 1. MOD
@@ -3262,6 +3403,12 @@ SUB Test_MODPlayer_FormatConstants
     TEST_CHECK MODPlayer_GetFormat(pTest) = MODPLAYER_FORMAT_MDL, "MODPlayer_GetFormat returns MDL"
     MODPlayer_Finalize pTest
 
+    ' 10. AMF
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pTest, "mods/DSMI Example.amf"), "Load AMF"
+    TEST_CHECK pTest.song.format = MODPLAYER_FORMAT_AMF, "AMF format is MODPLAYER_FORMAT_AMF"
+    TEST_CHECK MODPlayer_GetFormat(pTest) = MODPLAYER_FORMAT_AMF, "MODPlayer_GetFormat returns AMF"
+    MODPlayer_Finalize pTest
+
     TEST_CASE_END
 END SUB
 
@@ -3312,6 +3459,7 @@ Test_RADLoader
 Test_RAD_Playback
 Test_ULTLoader
 Test_MDLLoader
+Test_AMFLoader
 Test_MODPlayer_MultiInstance
 Test_MODPlayer_PatternRows
 Test_MODPlayer_TypePromotions
