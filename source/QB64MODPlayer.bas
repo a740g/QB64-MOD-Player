@@ -821,7 +821,7 @@ FUNCTION App_OnCommandLine%%
     DIM e AS _BYTE: e = APP_EVENT_NONE
 
     IF (COMMAND$(1) = "/?" _ORELSE COMMAND$(1) = "-?") THEN
-        _MESSAGEBOX APP_NAME, APP_NAME + _STR_LF + "Syntax: " + Pathname_GetFileName(COMMAND$(0)) + " [modfile.mod / .s3m / .mtm / .far / .stm / .669 / .rad / .ult / .mdl]" + _STR_LF + "    /?: Shows this message" + _STR_LF + _STR_LF + "Copyright (c) 2024, Samuel Gomes" + _STR_LF + _STR_LF + "https://github.com/a740g/", "info"
+        _MESSAGEBOX APP_NAME, APP_NAME + _STR_LF + "Syntax: " + Pathname_GetFileName(COMMAND$(0)) + " [modfile.mod / .s3m / .mtm / .far / .stm / .669 / .rad / .ult / .mdl / .stk / .m15]" + _STR_LF + "    /?: Shows this message" + _STR_LF + _STR_LF + "Copyright (c) 2024, Samuel Gomes" + _STR_LF + _STR_LF + "https://github.com/a740g/", "info"
         e = APP_EVENT_QUIT
     ELSE
         DIM i AS LONG: FOR i = 1 TO _COMMANDCOUNT
@@ -861,7 +861,7 @@ FUNCTION App_OnSelectedFiles%%
     DIM ofdList AS STRING
     DIM e AS _BYTE: e = APP_EVENT_NONE
 
-    ofdList = _OPENFILEDIALOG$(APP_NAME, , "*.mod|*.MOD|*.Mod|*.mtm|*.MTM|*.Mtm|*.s3m|*.S3M|*.S3m|*.far|*.FAR|*.Far|*.stm|*.STM|*.Stm|*.669|*.rad|*.RAD|*.Rad|*.ult|*.ULT|*.Ult|*.mdl|*.MDL|*.Mdl", "Music Tracker Files", _TRUE)
+    ofdList = _OPENFILEDIALOG$(APP_NAME, , "*.mod|*.MOD|*.Mod|*.mtm|*.MTM|*.Mtm|*.s3m|*.S3M|*.S3m|*.far|*.FAR|*.Far|*.stm|*.STM|*.Stm|*.669|*.rad|*.RAD|*.Rad|*.ult|*.ULT|*.Ult|*.mdl|*.MDL|*.Mdl|*.stk|*.STK|*.Stk|*.m15|*.M15|*.M15", "Music Tracker Files", _TRUE)
 
     IF LEN(ofdList) = 0 THEN EXIT FUNCTION
 
@@ -897,7 +897,7 @@ FUNCTION App_OnModArchiveFiles%%
             fileExtension = LCASE$(Pathname_GetFileExtension(modArchiveFileName))
 
             _TITLE "Downloading: " + App_GetSaveFileName(modArchiveFileName) + " - " + APP_NAME
-        LOOP UNTIL fileExtension = ".mod" _ORELSE fileExtension = ".mtm" _ORELSE fileExtension = ".s3m" _ORELSE fileExtension = ".far" _ORELSE fileExtension = ".stm" _ORELSE fileExtension = ".669" _ORELSE fileExtension = ".rad" _ORELSE fileExtension = ".ult" _ORELSE fileExtension = ".mdl"
+        LOOP UNTIL fileExtension = ".mod" _ORELSE fileExtension = ".mtm" _ORELSE fileExtension = ".s3m" _ORELSE fileExtension = ".far" _ORELSE fileExtension = ".stm" _ORELSE fileExtension = ".669" _ORELSE fileExtension = ".rad" _ORELSE fileExtension = ".ult" _ORELSE fileExtension = ".mdl" _ORELSE fileExtension = ".stk" _ORELSE fileExtension = ".m15"
 
         e = App_OnPlayTune(modArchiveFileName)
     LOOP WHILE e = APP_EVENT_NONE _ORELSE e = APP_EVENT_PLAY

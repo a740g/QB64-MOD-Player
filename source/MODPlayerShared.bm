@@ -218,7 +218,8 @@ FUNCTION __MODPlayer_FindCompanionFile$ (fileName AS STRING)
         EXIT FUNCTION
     END IF
 
-    IF LCASE$(Pathname_GetFileExtension(fileName)) = ".mod" THEN
+    DIM fileExt AS STRING: fileExt = LCASE$(Pathname_GetFileExtension(fileName))
+    IF fileExt = ".mod" _ORELSE fileExt = ".stk" _ORELSE fileExt = ".m15" THEN
         DIM baseName AS STRING: baseName = Pathname_RemoveFileExtension(fileName)
 
         candPath = baseName + ".nt"

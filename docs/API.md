@@ -63,7 +63,7 @@ Format identifiers stored in `player.song.format` and returned by `MODPlayer_Get
 
 ```vb
 CONST MODPLAYER_FORMAT_NONE~% = 0~% ' Uninitialized / unknown format
-CONST MODPLAYER_FORMAT_MOD~%  = 1~% ' ProTracker / NoiseTracker / FastTracker 1 (.MOD)
+CONST MODPLAYER_FORMAT_MOD~%  = 1~% ' ProTracker / NoiseTracker / SoundTracker / FastTracker 1 (.MOD, .STK, .M15)
 CONST MODPLAYER_FORMAT_STM~%  = 2~% ' Scream Tracker 2 (.STM)
 CONST MODPLAYER_FORMAT_S3M~%  = 3~% ' Scream Tracker 3 (.S3M)
 CONST MODPLAYER_FORMAT_669~%  = 4~% ' Composer 669 / Extended 669 (.669)
@@ -389,8 +389,8 @@ FUNCTION MODLoader_LoadWithCompanion%% (player AS MODPlayer, _
 ```
 
 - **Supported Formats**: ProTracker, SoundTracker, NoiseTracker, StarTrekker,
-  FastTracker MOD variants (1 to 99 channels, 15 or 31 samples, FLT8, EXO4,
-  EXO8, etc.) with StarTrekker 1.2/1.3 and AudioSculpture synthesized AM
+  FastTracker MOD variants (.MOD, .STK, .M15; 1 to 99 channels, 15 or 31 samples,
+  FLT8, EXO4, EXO8, etc.) with StarTrekker 1.2/1.3 and AudioSculpture synthesized AM
   instrument companion files.
 - **Parameters**:
   - `player`: Target MOD player instance.

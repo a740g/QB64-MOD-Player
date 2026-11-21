@@ -706,6 +706,24 @@ SUB Test_MODLoader
     TEST_CHECK MODPlayer_GetOrders(player) > 0, "Order count is greater than 0"
     TEST_CASE_END
 
+    TEST_CASE_BEGIN "MODLoader: Load 15-instrument SoundTracker (.stk / .m15)"
+    DIM pSTK AS MODPlayer
+    TEST_REQUIRE MODPlayer_LoadFromDisk(pSTK, "mods/HumanRaceIVOriginalByRobHubbard.stk"), "Load HumanRaceIVOriginalByRobHubbard.stk via unified loader"
+    TEST_CHECK MODPlayer_GetType(pSTK) = "MODF", "15-sample subtype is MODF"
+    TEST_CHECK pSTK.song.format = MODPLAYER_FORMAT_MOD, "Format is MODPLAYER_FORMAT_MOD"
+    TEST_CHECK pSTK.song.channels = 4, "Channel count is 4"
+    TEST_CHECK pSTK.song.instruments = 15, "Instrument count is 15"
+    TEST_CHECK MODPlayer_GetOrders(pSTK) = 2, "Order count is 2"
+    MODPlayer_Play pSTK
+    TEST_CHECK MODPlayer_IsPlaying(pSTK), "pSTK is playing"
+    DIM uTick AS LONG
+    FOR uTick = 1 TO 10
+        MODPlayer_Update pSTK, 0.05
+    NEXT uTick
+    MODPlayer_Stop pSTK
+    MODPlayer_Finalize pSTK
+    TEST_CASE_END
+
     TEST_CASE_BEGIN "MODLoader: Reject incompatible formats"
     TEST_CHECK_FALSE MODLoader_LoadFromDisk(player, "mods/A Touch of Spring.s3m"), "MODLoader rejects S3M"
     TEST_CHECK_FALSE MODLoader_LoadFromDisk(player, "mods/cougarstory-ii.mtm"), "MODLoader rejects MTM"
