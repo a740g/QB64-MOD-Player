@@ -609,14 +609,15 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
     TUI_Slider = updatedVal
 END FUNCTION
 
-''' @brief Renders a beveled container panel frame with optional title.
+''' @brief Renders a bordered panel container with optional title, border style, and opacity.
 ''' @param x Character column of top-left corner.
 ''' @param y Character row of top-left corner.
 ''' @param w Total panel width in characters.
 ''' @param h Total panel height in characters.
 ''' @param title Optional title string embedded in top border.
 ''' @param isDoubleBorder _TRUE for double-line border, _FALSE for single-line.
-SUB TUI_Panel (x AS LONG, y AS LONG, w AS LONG, h AS LONG, title AS STRING, isDoubleBorder AS _BYTE)
+''' @param isOpaque _TRUE to fill interior with background spaces, _FALSE for transparent.
+SUB TUI_PanelEx (x AS LONG, y AS LONG, w AS LONG, h AS LONG, title AS STRING, isDoubleBorder AS _BYTE, isOpaque AS _BYTE)
     IF w < 2 _ORELSE h < 2 THEN EXIT SUB
 
     DIM innerW AS LONG: innerW = w - 2
@@ -640,6 +641,8 @@ SUB TUI_Panel (x AS LONG, y AS LONG, w AS LONG, h AS LONG, title AS STRING, isDo
 
     DIM botBar AS STRING: botBar = STRING$(innerW, chH)
     DIM vChar AS STRING: vChar = CHR$(chV)
+    DIM fillStr AS STRING
+    IF isOpaque THEN fillStr = SPACE$(innerW)
 
     ' Top border
     COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
@@ -647,11 +650,16 @@ SUB TUI_Panel (x AS LONG, y AS LONG, w AS LONG, h AS LONG, title AS STRING, isDo
     COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
     _PRINTSTRING (x + w - 1, y), CHR$(chTR)
 
-    ' Side borders
+    ' Side borders and interior
     DIM row AS LONG
     FOR row = 1 TO innerH
-        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
-        _PRINTSTRING (x, y + row), vChar
+        IF isOpaque THEN
+            COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+            _PRINTSTRING (x, y + row), vChar + fillStr
+        ELSE
+            COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+            _PRINTSTRING (x, y + row), vChar
+        END IF
         COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
         _PRINTSTRING (x + w - 1, y + row), vChar
     NEXT row
@@ -661,6 +669,17 @@ SUB TUI_Panel (x AS LONG, y AS LONG, w AS LONG, h AS LONG, title AS STRING, isDo
     _PRINTSTRING (x, y + h - 1), CHR$(chBL)
     COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
     _PRINTSTRING (x + 1, y + h - 1), botBar + CHR$(chBR)
+END SUB
+
+''' @brief Renders a bordered panel container with optional title and border style (opaque by default).
+''' @param x Character column of top-left corner.
+''' @param y Character row of top-left corner.
+''' @param w Total panel width in characters.
+''' @param h Total panel height in characters.
+''' @param title Optional title string embedded in top border.
+''' @param isDoubleBorder _TRUE for double-line border, _FALSE for single-line.
+SUB TUI_Panel (x AS LONG, y AS LONG, w AS LONG, h AS LONG, title AS STRING, isDoubleBorder AS _BYTE)
+    TUI_PanelEx x, y, w, h, title, isDoubleBorder, _TRUE
 END SUB
 
 ''' @brief Renders a 3D tab bar where clicking or activating a tab selects it, with focus & disabled support.

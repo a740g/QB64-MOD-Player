@@ -3680,6 +3680,8 @@ SUB Test_TUI
     TUI_Begin
     TUI_Panel 5, 5, 30, 10, "Control Center", _TRUE
     TUI_Panel 40, 5, 20, 10, "", _FALSE
+    TUI_PanelEx 65, 5, 20, 10, "Opaque", _TRUE, _TRUE
+    TUI_PanelEx 90, 5, 20, 10, "Trans", _FALSE, _FALSE
     TEST_CHECK __TUI.widgetCount = 0, "Panel does not increment interactive widget count"
     TUI_End
     TEST_CASE_END

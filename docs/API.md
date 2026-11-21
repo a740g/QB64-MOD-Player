@@ -1548,13 +1548,29 @@ SUB TUI_Label (x AS LONG, y AS LONG, text AS STRING, fgColor AS LONG, bgColor AS
   - `fgColor`: Foreground color index (`TUI_COLOR_*`).
   - `bgColor`: Background color index (`TUI_COLOR_*`).
 
+#### `TUI_PanelEx`
+
+```vb
+SUB TUI_PanelEx (x AS LONG, y AS LONG, w AS LONG, h AS LONG, title AS STRING, isDoubleBorder AS _BYTE, isOpaque AS _BYTE)
+```
+
+- **Description**: Renders a beveled container panel frame with an optional title string embedded into the top border, supporting double/single border styling and selectable opacity.
+- **Parameters**:
+  - `x`: Column coordinate of the top-left corner.
+  - `y`: Row coordinate of the top-left corner.
+  - `w`: Width in characters.
+  - `h`: Height in characters.
+  - `title`: Header caption displayed in the top border.
+  - `isDoubleBorder`: Nonzero for double-line border style, zero for single-line style.
+  - `isOpaque`: Nonzero to clear interior with background color spaces (opaque), zero to leave interior transparent.
+
 #### `TUI_Panel`
 
 ```vb
 SUB TUI_Panel (x AS LONG, y AS LONG, w AS LONG, h AS LONG, title AS STRING, isDoubleBorder AS _BYTE)
 ```
 
-- **Description**: Renders a beveled container panel frame with an optional title string embedded into the top border.
+- **Description**: Renders an opaque beveled container panel frame with an optional title string embedded into the top border (calls `TUI_PanelEx` with `isOpaque = _TRUE`).
 - **Parameters**:
   - `x`: Column coordinate of the top-left corner.
   - `y`: Row coordinate of the top-left corner.
