@@ -67,6 +67,11 @@ Synthesizer / Sample Mixer, and Audio Spectrum Analyzer.
   - [Types](#playlist-types)
   - [Queue Management and Navigation](#playlist-queue-management-and-navigation)
   - [M3U File I/O](#playlist-m3u-file-io)
+- [Background Visual Animation API (`Background.bi`)](#background-visual-animation-api-backgroundbi)
+  - [Constants and Modes](#background-constants-and-modes)
+  - [Types](#background-types)
+  - [Lifecycle and Rendering](#background-lifecycle-and-rendering)
+  - [Mode Control and Queries](#background-mode-control-and-queries)
 
 ---
 
@@ -1747,3 +1752,90 @@ SUB Playlist_SaveM3U (pl AS Playlist, m3uFilePath AS STRING)
 ```
 
 - **Description**: Exports the current playlist queue and metadata to an `.m3u` file.
+
+---
+
+## Background Visual Animation API (`Background.bi`)
+
+Include header:
+
+```vb
+'$INCLUDE:'Background.bi'
+```
+
+Provides retro visual animation effects for the player workstation during idle playback or ambient mode. Supports 7 distinct background modes: 3D Starfield Warp, Kinetic Bouncing Snakes, Launching Fireworks, Retro Cellular Fire, Demoscene Plasma, Bouncing Kinetic Balls, and Digital Matrix Rain.
+
+### Background Constants and Modes
+
+```vb
+CONST BACKGROUND_MODE_NONE& = 0&
+CONST BACKGROUND_MODE_STARS& = 1&
+CONST BACKGROUND_MODE_SNAKES& = 2&
+CONST BACKGROUND_MODE_FIREWORKS& = 3&
+CONST BACKGROUND_MODE_FIRE& = 4&
+CONST BACKGROUND_MODE_PLASMA& = 5&
+CONST BACKGROUND_MODE_BALLS& = 6&
+CONST BACKGROUND_MODE_MATRIX& = 7&
+CONST BACKGROUND_MODE_FIRST& = BACKGROUND_MODE_STARS
+CONST BACKGROUND_MODE_LAST& = BACKGROUND_MODE_MATRIX
+```
+
+### Background Types
+
+#### `Background`
+
+Unified context encapsulating all background visual simulation states:
+
+- `starfield`: Star positions, angles, velocities, and 3D depth buffers.
+- `snakes`: Kinetic snake positions, turn rates, velocities, and occupancy grid.
+- `fireworks`: Rocket trajectory, explosion spark particles, and gravity simulation.
+- `fire`: Cellular automata heat grid with upward propagation and cooling decay.
+- `plasma`: Fast 512-entry precomputed sine LUT and multi-frequency wave phase ticks.
+- `balls`: Kinetic bouncing balls with gravity, wall rebounds, and elastic ball-to-ball collisions.
+- `matrix`: Falling code stream columns with glowing leading heads, green trails, and character mutation.
+- `mode`: Active `BACKGROUND_MODE_*` constant.
+- `size`: Vector2f screen dimensions in characters.
+
+### Background Lifecycle and Rendering
+
+#### `Background_Initialize`
+
+```vb
+SUB Background_Initialize (ctx AS Background, w AS LONG, h AS LONG)
+```
+
+- **Description**: Allocates and initializes all 7 background effect engines with the specified canvas width and height. Selects an initial random background mode.
+
+#### `Background_UpdateAndDraw`
+
+```vb
+SUB Background_UpdateAndDraw (ctx AS Background)
+```
+
+- **Description**: Advances the simulation state of the currently active background mode by one frame and renders it directly to the active screen buffer.
+
+### Background Mode Control and Queries
+
+#### `Background_SetRandomMode`
+
+```vb
+SUB Background_SetRandomMode (ctx AS Background)
+```
+
+- **Description**: Randomly selects an active background mode from the 7 available modes (`BACKGROUND_MODE_FIRST` to `BACKGROUND_MODE_LAST`).
+
+#### `Background_CycleMode`
+
+```vb
+SUB Background_CycleMode (ctx AS Background)
+```
+
+- **Description**: Advances to the next sequential background effect mode, wrapping around from `BACKGROUND_MODE_LAST` back to `BACKGROUND_MODE_FIRST`. Typically bound to hotkey `B`.
+
+#### `Background_GetModeName$`
+
+```vb
+FUNCTION Background_GetModeName$ (mode AS LONG)
+```
+
+- **Description**: Returns the human-readable display name for the given mode ID (`"Starfield"`, `"Kinetic Snakes"`, `"Fireworks"`, `"Retro Fire"`, `"Demoscene Plasma"`, `"Bouncing Balls"`, `"Digital Matrix Rain"`).

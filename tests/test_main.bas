@@ -2192,7 +2192,7 @@ SUB Test_MODPlayer_Startrekker_AM
     DIM pEnv AS MODPlayer
     TEST_REQUIRE MODPlayer_Initialize(pEnv), "Init player for envelope test"
     REDIM pEnv.channel(0 TO 0) AS __MODPLAYERCHANNEL
-    
+
     ' Case A: rate = 0 and curLevel = target -> advances immediately
     pEnv.channel(0).amLevel = 100
     pEnv.channel(0).amStage = __MODPLAYER_AM_STAGE_ATTACK1
@@ -3226,35 +3226,34 @@ SUB Test_Vector3f
     TEST_CASE_END
 END SUB
 
-''' @brief Tests for Background.bi starfield and snake animation logic.
+''' @brief Tests for Background.bi starfield, snakes, fireworks, fire, plasma, balls, and matrix routines.
 SUB Test_Background
     TEST_CASE_BEGIN "Background: Starfield initialization"
-    DIM sf AS BackgroundStarfield
-    Background_InitializeStars sf, 64
-    TEST_CHECK sf.count = 64, "Starfield count is 64"
-    TEST_CHECK sf.stars(1).p.z = 4096!, "Star 1 initialized with z depth 4096"
-    TEST_CHECK sf.stars(1).c >= 9 AND sf.stars(1).c <= 15, "Star 1 has valid color [9..15]"
-    TEST_CHECK sf.stars(64).p.z = 4096!, "Last star initialized with z depth 4096"
+    DIM bg AS Background
+    Background_InitializeStars bg
+    TEST_CHECK bg.starfield.count = __BACKGROUND_STAR_COUNT, "Starfield star count allocated"
+    TEST_CHECK bg.starfield.stars(1).p.z >= 4096!, "Star 1 initialized with z depth >= 4096"
+    TEST_CHECK bg.starfield.stars(1).c >= 9 AND bg.starfield.stars(1).c <= 15, "Star 1 has valid color [9..15]"
+    TEST_CHECK bg.starfield.stars(64).p.z >= 4096!, "Last star initialized with z depth >= 4096"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "Background: Snakes initialization"
-    DIM sn AS BackgroundSnakes
-    Background_InitializeSnakes sn, 24
-    TEST_CHECK sn.count = 24, "Snakes count is 24"
-    TEST_CHECK sn.snakes(1).speed >= 0.2! AND sn.snakes(1).speed <= 0.6!, "Snake 1 speed in [0.2..0.6]"
-    TEST_CHECK sn.snakes(1).c >= 1 AND sn.snakes(1).c <= 8, "Snake 1 color in [1..8]"
-    DIM lSq AS SINGLE: lSq = Vector2f_LengthSquared(sn.snakes(1).direction)
+    Background_InitializeSnakes bg
+    TEST_CHECK bg.snakes.count = __BACKGROUND_SNAKE_COUNT, "Snakes count allocated"
+    TEST_CHECK bg.snakes.snakes(1).speed >= 0.2! AND bg.snakes.snakes(1).speed <= 0.65!, "Snake 1 speed in valid range"
+    TEST_CHECK bg.snakes.snakes(1).c >= 9 AND bg.snakes.snakes(1).c <= 14, "Snake 1 color in valid range"
+    DIM lSq AS SINGLE: lSq = Vector2f_LengthSquared(bg.snakes.snakes(1).direction)
     TEST_CHECK ABS(lSq - 1!) < 0.001!, "Snake 1 direction is unit vector"
-    TEST_CHECK LEN(sn.snakes(1).p) >= 10, "Snake 1 body buffer has valid length"
+    TEST_CHECK LEN(bg.snakes.snakes(1).p) >= 10, "Snake 1 body buffer has valid length"
 
     ' Ensure initial spawn heads are not overlapping
     DIM overlaps AS LONG: overlaps = 0
     DIM i AS LONG, j AS LONG
-    FOR i = 1 TO sn.count - 1
-        DIM hx AS LONG: hx = ASC(sn.snakes(i).p, 1)
-        DIM hy AS LONG: hy = ASC(sn.snakes(i).p, 2)
-        FOR j = i + 1 TO sn.count
-            IF hx = ASC(sn.snakes(j).p, 1) AND hy = ASC(sn.snakes(j).p, 2) THEN
+    FOR i = 1 TO bg.snakes.count - 1
+        DIM hx AS LONG: hx = ASC(bg.snakes.snakes(i).p, 1)
+        DIM hy AS LONG: hy = ASC(bg.snakes.snakes(i).p, 2)
+        FOR j = i + 1 TO bg.snakes.count
+            IF hx = ASC(bg.snakes.snakes(j).p, 1) AND hy = ASC(bg.snakes.snakes(j).p, 2) THEN
                 overlaps = overlaps + 1
             END IF
         NEXT j
@@ -3262,16 +3261,53 @@ SUB Test_Background
     TEST_CHECK overlaps = 0, "Initial snake head placements have zero overlaps"
     TEST_CASE_END
 
-    TEST_CASE_BEGIN "Background: Unified context management"
-    DIM bg AS Background
-    Background_Initialize bg
-    TEST_CHECK bg.starfield.count = BACKGROUND_STAR_COUNT, "Default starfield count allocated"
-    TEST_CHECK bg.snakes.count = BACKGROUND_SNAKE_COUNT, "Default snakes count allocated"
-    TEST_CHECK bg.mode = BACKGROUND_MODE_STARS, "Default mode is stars"
-    Background_UpdateAndDraw bg
-    bg.mode = BACKGROUND_MODE_SNAKES
-    Background_UpdateAndDraw bg
-    TEST_CHECK bg.snakes.gridW > 0 AND bg.snakes.gridH > 0, "Snakes grid resized dynamically"
+    TEST_CASE_BEGIN "Background: Fireworks initialization and lifecycle"
+    Background_InitializeFireworks bg
+    TEST_CHECK bg.fireworks.count = __BACKGROUND_FIREWORK_ROCKETS, "Fireworks rocket count allocated"
+    TEST_CHECK bg.fireworks.rockets(1).state = 0, "Initial rocket state is countdown"
+    TEST_CHECK bg.fireworks.particles(1).active = _FALSE, "Initial particles inactive"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Background: Fire grid allocation"
+    Background_InitializeFire bg
+    TEST_CHECK bg.fire.gridW > 0 AND bg.fire.gridH > 0, "Fire grid initialized with valid dimensions"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Background: Plasma LUT generation"
+    Background_InitializePlasma bg
+    TEST_CHECK bg.plasma.lutReady = _TRUE, "Plasma LUT generated"
+    TEST_CHECK bg.plasma.sinLUT(0) >= 0 AND bg.plasma.sinLUT(0) <= 64, "Plasma sine LUT values in range"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Background: Bouncing Balls initialization"
+    Background_InitializeBalls bg
+    TEST_CHECK bg.balls.count = __BACKGROUND_BALL_COUNT, "Balls count allocated"
+    TEST_CHECK bg.balls.balls(1).radius >= 1.0! AND bg.balls.balls(1).radius <= 2.5!, "Ball 1 radius in valid range"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Background: Matrix digital rain initialization"
+    Background_InitializeMatrix bg
+    TEST_CHECK bg.matrix.drops(1).length >= 8 AND bg.matrix.drops(1).length <= 26, "Matrix drop length in valid range"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Background: Unified context and mode cycling"
+    Background_Initialize bg, 144, 90
+    TEST_CHECK bg.mode >= BACKGROUND_MODE_FIRST AND bg.mode <= BACKGROUND_MODE_LAST, "Random mode within valid range"
+
+    ' Cycle through all modes and test rendering for each
+    DIM m AS LONG
+    FOR m = BACKGROUND_MODE_FIRST TO BACKGROUND_MODE_LAST
+        bg.mode = m
+        DIM modeName AS STRING: modeName = Background_GetModeName$(m)
+        TEST_CHECK LEN(modeName) > 0 AND modeName <> "None", "Mode name resolved for mode"
+        Background_UpdateAndDraw bg
+    NEXT m
+
+    ' Test Background_CycleMode
+    bg.mode = BACKGROUND_MODE_LAST
+    Background_CycleMode bg
+    TEST_CHECK bg.mode = BACKGROUND_MODE_FIRST, "CycleMode wraps around from LAST to FIRST"
+
     TEST_CASE_END
 END SUB
 
@@ -3508,7 +3544,7 @@ SUB Test_MODPlayer_ChannelMuteSolo
     TEST_CASE_BEGIN "MODPlayer: Channel Mute and Unmute"
     DIM p AS MODPlayer
     p.song.channels = 4
-    REDIM p.channel(0 TO 3) AS __MODPlayerChannel
+    REDIM p.channel(0 TO 3) AS __MODPLAYERCHANNEL
 
     TEST_CHECK NOT MODPlayer_IsChannelMuted(p, 0), "Channel 0 initially not muted"
     TEST_CHECK NOT MODPlayer_IsChannelMuted(p, 1), "Channel 1 initially not muted"
@@ -3752,8 +3788,8 @@ SUB Test_TUI
     TEST_CASE_BEGIN "TUI: VUMeter Rendering and Clamping"
     TUI_Begin
     TUI_VUMeter 10, 5, 12, 0.65!, 0.90!, _FALSE
-    TUI_VUMeter 12, 5, 12, 1.50!, 2.00!, _TRUE  ' Over-range should clamp safely
-    TUI_VUMeter 14, 5, 0, 0.50!, 0.50!, _FALSE  ' Height < 1 should exit safely
+    TUI_VUMeter 12, 5, 12, 1.50!, 2.00!, _TRUE ' Over-range should clamp safely
+    TUI_VUMeter 14, 5, 0, 0.50!, 0.50!, _FALSE ' Height < 1 should exit safely
     TEST_CHECK __TUI.widgetCount = 0, "VUMeter does not increment interactive widget count"
     TUI_End
     TEST_CASE_END

@@ -635,6 +635,11 @@ DO
                 Player.song.isLooping = NOT Player.song.isLooping
             END IF
 
+        CASE KEY_UPPER_B, KEY_LOWER_B
+            IF NOT Player.song.isPlaying THEN
+                Background_CycleMode Bg
+            END IF
+
         CASE _KEY_PAGEUP
             IF CurrentView = UI_VIEW_MODE_TRACKER THEN
                 TrackerChanOffset = _MAX(0, TrackerChanOffset - UI_TRACKER_VISIBLE_CHANNELS)

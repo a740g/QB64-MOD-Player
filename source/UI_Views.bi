@@ -1134,7 +1134,7 @@ SUB UI_RenderHelpModal (showHelpModal AS _BYTE)
     _PRINTSTRING (19, 60), "Mouse Wheel           Scroll pattern rows, tracker channel columns, playlist queue, or instrument lists"
 
     COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-    _PRINTSTRING (19, 62), "Idle Mode: Animated background (Starfield / Kinetic Snakes) runs freely when no song is loaded."
+    _PRINTSTRING (19, 62), "Idle Mode: B key cycles backgrounds (Stars, Snakes, Fireworks, Fire, Plasma, Balls, Matrix)"
 
     IF TUI_Button(58, 66, 28, "Close Help (F1 / Esc)") THEN
         showHelpModal = _FALSE
