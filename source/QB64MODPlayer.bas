@@ -395,7 +395,9 @@ SUB App_Initialize
     RANDOMIZE TIMER
 
     Playlist_Initialize GlobalPlaylist
-    Background_Initialize Bg, UI_SCREEN_WIDTH, UI_SCREEN_HEIGHT - 1
+    DIM bgViewport AS Bounds2f
+    Bounds2f_Initialize 2!, 8!, CSNG(UI_SCREEN_WIDTH - 1), CSNG(UI_SCREEN_HEIGHT - 2), bgViewport
+    Background_InitializeEx Bg, bgViewport
     CurrentView = UI_VIEW_MODE_TRACKER
     TrackerChanOffset = 0
     SelectedInstrument = 1

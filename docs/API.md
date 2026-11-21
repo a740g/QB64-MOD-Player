@@ -1798,13 +1798,21 @@ Unified context encapsulating all background visual simulation states:
 
 ### Background Lifecycle and Rendering
 
+#### `Background_InitializeEx`
+
+```vb
+SUB Background_InitializeEx (ctx AS Background, viewport AS Bounds2f)
+```
+
+- **Description**: Allocates and initializes all 7 background effect engines constrained within the specified rectangular `viewport` bounding box. Calculates width and height, sets up all simulation grids/buffers, and selects an initial random background mode.
+
 #### `Background_Initialize`
 
 ```vb
-SUB Background_Initialize (ctx AS Background, w AS LONG, h AS LONG)
+SUB Background_Initialize (ctx AS Background)
 ```
 
-- **Description**: Allocates and initializes all 7 background effect engines with the specified canvas width and height. Selects an initial random background mode.
+- **Description**: Simplified initializer that defaults the viewport to full-screen bounds `(0, 0) - (_WIDTH, _HEIGHT)` and delegates to `Background_InitializeEx`. Selects an initial random background mode.
 
 #### `Background_UpdateAndDraw`
 

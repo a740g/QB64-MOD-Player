@@ -7,6 +7,7 @@ $INCLUDEONCE
 
 '$INCLUDE:'Math.bi'
 '$INCLUDE:'Vector2f.bi'
+'$INCLUDE:'Bounds2f.bi'
 '$INCLUDE:'Vector3f.bi'
 
 $UNSTABLE:TYPEFIELDS
@@ -149,6 +150,7 @@ TYPE Background
     balls AS __Background_Balls
     matrix AS __Background_Matrix
     mode AS LONG
+    viewport AS Bounds2f
     size AS Vector2f
 END TYPE
 
@@ -163,17 +165,20 @@ SUB __Background_InitializeStars (ctx AS Background)
     ctx.starfield.count = nStars
     REDIM ctx.starfield.stars(1 TO nStars) AS __BACKGROUND_STAR
 
-    DIM W AS LONG: W = CLNG(ctx.size.x)
-    DIM H AS LONG: H = CLNG(ctx.size.y)
-    DIM W_Half AS LONG: W_Half = W \ 2
-    DIM H_Half AS LONG: H_Half = H \ 2
+    DIM minX AS LONG: minX = CLNG(ctx.viewport.lt.x)
+    DIM maxX AS LONG: maxX = CLNG(ctx.viewport.rb.x)
+    DIM minY AS LONG: minY = CLNG(ctx.viewport.lt.y)
+    DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
+    DIM centerX AS LONG: centerX = (minX + maxX) \ 2
+    DIM centerY AS LONG: centerY = (minY + maxY) \ 2
+    DIM maxDist AS SINGLE: maxDist = ctx.size.x * 0.5!
 
     DIM i AS LONG
     FOR i = 1 TO nStars
         DIM ang AS SINGLE: ang = RND * _PI(2!)
-        DIM dist AS SINGLE: dist = 2! + RND * CSNG(W_Half)
-        ctx.starfield.stars(i).p.x = CSNG(W_Half) + COS(ang) * dist
-        ctx.starfield.stars(i).p.y = CSNG(H_Half) + SIN(ang) * dist * 0.6!
+        DIM dist AS SINGLE: dist = 2! + RND * maxDist
+        ctx.starfield.stars(i).p.x = CSNG(centerX) + COS(ang) * dist
+        ctx.starfield.stars(i).p.y = CSNG(centerY) + SIN(ang) * dist * 0.6!
         ctx.starfield.stars(i).p.z = Z_DIVIDER + RND * 80!
         ctx.starfield.stars(i).a = ang
         ctx.starfield.stars(i).c = Math_GetRandomBetween(9, 15)
@@ -188,18 +193,20 @@ SUB __Background_UpdateAndDrawStars (ctx AS Background)
 
     IF ctx.starfield.count <= 0 THEN EXIT SUB
 
-    DIM W AS LONG: W = CLNG(ctx.size.x)
-    DIM H AS LONG: H = CLNG(ctx.size.y)
-    DIM W_Half AS LONG: W_Half = W \ 2
-    DIM H_Half AS LONG: H_Half = H \ 2
+    DIM minX AS LONG: minX = CLNG(ctx.viewport.lt.x)
+    DIM maxX AS LONG: maxX = CLNG(ctx.viewport.rb.x)
+    DIM minY AS LONG: minY = CLNG(ctx.viewport.lt.y)
+    DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
+    DIM centerX AS LONG: centerX = (minX + maxX) \ 2
+    DIM centerY AS LONG: centerY = (minY + maxY) \ 2
 
     DIM i AS LONG
     FOR i = 1 TO ctx.starfield.count
-        IF ctx.starfield.stars(i).p.x < 2! _ORELSE ctx.starfield.stars(i).p.x > CSNG(W - 1) _ORELSE ctx.starfield.stars(i).p.y < 8! _ORELSE ctx.starfield.stars(i).p.y > CSNG(H - 2) _ORELSE ctx.starfield.stars(i).p.z > 4220! THEN
+        IF ctx.starfield.stars(i).p.x < CSNG(minX) _ORELSE ctx.starfield.stars(i).p.x > CSNG(maxX) _ORELSE ctx.starfield.stars(i).p.y < CSNG(minY) _ORELSE ctx.starfield.stars(i).p.y > CSNG(maxY) _ORELSE ctx.starfield.stars(i).p.z > 4220! THEN
             DIM ang AS SINGLE: ang = RND * _PI(2!)
             DIM dist AS SINGLE: dist = 2! + RND * 18!
-            ctx.starfield.stars(i).p.x = CSNG(W_Half) + COS(ang) * dist
-            ctx.starfield.stars(i).p.y = CSNG(H_Half) + SIN(ang) * dist * 0.6!
+            ctx.starfield.stars(i).p.x = CSNG(centerX) + COS(ang) * dist
+            ctx.starfield.stars(i).p.y = CSNG(centerY) + SIN(ang) * dist * 0.6!
             ctx.starfield.stars(i).p.z = Z_DIVIDER
             ctx.starfield.stars(i).a = ang
             ctx.starfield.stars(i).c = Math_GetRandomBetween(9, 15)
@@ -224,7 +231,7 @@ SUB __Background_UpdateAndDrawStars (ctx AS Background)
         DIM px AS LONG: px = CLNG(ctx.starfield.stars(i).p.x)
         DIM py AS LONG: py = CLNG(ctx.starfield.stars(i).p.y)
 
-        IF px >= 2 _ANDALSO px <= W - 1 _ANDALSO py >= 8 _ANDALSO py <= H - 2 THEN
+        IF px >= minX _ANDALSO px <= maxX _ANDALSO py >= minY _ANDALSO py <= maxY THEN
             COLOR sCol, __BG_COLOR_BLACK
             _PRINTSTRING (px, py), sChar
         END IF
@@ -232,8 +239,8 @@ SUB __Background_UpdateAndDrawStars (ctx AS Background)
         ctx.starfield.stars(i).p.z = ctx.starfield.stars(i).p.z + STAR_SPEED
         ctx.starfield.stars(i).a = ctx.starfield.stars(i).a + 0.008!
         DIM zd AS SINGLE: zd = ctx.starfield.stars(i).p.z / Z_DIVIDER
-        ctx.starfield.stars(i).p.x = ((ctx.starfield.stars(i).p.x - CSNG(W_Half)) * zd) + CSNG(W_Half) + COS(ctx.starfield.stars(i).a * 0.5!) * 0.4!
-        ctx.starfield.stars(i).p.y = ((ctx.starfield.stars(i).p.y - CSNG(H_Half)) * zd) + CSNG(H_Half) + SIN(ctx.starfield.stars(i).a * 1.5!) * 0.4!
+        ctx.starfield.stars(i).p.x = ((ctx.starfield.stars(i).p.x - CSNG(centerX)) * zd) + CSNG(centerX) + COS(ctx.starfield.stars(i).a * 0.5!) * 0.4!
+        ctx.starfield.stars(i).p.y = ((ctx.starfield.stars(i).p.y - CSNG(centerY)) * zd) + CSNG(centerY) + SIN(ctx.starfield.stars(i).a * 1.5!) * 0.4!
     NEXT i
 END SUB
 
@@ -248,13 +255,17 @@ SUB __Background_InitializeSnakes (ctx AS Background)
 
     ctx.snakes.count = nSnakes
     REDIM ctx.snakes.snakes(1 TO nSnakes) AS __BACKGROUND_SNAKE
-    ctx.snakes.gridW = 0
-    ctx.snakes.gridH = 0
 
-    DIM W AS LONG: W = CLNG(ctx.size.x)
-    DIM H AS LONG: H = CLNG(ctx.size.y)
+    DIM minX AS LONG: minX = CLNG(ctx.viewport.lt.x)
+    DIM maxX AS LONG: maxX = CLNG(ctx.viewport.rb.x)
+    DIM minY AS LONG: minY = CLNG(ctx.viewport.lt.y)
+    DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
 
-    REDIM spawnGrid(1 TO W, 1 TO H) AS _BYTE
+    ctx.snakes.gridW = maxX
+    ctx.snakes.gridH = maxY
+    REDIM ctx.snakes.grid(1 TO maxX, 1 TO maxY) AS _BYTE
+
+    REDIM spawnGrid(1 TO maxX, 1 TO maxY) AS _BYTE
 
     DIM i AS LONG
     FOR i = 1 TO nSnakes
@@ -267,8 +278,8 @@ SUB __Background_InitializeSnakes (ctx AS Background)
 
         DIM x AS LONG, y AS LONG, tries AS LONG
         DO
-            x = Math_GetRandomBetween(4, W - 4)
-            y = Math_GetRandomBetween(10, H - 4)
+            x = Math_GetRandomBetween(minX + 2, maxX - 2)
+            y = Math_GetRandomBetween(minY + 2, maxY - 2)
             tries = tries + 1
         LOOP WHILE spawnGrid(x, y) <> 0 AND tries < 500
         spawnGrid(x, y) = 1
@@ -292,13 +303,10 @@ SUB __Background_UpdateAndDrawSnakes (ctx AS Background)
 
     IF ctx.snakes.count <= 0 THEN EXIT SUB
 
-    DIM W AS LONG: W = CLNG(ctx.size.x)
-    DIM H AS LONG: H = CLNG(ctx.size.y)
-
-    IF W <> ctx.snakes.gridW _ORELSE H <> ctx.snakes.gridH THEN
-        ctx.snakes.gridW = W: ctx.snakes.gridH = H
-        REDIM ctx.snakes.grid(1 TO W, 1 TO H) AS _BYTE
-    END IF
+    DIM minX AS LONG: minX = CLNG(ctx.viewport.lt.x)
+    DIM maxX AS LONG: maxX = CLNG(ctx.viewport.rb.x)
+    DIM minY AS LONG: minY = CLNG(ctx.viewport.lt.y)
+    DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
 
     DIM mema AS _MEM: mema = _MEM(ctx.snakes.grid())
     _MEMFILL mema, mema.OFFSET, mema.SIZE, 0%% AS _BYTE
@@ -311,7 +319,7 @@ SUB __Background_UpdateAndDrawSnakes (ctx AS Background)
         FOR j = 1 TO pLen STEP 2
             DIM sx AS LONG: sx = ASC(ctx.snakes.snakes(i).p, j)
             DIM sy AS LONG: sy = ASC(ctx.snakes.snakes(i).p, j + 1)
-            IF sx >= 1 _ANDALSO sx <= W _ANDALSO sy >= 1 _ANDALSO sy <= H THEN
+            IF sx >= minX _ANDALSO sx <= maxX _ANDALSO sy >= minY _ANDALSO sy <= maxY THEN
                 ctx.snakes.grid(sx, sy) = i
             END IF
         NEXT j
@@ -340,11 +348,11 @@ SUB __Background_UpdateAndDrawSnakes (ctx AS Background)
         DIM lookDist AS SINGLE: lookDist = 2.0!
         DIM aheadX AS SINGLE: aheadX = ctx.snakes.snakes(i).position.x + ctx.snakes.snakes(i).direction.x * lookDist
         DIM aheadY AS SINGLE: aheadY = ctx.snakes.snakes(i).position.y + ctx.snakes.snakes(i).direction.y * lookDist
-        DIM ax AS LONG: ax = _CLAMP(CINT(aheadX), 1, W)
-        DIM ay AS LONG: ay = _CLAMP(CINT(aheadY), 1, H)
+        DIM ax AS LONG: ax = _CLAMP(CINT(aheadX), minX, maxX)
+        DIM ay AS LONG: ay = _CLAMP(CINT(aheadY), minY, maxY)
 
         DIM aheadBlocked AS _BYTE
-        aheadBlocked = (aheadX < 2.5! _ORELSE aheadX > CSNG(W) - 1.5! _ORELSE aheadY < 8.5! _ORELSE aheadY > CSNG(H) - 1.5!)
+        aheadBlocked = (aheadX < CSNG(minX) + 1.5! _ORELSE aheadX > CSNG(maxX) - 1.5! _ORELSE aheadY < CSNG(minY) + 1.5! _ORELSE aheadY > CSNG(maxY) - 1.5!)
         IF NOT aheadBlocked THEN
             IF ctx.snakes.grid(ax, ay) <> 0 _ANDALSO ctx.snakes.grid(ax, ay) <> i THEN aheadBlocked = _TRUE
         END IF
@@ -354,18 +362,18 @@ SUB __Background_UpdateAndDrawSnakes (ctx AS Background)
             Vector2f_Rotate ctx.snakes.snakes(i).direction, 1.047!, leftDir
             Vector2f_Rotate ctx.snakes.snakes(i).direction, -1.047!, rightDir
 
-            DIM lx AS LONG: lx = _CLAMP(CINT(ctx.snakes.snakes(i).position.x + leftDir.x * lookDist), 1, W)
-            DIM ly AS LONG: ly = _CLAMP(CINT(ctx.snakes.snakes(i).position.y + leftDir.y * lookDist), 1, H)
+            DIM lx AS LONG: lx = _CLAMP(CINT(ctx.snakes.snakes(i).position.x + leftDir.x * lookDist), minX, maxX)
+            DIM ly AS LONG: ly = _CLAMP(CINT(ctx.snakes.snakes(i).position.y + leftDir.y * lookDist), minY, maxY)
             DIM leftBlocked AS _BYTE
-            leftBlocked = (lx <= 2 _ORELSE lx >= W - 1 _ORELSE ly <= 8 _ORELSE ly >= H - 1)
+            leftBlocked = (lx <= minX + 1 _ORELSE lx >= maxX - 1 _ORELSE ly <= minY + 1 _ORELSE ly >= maxY - 1)
             IF NOT leftBlocked THEN
                 IF ctx.snakes.grid(lx, ly) <> 0 _ANDALSO ctx.snakes.grid(lx, ly) <> i THEN leftBlocked = _TRUE
             END IF
 
-            DIM rx AS LONG: rx = _CLAMP(CINT(ctx.snakes.snakes(i).position.x + rightDir.x * lookDist), 1, W)
-            DIM ry AS LONG: ry = _CLAMP(CINT(ctx.snakes.snakes(i).position.y + rightDir.y * lookDist), 1, H)
+            DIM rx AS LONG: rx = _CLAMP(CINT(ctx.snakes.snakes(i).position.x + rightDir.x * lookDist), minX, maxX)
+            DIM ry AS LONG: ry = _CLAMP(CINT(ctx.snakes.snakes(i).position.y + rightDir.y * lookDist), minY, maxY)
             DIM rightBlocked AS _BYTE
-            rightBlocked = (rx <= 2 _ORELSE rx >= W - 1 _ORELSE ry <= 8 _ORELSE ry >= H - 1)
+            rightBlocked = (rx <= minX + 1 _ORELSE rx >= maxX - 1 _ORELSE ry <= minY + 1 _ORELSE ry >= maxY - 1)
             IF NOT rightBlocked THEN
                 IF ctx.snakes.grid(rx, ry) <> 0 _ANDALSO ctx.snakes.grid(rx, ry) <> i THEN rightBlocked = _TRUE
             END IF
@@ -397,28 +405,28 @@ SUB __Background_UpdateAndDrawSnakes (ctx AS Background)
         DIM nextX AS SINGLE: nextX = ctx.snakes.snakes(i).position.x + ctx.snakes.snakes(i).direction.x * ctx.snakes.snakes(i).speed
         DIM nextY AS SINGLE: nextY = ctx.snakes.snakes(i).position.y + ctx.snakes.snakes(i).direction.y * ctx.snakes.snakes(i).speed
 
-        IF nextX < 2! THEN
+        IF nextX < CSNG(minX) THEN
             Vector2f_FlipHorizontal ctx.snakes.snakes(i).direction, ctx.snakes.snakes(i).direction
-            nextX = 2!
+            nextX = CSNG(minX)
             ctx.snakes.snakes(i).turnRate = -ctx.snakes.snakes(i).turnRate
-        ELSEIF nextX > CSNG(W - 1) THEN
+        ELSEIF nextX > CSNG(maxX) THEN
             Vector2f_FlipHorizontal ctx.snakes.snakes(i).direction, ctx.snakes.snakes(i).direction
-            nextX = CSNG(W - 1)
+            nextX = CSNG(maxX)
             ctx.snakes.snakes(i).turnRate = -ctx.snakes.snakes(i).turnRate
         END IF
 
-        IF nextY < 8! THEN
+        IF nextY < CSNG(minY) THEN
             Vector2f_FlipVertical ctx.snakes.snakes(i).direction, ctx.snakes.snakes(i).direction
-            nextY = 8!
+            nextY = CSNG(minY)
             ctx.snakes.snakes(i).turnRate = -ctx.snakes.snakes(i).turnRate
-        ELSEIF nextY > CSNG(H - 2) THEN
+        ELSEIF nextY > CSNG(maxY) THEN
             Vector2f_FlipVertical ctx.snakes.snakes(i).direction, ctx.snakes.snakes(i).direction
-            nextY = CSNG(H - 2)
+            nextY = CSNG(maxY)
             ctx.snakes.snakes(i).turnRate = -ctx.snakes.snakes(i).turnRate
         END IF
 
-        DIM targetCellX AS LONG: targetCellX = _CLAMP(CINT(nextX), 1, W)
-        DIM targetCellY AS LONG: targetCellY = _CLAMP(CINT(nextY), 1, H)
+        DIM targetCellX AS LONG: targetCellX = _CLAMP(CINT(nextX), minX, maxX)
+        DIM targetCellY AS LONG: targetCellY = _CLAMP(CINT(nextY), minY, maxY)
 
         IF ctx.snakes.grid(targetCellX, targetCellY) <> 0 _ANDALSO ctx.snakes.grid(targetCellX, targetCellY) <> i THEN
             DIM foundEscape AS _BYTE: foundEscape = _FALSE
@@ -439,10 +447,10 @@ SUB __Background_UpdateAndDrawSnakes (ctx AS Background)
 
                 DIM candX AS SINGLE: candX = ctx.snakes.snakes(i).position.x + candDir.x * ctx.snakes.snakes(i).speed
                 DIM candY AS SINGLE: candY = ctx.snakes.snakes(i).position.y + candDir.y * ctx.snakes.snakes(i).speed
-                DIM candCellX AS LONG: candCellX = _CLAMP(CINT(candX), 1, W)
-                DIM candCellY AS LONG: candCellY = _CLAMP(CINT(candY), 1, H)
+                DIM candCellX AS LONG: candCellX = _CLAMP(CINT(candX), minX, maxX)
+                DIM candCellY AS LONG: candCellY = _CLAMP(CINT(candY), minY, maxY)
 
-                IF candX >= 2! _ANDALSO candX <= CSNG(W - 1) _ANDALSO candY >= 8! _ANDALSO candY <= CSNG(H - 2) THEN
+                IF candX >= CSNG(minX) _ANDALSO candX <= CSNG(maxX) _ANDALSO candY >= CSNG(minY) _ANDALSO candY <= CSNG(maxY) THEN
                     IF ctx.snakes.grid(candCellX, candCellY) = 0 _ORELSE ctx.snakes.grid(candCellX, candCellY) = i THEN
                         ctx.snakes.snakes(i).direction = candDir
                         ctx.snakes.snakes(i).turnRate = testAngle * 0.1!
@@ -488,7 +496,7 @@ SUB __Background_UpdateAndDrawSnakes (ctx AS Background)
             NEXT chk
 
             IF NOT tailStillOccupied THEN
-                IF oldTailX >= 1 _ANDALSO oldTailX <= W _ANDALSO oldTailY >= 1 _ANDALSO oldTailY <= H THEN
+                IF oldTailX >= minX _ANDALSO oldTailX <= maxX _ANDALSO oldTailY >= minY _ANDALSO oldTailY <= maxY THEN
                     IF ctx.snakes.grid(oldTailX, oldTailY) = i THEN ctx.snakes.grid(oldTailX, oldTailY) = 0
                 END IF
             END IF
@@ -514,7 +522,7 @@ SUB __Background_UpdateAndDrawSnakes (ctx AS Background)
                 bodyCol = __BG_COLOR_GRAY
             END IF
 
-            IF px >= 2 _ANDALSO px <= W - 1 _ANDALSO py >= 8 _ANDALSO py <= H - 2 THEN
+            IF px >= minX _ANDALSO px <= maxX _ANDALSO py >= minY _ANDALSO py <= maxY THEN
                 COLOR bodyCol, __BG_COLOR_BLACK
                 _PRINTSTRING (px, py), SNAKE_BODY
             END IF
@@ -523,7 +531,7 @@ SUB __Background_UpdateAndDrawSnakes (ctx AS Background)
         ' Render bright glowing head
         DIM hx AS LONG: hx = ASC(ctx.snakes.snakes(i).p, 1)
         DIM hy AS LONG: hy = ASC(ctx.snakes.snakes(i).p, 2)
-        IF hx >= 2 _ANDALSO hx <= W - 1 _ANDALSO hy >= 8 _ANDALSO hy <= H - 2 THEN
+        IF hx >= minX _ANDALSO hx <= maxX _ANDALSO hy >= minY _ANDALSO hy <= maxY THEN
             COLOR __BG_COLOR_BRIGHT_WHITE, __BG_COLOR_BLACK
             _PRINTSTRING (hx, hy), SNAKE_HEAD
         END IF
@@ -533,17 +541,18 @@ END SUB
 ''' @brief Initializes firework rockets and particle pool.
 ''' @param ctx Background context to initialize.
 SUB __Background_InitializeFireworks (ctx AS Background)
-    DIM W AS LONG: W = CLNG(ctx.size.x)
-    DIM H AS LONG: H = CLNG(ctx.size.y)
-
     ctx.fireworks.count = __BACKGROUND_FIREWORK_ROCKETS
+
+    DIM minX AS LONG: minX = CLNG(ctx.viewport.lt.x)
+    DIM maxX AS LONG: maxX = CLNG(ctx.viewport.rb.x)
+    DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
 
     DIM r AS LONG
     FOR r = 1 TO __BACKGROUND_FIREWORK_ROCKETS
         ctx.fireworks.rockets(r).state = 0
         ctx.fireworks.rockets(r).timer = Math_GetRandomBetween(5, 50 * r)
-        ctx.fireworks.rockets(r).position.x = CSNG(Math_GetRandomBetween(20, W - 20))
-        ctx.fireworks.rockets(r).position.y = CSNG(H - 2)
+        ctx.fireworks.rockets(r).position.x = CSNG(Math_GetRandomBetween(minX + 5, maxX - 5))
+        ctx.fireworks.rockets(r).position.y = CSNG(maxY)
         ctx.fireworks.rockets(r).c = Math_GetRandomBetween(9, 14)
     NEXT r
 
@@ -556,7 +565,10 @@ END SUB
 ''' @brief Updates ascending rockets and exploding spark particles.
 ''' @param ctx Background context.
 SUB __Background_UpdateAndDrawFireworks (ctx AS Background)
-    DIM W AS LONG: W = CLNG(ctx.size.x)
+    DIM minX AS LONG: minX = CLNG(ctx.viewport.lt.x)
+    DIM maxX AS LONG: maxX = CLNG(ctx.viewport.rb.x)
+    DIM minY AS LONG: minY = CLNG(ctx.viewport.lt.y)
+    DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
     DIM H AS LONG: H = CLNG(ctx.size.y)
 
     DIM r AS LONG
@@ -566,11 +578,11 @@ SUB __Background_UpdateAndDrawFireworks (ctx AS Background)
                 ctx.fireworks.rockets(r).timer = ctx.fireworks.rockets(r).timer - 1
                 IF ctx.fireworks.rockets(r).timer <= 0 THEN
                     ctx.fireworks.rockets(r).state = 1
-                    ctx.fireworks.rockets(r).position.x = CSNG(Math_GetRandomBetween(15, W - 15))
-                    ctx.fireworks.rockets(r).position.y = CSNG(H - 3)
+                    ctx.fireworks.rockets(r).position.x = CSNG(Math_GetRandomBetween(minX + 5, maxX - 5))
+                    ctx.fireworks.rockets(r).position.y = CSNG(maxY - 1)
                     ctx.fireworks.rockets(r).velocity.x = (RND - 0.5!) * 0.4!
                     ctx.fireworks.rockets(r).velocity.y = -1.1! - RND * 0.7!
-                    ctx.fireworks.rockets(r).targetY = CSNG(Math_GetRandomBetween(16, 46))
+                    ctx.fireworks.rockets(r).targetY = CSNG(Math_GetRandomBetween(minY + H \ 6, minY + (H * 3) \ 4))
                     ctx.fireworks.rockets(r).c = Math_GetRandomBetween(9, 14)
                 END IF
 
@@ -582,10 +594,10 @@ SUB __Background_UpdateAndDrawFireworks (ctx AS Background)
                 DIM rx AS LONG: rx = CLNG(ctx.fireworks.rockets(r).position.x)
                 DIM ry AS LONG: ry = CLNG(ctx.fireworks.rockets(r).position.y)
 
-                IF rx >= 2 _ANDALSO rx <= W - 1 _ANDALSO ry >= 8 _ANDALSO ry <= H - 2 THEN
+                IF rx >= minX _ANDALSO rx <= maxX _ANDALSO ry >= minY _ANDALSO ry <= maxY THEN
                     COLOR __BG_COLOR_BRIGHT_WHITE, __BG_COLOR_BLACK
                     _PRINTSTRING (rx, ry), "^"
-                    IF ry < H - 2 THEN
+                    IF ry < maxY THEN
                         COLOR ctx.fireworks.rockets(r).c, __BG_COLOR_BLACK
                         _PRINTSTRING (rx, ry + 1), "."
                     END IF
@@ -642,7 +654,7 @@ SUB __Background_UpdateAndDrawFireworks (ctx AS Background)
                 DIM px AS LONG: px = CLNG(ctx.fireworks.particles(p).position.x)
                 DIM py AS LONG: py = CLNG(ctx.fireworks.particles(p).position.y)
 
-                IF px >= 2 _ANDALSO px <= W - 1 _ANDALSO py >= 8 _ANDALSO py <= H - 2 THEN
+                IF px >= minX _ANDALSO px <= maxX _ANDALSO py >= minY _ANDALSO py <= maxY THEN
                     DIM ratio AS SINGLE: ratio = ctx.fireworks.particles(p).life / ctx.fireworks.particles(p).maxLife
                     DIM pChar AS STRING
                     DIM pCol AS _UNSIGNED LONG
@@ -668,40 +680,40 @@ END SUB
 ''' @brief Initializes cellular fire grid buffer.
 ''' @param ctx Background context to initialize.
 SUB __Background_InitializeFire (ctx AS Background)
-    DIM W AS LONG: W = CLNG(ctx.size.x)
-    DIM H AS LONG: H = CLNG(ctx.size.y)
-    ctx.fire.gridW = W: ctx.fire.gridH = H
-    REDIM ctx.fire.grid(1 TO W, 1 TO H) AS _BYTE
+    DIM maxX AS LONG: maxX = CLNG(ctx.viewport.rb.x)
+    DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
+
+    ctx.fire.gridW = maxX: ctx.fire.gridH = maxY
+    REDIM ctx.fire.grid(1 TO maxX, 1 TO maxY) AS _BYTE
 END SUB
 
 ''' @brief Updates retro cellular automata fire simulation and renders flames.
 ''' @param ctx Background context.
 SUB __Background_UpdateAndDrawFire (ctx AS Background)
-    DIM W AS LONG: W = CLNG(ctx.size.x)
+    DIM minX AS LONG: minX = CLNG(ctx.viewport.lt.x)
+    DIM maxX AS LONG: maxX = CLNG(ctx.viewport.rb.x)
+    DIM minY AS LONG: minY = CLNG(ctx.viewport.lt.y)
+    DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
     DIM H AS LONG: H = CLNG(ctx.size.y)
 
-    IF W <> ctx.fire.gridW _ORELSE H <> ctx.fire.gridH THEN
-        ctx.fire.gridW = W: ctx.fire.gridH = H
-        REDIM ctx.fire.grid(1 TO W, 1 TO H) AS _BYTE
-    END IF
-
-    ' Seed bottom line (row H - 2) with hot flame energy
+    ' Seed bottom line (row maxY) with hot flame energy
     DIM x AS LONG
-    FOR x = 2 TO W - 1
+    FOR x = minX TO maxX
         IF RND < 0.68! THEN
-            ctx.fire.grid(x, H - 2) = Math_GetRandomBetween(13, 17)
+            ctx.fire.grid(x, maxY) = Math_GetRandomBetween(13, 17)
         ELSE
-            ctx.fire.grid(x, H - 2) = 0
+            ctx.fire.grid(x, maxY) = 0
         END IF
     NEXT x
 
     ' Propagate heat upward with decay and wind
+    DIM topFireY AS LONG: topFireY = minY + (H * 3) \ 10
     DIM y AS LONG
-    FOR y = 26 TO H - 3
-        FOR x = 2 TO W - 1
+    FOR y = topFireY TO maxY - 1
+        FOR x = minX TO maxX
             DIM decay AS LONG: decay = Math_GetRandomBetween(0, 2)
             DIM wind AS LONG: wind = Math_GetRandomBetween(-1, 1)
-            DIM srcX AS LONG: srcX = _CLAMP(x + wind, 2, W - 1)
+            DIM srcX AS LONG: srcX = _CLAMP(x + wind, minX, maxX)
             DIM heat AS LONG: heat = CLNG(ctx.fire.grid(srcX, y + 1)) - decay
             IF heat < 0 THEN heat = 0
             ctx.fire.grid(x, y) = heat
@@ -709,12 +721,13 @@ SUB __Background_UpdateAndDrawFire (ctx AS Background)
     NEXT y
 
     ' Render flame rows with horizontal run-length batching
-    FOR y = 28 TO H - 2
+    DIM startRenderY AS LONG: startRenderY = topFireY + 2
+    FOR y = startRenderY TO maxY
         DIM runStart AS LONG: runStart = 0
         DIM lastCol AS LONG: lastCol = -1
         DIM runStr AS STRING: runStr = ""
 
-        FOR x = 2 TO W - 1
+        FOR x = minX TO maxX
             DIM hVal AS LONG: hVal = ctx.fire.grid(x, y)
             DIM c AS LONG: c = -1
             DIM ch AS STRING: ch = " "
@@ -777,8 +790,12 @@ END SUB
 ''' @brief Updates and renders multi-frequency demoscene plasma interference waves.
 ''' @param ctx Background context.
 SUB __Background_UpdateAndDrawPlasma (ctx AS Background)
-    DIM W AS LONG: W = CLNG(ctx.size.x)
-    DIM H AS LONG: H = CLNG(ctx.size.y)
+    IF NOT ctx.plasma.lutReady THEN __Background_InitializePlasma ctx
+
+    DIM minX AS LONG: minX = CLNG(ctx.viewport.lt.x)
+    DIM maxX AS LONG: maxX = CLNG(ctx.viewport.rb.x)
+    DIM minY AS LONG: minY = CLNG(ctx.viewport.lt.y)
+    DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
 
     ctx.plasma.tick1 = (ctx.plasma.tick1 + 2) AND 511
     ctx.plasma.tick2 = (ctx.plasma.tick2 + 3) AND 511
@@ -789,13 +806,13 @@ SUB __Background_UpdateAndDrawPlasma (ctx AS Background)
     DIM t3 AS LONG: t3 = ctx.plasma.tick3
 
     DIM y AS LONG, x AS LONG
-    FOR y = 8 TO H - 2
+    FOR y = minY TO maxY
         DIM rowTerm AS LONG: rowTerm = ctx.plasma.sinLUT((y * 5 + t2) AND 511)
         DIM runStart AS LONG: runStart = 0
         DIM lastCol AS LONG: lastCol = -1
         DIM runStr AS STRING: runStr = ""
 
-        FOR x = 2 TO W - 1
+        FOR x = minX TO maxX
             DIM pVal AS LONG
             pVal = (ctx.plasma.sinLUT((x * 4 + t1) AND 511) + rowTerm + ctx.plasma.sinLUT((x * 2 + y * 3 + t3) AND 511)) \ 8
 
@@ -844,13 +861,15 @@ END SUB
 ''' @param ctx Background context to initialize.
 SUB __Background_InitializeBalls (ctx AS Background)
     ctx.balls.count = __BACKGROUND_BALL_COUNT
-    DIM W AS LONG: W = CLNG(ctx.size.x)
-    DIM H AS LONG: H = CLNG(ctx.size.y)
+    DIM minX AS LONG: minX = CLNG(ctx.viewport.lt.x)
+    DIM maxX AS LONG: maxX = CLNG(ctx.viewport.rb.x)
+    DIM minY AS LONG: minY = CLNG(ctx.viewport.lt.y)
+    DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
 
     DIM i AS LONG
     FOR i = 1 TO __BACKGROUND_BALL_COUNT
-        ctx.balls.balls(i).position.x = CSNG(Math_GetRandomBetween(8, W - 8))
-        ctx.balls.balls(i).position.y = CSNG(Math_GetRandomBetween(12, H - 12))
+        ctx.balls.balls(i).position.x = CSNG(Math_GetRandomBetween(minX + 3, maxX - 3))
+        ctx.balls.balls(i).position.y = CSNG(Math_GetRandomBetween(minY + 3, maxY - 3))
         ctx.balls.balls(i).velocity.x = (RND - 0.5!) * 1.5!
         ctx.balls.balls(i).velocity.y = (RND - 0.5!) * 0.9!
         ctx.balls.balls(i).radius = 1.0! + RND * 0.8!
@@ -867,8 +886,10 @@ END SUB
 ''' @brief Updates ball physics, wall rebounds, elastic collisions, and motion trails.
 ''' @param ctx Background context.
 SUB __Background_UpdateAndDrawBalls (ctx AS Background)
-    DIM W AS LONG: W = CLNG(ctx.size.x)
-    DIM H AS LONG: H = CLNG(ctx.size.y)
+    DIM minX AS LONG: minX = CLNG(ctx.viewport.lt.x)
+    DIM maxX AS LONG: maxX = CLNG(ctx.viewport.rb.x)
+    DIM minY AS LONG: minY = CLNG(ctx.viewport.lt.y)
+    DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
 
     DIM i AS LONG, j AS LONG
     FOR i = 1 TO ctx.balls.count - 1
@@ -899,19 +920,19 @@ SUB __Background_UpdateAndDrawBalls (ctx AS Background)
         ctx.balls.balls(i).position.x = ctx.balls.balls(i).position.x + ctx.balls.balls(i).velocity.x
         ctx.balls.balls(i).position.y = ctx.balls.balls(i).position.y + ctx.balls.balls(i).velocity.y
 
-        IF ctx.balls.balls(i).position.x < 3! THEN
-            ctx.balls.balls(i).position.x = 3!
+        IF ctx.balls.balls(i).position.x < CSNG(minX + 1) THEN
+            ctx.balls.balls(i).position.x = CSNG(minX + 1)
             ctx.balls.balls(i).velocity.x = ABS(ctx.balls.balls(i).velocity.x) * 0.95!
-        ELSEIF ctx.balls.balls(i).position.x > CSNG(W - 3) THEN
-            ctx.balls.balls(i).position.x = CSNG(W - 3)
+        ELSEIF ctx.balls.balls(i).position.x > CSNG(maxX - 1) THEN
+            ctx.balls.balls(i).position.x = CSNG(maxX - 1)
             ctx.balls.balls(i).velocity.x = -ABS(ctx.balls.balls(i).velocity.x) * 0.95!
         END IF
 
-        IF ctx.balls.balls(i).position.y < 9! THEN
-            ctx.balls.balls(i).position.y = 9!
+        IF ctx.balls.balls(i).position.y < CSNG(minY + 1) THEN
+            ctx.balls.balls(i).position.y = CSNG(minY + 1)
             ctx.balls.balls(i).velocity.y = ABS(ctx.balls.balls(i).velocity.y) * 0.92!
-        ELSEIF ctx.balls.balls(i).position.y > CSNG(H - 3) THEN
-            ctx.balls.balls(i).position.y = CSNG(H - 3)
+        ELSEIF ctx.balls.balls(i).position.y > CSNG(maxY - 1) THEN
+            ctx.balls.balls(i).position.y = CSNG(maxY - 1)
             ctx.balls.balls(i).velocity.y = -ABS(ctx.balls.balls(i).velocity.y) * 0.92!
             ctx.balls.balls(i).velocity.x = ctx.balls.balls(i).velocity.x * 0.98!
         END IF
@@ -928,20 +949,20 @@ SUB __Background_UpdateAndDrawBalls (ctx AS Background)
         ctx.balls.balls(i).trailX(1) = bx
         ctx.balls.balls(i).trailY(1) = by
 
-        IF ctx.balls.balls(i).trailX(4) >= 2 _ANDALSO ctx.balls.balls(i).trailX(4) <= W - 1 _ANDALSO ctx.balls.balls(i).trailY(4) >= 8 _ANDALSO ctx.balls.balls(i).trailY(4) <= H - 2 THEN
+        IF ctx.balls.balls(i).trailX(4) >= minX _ANDALSO ctx.balls.balls(i).trailX(4) <= maxX _ANDALSO ctx.balls.balls(i).trailY(4) >= minY _ANDALSO ctx.balls.balls(i).trailY(4) <= maxY THEN
             COLOR __BG_COLOR_GRAY, __BG_COLOR_BLACK
             _PRINTSTRING (ctx.balls.balls(i).trailX(4), ctx.balls.balls(i).trailY(4)), "."
         END IF
-        IF ctx.balls.balls(i).trailX(3) >= 2 _ANDALSO ctx.balls.balls(i).trailX(3) <= W - 1 _ANDALSO ctx.balls.balls(i).trailY(3) >= 8 _ANDALSO ctx.balls.balls(i).trailY(3) <= H - 2 THEN
+        IF ctx.balls.balls(i).trailX(3) >= minX _ANDALSO ctx.balls.balls(i).trailX(3) <= maxX _ANDALSO ctx.balls.balls(i).trailY(3) >= minY _ANDALSO ctx.balls.balls(i).trailY(3) <= maxY THEN
             COLOR _MAX(1, ctx.balls.balls(i).c - 8), __BG_COLOR_BLACK
             _PRINTSTRING (ctx.balls.balls(i).trailX(3), ctx.balls.balls(i).trailY(3)), "o"
         END IF
-        IF ctx.balls.balls(i).trailX(2) >= 2 _ANDALSO ctx.balls.balls(i).trailX(2) <= W - 1 _ANDALSO ctx.balls.balls(i).trailY(2) >= 8 _ANDALSO ctx.balls.balls(i).trailY(2) <= H - 2 THEN
+        IF ctx.balls.balls(i).trailX(2) >= minX _ANDALSO ctx.balls.balls(i).trailX(2) <= maxX _ANDALSO ctx.balls.balls(i).trailY(2) >= minY _ANDALSO ctx.balls.balls(i).trailY(2) <= maxY THEN
             COLOR ctx.balls.balls(i).c, __BG_COLOR_BLACK
             _PRINTSTRING (ctx.balls.balls(i).trailX(2), ctx.balls.balls(i).trailY(2)), "O"
         END IF
 
-        IF bx >= 2 _ANDALSO bx <= W - 1 _ANDALSO by >= 8 _ANDALSO by <= H - 2 THEN
+        IF bx >= minX _ANDALSO bx <= maxX _ANDALSO by >= minY _ANDALSO by <= maxY THEN
             COLOR __BG_COLOR_BRIGHT_WHITE, __BG_COLOR_BLACK
             _PRINTSTRING (bx, by), CHR$(2)
         END IF
@@ -951,15 +972,19 @@ END SUB
 ''' @brief Initializes digital matrix rain streams.
 ''' @param ctx Background context to initialize.
 SUB __Background_InitializeMatrix (ctx AS Background)
-    DIM W AS LONG: W = CLNG(ctx.size.x)
+    DIM minX AS LONG: minX = CLNG(ctx.viewport.lt.x)
+    DIM maxX AS LONG: maxX = CLNG(ctx.viewport.rb.x)
+    DIM minY AS LONG: minY = CLNG(ctx.viewport.lt.y)
+    DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
+    DIM H AS LONG: H = CLNG(ctx.size.y)
 
-    REDIM ctx.matrix.drops(1 to w) AS __BACKGROUND_MATRIXDROP
+    REDIM ctx.matrix.drops(1 TO maxX) AS __BACKGROUND_MATRIXDROP
 
     DIM c AS LONG
-    FOR c = 1 TO W
-        ctx.matrix.drops(c).y = CSNG(Math_GetRandomBetween(8, 88))
+    FOR c = minX TO maxX
+        ctx.matrix.drops(c).y = CSNG(Math_GetRandomBetween(minY, maxY))
         ctx.matrix.drops(c).speed = 0.28! + RND * 0.65!
-        ctx.matrix.drops(c).length = Math_GetRandomBetween(8, 24)
+        ctx.matrix.drops(c).length = Math_GetRandomBetween(8, _MIN(24, H \ 2))
         ctx.matrix.drops(c).active = (RND < 0.45!)
         ctx.matrix.drops(c).timer = Math_GetRandomBetween(0, 80)
         ctx.matrix.drops(c).charSeed = Math_GetRandomBetween(33, 126)
@@ -969,18 +994,21 @@ END SUB
 ''' @brief Updates and renders green falling matrix code streams.
 ''' @param ctx Background context.
 SUB __Background_UpdateAndDrawMatrix (ctx AS Background)
-    DIM W AS LONG: W = CLNG(ctx.size.x)
+    DIM minX AS LONG: minX = CLNG(ctx.viewport.lt.x)
+    DIM maxX AS LONG: maxX = CLNG(ctx.viewport.rb.x)
+    DIM minY AS LONG: minY = CLNG(ctx.viewport.lt.y)
+    DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
     DIM H AS LONG: H = CLNG(ctx.size.y)
 
     DIM c AS LONG
-    FOR c = 2 TO W - 1
+    FOR c = minX TO maxX
         IF NOT ctx.matrix.drops(c).active THEN
             ctx.matrix.drops(c).timer = ctx.matrix.drops(c).timer - 1
             IF ctx.matrix.drops(c).timer <= 0 THEN
                 ctx.matrix.drops(c).active = _TRUE
-                ctx.matrix.drops(c).y = 8!
+                ctx.matrix.drops(c).y = CSNG(minY)
                 ctx.matrix.drops(c).speed = 0.28! + RND * 0.65!
-                ctx.matrix.drops(c).length = Math_GetRandomBetween(8, 24)
+                ctx.matrix.drops(c).length = Math_GetRandomBetween(8, _MIN(24, H \ 2))
                 ctx.matrix.drops(c).charSeed = Math_GetRandomBetween(33, 126)
             END IF
         ELSE
@@ -992,7 +1020,7 @@ SUB __Background_UpdateAndDrawMatrix (ctx AS Background)
             DIM sg AS LONG
             FOR sg = 0 TO lenDrop - 1
                 DIM sy AS LONG: sy = headY - sg
-                IF sy >= 8 _ANDALSO sy <= H - 2 THEN
+                IF sy >= minY _ANDALSO sy <= maxY THEN
                     DIM chCode AS LONG
                     chCode = (ctx.matrix.drops(c).charSeed + c * 7 + sy * 13) MOD 94 + 33
 
@@ -1010,7 +1038,7 @@ SUB __Background_UpdateAndDrawMatrix (ctx AS Background)
                 END IF
             NEXT sg
 
-            IF headY - lenDrop > H - 2 THEN
+            IF headY - lenDrop > maxY THEN
                 ctx.matrix.drops(c).active = _FALSE
                 ctx.matrix.drops(c).timer = Math_GetRandomBetween(10, 80)
             END IF
@@ -1018,14 +1046,31 @@ SUB __Background_UpdateAndDrawMatrix (ctx AS Background)
     NEXT c
 END SUB
 
-''' @brief Initializes all visual background effects.
+''' @brief Initializes all visual background effects within a specified viewport.
 ''' @param ctx Background context to initialize.
-''' @param w Canvas width in characters (defaults to _WIDTH if <= 0).
-''' @param h Canvas height in characters (defaults to _HEIGHT if <= 0).
-SUB Background_Initialize (ctx AS Background, w AS LONG, h AS LONG)
-    DIM scrW AS LONG: scrW = w: IF scrW <= 0 THEN scrW = _WIDTH
-    DIM scrH AS LONG: scrH = h: IF scrH <= 0 THEN scrH = _HEIGHT
-    Vector2f_Initialize CSNG(scrW), CSNG(scrH), ctx.size
+''' @param viewport Rectangular viewport defining rendering bounds.
+SUB Background_InitializeEx (ctx AS Background, viewport AS Bounds2f)
+    ctx.viewport = viewport
+    Bounds2f_Sanitize ctx.viewport
+
+    IF ctx.viewport.lt.x < 1! _ORELSE ctx.viewport.lt.y < 1! _ORELSE ctx.viewport.rb.x < 1! _ORELSE ctx.viewport.rb.y < 1! THEN
+        ctx.viewport.lt.x = 1!
+        ctx.viewport.lt.y = 1!
+        ctx.viewport.rb.x = _WIDTH
+        ctx.viewport.rb.y = _HEIGHT
+    END IF 
+
+    ctx.size.x = Bounds2f_GetWidth(ctx.viewport)
+    ctx.size.y = Bounds2f_GetHeight(ctx.viewport)
+
+    IF ctx.size.x < 1! _ORELSE ctx.size.y < 1! THEN
+        ctx.viewport.lt.x = 1!
+        ctx.viewport.lt.y = 1!
+        ctx.viewport.rb.x = _WIDTH
+        ctx.viewport.rb.y = _HEIGHT
+        ctx.size.x = _WIDTH
+        ctx.size.y = _HEIGHT
+    END IF
 
     __Background_InitializeStars ctx
     __Background_InitializeSnakes ctx
@@ -1036,6 +1081,13 @@ SUB Background_Initialize (ctx AS Background, w AS LONG, h AS LONG)
     __Background_InitializeMatrix ctx
 
     Background_SetRandomMode ctx
+END SUB
+
+''' @brief Initializes all visual background effects using full-screen bounds (0, 0) - (_WIDTH, _HEIGHT).
+''' @param ctx Background context to initialize.
+SUB Background_Initialize (ctx AS Background)
+    DIM vp AS Bounds2f
+    Background_InitializeEx ctx, vp ' Background_InitializeEx will sanitize the viewport to full screen if invalid.
 END SUB
 
 ''' @brief Updates and renders the active background effect.

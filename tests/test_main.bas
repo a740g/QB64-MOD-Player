@@ -3229,7 +3229,7 @@ END SUB
 ''' @brief Tests for Background.bi starfield, snakes, fireworks, fire, plasma, balls, and matrix routines.
 SUB Test_Background
     DIM bg AS Background
-    Background_Initialize bg, 114, 90
+    Background_Initialize bg
 
     TEST_CASE_BEGIN "Background: Starfield initialization"
     TEST_CHECK bg.starfield.count = __BACKGROUND_STAR_COUNT, "Starfield star count allocated"
@@ -3285,9 +3285,22 @@ SUB Test_Background
     TEST_CHECK bg.matrix.drops(1).length >= 8 AND bg.matrix.drops(1).length <= 26, "Matrix drop length in valid range"
     TEST_CASE_END
 
+    TEST_CASE_BEGIN "Background: Configurable Viewport via Background_InitializeEx"
+    DIM customVp AS Bounds2f
+    Bounds2f_Initialize 10!, 12!, 90!, 50!, customVp
+    Background_InitializeEx bg, customVp
+    TEST_CHECK bg.viewport.lt.x = 10! AND bg.viewport.lt.y = 12!, "Viewport left-top set correctly"
+    TEST_CHECK bg.viewport.rb.x = 90! AND bg.viewport.rb.y = 50!, "Viewport right-bottom set correctly"
+    TEST_CHECK Bounds2f_GetWidth(bg.viewport) = 80!, "Viewport width is 80"
+    TEST_CHECK Bounds2f_GetHeight(bg.viewport) = 38!, "Viewport height is 38"
+    TEST_CHECK bg.size.x = 80! AND bg.size.y = 38!, "Context size matches viewport dimensions"
+    Background_UpdateAndDraw bg
+    TEST_CASE_END
+
     TEST_CASE_BEGIN "Background: Unified context and mode cycling"
-    Background_Initialize bg, 144, 90
+    Background_Initialize bg
     TEST_CHECK bg.mode >= BACKGROUND_MODE_FIRST AND bg.mode <= BACKGROUND_MODE_LAST, "Random mode within valid range"
+    TEST_CHECK bg.viewport.rb.x > 0! AND bg.viewport.rb.y > 0!, "Default viewport initialized"
 
     ' Cycle through all modes and test rendering for each
     DIM m AS LONG
