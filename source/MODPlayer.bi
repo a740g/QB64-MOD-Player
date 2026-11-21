@@ -190,6 +190,7 @@ TYPE __MODPlayerChannel
     delayedPeriod AS LONG ' pending note period
     delayedStartPosition AS _UNSIGNED LONG ' pending sample start in bytes
     tremorMuted AS _BYTE ' current S3M tremor gate
+    isMuted AS _BYTE ' whether channel is user-muted
     patternLoopRow AS INTEGER ' this (signed) is the beginning of the loop in the pattern for effect E6x
     patternLoopRowCounter AS _UNSIGNED _BYTE ' this is a loop counter for effect E6x
     portamentoTo AS LONG ' frequency to porta to value for E3x

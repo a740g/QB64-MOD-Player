@@ -38,6 +38,7 @@ $COLOR:0
 '$INCLUDE:'MODPlayer.bi'
 '$INCLUDE:'MODPlayer.bm'
 '$INCLUDE:'Input.bi'
+'$INCLUDE:'TUI.bi'
 
 CONST APP_NAME = "QB64 MOD Player" ' application name
 ' We'll use a window with 1152 x 720 px (144 x 90 chars @ 8 x 8 px font) client area
@@ -97,7 +98,8 @@ SUB UI_DrawHorizontalLine (lx AS LONG, ty AS LONG, rx AS LONG, char AS _UNSIGNED
 END SUB
 
 ''' @brief Renders the tracker visualizer, pattern data, and FFT spectrum analyzers.
-SUB Visualizer_Draw
+''' @return Application event triggered from UI interaction (or APP_EVENT_NONE).
+FUNCTION Visualizer_Draw%%
     SHARED NoteTable() AS STRING * 2
     SHARED WindowWidth AS LONG
     SHARED PatternDisplayWidth AS LONG
@@ -109,41 +111,124 @@ SUB Visualizer_Draw
     ' In a general use case, accessing these directly is not required at all
     SHARED Player AS MODPlayer
     SHARED InstrumentScrollOffset AS LONG
+    SHARED __TUI AS __TUI_Context
 
     ' Subscript out of range bugfix for player when song is 128 orders long and the song reaches the end
     ' In this case if the sub is allowed to proceed then Player.order(Player.song.orderPosition) will cause "subscript out of range"
     ' Note this is only a problem with this demo and not the actual library since we are trying to access internal stuff directly
-    IF Player.song.orderPosition < 0 _ORELSE Player.song.orderPosition >= Player.song.orders THEN EXIT SUB
+    IF Player.song.orderPosition < 0 _ORELSE Player.song.orderPosition >= Player.song.orders THEN EXIT FUNCTION
 
     DIM startPat AS LONG: startPat = Player.order(Player.song.orderPosition)
 
-    IF startPat < 0 _ORELSE startPat >= Player.song.patterns THEN EXIT SUB ' this can happen when S3M tunes contain marker / end-of-song patterns
+    IF startPat < 0 _ORELSE startPat >= Player.song.patterns THEN EXIT FUNCTION ' this can happen when S3M tunes contain marker / end-of-song patterns
 
     CLS , Black ' clear the framebuffer to black color
 
     DIM x AS LONG: x = 1 + WindowWidth \ 2 - UI_TEXT_WIDTH_HEADER \ 2 ' find x so that we can center everything
 
-    ' Print song type and name
-    COLOR BrightWhite, Magenta
-    LOCATE 1, x: PRINT USING " \  \: \                                                                          \ "; Player.song.subtype; Player.song.caption;
+    ' Row 1: Top Playback Toolbar
+    DIM btnX AS LONG: btnX = x
+    IF TUI_Button(btnX, 1, "[Prev]") THEN
+        MODPlayer_GoToPreviousPosition Player
+    END IF
+    btnX = btnX + 7
 
-    ' Print the header
+    IF TUI_ToggleButton(btnX, 1, _IIF(Player.song.isPaused, "[Play ]", "[Pause]"), NOT Player.song.isPaused) THEN
+        Player.song.isPaused = NOT Player.song.isPaused
+    END IF
+    btnX = btnX + 8
+
+    IF TUI_Button(btnX, 1, "[Stop]") THEN
+        MODPlayer_Stop Player
+        Visualizer_Draw = APP_EVENT_NONE
+        EXIT FUNCTION
+    END IF
+    btnX = btnX + 7
+
+    IF TUI_Button(btnX, 1, "[Next]") THEN
+        MODPlayer_GoToNextPosition Player
+    END IF
+    btnX = btnX + 7
+
+    IF TUI_ToggleButton(btnX, 1, "[Loop]", Player.song.isLooping) THEN
+        MODPlayer_Loop Player, NOT MODPlayer_IsLooping(Player)
+    END IF
+    btnX = btnX + 7
+
+    IF TUI_Button(btnX, 1, "[Load]") THEN
+        Visualizer_Draw = APP_EVENT_LOAD
+        EXIT FUNCTION
+    END IF
+    btnX = btnX + 7
+
+    IF TUI_Button(btnX, 1, "[Web]") THEN
+        Visualizer_Draw = APP_EVENT_HTTP
+        EXIT FUNCTION
+    END IF
+    btnX = btnX + 6
+
+    IF TUI_Button(btnX, 1, "[Quit]") THEN
+        Visualizer_Draw = APP_EVENT_QUIT
+        EXIT FUNCTION
+    END IF
+
+    ' Row 2: Print song type and name
+    COLOR BrightWhite, Magenta
+    LOCATE 2, x: PRINT USING " \  \: \                                                                          \ "; Player.song.subtype; Player.song.caption;
+
+    ' Row 3: Header info & interactive order scrubbing
     COLOR Blink, BrightWhite
     DIM curPatRows AS LONG: curPatRows = _IIF(startPat >= 0 _ANDALSO startPat < Player.song.patterns, Player.pattern(startPat).rows, 64)
-    LOCATE 2, x: PRINT USING " ORD: ### / ### | PAT: ### / ### | ROW: ### / ### | CHN: ### / ### | VOC: ### / ### "; Player.song.orderPosition; Player.song.orders - 1; startPat; Player.song.patterns - 1; Player.song.patternRow; curPatRows - 1; Player.song.activeChannels; Player.song.channels; SoftSynth_GetActiveVoices(Player.synth); SoftSynth_GetTotalVoices(Player.synth);
+    LOCATE 3, x: PRINT USING " ORD: ### / ### | PAT: ### / ### | ROW: ### / ### | CHN: ### / ### | VOC: ### / ### "; Player.song.orderPosition; Player.song.orders - 1; startPat; Player.song.patterns - 1; Player.song.patternRow; curPatRows - 1; Player.song.activeChannels; Player.song.channels; SoftSynth_GetActiveVoices(Player.synth); SoftSynth_GetTotalVoices(Player.synth);
 
-    LOCATE 3, x: PRINT USING " BPM: ###       | SPD: ###       | VOL: ###%      | BUF: #######ms | REP: \       \ "; Player.song.BPM; Player.song.speed; SoftSynth_GetMasterVolume(Player.synth) * 100!; SoftSynth_GetBufferedSoundTime(Player.synth) * 1000#; _IIF(Player.song.isLooping, "Enabled", "Disabled");
+    ' Interactive order position scrubber with rate-limiting cool-off
+    DIM ordBounds AS Bounds2f
+    Bounds2f_Set x + 1, 3, x + 16, 3.999!, ordBounds
+    IF Bounds2f_ContainsPoint(ordBounds, __TUI.mousePos) THEN
+        IF __TUI.mouseDownL THEN
+            DIM nowUptime AS DOUBLE: nowUptime = _UPTIME
+            IF nowUptime - __TUI.lastScrubTime >= TUI_SCRUB_COOLOFF_SECS# _ORELSE __TUI.mouseClickedL THEN
+                __TUI.lastScrubTime = nowUptime
+                DIM ordRatio AS SINGLE: ordRatio = _CLAMP((INT(__TUI.mousePos.x) - (x + 6)) / 9!, 0!, 1!)
+                DIM seekOrd AS LONG: seekOrd = _CLAMP(CLNG(ordRatio * (Player.song.orders - 1)), 0, Player.song.orders - 1)
+                Player.song.orderPosition = seekOrd
+                Player.song.patternRow = 0
+            END IF
+        END IF
+    END IF
+
+    ' Row 4: Playback parameters & interactive Volume Slider / Loop toggle
+    LOCATE 4, x: PRINT USING " BPM: ###       | SPD: ###       | VOL: ###%      | BUF: #######ms | REP: \       \ "; Player.song.BPM; Player.song.speed; SoftSynth_GetMasterVolume(Player.synth) * 100!; SoftSynth_GetBufferedSoundTime(Player.synth) * 1000#; _IIF(Player.song.isLooping, "Enabled", "Disabled");
+
+    ' Interactive Master Volume Slider on VOL: ###%
+    DIM curMasterVol AS SINGLE: curMasterVol = SoftSynth_GetMasterVolume(Player.synth)
+    DIM newMasterVol AS SINGLE
+    newMasterVol = TUI_Slider(x + 34, 4, 8, curMasterVol, 0!, SOFTSYNTH_MASTER_VOLUME_MAX, "VOL")
+    IF newMasterVol <> curMasterVol THEN
+        SoftSynth_SetMasterVolume Player.synth, newMasterVol
+    END IF
+
+    ' Interactive Loop Toggle on REP:
+    DIM repBounds AS Bounds2f
+    Bounds2f_Set x + 68, 4, x + 83, 4.999!, repBounds
+    IF Bounds2f_ContainsPoint(repBounds, __TUI.mousePos) _ANDALSO __TUI.mouseClickedL THEN
+        MODPlayer_Loop Player, NOT MODPlayer_IsLooping(Player)
+    END IF
 
     ' Clamp instrument scroll offset
     InstrumentScrollOffset = _CLAMP(InstrumentScrollOffset, 0, _MAX(0, Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS))
 
-    ' Print the sample list header
+    ' Row 5: Sample list header with interactive scroll buttons
     COLOR Blink, Cyan
-    IF Player.song.instruments > UI_MAX_VISIBLE_INSTRUMENTS THEN
-        _PRINTSTRING (x, 4), "  S#  SAMPLE-NAME [Scroll:Up/Dn]  VOLUME C2SPD LENGTH LOOPING LOOP-START LOOP-STOP  "
-    ELSE
-        _PRINTSTRING (x, 4), "  S#  SAMPLE-NAME                 VOLUME C2SPD LENGTH LOOPING LOOP-START LOOP-STOP  "
+    _PRINTSTRING (x, 5), "  S#  SAMPLE-NAME "
+    IF TUI_Button(x + 18, 5, "[^ Up]") THEN
+        InstrumentScrollOffset = _MAX(0, InstrumentScrollOffset - 1)
     END IF
+    IF TUI_Button(x + 25, 5, "[v Dn]") THEN
+        InstrumentScrollOffset = _MIN(_MAX(0, Player.song.instruments - UI_MAX_VISIBLE_INSTRUMENTS), InstrumentScrollOffset + 1)
+    END IF
+    COLOR Blink, Cyan
+    _PRINTSTRING (x + 32, 5), "  VOLUME C2SPD LENGTH LOOPING LOOP-START LOOP-STOP  "
 
     ' Print the sample information
     DIM AS LONG i, j, rowIdx, maxInst
@@ -165,12 +250,12 @@ SUB Visualizer_Draw
             END IF
         END IF
 
-        LOCATE 5 + rowIdx, x: PRINT USING " ###: \                       \ ######## ##### ###### \     \ ########## #########  "; i + 1; Player.instrument(i).caption; Player.instrument(i).volume; Player.instrument(i).c2Spd; Player.instrument(i).length; _IIF(Player.instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, "Yes", "No"); Player.instrument(i).loopStart; Player.instrument(i).loopEnd;
+        LOCATE 6 + rowIdx, x: PRINT USING " ###: \                       \ ######## ##### ###### \     \ ########## #########  "; i + 1; Player.instrument(i).caption; Player.instrument(i).volume; Player.instrument(i).c2Spd; Player.instrument(i).length; _IIF(Player.instrument(i).playMode = SOFTSYNTH_VOICE_PLAY_FORWARD_LOOP, "Yes", "No"); Player.instrument(i).loopStart; Player.instrument(i).loopEnd;
 
         rowIdx = rowIdx + 1
     NEXT
 
-    j = 5 + rowIdx ' we starting updating from this line next
+    j = 6 + rowIdx ' we starting updating from this line next
     x = 1 + WindowWidth \ 2 - PatternDisplayWidth \ 2 ' find x so that we can center everything
 
     ' Print the pattern header
@@ -181,18 +266,14 @@ SUB Visualizer_Draw
         DIM chanBadge AS STRING: chanBadge = MODPlayer_GetChannelSubtypeCaption(Player, i)
         COLOR Black, Cyan
         _PRINTSTRING (x + 8 + i * 19, j), " "
-        SELECT CASE chanBadge
-            CASE "AM"
-                COLOR Blink, Yellow
-            CASE "FMm"
-                COLOR Blink, LightMagenta
-            CASE "FMd"
-                COLOR Blink, LightRed
-            CASE ELSE
-                COLOR Blink, LightCyan
-        END SELECT
-        LOCATE j, x + 8 + i * 19 + 1
-        PRINT USING "\  \"; chanBadge;
+        DIM chAction AS _BYTE
+        IF TUI_ChannelBadge(x + 8 + i * 19 + 1, j, i, chanBadge, MODPlayer_IsChannelMuted(Player, i), MODPlayer_IsChannelSoloed(Player, i), chAction) THEN
+            IF chAction = TUI_CHANNEL_ACTION_MUTE THEN
+                MODPlayer_ToggleChannelMute Player, i
+            ELSEIF chAction = TUI_CHANNEL_ACTION_SOLO THEN
+                MODPlayer_SoloChannel Player, i
+            END IF
+        END IF
         COLOR Black, Cyan
         _PRINTSTRING (x + 8 + i * 19 + 5, j), " NOT S# FX OP "
         i = i + 1
@@ -412,7 +493,8 @@ SUB Visualizer_Draw
     WEND
 
     _DISPLAY ' flip the framebuffer
-END SUB
+    Visualizer_Draw = APP_EVENT_NONE
+END FUNCTION
 
 ''' @brief Renders compressed ANSI art onto a graphic image canvas.
 ''' @param img QB64 image handle to render onto.
@@ -606,6 +688,15 @@ FUNCTION App_OnWelcomeScreen%% (bg AS Background)
 
         Input_Update
 
+        TUI_Begin
+        DIM menuX AS LONG: menuX = 1 + UI_TEXT_WIDTH_MIN \ 2 - 21
+        DIM menuY AS LONG: menuY = UI_TEXT_LINE_MAX - 3
+
+        IF TUI_Button(menuX, menuY, "[Open (F1)]") THEN e = APP_EVENT_LOAD
+        IF TUI_Button(menuX + 13, menuY, "[ModArchive (F2)]") THEN e = APP_EVENT_HTTP
+        IF TUI_Button(menuX + 32, menuY, "[Quit (ESC)]") THEN e = APP_EVENT_QUIT
+        TUI_End
+
         DIM k AS LONG: k = Input_GetKeyboardKey
 
         IF k = _KEY_ESC _ORELSE Input_NavCancel _ORELSE Input_WindowShouldClose THEN
@@ -660,7 +751,7 @@ SUB App_AdjustWindowSize
         IF PatternDisplayWidth <= UI_TEXT_WIDTH_HEADER THEN
             FFT.size.y = UI_TEXT_LINE_MAX
         ELSE
-            FFT.size.y = 4 + _MIN(Player.song.instruments, UI_MAX_VISIBLE_INSTRUMENTS)
+            FFT.size.y = 5 + _MIN(Player.song.instruments, UI_MAX_VISIBLE_INSTRUMENTS)
         END IF
     ELSE
         PatternDisplayWidth = 0
@@ -720,11 +811,20 @@ FUNCTION App_OnPlayTune%% (fileName AS STRING)
     DO
         MODPlayer_Update Player, SOFTSYNTH_SOUND_BUFFER_TIME_DEFAULT
 
-        Visualizer_Draw
-
         Input_Update
 
         IF Input_WindowShouldClose THEN
+            EXIT DO
+        END IF
+
+        TUI_Begin
+
+        DIM visEvent AS _BYTE: visEvent = Visualizer_Draw
+
+        TUI_End
+
+        IF visEvent <> APP_EVENT_NONE THEN
+            App_OnPlayTune = visEvent
             EXIT DO
         END IF
 

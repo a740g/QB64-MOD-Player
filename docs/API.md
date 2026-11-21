@@ -15,6 +15,7 @@ Synthesizer / Sample Mixer, and Audio Spectrum Analyzer.
   - [Module Loading (Unified Dispatcher)](#module-loading-unified-dispatcher)
   - [Playback Controls](#playback-controls)
   - [Song Information and Navigation](#song-information-and-navigation)
+  - [Channel Mute and Solo Controls](#channel-mute-and-solo-controls)
 - [Dedicated Format Loaders API (`*Loader.bi`)](#dedicated-format-loaders-api-loaderbi)
   - [ProTracker Loader (`MODLoader.bi`)](#protracker-loader-modloaderbi)
   - [Scream Tracker 2 Loader (`STMLoader.bi`)](#scream-tracker-2-loader-stmloaderbi)
@@ -56,6 +57,11 @@ Synthesizer / Sample Mixer, and Audio Spectrum Analyzer.
   - [Game Controller APIs](#input-game-controller-apis)
   - [TUI Navigation Actions](#input-tui-navigation-actions)
   - [Window Event APIs](#input-window-event-apis)
+- [Immediate-Mode TUI API (`TUI.bi`)](#immediate-mode-tui-api-tuibi)
+  - [Constants](#tui-constants)
+  - [Types](#tui-types)
+  - [Frame Lifecycle Management](#tui-frame-lifecycle-management)
+  - [Immediate Widgets](#tui-immediate-widgets)
 
 ---
 
@@ -383,6 +389,81 @@ SUB MODPlayer_GoToPreviousPosition (player AS MODPlayer)
 
 - **Description**: Rewinds playback immediately to the preceding order in
   sequence.
+- **Parameters**:
+  - `player`: Target MOD player instance.
+
+---
+
+### Channel Mute and Solo Controls
+
+#### `MODPlayer_MuteChannel`
+
+```vb
+SUB MODPlayer_MuteChannel (player AS MODPlayer, nChannel AS LONG, isMuted AS _BYTE)
+```
+
+- **Description**: Sets the mute state of a channel. Immediately attenuates the
+  channel's volume output to zero (for PCM, AM synth, and OPL2 FM channels) when
+  muted, or restores channel playback volume when unmuted.
+- **Parameters**:
+  - `player`: Target MOD player instance.
+  - `nChannel`: Channel index (0-based).
+  - `isMuted`: `_TRUE` to mute, `_FALSE` to unmute.
+
+#### `MODPlayer_ToggleChannelMute`
+
+```vb
+SUB MODPlayer_ToggleChannelMute (player AS MODPlayer, nChannel AS LONG)
+```
+
+- **Description**: Inverts the current mute state of the specified channel.
+- **Parameters**:
+  - `player`: Target MOD player instance.
+  - `nChannel`: Channel index (0-based).
+
+#### `MODPlayer_IsChannelMuted%%`
+
+```vb
+FUNCTION MODPlayer_IsChannelMuted%% (player AS MODPlayer, nChannel AS LONG)
+```
+
+- **Parameters**:
+  - `player`: Target MOD player instance.
+  - `nChannel`: Channel index (0-based).
+- **Returns**: `_TRUE` if the channel is currently muted; `_FALSE` otherwise.
+
+#### `MODPlayer_SoloChannel`
+
+```vb
+SUB MODPlayer_SoloChannel (player AS MODPlayer, soloChannel AS LONG)
+```
+
+- **Description**: Solos the specified channel by muting all other channels while
+  unmuting the selected channel. If the target channel is already soloed, calling
+  this again toggles solo off and unmutes all channels.
+- **Parameters**:
+  - `player`: Target MOD player instance.
+  - `soloChannel`: Channel index (0-based) to solo.
+
+#### `MODPlayer_IsChannelSoloed%%`
+
+```vb
+FUNCTION MODPlayer_IsChannelSoloed%% (player AS MODPlayer, nChannel AS LONG)
+```
+
+- **Parameters**:
+  - `player`: Target MOD player instance.
+  - `nChannel`: Channel index (0-based).
+- **Returns**: `_TRUE` if the channel is unmuted and every other channel in the
+  song is muted; `_FALSE` otherwise.
+
+#### `MODPlayer_UnmuteAllChannels`
+
+```vb
+SUB MODPlayer_UnmuteAllChannels (player AS MODPlayer)
+```
+
+- **Description**: Unmutes all channels in the currently loaded tune.
 - **Parameters**:
   - `player`: Target MOD player instance.
 
@@ -1236,3 +1317,212 @@ Synthesizes discrete, edge-triggered navigation pulses combining Keyboard, Gamep
 - `FUNCTION Input_GetWindowResizeWidth! ()`: Returns new window width if resized.
 - `FUNCTION Input_GetWindowResizeHeight! ()`: Returns new window height if resized.
 - `SUB Input_GetWindowResizeSize (size AS Vector2f)`: Retrieves new window dimensions in a `Vector2f`.
+
+---
+
+## Immediate-Mode TUI API (`TUI.bi`)
+
+Include headers:
+
+```vb
+'$INCLUDE:'source/TUI.bi'
+```
+
+### TUI Constants
+
+#### Channel Action Codes
+
+Returned in `outAction` by `TUI_ChannelBadge`:
+
+```vb
+CONST TUI_CHANNEL_ACTION_NONE%% = 0%%
+CONST TUI_CHANNEL_ACTION_MUTE%% = 1%%
+CONST TUI_CHANNEL_ACTION_SOLO%% = 2%%
+```
+
+#### Rate-Limiting Constants
+
+```vb
+CONST TUI_SCRUB_COOLOFF_SECS# = 0.08# ' 80 ms cool-off interval for seek scrubbing
+```
+
+#### Text Mode Color Constants
+
+```vb
+CONST TUI_COLOR_BLACK& = 0&
+CONST TUI_COLOR_BLUE& = 1&
+CONST TUI_COLOR_GREEN& = 2&
+CONST TUI_COLOR_CYAN& = 3&
+CONST TUI_COLOR_RED& = 4&
+CONST TUI_COLOR_MAGENTA& = 5&
+CONST TUI_COLOR_BROWN& = 6&
+CONST TUI_COLOR_WHITE& = 7&
+CONST TUI_COLOR_GRAY& = 8&
+CONST TUI_COLOR_LIGHT_BLUE& = 9&
+CONST TUI_COLOR_LIGHT_GREEN& = 10&
+CONST TUI_COLOR_LIGHT_CYAN& = 11&
+CONST TUI_COLOR_LIGHT_RED& = 12&
+CONST TUI_COLOR_LIGHT_MAGENTA& = 13&
+CONST TUI_COLOR_YELLOW& = 14&
+CONST TUI_COLOR_BRIGHT_WHITE& = 15&
+```
+
+---
+
+### TUI Types
+
+#### `__TUI_Context`
+
+Internal context maintaining minimal persistent state across frames:
+
+```vb
+TYPE __TUI_Context
+    initialized AS _BYTE
+    inFrame AS _BYTE
+    widgetCount AS LONG                 ' Current frame auto-incremented widget counter
+    totalWidgets AS LONG                ' Total interactive widgets from previous frame
+    focusedId AS LONG                   ' Currently focused widget ID (1..totalWidgets)
+    hotId AS LONG                       ' Currently hovered widget ID
+    activeId AS LONG                    ' Widget currently being pressed or dragged
+    mousePos AS Vector2f                ' Current mouse position (character column/row)
+    mouseClickedL AS _BYTE              ' Left mouse button clicked this frame
+    mouseDownL AS _BYTE                 ' Left mouse button held down this frame
+    mouseClickedR AS _BYTE              ' Right mouse button clicked this frame
+    navNext AS _BYTE                    ' Advance focus (Tab, Gamepad RB)
+    navPrev AS _BYTE                    ' Retreat focus (Shift+Tab, Gamepad LB)
+    navConfirm AS _BYTE                 ' Trigger focused widget (Enter, Space, Gamepad A)
+    navSolo AS _BYTE                    ' Trigger channel solo (S, Shift+Enter, Gamepad Y/X)
+    hasNavFocus AS _BYTE                ' True when keyboard/gamepad focus indicator is active
+    lastScrubTime AS DOUBLE             ' Uptime timestamp of last seek scrub
+    prevMousePos AS Vector2f            ' Previous frame mouse position
+END TYPE
+```
+
+---
+
+### TUI Frame Lifecycle Management
+
+#### `TUI_Begin`
+
+```vb
+SUB TUI_Begin
+```
+
+- **Description**: Begins a new Immediate-Mode TUI frame. Gathers input state
+  from `Input_*`, detects navigation cycling (Tab / Shift+Tab / Gamepad bumpers),
+  advances or wraps the active focused widget ID, and resets transient frame counters.
+
+#### `TUI_End`
+
+```vb
+SUB TUI_End
+```
+
+- **Description**: Concludes the Immediate-Mode TUI frame. Updates `totalWidgets`,
+  clamps `focusedId` to the valid widget range, and resets the frame state.
+
+---
+
+### TUI Immediate Widgets
+
+#### `TUI_Button%%`
+
+```vb
+FUNCTION TUI_Button%% (x AS LONG, y AS LONG, text AS STRING)
+```
+
+- **Description**: Renders an interactive push button.
+- **Parameters**:
+  - `x`: 1-based character column coordinate.
+  - `y`: 1-based character row coordinate.
+  - `text`: Display label string (e.g. `"[Prev]"`).
+- **Returns**: `_TRUE` if clicked with left mouse button or triggered via
+  keyboard / controller confirmation while focused; `_FALSE` otherwise.
+
+#### `TUI_ToggleButton%%`
+
+```vb
+FUNCTION TUI_ToggleButton%% (x AS LONG, y AS LONG, text AS STRING, isToggled AS _BYTE)
+```
+
+- **Description**: Renders an interactive toggle button with active/inactive
+  visual styling.
+- **Parameters**:
+  - `x`: 1-based character column coordinate.
+  - `y`: 1-based character row coordinate.
+  - `text`: Display label string.
+  - `isToggled`: `_TRUE` if active (highlighted green), `_FALSE` otherwise.
+- **Returns**: `_TRUE` if activated; `_FALSE` otherwise.
+
+#### `TUI_ChannelBadge%%`
+
+```vb
+FUNCTION TUI_ChannelBadge%% (x AS LONG, y AS LONG, ch AS LONG, _
+    badgeText AS STRING, isMuted AS _BYTE, isSoloed AS _BYTE, outAction AS _BYTE)
+```
+
+- **Description**: Renders an interactive tracker channel badge with live Mute
+  (`[MUT]`) and Solo (`[SLO]`) indicators.
+- **Parameters**:
+  - `x`: Character column coordinate.
+  - `y`: Character row coordinate.
+  - `ch`: Channel index (0-based).
+  - `badgeText`: Subtype text (e.g. `"PCM"`, `"AM "`, `"FMm"`, `"FMd"`).
+  - `isMuted`: `_TRUE` if channel is muted.
+  - `isSoloed`: `_TRUE` if channel is soloed.
+  - `outAction`: Output parameter set to `TUI_CHANNEL_ACTION_MUTE` or
+    `TUI_CHANNEL_ACTION_SOLO`.
+- **Returns**: `_TRUE` if an action was triggered; `_FALSE` otherwise.
+
+#### `TUI_ProgressBar&`
+
+```vb
+FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS LONG, maxVal AS LONG)
+```
+
+- **Description**: Renders an interactive progress / seek bar. Supports real-time
+  scrubbing with an ~80 ms rate-limiting cool-off interval to prevent rapid order
+  jumping.
+- **Parameters**:
+  - `x`: Character column coordinate.
+  - `y`: Character row coordinate.
+  - `w`: Total width in characters including bracket delimiters.
+  - `curVal`: Current numeric value.
+  - `maxVal`: Maximum value.
+- **Returns**: Target position index if clicked, dragged, or nudged; or `-1` if
+  no interaction occurred.
+
+#### `TUI_Slider!`
+
+```vb
+FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, _
+    minVal AS SINGLE, maxVal AS SINGLE, label AS STRING)
+```
+
+- **Description**: Renders an interactive floating-point slider bar with
+  percentage readout.
+- **Parameters**:
+  - `x`: Character column coordinate.
+  - `y`: Character row coordinate.
+  - `w`: Slider bar character width.
+  - `curVal`: Current value.
+  - `minVal`: Minimum value boundary.
+  - `maxVal`: Maximum value boundary.
+  - `label`: Label prefix string (e.g. `"VOL"`).
+- **Returns**: Updated single-precision value if adjusted; or `curVal` if
+  unadjusted.
+
+#### `TUI_Label`
+
+```vb
+SUB TUI_Label (x AS LONG, y AS LONG, text AS STRING, fgColor AS LONG, bgColor AS LONG)
+```
+
+- **Description**: Renders a non-interactive styled text label at the specified
+  character coordinates.
+- **Parameters**:
+  - `x`: Character column coordinate.
+  - `y`: Character row coordinate.
+  - `text`: Text string.
+  - `fgColor`: Foreground color index (`TUI_COLOR_*`).
+  - `bgColor`: Background color index (`TUI_COLOR_*`).

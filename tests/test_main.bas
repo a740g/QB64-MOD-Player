@@ -26,6 +26,7 @@ $LET TEST_CONSOLE_ONLY = TRUE
 '$INCLUDE:'../source/Vector3f.bi'
 '$INCLUDE:'../source/Background.bi'
 '$INCLUDE:'../source/Input.bi'
+'$INCLUDE:'../source/TUI.bi'
 
 ''' @brief Tests for Time.bi and _UPTIME functionality.
 SUB Test_Time
@@ -3501,6 +3502,128 @@ SUB Test_Input
     TEST_CASE_END
 END SUB
 
+''' @brief Tests for channel mute, solo, and unmute operations.
+SUB Test_MODPlayer_ChannelMuteSolo
+    TEST_CASE_BEGIN "MODPlayer: Channel Mute and Unmute"
+    DIM p AS MODPlayer
+    p.song.channels = 4
+    REDIM p.channel(0 TO 3) AS __MODPlayerChannel
+
+    TEST_CHECK NOT MODPlayer_IsChannelMuted(p, 0), "Channel 0 initially not muted"
+    TEST_CHECK NOT MODPlayer_IsChannelMuted(p, 1), "Channel 1 initially not muted"
+
+    MODPlayer_MuteChannel p, 0, _TRUE
+    TEST_CHECK MODPlayer_IsChannelMuted(p, 0), "Channel 0 is now muted"
+    TEST_CHECK NOT MODPlayer_IsChannelMuted(p, 1), "Channel 1 remains unmuted"
+
+    MODPlayer_ToggleChannelMute p, 0
+    TEST_CHECK NOT MODPlayer_IsChannelMuted(p, 0), "Channel 0 unmuted after toggle"
+
+    MODPlayer_ToggleChannelMute p, 0
+    TEST_CHECK MODPlayer_IsChannelMuted(p, 0), "Channel 0 muted after second toggle"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "MODPlayer: Channel Soloing and Multi-channel Unmute"
+    ' Channel 0 currently muted, 1, 2, 3 unmuted
+    MODPlayer_SoloChannel p, 2
+    TEST_CHECK NOT MODPlayer_IsChannelMuted(p, 2), "Soloed channel 2 is unmuted"
+    TEST_CHECK MODPlayer_IsChannelMuted(p, 0), "Channel 0 is muted by solo"
+    TEST_CHECK MODPlayer_IsChannelMuted(p, 1), "Channel 1 is muted by solo"
+    TEST_CHECK MODPlayer_IsChannelMuted(p, 3), "Channel 3 is muted by solo"
+    TEST_CHECK MODPlayer_IsChannelSoloed(p, 2), "Channel 2 reports soloed"
+    TEST_CHECK NOT MODPlayer_IsChannelSoloed(p, 0), "Channel 0 does not report soloed"
+
+    ' Toggling solo on the already-soloed channel unmutes all channels
+    MODPlayer_SoloChannel p, 2
+    TEST_CHECK NOT MODPlayer_IsChannelMuted(p, 0), "Channel 0 unmuted after solo toggle off"
+    TEST_CHECK NOT MODPlayer_IsChannelMuted(p, 1), "Channel 1 unmuted after solo toggle off"
+    TEST_CHECK NOT MODPlayer_IsChannelMuted(p, 2), "Channel 2 unmuted after solo toggle off"
+    TEST_CHECK NOT MODPlayer_IsChannelMuted(p, 3), "Channel 3 unmuted after solo toggle off"
+    TEST_CHECK NOT MODPlayer_IsChannelSoloed(p, 2), "Channel 2 no longer soloed"
+
+    ' Solo another channel and then call UnmuteAll
+    MODPlayer_SoloChannel p, 1
+    TEST_CHECK MODPlayer_IsChannelSoloed(p, 1), "Channel 1 soloed"
+    MODPlayer_UnmuteAllChannels p
+    TEST_CHECK NOT MODPlayer_IsChannelMuted(p, 0), "Channel 0 unmuted by UnmuteAll"
+    TEST_CHECK NOT MODPlayer_IsChannelMuted(p, 1), "Channel 1 unmuted by UnmuteAll"
+    TEST_CHECK NOT MODPlayer_IsChannelMuted(p, 2), "Channel 2 unmuted by UnmuteAll"
+    TEST_CHECK NOT MODPlayer_IsChannelMuted(p, 3), "Channel 3 unmuted by UnmuteAll"
+
+    ' Out-of-bounds safety
+    TEST_CHECK NOT MODPlayer_IsChannelMuted(p, -1), "Negative channel index returns false"
+    TEST_CHECK NOT MODPlayer_IsChannelMuted(p, 99), "OOB channel index returns false"
+    TEST_CHECK NOT MODPlayer_IsChannelSoloed(p, -1), "Negative channel index returns not soloed"
+    TEST_CHECK NOT MODPlayer_IsChannelSoloed(p, 99), "OOB channel index returns not soloed"
+    TEST_CASE_END
+END SUB
+
+''' @brief Tests for Immediate-Mode TUI (TUI.bi) core functionality.
+SUB Test_TUI
+    SHARED __TUI AS __TUI_Context
+
+    TEST_CASE_BEGIN "TUI: Constants and Action Codes"
+    TEST_CHECK TUI_CHANNEL_ACTION_NONE = 0, "TUI_CHANNEL_ACTION_NONE is 0"
+    TEST_CHECK TUI_CHANNEL_ACTION_MUTE = 1, "TUI_CHANNEL_ACTION_MUTE is 1"
+    TEST_CHECK TUI_CHANNEL_ACTION_SOLO = 2, "TUI_CHANNEL_ACTION_SOLO is 2"
+    TEST_CHECK TUI_SCRUB_COOLOFF_SECS# > 0.05# _ANDALSO TUI_SCRUB_COOLOFF_SECS# < 0.2#, "Cooloff interval in reasonable range"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "TUI: Frame Lifecycle and Widget Counting"
+    TUI_Begin
+    TEST_CHECK __TUI.inFrame, "TUI_Begin enters frame"
+    TEST_CHECK __TUI.widgetCount = 0, "TUI_Begin resets widget counter"
+
+    ' Mock mouse away from widgets (e.g. at 0, 0)
+    Vector2f_Set 0!, 0!, __TUI.mousePos
+
+    DIM b1 AS _BYTE: b1 = TUI_Button(10, 10, "[Test]")
+    TEST_CHECK NOT b1, "Button not clicked when mouse is away"
+    TEST_CHECK __TUI.widgetCount = 1, "Button registered as widget 1"
+
+    DIM b2 AS _BYTE: b2 = TUI_ToggleButton(20, 10, "[Toggle]", _TRUE)
+    TEST_CHECK NOT b2, "Toggle button not clicked when mouse is away"
+    TEST_CHECK __TUI.widgetCount = 2, "Toggle button registered as widget 2"
+
+    DIM chAct AS _BYTE
+    DIM b3 AS _BYTE: b3 = TUI_ChannelBadge(35, 10, 0, "PCM", _FALSE, _FALSE, chAct)
+    TEST_CHECK NOT b3, "Channel badge not activated when mouse is away"
+    TEST_CHECK chAct = TUI_CHANNEL_ACTION_NONE, "Channel action is NONE"
+    TEST_CHECK __TUI.widgetCount = 3, "Channel badge registered as widget 3"
+
+    DIM seekTarget AS LONG: seekTarget = TUI_ProgressBar(50, 10, 20, 5, 20)
+    TEST_CHECK seekTarget = -1, "Progress bar returns -1 when untouched"
+    TEST_CHECK __TUI.widgetCount = 4, "Progress bar registered as widget 4"
+
+    DIM volTarget AS SINGLE: volTarget = TUI_Slider(80, 10, 15, 0.75!, 0!, 1!, "VOL")
+    TEST_CHECK ABS(volTarget - 0.75!) < 0.001!, "Slider returns current value when untouched"
+    TEST_CHECK __TUI.widgetCount = 5, "Slider registered as widget 5"
+
+    TUI_End
+    TEST_CHECK NOT __TUI.inFrame, "TUI_End exits frame"
+    TEST_CHECK __TUI.totalWidgets = 5, "TUI_End saves totalWidgets = 5"
+    TEST_CHECK __TUI.focusedId >= 1 _ANDALSO __TUI.focusedId <= 5, "TUI_End clamps focus to valid widget range"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "TUI: Hit Detection with Mouse Bounds"
+    TUI_Begin
+    ' Position mouse right over button at (15, 5), width = 8 -> columns 15 to 22
+    Vector2f_Set 17!, 5!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE ' simulate mouse click
+
+    DIM clicked AS _BYTE: clicked = TUI_Button(15, 5, "[Click]")
+    TEST_CHECK clicked, "Button clicked when mouse is inside bounding box"
+    TEST_CHECK __TUI.hotId = 1, "Button marked as hot widget"
+    TEST_CHECK __TUI.activeId = 1, "Button marked as active widget"
+
+    ' Button at (30, 5) should NOT be clicked
+    DIM otherClicked AS _BYTE: otherClicked = TUI_Button(30, 5, "[Other]")
+    TEST_CHECK NOT otherClicked, "Other button not clicked"
+
+    TUI_End
+    TEST_CASE_END
+END SUB
+
 IF _DIREXISTS("../mods") THEN CHDIR ".."
 
 ' Run all test suites
@@ -3555,5 +3678,7 @@ Test_MODPlayer_MultiInstance
 Test_MODPlayer_PatternRows
 Test_MODPlayer_TypePromotions
 Test_MODPlayer_Errors
+Test_MODPlayer_ChannelMuteSolo
+Test_TUI
 
 TEST_END_ALL

@@ -507,7 +507,7 @@ SUB __MODPlayer_SetVoiceVolume (player AS MODPlayer, nChannel AS _UNSIGNED LONG,
         outputVolume = outputVolume * (player.channel(nChannel).channelVolume / __MODPLAYER_S3M_GLOBAL_VOLUME_MAX)
     END IF
     outputVolume = outputVolume * player.song.pcmMasterGain
-    IF player.channel(nChannel).tremorMuted THEN outputVolume = 0!
+    IF player.channel(nChannel).tremorMuted _ORELSE player.channel(nChannel).isMuted THEN outputVolume = 0!
 
     SoftSynth_SetVoiceVolume player.synth, nChannel, outputVolume
 END SUB
@@ -677,6 +677,7 @@ SUB __MODPlayer_UpdateAMChannel (player AS MODPlayer, nChannel AS _UNSIGNED LONG
 
     DIM finalVol AS SINGLE
     finalVol = (CSNG(curLevel) / 256.0!) * (CSNG(player.song.globalVolume) / CSNG(__MODPLAYER_S3M_GLOBAL_VOLUME_MAX)) * player.song.pcmMasterGain
+    IF player.channel(nChannel).isMuted THEN finalVol = 0!
     SoftSynth_SetVoiceVolume player.synth, nChannel, finalVol
 
     DIM vibDelta AS LONG: vibDelta = 0
@@ -845,7 +846,7 @@ SUB __MODPlayer_UpdateFMVolume (player AS MODPlayer, nChannel AS _UNSIGNED LONG)
     DIM vol AS LONG
     vol = player.channel(nChannel).volume
     IF __MODPlayer_UsesS3MSemantics(player) THEN vol = (vol * player.channel(nChannel).channelVolume) \ __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
-    IF player.channel(nChannel).tremorMuted THEN vol = 0
+    IF player.channel(nChannel).tremorMuted _ORELSE player.channel(nChannel).isMuted THEN vol = 0
     vol = _CLAMP(vol, 0, __MODPLAYER_INSTRUMENT_VOLUME_MAX)
 
     IF subtype = __MODPLAYER_INSTRUMENT_FM_HIHAT _ORELSE subtype = __MODPLAYER_INSTRUMENT_FM_TOMTOM THEN
@@ -2685,3 +2686,90 @@ FUNCTION MODPlayer_GetChannelSubtypeCaption$ (player AS MODPlayer, nChannel AS _
             MODPlayer_GetChannelSubtypeCaption = "PCM"
     END SELECT
 END FUNCTION
+
+''' @brief Mutes or unmutes a specific playback channel.
+''' @param player The MOD player instance.
+''' @param nChannel Channel index (0-based).
+''' @param isMuted _TRUE to mute, _FALSE to unmute.
+SUB MODPlayer_MuteChannel (player AS MODPlayer, nChannel AS LONG, isMuted AS _BYTE)
+    IF nChannel < 0 _ORELSE nChannel >= player.song.channels THEN EXIT SUB
+
+    player.channel(nChannel).isMuted = isMuted
+
+    IF isMuted THEN
+        IF player.channel(nChannel).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY _ANDALSO player.channel(nChannel).subtype <= __MODPLAYER_INSTRUMENT_FM_HIHAT THEN
+            __MODPlayer_UpdateFMVolume player, nChannel
+        ELSE
+            SoftSynth_SetVoiceVolume player.synth, nChannel, 0!
+        END IF
+    ELSE
+        IF player.channel(nChannel).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY _ANDALSO player.channel(nChannel).subtype <= __MODPLAYER_INSTRUMENT_FM_HIHAT THEN
+            __MODPlayer_UpdateFMVolume player, nChannel
+        ELSEIF player.channel(nChannel).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
+            __MODPlayer_UpdateAMChannel player, nChannel
+        ELSE
+            __MODPlayer_ApplyChannelVolume player, nChannel
+        END IF
+    END IF
+END SUB
+
+''' @brief Toggles the mute state of a channel.
+''' @param player The MOD player instance.
+''' @param nChannel Channel index (0-based).
+SUB MODPlayer_ToggleChannelMute (player AS MODPlayer, nChannel AS LONG)
+    IF nChannel < 0 _ORELSE nChannel >= player.song.channels THEN EXIT SUB
+    MODPlayer_MuteChannel player, nChannel, NOT player.channel(nChannel).isMuted
+END SUB
+
+''' @brief Checks if a channel is currently muted.
+''' @param player The MOD player instance.
+''' @param nChannel Channel index (0-based).
+''' @return _TRUE if muted, _FALSE otherwise.
+FUNCTION MODPlayer_IsChannelMuted%% (player AS MODPlayer, nChannel AS LONG)
+    IF nChannel < 0 _ORELSE nChannel >= player.song.channels THEN EXIT FUNCTION
+    MODPlayer_IsChannelMuted = player.channel(nChannel).isMuted
+END FUNCTION
+
+''' @brief Checks if a channel is currently soloed (unmuted while all other channels are muted).
+''' @param player The MOD player instance.
+''' @param nChannel Channel index (0-based).
+''' @return _TRUE if soloed, _FALSE otherwise.
+FUNCTION MODPlayer_IsChannelSoloed%% (player AS MODPlayer, nChannel AS LONG)
+    IF nChannel < 0 _ORELSE nChannel >= player.song.channels THEN EXIT FUNCTION
+    IF player.channel(nChannel).isMuted THEN EXIT FUNCTION
+    IF player.song.channels <= 1 THEN EXIT FUNCTION
+
+    DIM c AS LONG
+    FOR c = 0 TO player.song.channels - 1
+        IF c <> nChannel THEN
+            IF NOT player.channel(c).isMuted THEN EXIT FUNCTION
+        END IF
+    NEXT c
+
+    MODPlayer_IsChannelSoloed = _TRUE
+END FUNCTION
+
+''' @brief Solos a channel (mutes all others), or toggles solo off if already soloed.
+''' @param player The MOD player instance.
+''' @param soloChannel Channel index (0-based).
+SUB MODPlayer_SoloChannel (player AS MODPlayer, soloChannel AS LONG)
+    IF soloChannel < 0 _ORELSE soloChannel >= player.song.channels THEN EXIT SUB
+
+    IF MODPlayer_IsChannelSoloed(player, soloChannel) THEN
+        MODPlayer_UnmuteAllChannels player
+    ELSE
+        DIM c AS LONG
+        FOR c = 0 TO player.song.channels - 1
+            MODPlayer_MuteChannel player, c, _IIF(c = soloChannel, _FALSE, _TRUE)
+        NEXT c
+    END IF
+END SUB
+
+''' @brief Unmutes all channels in the song.
+''' @param player The MOD player instance.
+SUB MODPlayer_UnmuteAllChannels (player AS MODPlayer)
+    DIM c AS LONG
+    FOR c = 0 TO player.song.channels - 1
+        MODPlayer_MuteChannel player, c, _FALSE
+    NEXT c
+END SUB

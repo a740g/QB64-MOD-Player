@@ -41,7 +41,7 @@ END TYPE
 TYPE __SoftSynthVoice
     sound AS LONG ' index into sounds array, or SOFTSYNTH_VOICE_NO_SOUND
     frequency AS _UNSIGNED LONG ' playback frequency in Hz
-    pitch AS SINGLE ' frequency / sampleRate — step rate through frames
+    pitch AS SINGLE ' frequency / sampleRate - step rate through frames
     volume AS SINGLE ' voice volume (0.0 - 1.0)
     panPosition AS SINGLE ' stereo pan (-1.0 left, 0.0 center, 1.0 right)
     leftGain AS SINGLE ' left channel gain (computed from panPosition)
@@ -57,7 +57,7 @@ TYPE __SoftSynthVoice
     isReverse AS _BYTE ' true when voice is in the backward phase of bidirectional loop
 END TYPE
 
-' Main synthesizer context — holds all sounds, voices, sound pipe, and mix buffer
+' Main synthesizer context - holds all sounds, voices, sound pipe, and mix buffer
 TYPE SoftSynth
     sounds(0 TO 0) _DYNAMIC AS __SoftSynthSound ' managed sound slots
     voices(0 TO 0) _DYNAMIC AS __SoftSynthVoice ' managed voice slots
@@ -230,7 +230,7 @@ SUB SoftSynth_LoadSound (ctx AS SoftSynth, snd AS LONG, buffer AS STRING, bytesP
     bytes = LEN(buffer)
     IF bytes = 0 THEN EXIT SUB
 
-    ' Ensure sound slot exists — grow the sounds array if needed
+    ' Ensure sound slot exists - grow the sounds array if needed
     IF snd >= ctx.totalSounds THEN
         DIM newCount AS LONG
         newCount = snd + 1
