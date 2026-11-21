@@ -611,19 +611,6 @@ DO
                 EXIT DO
             END IF
 
-        CASE _KEY_F1: App_HandleFKey 1
-        CASE _KEY_F2: App_HandleFKey 2
-        CASE _KEY_F3: App_HandleFKey 3
-        CASE _KEY_F4: App_HandleFKey 4
-        CASE _KEY_F5: App_HandleFKey 5
-        CASE _KEY_F6: App_HandleFKey 6
-        CASE _KEY_F7: App_HandleFKey 7
-        CASE _KEY_F8: App_HandleFKey 8
-        CASE _KEY_F9: App_HandleFKey 9
-        CASE _KEY_F10: App_HandleFKey 10
-        CASE _KEY_F11: App_HandleFKey 30
-        CASE _KEY_F12: App_HandleFKey 31
-
         CASE _KEY_LEFT
             IF Player.song.isPlaying THEN MODPlayer_GoToPreviousPosition Player
 

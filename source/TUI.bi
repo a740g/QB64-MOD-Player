@@ -40,24 +40,24 @@ CONST TUI_SCRUB_COOLOFF_SECS# = 0.08#
 TYPE __TUI_Context
     initialized AS _BYTE
     inFrame AS _BYTE
-    widgetCount AS LONG                 ' Current frame auto-incremented widget counter
-    totalWidgets AS LONG                ' Total interactive widgets from previous frame
-    focusedId AS LONG                   ' Currently focused widget ID (1..totalWidgets)
-    hotId AS LONG                       ' Currently hovered widget ID
-    activeId AS LONG                    ' Widget currently being pressed or dragged
-    mousePos AS Vector2f                ' Current mouse position (character column/row)
-    mousePressedL AS _BYTE              ' Left mouse button pressed down this frame
-    mouseClickedL AS _BYTE              ' Left mouse button released (clicked) this frame
-    mouseDownL AS _BYTE                 ' Left mouse button held down this frame
-    mousePressedR AS _BYTE              ' Right mouse button pressed down this frame
-    mouseClickedR AS _BYTE              ' Right mouse button released (clicked) this frame
-    navNext AS _BYTE                    ' Advance focus (Tab, Gamepad RB)
-    navPrev AS _BYTE                    ' Retreat focus (Shift+Tab, Gamepad LB)
-    navConfirm AS _BYTE                 ' Trigger focused widget (Enter, Space, Gamepad A)
-    navSolo AS _BYTE                    ' Trigger channel solo (S, Shift+Enter, Gamepad Y/X)
-    hasNavFocus AS _BYTE                ' True when keyboard/gamepad focus indicator is active
-    lastScrubTime AS DOUBLE             ' Uptime timestamp of last seek scrub
-    prevMousePos AS Vector2f            ' Previous frame mouse position
+    widgetCount AS LONG ' Current frame auto-incremented widget counter
+    totalWidgets AS LONG ' Total interactive widgets from previous frame
+    focusedId AS LONG ' Currently focused widget ID (1..totalWidgets)
+    hotId AS LONG ' Currently hovered widget ID
+    activeId AS LONG ' Widget currently being pressed or dragged
+    mousePos AS Vector2f ' Current mouse position (character column/row)
+    mousePressedL AS _BYTE ' Left mouse button pressed down this frame
+    mouseClickedL AS _BYTE ' Left mouse button released (clicked) this frame
+    mouseDownL AS _BYTE ' Left mouse button held down this frame
+    mousePressedR AS _BYTE ' Right mouse button pressed down this frame
+    mouseClickedR AS _BYTE ' Right mouse button released (clicked) this frame
+    navNext AS _BYTE ' Advance focus (Tab, Gamepad RB)
+    navPrev AS _BYTE ' Retreat focus (Shift+Tab, Gamepad LB)
+    navConfirm AS _BYTE ' Trigger focused widget (Enter, Space, Gamepad A)
+    navSolo AS _BYTE ' Trigger channel solo (S, Shift+Enter, Gamepad Y/X)
+    hasNavFocus AS _BYTE ' True when keyboard/gamepad focus indicator is active
+    lastScrubTime AS DOUBLE ' Uptime timestamp of last seek scrub
+    prevMousePos AS Vector2f ' Previous frame mouse position
 END TYPE
 
 DIM __TUI AS __TUI_Context
@@ -189,15 +189,15 @@ SUB __TUI_DrawButton (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isSunken 
         chTR = 187 ' Double top-right
         chBL = 200 ' Double bottom-left
         chBR = 188 ' Double bottom-right
-        chH = 205  ' Double horizontal
-        chV = 186  ' Double vertical
+        chH = 205 ' Double horizontal
+        chV = 186 ' Double vertical
     ELSE
         chTL = 218 ' Single top-left
         chTR = 191 ' Single top-right
         chBL = 192 ' Single bottom-left
         chBR = 217 ' Single bottom-right
-        chH = 196  ' Single horizontal
-        chV = 179  ' Single vertical
+        chH = 196 ' Single horizontal
+        chV = 179 ' Single vertical
     END IF
 
     DIM hLine AS STRING: hLine = STRING$(innerW, chH)

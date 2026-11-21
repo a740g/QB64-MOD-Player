@@ -380,7 +380,7 @@ FUNCTION FARLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     END IF
     player.song.defaultBPM = 80
     player.song.speed = player.song.defaultSpeed
-    player.song.bpm = player.song.defaultBPM
+    player.song.BPM = player.song.defaultBPM
     player.song.tick = player.song.speed
 
     player.song.globalVolume = __MODPLAYER_S3M_GLOBAL_VOLUME_MAX

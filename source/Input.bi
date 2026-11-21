@@ -109,11 +109,11 @@ CONST KEY_TILDE& = _ASC_TILDE
 
 ' Control and Extended Keys
 CONST KEY_ESCAPE& = _KEY_ESC
-CONST KEY_ENTER& = 13&
-CONST KEY_TAB& = 9&
-CONST KEY_BACKSPACE& = 8&
-CONST KEY_INSERT& = 20992&
-CONST KEY_DELETE& = 21248&
+CONST KEY_ENTER& = _KEY_ENTER
+CONST KEY_TAB& = _KEY_TAB
+CONST KEY_BACKSPACE& = _KEY_BACKSPACE
+CONST KEY_INSERT& = _KEY_INSERT
+CONST KEY_DELETE& = _KEY_DELETE
 CONST KEY_HOME& = _KEY_HOME
 CONST KEY_END& = _KEY_END
 CONST KEY_PAGEUP& = _KEY_PAGEUP
@@ -138,22 +138,30 @@ CONST KEY_F11& = _KEY_F11
 CONST KEY_F12& = _KEY_F12
 
 ' Virtual Key Modifiers
-CONST KEY_LSHIFT& = 100304&
-CONST KEY_RSHIFT& = 100303&
-CONST KEY_LCTRL& = 100306&
-CONST KEY_RCTRL& = 100305&
-CONST KEY_LALT& = 100308&
-CONST KEY_RALT& = 100307&
+CONST KEY_LSHIFT& = _KEY_LSHIFT
+CONST KEY_RSHIFT& = _KEY_RSHIFT
+CONST KEY_LCTRL& = _KEY_LCTRL
+CONST KEY_RCTRL& = _KEY_RCTRL
+CONST KEY_LALT& = _KEY_LALT
+CONST KEY_RALT& = _KEY_RALT
 CONST KEY_LSUPER& = 100311&
 CONST KEY_RSUPER& = 100312&
 
 ' Mouse Button Constants
 CONST MOUSE_BUTTON_LEFT& = 1&
+CONST MOUSE_BUTTON_1& = MOUSE_BUTTON_LEFT
 CONST MOUSE_BUTTON_RIGHT& = 2&
+CONST MOUSE_BUTTON_2& = MOUSE_BUTTON_RIGHT
 CONST MOUSE_BUTTON_MIDDLE& = 3&
-CONST MOUSE_BUTTON_CENTER& = 3&
-CONST MOUSE_BUTTON_FIRST& = 1&
-CONST MOUSE_BUTTON_LAST& = 3&
+CONST MOUSE_BUTTON_CENTER& = MOUSE_BUTTON_MIDDLE
+CONST MOUSE_BUTTON_3& = MOUSE_BUTTON_MIDDLE
+CONST MOUSE_BUTTON_4& = 4&
+CONST MOUSE_BUTTON_5& = 5&
+CONST MOUSE_BUTTON_6& = 6&
+CONST MOUSE_BUTTON_7& = 7&
+CONST MOUSE_BUTTON_8& = 8&
+CONST MOUSE_BUTTON_FIRST& = MOUSE_BUTTON_1
+CONST MOUSE_BUTTON_LAST& = MOUSE_BUTTON_8
 
 ' Gamepad Button Constants (Standard 10-Button Layout)
 CONST GAMEPAD_BUTTON_A& = 1&
@@ -191,6 +199,7 @@ TYPE __Input_MouseEvent
     lastPosition AS Vector2f
     delta AS Vector2f
     scrollWheelValue AS SINGLE
+    button(MOUSE_BUTTON_first TO MOUSE_BUTTON_last) AS __Input_MouseButtonState
 END TYPE
 
 TYPE __Input_GamepadButtonState
@@ -237,7 +246,6 @@ TYPE __Input
 END TYPE
 
 DIM __Input AS __Input
-DIM __Input_MouseButtonState(MOUSE_BUTTON_FIRST TO MOUSE_BUTTON_LAST) AS __Input_MouseButtonState
 
 ''' @brief Normalizes raw stick axis (1..254 with center ~127) to [-1.0, 1.0] with deadzone filtering.
 FUNCTION __Input_NormalizeAxis! (rawValue AS INTEGER, deadzone AS SINGLE)
@@ -253,7 +261,7 @@ END FUNCTION
 ''' Run this once per frame in the main application loop.
 SUB Input_Update
     SHARED __Input AS __Input
-    SHARED __Input_MouseButtonState() AS __Input_MouseButtonState
+
     STATIC lastMBDown(MOUSE_BUTTON_FIRST TO MOUSE_BUTTON_LAST) AS _BYTE
     STATIC lastGPDown(1 TO 2, GAMEPAD_BUTTON_FIRST TO GAMEPAD_BUTTON_LAST) AS _BYTE
 
@@ -276,8 +284,8 @@ SUB Input_Update
 
     DIM i AS LONG
     FOR i = MOUSE_BUTTON_FIRST TO MOUSE_BUTTON_LAST
-        __Input_MouseButtonState(i).wasPressed = _FALSE
-        __Input_MouseButtonState(i).wasClicked = _FALSE
+        __Input.mse.button(i).wasPressed = _FALSE
+        __Input.mse.button(i).wasClicked = _FALSE
     NEXT i
 
     ' 3. Process Pending Mouse Events
@@ -291,17 +299,17 @@ SUB Input_Update
             DIM currentDown AS _BYTE: currentDown = _MOUSEBUTTON(i)
 
             IF currentDown _ANDALSO NOT lastMBDown(i) THEN
-                __Input_MouseButtonState(i).downPosition = __Input.mse.position
-                __Input_MouseButtonState(i).clickedBounds.lt = __Input.mse.position
-                __Input_MouseButtonState(i).wasPressed = _TRUE
+                __Input.mse.button(i).downPosition = __Input.mse.position
+                __Input.mse.button(i).clickedBounds.lt = __Input.mse.position
+                __Input.mse.button(i).wasPressed = _TRUE
             ELSEIF NOT currentDown _ANDALSO lastMBDown(i) THEN
-                __Input_MouseButtonState(i).upPosition = __Input.mse.position
-                __Input_MouseButtonState(i).clickedBounds.rb = __Input.mse.position
-                Bounds2f_Sanitize __Input_MouseButtonState(i).clickedBounds
-                __Input_MouseButtonState(i).wasClicked = _TRUE
+                __Input.mse.button(i).upPosition = __Input.mse.position
+                __Input.mse.button(i).clickedBounds.rb = __Input.mse.position
+                Bounds2f_Sanitize __Input.mse.button(i).clickedBounds
+                __Input.mse.button(i).wasClicked = _TRUE
             END IF
 
-            __Input_MouseButtonState(i).isDown = currentDown
+            __Input.mse.button(i).isDown = currentDown
             lastMBDown(i) = currentDown
         NEXT i
     LOOP
@@ -522,75 +530,75 @@ END FUNCTION
 
 ''' @brief Checks if a mouse button is currently held down.
 FUNCTION Input_IsMouseButtonDown%% (button AS LONG)
-    SHARED __Input_MouseButtonState() AS __Input_MouseButtonState
+    SHARED __Input AS __Input
     IF button >= MOUSE_BUTTON_FIRST _ANDALSO button <= MOUSE_BUTTON_LAST THEN
-        Input_IsMouseButtonDown = __Input_MouseButtonState(button).isDown
+        Input_IsMouseButtonDown = __Input.mse.button(button).isDown
     END IF
 END FUNCTION
 
 ''' @brief Checks if a mouse button is currently held down (alias of Input_IsMouseButtonDown).
 FUNCTION Input_IsMouseButtonPressed%% (button AS LONG)
-    SHARED __Input_MouseButtonState() AS __Input_MouseButtonState
+    SHARED __Input AS __Input
     IF button >= MOUSE_BUTTON_FIRST _ANDALSO button <= MOUSE_BUTTON_LAST THEN
-        Input_IsMouseButtonPressed = __Input_MouseButtonState(button).isDown
+        Input_IsMouseButtonPressed = __Input.mse.button(button).isDown
     END IF
 END FUNCTION
 
 ''' @brief Checks if a mouse button was pressed down during this frame.
 FUNCTION Input_WasMouseButtonPressed%% (button AS LONG)
-    SHARED __Input_MouseButtonState() AS __Input_MouseButtonState
+    SHARED __Input AS __Input
     IF button >= MOUSE_BUTTON_FIRST _ANDALSO button <= MOUSE_BUTTON_LAST THEN
-        Input_WasMouseButtonPressed = __Input_MouseButtonState(button).wasPressed
+        Input_WasMouseButtonPressed = __Input.mse.button(button).wasPressed
     END IF
 END FUNCTION
 
 ''' @brief Checks if a mouse button was pressed down during this frame and consumes the flag.
 FUNCTION Input_GetMouseButtonPressed%% (button AS LONG)
-    SHARED __Input_MouseButtonState() AS __Input_MouseButtonState
+    SHARED __Input AS __Input
     IF button >= MOUSE_BUTTON_FIRST _ANDALSO button <= MOUSE_BUTTON_LAST THEN
-        Input_GetMouseButtonPressed = __Input_MouseButtonState(button).wasPressed
-        __Input_MouseButtonState(button).wasPressed = _FALSE
+        Input_GetMouseButtonPressed = __Input.mse.button(button).wasPressed
+        __Input.mse.button(button).wasPressed = _FALSE
     END IF
 END FUNCTION
 
 ''' @brief Checks if a mouse button was clicked (released) during this frame.
 FUNCTION Input_WasMouseButtonClicked%% (button AS LONG)
-    SHARED __Input_MouseButtonState() AS __Input_MouseButtonState
+    SHARED __Input AS __Input
     IF button >= MOUSE_BUTTON_FIRST _ANDALSO button <= MOUSE_BUTTON_LAST THEN
-        Input_WasMouseButtonClicked = __Input_MouseButtonState(button).wasClicked
+        Input_WasMouseButtonClicked = __Input.mse.button(button).wasClicked
     END IF
 END FUNCTION
 
 ''' @brief Checks if a mouse button was clicked during this frame and consumes the flag.
 FUNCTION Input_GetMouseButtonClicked%% (button AS LONG)
-    SHARED __Input_MouseButtonState() AS __Input_MouseButtonState
+    SHARED __Input AS __Input
     IF button >= MOUSE_BUTTON_FIRST _ANDALSO button <= MOUSE_BUTTON_LAST THEN
-        Input_GetMouseButtonClicked = __Input_MouseButtonState(button).wasClicked
-        __Input_MouseButtonState(button).wasClicked = _FALSE
+        Input_GetMouseButtonClicked = __Input.mse.button(button).wasClicked
+        __Input.mse.button(button).wasClicked = _FALSE
     END IF
 END FUNCTION
 
 ''' @brief Gets the position where the mouse button was pressed down.
 SUB Input_GetMouseButtonDownPosition (button AS LONG, position AS Vector2f)
-    SHARED __Input_MouseButtonState() AS __Input_MouseButtonState
+    SHARED __Input AS __Input
     IF button >= MOUSE_BUTTON_FIRST _ANDALSO button <= MOUSE_BUTTON_LAST THEN
-        position = __Input_MouseButtonState(button).downPosition
+        position = __Input.mse.button(button).downPosition
     END IF
 END SUB
 
 ''' @brief Gets the position where the mouse button was released.
 SUB Input_GetMouseButtonUpPosition (button AS LONG, position AS Vector2f)
-    SHARED __Input_MouseButtonState() AS __Input_MouseButtonState
+    SHARED __Input AS __Input
     IF button >= MOUSE_BUTTON_FIRST _ANDALSO button <= MOUSE_BUTTON_LAST THEN
-        position = __Input_MouseButtonState(button).upPosition
+        position = __Input.mse.button(button).upPosition
     END IF
 END SUB
 
 ''' @brief Gets the bounding box enclosing the mouse down and release positions.
 SUB Input_GetMouseButtonClickBounds (button AS LONG, bounds AS Bounds2f)
-    SHARED __Input_MouseButtonState() AS __Input_MouseButtonState
+    SHARED __Input AS __Input
     IF button >= MOUSE_BUTTON_FIRST _ANDALSO button <= MOUSE_BUTTON_LAST THEN
-        bounds = __Input_MouseButtonState(button).clickedBounds
+        bounds = __Input.mse.button(button).clickedBounds
     END IF
 END SUB
 
@@ -611,15 +619,15 @@ END FUNCTION
 
 ''' @brief Tests if a mouse button was clicked inside a rectangular region.
 FUNCTION Input_IsMouseClickInRect%% (button AS LONG, x1 AS SINGLE, y1 AS SINGLE, x2 AS SINGLE, y2 AS SINGLE)
-    SHARED __Input_MouseButtonState() AS __Input_MouseButtonState
+    SHARED __Input AS __Input
     IF button < MOUSE_BUTTON_FIRST _ORELSE button > MOUSE_BUTTON_LAST THEN EXIT FUNCTION
-    IF __Input_MouseButtonState(button).wasClicked THEN
+    IF __Input.mse.button(button).wasClicked THEN
         DIM minX AS SINGLE: minX = _MIN(x1, x2)
         DIM maxX AS SINGLE: maxX = _MAX(x1, x2)
         DIM minY AS SINGLE: minY = _MIN(y1, y2)
         DIM maxY AS SINGLE: maxY = _MAX(y1, y2)
-        DIM px AS SINGLE: px = __Input_MouseButtonState(button).upPosition.x
-        DIM py AS SINGLE: py = __Input_MouseButtonState(button).upPosition.y
+        DIM px AS SINGLE: px = __Input.mse.button(button).upPosition.x
+        DIM py AS SINGLE: py = __Input.mse.button(button).upPosition.y
         Input_IsMouseClickInRect = px >= minX _ANDALSO px <= maxX _ANDALSO py >= minY _ANDALSO py <= maxY
     END IF
 END FUNCTION
@@ -631,15 +639,15 @@ END FUNCTION
 
 ''' @brief Tests if a mouse button was pressed inside a rectangular region.
 FUNCTION Input_IsMousePressInRect%% (button AS LONG, x1 AS SINGLE, y1 AS SINGLE, x2 AS SINGLE, y2 AS SINGLE)
-    SHARED __Input_MouseButtonState() AS __Input_MouseButtonState
+    SHARED __Input AS __Input
     IF button < MOUSE_BUTTON_FIRST _ORELSE button > MOUSE_BUTTON_LAST THEN EXIT FUNCTION
-    IF __Input_MouseButtonState(button).wasPressed THEN
+    IF __Input.mse.button(button).wasPressed THEN
         DIM minX AS SINGLE: minX = _MIN(x1, x2)
         DIM maxX AS SINGLE: maxX = _MAX(x1, x2)
         DIM minY AS SINGLE: minY = _MIN(y1, y2)
         DIM maxY AS SINGLE: maxY = _MAX(y1, y2)
-        DIM px AS SINGLE: px = __Input_MouseButtonState(button).downPosition.x
-        DIM py AS SINGLE: py = __Input_MouseButtonState(button).downPosition.y
+        DIM px AS SINGLE: px = __Input.mse.button(button).downPosition.x
+        DIM py AS SINGLE: py = __Input.mse.button(button).downPosition.y
         Input_IsMousePressInRect = px >= minX _ANDALSO px <= maxX _ANDALSO py >= minY _ANDALSO py <= maxY
     END IF
 END FUNCTION

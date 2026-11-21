@@ -14,6 +14,7 @@ $INCLUDEONCE
 '$INCLUDE:'Background.bi'
 '$INCLUDE:'AudioAnalyzer.bi'
 '$INCLUDE:'MODPlayer.bi'
+'$INCLUDE:'MODPlayer.bm'
 '$INCLUDE:'Input.bi'
 '$INCLUDE:'TUI.bi'
 '$INCLUDE:'Playlist.bi'
@@ -107,7 +108,7 @@ FUNCTION UI_FormatTime$ (seconds AS DOUBLE)
     UI_FormatTime = mStr + ":" + sStr
 END FUNCTION
 
-''' @brief Renders the fixed top header across rows 1 to 5.
+''' @brief Renders the fixed top header across rows 1 to 7.
 ''' @param player The active MODPlayer instance.
 ''' @param pl The Playlist instance.
 ''' @param curTime Current song elapsed playback time in seconds.
@@ -139,8 +140,8 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, curTime AS DOUBLE
     ELSE
         titleStr = "No song loaded - Drag files or press Open..."
     END IF
-    IF LEN(titleStr) > 80 THEN titleStr = LEFT$(titleStr, 80)
-    _PRINTSTRING (35, 1), titleStr
+    IF LEN(titleStr) > 85 THEN titleStr = LEFT$(titleStr, 85)
+    _PRINTSTRING (36, 1), titleStr
 
     COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
     DIM timeStr AS STRING
@@ -155,12 +156,78 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, curTime AS DOUBLE
     END IF
     _PRINTSTRING (125, 1), timeStr
 
-    ' Row 2: 3D Transport Toolbar
+    ' Row 2: Playback Status & Position Scrubber Bar
+    DIM curOrd AS LONG: curOrd = _IIF(player.song.isPlaying, player.song.orderPosition, 0)
+    DIM maxOrd AS LONG: maxOrd = _IIF(player.song.isPlaying, _MAX(1, player.song.orders - 1), 1)
+
+    COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+    _PRINTSTRING (2, 2), "POS:"
+    DIM scrubResult AS LONG
+    scrubResult = TUI_ProgressBar(7, 2, 45, curOrd, maxOrd)
+    IF scrubResult >= 0 _ANDALSO player.song.isPlaying THEN
+        player.song.orderPosition = scrubResult
+        player.song.patternRow = 0
+    END IF
+
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+    DIM ordInfo AS STRING
+    IF player.song.isPlaying THEN
+        ordInfo = "ORD:" + _TRIM$(STR$(player.song.orderPosition)) + "/" + _TRIM$(STR$(player.song.orders - 1)) + _
+                  " PAT:" + _TRIM$(STR$(player.order(player.song.orderPosition))) + "/" + _TRIM$(STR$(player.song.patterns - 1))
+    ELSE
+        ordInfo = "ORD:--/-- PAT:--/--"
+    END IF
+    _PRINTSTRING (54, 2), ordInfo
+
+    COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+    DIM rowStr AS STRING
+    IF player.song.isPlaying THEN
+        DIM curPat AS LONG: curPat = player.order(player.song.orderPosition)
+        DIM curPatRows AS LONG: curPatRows = _IIF(curPat >= 0 _ANDALSO curPat < player.song.patterns, player.pattern(curPat).rows, 64)
+        rowStr = "ROW:" + _TRIM$(STR$(player.song.patternRow)) + "/" + _TRIM$(STR$(curPatRows - 1))
+    ELSE
+        rowStr = "ROW:--/--"
+    END IF
+    _PRINTSTRING (74, 2), rowStr
+
+    DIM bpmStr AS STRING
+    IF player.song.isPlaying THEN
+        bpmStr = "BPM:" + _TRIM$(STR$(player.song.BPM)) + " SPD:" + _TRIM$(STR$(player.song.speed))
+    ELSE
+        bpmStr = "BPM:--- SPD:--"
+    END IF
+    _PRINTSTRING (85, 2), bpmStr
+
+    DIM vocStr AS STRING
+    IF player.song.isPlaying THEN
+        vocStr = "VOC:" + _TRIM$(STR$(SoftSynth_GetActiveVoices(player.synth))) + "/" + _TRIM$(STR$(SoftSynth_GetTotalVoices(player.synth)))
+    ELSE
+        vocStr = "VOC:--/--"
+    END IF
+    _PRINTSTRING (100, 2), vocStr
+
+    DIM bufStr AS STRING
+    IF player.song.isPlaying THEN
+        bufStr = "BUF:" + _TRIM$(STR$(CLNG(SoftSynth_GetBufferedSoundTime(player.synth) * 1000#))) + "ms"
+    ELSE
+        bufStr = "BUF:----ms"
+    END IF
+    _PRINTSTRING (110, 2), bufStr
+
+    ' Interactive Master Volume Slider
+    DIM curVol AS SINGLE: curVol = SoftSynth_GetMasterVolume(player.synth)
+    DIM newVol AS SINGLE
+    newVol = TUI_Slider(121, 2, 11, curVol, 0!, SOFTSYNTH_MASTER_VOLUME_MAX, "VOL")
+    IF newVol <> curVol THEN
+        SoftSynth_SetMasterVolume player.synth, newVol
+    END IF
+
+    ' Rows 3 to 5: 3D Transport & Quick Action Toolbar
     DIM bx AS LONG: bx = 2
-    IF TUI_Button(bx, 2, 8, CHR$(17) + CHR$(17) + " Prev") THEN action = UI_ACTION_PREV_TRACK
+    IF TUI_Button(bx, 3, 8, CHR$(17) + CHR$(17) + " Prev") THEN action = UI_ACTION_PREV_TRACK
     bx = bx + 9
 
-    IF TUI_Button(bx, 2, 7, CHR$(17) + " Rwd") THEN
+    IF TUI_Button(bx, 3, 7, CHR$(17) + " Rwd") THEN
         IF player.song.isPlaying THEN MODPlayer_GoToPreviousPosition player
     END IF
     bx = bx + 8
@@ -171,7 +238,7 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, curTime AS DOUBLE
     ELSE
         playLabel = CHR$(16) + " Play "
     END IF
-    IF TUI_ToggleButton(bx, 2, 9, playLabel, player.song.isPlaying _ANDALSO NOT player.song.isPaused) THEN
+    IF TUI_ToggleButton(bx, 3, 9, playLabel, player.song.isPlaying _ANDALSO NOT player.song.isPaused) THEN
         IF player.song.isPlaying THEN
             player.song.isPaused = NOT player.song.isPaused
         ELSEIF pl.count > 0 THEN
@@ -180,30 +247,30 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, curTime AS DOUBLE
     END IF
     bx = bx + 10
 
-    IF TUI_Button(bx, 2, 8, CHR$(254) + " Stop") THEN action = UI_ACTION_STOP
+    IF TUI_Button(bx, 3, 8, CHR$(254) + " Stop") THEN action = UI_ACTION_STOP
     bx = bx + 9
 
-    IF TUI_Button(bx, 2, 7, "Fwd " + CHR$(16)) THEN
+    IF TUI_Button(bx, 3, 7, "Fwd " + CHR$(16)) THEN
         IF player.song.isPlaying THEN MODPlayer_GoToNextPosition player
     END IF
     bx = bx + 8
 
-    IF TUI_Button(bx, 2, 8, "Next " + CHR$(16) + CHR$(16)) THEN action = UI_ACTION_NEXT_TRACK
+    IF TUI_Button(bx, 3, 8, "Next " + CHR$(16) + CHR$(16)) THEN action = UI_ACTION_NEXT_TRACK
     bx = bx + 9
 
     ' Repeat mode cycle button
     DIM repLabel AS STRING
     SELECT CASE pl.repeatMode
         CASE PLAYLIST_REPEAT_NONE: repLabel = "Loop: None"
-        CASE PLAYLIST_REPEAT_ALL:  repLabel = "Loop: All "
-        CASE PLAYLIST_REPEAT_ONE:  repLabel = "Loop: Song"
+        CASE PLAYLIST_REPEAT_ALL: repLabel = "Loop: All "
+        CASE PLAYLIST_REPEAT_ONE: repLabel = "Loop: Song"
     END SELECT
-    IF TUI_Button(bx, 2, 12, repLabel) THEN
+    IF TUI_Button(bx, 3, 12, repLabel) THEN
         DIM nextRep AS _BYTE
         SELECT CASE pl.repeatMode
             CASE PLAYLIST_REPEAT_NONE: nextRep = PLAYLIST_REPEAT_ALL
-            CASE PLAYLIST_REPEAT_ALL:  nextRep = PLAYLIST_REPEAT_ONE
-            CASE PLAYLIST_REPEAT_ONE:  nextRep = PLAYLIST_REPEAT_NONE
+            CASE PLAYLIST_REPEAT_ALL: nextRep = PLAYLIST_REPEAT_ONE
+            CASE PLAYLIST_REPEAT_ONE: nextRep = PLAYLIST_REPEAT_NONE
         END SELECT
         Playlist_SetRepeatMode pl, nextRep
         player.song.isLooping = (nextRep = PLAYLIST_REPEAT_ONE)
@@ -212,79 +279,26 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, curTime AS DOUBLE
 
     ' Shuffle button
     DIM shufLabel AS STRING: shufLabel = _IIF(pl.isShuffle, "Shuf: ON ", "Shuf: OFF")
-    IF TUI_ToggleButton(bx, 2, 11, shufLabel, pl.isShuffle) THEN
+    IF TUI_ToggleButton(bx, 3, 11, shufLabel, pl.isShuffle) THEN
         Playlist_SetShuffle pl, NOT pl.isShuffle
     END IF
     bx = bx + 12
 
-    IF TUI_Button(bx, 2, 9, CHR$(14) + " Open...") THEN action = UI_ACTION_OPEN_FILE
-    bx = bx + 10
-
-    IF TUI_Button(bx, 2, 11, CHR$(14) + " Folder...") THEN action = UI_ACTION_OPEN_FOLDER
+    IF TUI_Button(bx, 3, 11, CHR$(14) + " File...") THEN action = UI_ACTION_OPEN_FILE
     bx = bx + 12
 
-    IF TUI_Button(bx, 2, 9, CHR$(15) + " ModArch") THEN action = UI_ACTION_MODARCHIVE
-    bx = bx + 10
+    IF TUI_Button(bx, 3, 13, CHR$(14) + " Folder...") THEN action = UI_ACTION_OPEN_FOLDER
+    bx = bx + 14
 
-    IF TUI_Button(bx, 2, 9, "Help F1") THEN showHelpModal = NOT showHelpModal
-    bx = bx + 10
+    IF TUI_Button(bx, 3, 13, CHR$(15) + " ModArch...") THEN action = UI_ACTION_MODARCHIVE
+    bx = bx + 14
 
-    IF TUI_Button(bx, 2, 8, "X Quit") THEN action = UI_ACTION_QUIT
+    IF TUI_Button(bx, 3, 11, "? Help F1") THEN showHelpModal = NOT showHelpModal
+    bx = bx + 12
 
-    ' Row 3: Progress and Order Scrubber
-    DIM curOrd AS LONG: curOrd = _IIF(player.song.isPlaying, player.song.orderPosition, 0)
-    DIM maxOrd AS LONG: maxOrd = _IIF(player.song.isPlaying, _MAX(1, player.song.orders - 1), 1)
+    IF TUI_Button(bx, 3, 11, "X Quit F12") THEN action = UI_ACTION_QUIT
 
-    COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-    _PRINTSTRING (2, 3), "POS:"
-    DIM scrubResult AS LONG
-    scrubResult = TUI_ProgressBar(7, 3, 100, curOrd, maxOrd)
-    IF scrubResult >= 0 _ANDALSO player.song.isPlaying THEN
-        player.song.orderPosition = scrubResult
-        player.song.patternRow = 0
-    END IF
-
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
-    IF player.song.isPlaying THEN
-        DIM ordInfo AS STRING
-        ordInfo = "ORD:" + STR$(player.song.orderPosition) + "/" + STR$(player.song.orders - 1) + _
-                  " PAT:" + STR$(player.order(player.song.orderPosition)) + "/" + STR$(player.song.patterns - 1)
-        _PRINTSTRING (110, 3), ordInfo
-    END IF
-
-    ' Row 4: Playback Status & Master Volume Slider
-    COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-    DIM statStr AS STRING
-    IF player.song.isPlaying THEN
-        DIM curPat AS LONG: curPat = player.order(player.song.orderPosition)
-        DIM curPatRows AS LONG: curPatRows = _IIF(curPat >= 0 _ANDALSO curPat < player.song.patterns, player.pattern(curPat).rows, 64)
-        statStr = "ROW:" + STR$(player.song.patternRow) + "/" + STR$(curPatRows - 1) + _
-                  "  BPM:" + STR$(player.song.BPM) + _
-                  "  SPD:" + STR$(player.song.speed) + _
-                  "  VOC:" + STR$(SoftSynth_GetActiveVoices(player.synth)) + "/" + STR$(SoftSynth_GetTotalVoices(player.synth))
-    ELSE
-        statStr = "ROW: --/--  BPM: ---  SPD: --  VOC: --/--"
-    END IF
-    _PRINTSTRING (2, 4), statStr
-
-    ' Interactive Master Volume Slider
-    DIM curVol AS SINGLE: curVol = SoftSynth_GetMasterVolume(player.synth)
-    DIM newVol AS SINGLE
-    newVol = TUI_Slider(80, 4, 16, curVol, 0!, SOFTSYNTH_MASTER_VOLUME_MAX, "VOL")
-    IF newVol <> curVol THEN
-        SoftSynth_SetMasterVolume player.synth, newVol
-    END IF
-
-    COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-    DIM bufStr AS STRING
-    IF player.song.isPlaying THEN
-        bufStr = "BUF: " + _TRIM$(STR$(CLNG(SoftSynth_GetBufferedSoundTime(player.synth) * 1000#))) + "ms"
-    ELSE
-        bufStr = "BUF: ----ms"
-    END IF
-    _PRINTSTRING (125, 4), bufStr
-
-    ' Row 5: 3D TabBar for Workstation Views
+    ' Rows 6 to 7: 3D TabBar for Workstation Views
     DIM tabs(1 TO 6) AS STRING
     tabs(1) = "F2: Tracker"
     tabs(2) = "F3: Mixer"
@@ -297,7 +311,7 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, curTime AS DOUBLE
     IF tabSel < 1 THEN tabSel = 1
     IF tabSel > 6 THEN tabSel = 6
 
-    IF TUI_TabBar(2, 5, tabs(), 6, tabSel) THEN
+    IF TUI_TabBar(2, 6, tabs(), 6, tabSel) THEN
         currentView = tabSel + 1
     END IF
 
@@ -393,34 +407,34 @@ FUNCTION UI_RenderOverview%% (bg AS Background, pl AS Playlist)
 
     ' Format capability cards
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK: _PRINTSTRING (22, 19), "[ MOD ]"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK:  _PRINTSTRING (30, 19), "ProTracker 1.0-3.6, FastTracker, Startrekker AM Synthesizer (4-32 Ch)"
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK: _PRINTSTRING (30, 19), "ProTracker 1.0-3.6, FastTracker, Startrekker AM Synthesizer (4-32 Ch)"
 
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK: _PRINTSTRING (22, 22), "[ S3M ]"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK:  _PRINTSTRING (30, 22), "Scream Tracker 3, AdLib FM (OPL2) Melodic & Drum Synthesis (1-32 Ch)"
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK: _PRINTSTRING (30, 22), "Scream Tracker 3, AdLib FM (OPL2) Melodic & Drum Synthesis (1-32 Ch)"
 
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK: _PRINTSTRING (22, 25), "[ MTM ]"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK:  _PRINTSTRING (30, 25), "MultiTracker 16-channel Module Format with custom pan tables"
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK: _PRINTSTRING (30, 25), "MultiTracker 16-channel Module Format with custom pan tables"
 
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK: _PRINTSTRING (22, 28), "[ FAR ]"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK:  _PRINTSTRING (30, 28), "Farandole Composer (up to 16 Ch, full chorus, depth & sustain)"
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK: _PRINTSTRING (30, 28), "Farandole Composer (up to 16 Ch, full chorus, depth & sustain)"
 
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK: _PRINTSTRING (22, 31), "[ STM ]"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK:  _PRINTSTRING (30, 31), "Scream Tracker 2.xx classic 4-channel PC soundtracker modules"
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK: _PRINTSTRING (30, 31), "Scream Tracker 2.xx classic 4-channel PC soundtracker modules"
 
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK: _PRINTSTRING (22, 34), "[ 669 ]"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK:  _PRINTSTRING (30, 34), "Composer 669 & Extended UNIS 669 (8-channel tempo modulation)"
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK: _PRINTSTRING (30, 34), "Composer 669 & Extended UNIS 669 (8-channel tempo modulation)"
 
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK: _PRINTSTRING (22, 37), "[ RAD ]"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK:  _PRINTSTRING (30, 37), "Reality AdLib Tracker v1.0 pure OPL2 synthesizer tunes"
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK: _PRINTSTRING (30, 37), "Reality AdLib Tracker v1.0 pure OPL2 synthesizer tunes"
 
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK: _PRINTSTRING (22, 40), "[ ULT ]"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK:  _PRINTSTRING (30, 40), "UltraTracker v1.1-1.6 multi-channel stereo soundscapes"
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK: _PRINTSTRING (30, 40), "UltraTracker v1.1-1.6 multi-channel stereo soundscapes"
 
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK: _PRINTSTRING (22, 43), "[ MDL ]"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK:  _PRINTSTRING (30, 43), "Digitrakker v0.0-1.1 multi-channel 8/16-bit tracker modules"
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK: _PRINTSTRING (30, 43), "Digitrakker v0.0-1.1 multi-channel 8/16-bit tracker modules"
 
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK: _PRINTSTRING (22, 46), "[ AMF ]"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK:  _PRINTSTRING (30, 46), "DSMI Advanced Module Format v0.8-1.4 with full stereo panning"
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK: _PRINTSTRING (30, 46), "DSMI Advanced Module Format v0.8-1.4 with full stereo panning"
 
     ' 3D Quick Action Buttons
     DIM btnY AS LONG: btnY = 52
@@ -460,7 +474,7 @@ SUB UI_RenderTracker (player AS MODPlayer, chanOffset AS LONG)
 
     ' Viewport channel paging buttons
     DIM pX AS LONG: pX = 2
-    IF TUI_Button(pX, 7, 16, CHR$(17) + " Prev Channels") THEN
+    IF TUI_Button(pX, 8, 16, CHR$(17) + " Prev Channels") THEN
         chanOffset = _MAX(0, chanOffset - UI_TRACKER_VISIBLE_CHANNELS)
     END IF
 
@@ -468,15 +482,15 @@ SUB UI_RenderTracker (player AS MODPlayer, chanOffset AS LONG)
     DIM endCh AS LONG: endCh = _MIN(totalChans, chanOffset + UI_TRACKER_VISIBLE_CHANNELS)
     pageInfo = "Channels " + _TRIM$(STR$(chanOffset + 1)) + " - " + _TRIM$(STR$(endCh)) + " of " + _TRIM$(STR$(totalChans))
     COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
-    _PRINTSTRING (60, 7), pageInfo
+    _PRINTSTRING (60, 9), pageInfo
 
-    IF TUI_Button(124, 7, 16, "Next Channels " + CHR$(16)) THEN
+    IF TUI_Button(126, 8, 16, "Next Channels " + CHR$(16)) THEN
         chanOffset = _MIN(maxOffset, chanOffset + UI_TRACKER_VISIBLE_CHANNELS)
     END IF
 
-    ' Pattern Header Row (row 9)
+    ' Pattern Header Row (row 11)
     COLOR TUI_COLOR_BLACK, TUI_COLOR_CYAN
-    _PRINTSTRING (2, 9), " PAT:RW "
+    _PRINTSTRING (2, 11), " PAT:RW "
 
     DIM visCount AS LONG: visCount = _MIN(UI_TRACKER_VISIBLE_CHANNELS, totalChans - chanOffset)
     DIM vc AS LONG
@@ -486,7 +500,7 @@ SUB UI_RenderTracker (player AS MODPlayer, chanOffset AS LONG)
 
         DIM badgeText AS STRING: badgeText = MODPlayer_GetChannelSubtypeCaption(player, ch)
         DIM chAct AS _BYTE
-        IF TUI_ChannelBadge(chBadgeX, 9, ch, badgeText, MODPlayer_IsChannelMuted(player, ch), MODPlayer_IsChannelSoloed(player, ch), chAct) THEN
+        IF TUI_ChannelBadge(chBadgeX, 11, ch, badgeText, MODPlayer_IsChannelMuted(player, ch), MODPlayer_IsChannelSoloed(player, ch), chAct) THEN
             IF chAct = TUI_CHANNEL_ACTION_MUTE THEN
                 MODPlayer_ToggleChannelMute player, ch
             ELSEIF chAct = TUI_CHANNEL_ACTION_SOLO THEN
@@ -495,14 +509,14 @@ SUB UI_RenderTracker (player AS MODPlayer, chanOffset AS LONG)
         END IF
 
         COLOR TUI_COLOR_BLACK, TUI_COLOR_CYAN
-        _PRINTSTRING (chBadgeX + 4, 9), " NOTE S# FX OP"
+        _PRINTSTRING (chBadgeX + 4, 11), " NOTE S# FX OP"
     NEXT vc
 
-    ' Pattern data matrix: rows 10 to 86 (77 rows visible!)
-    DIM centerLine AS LONG: centerLine = 48
+    ' Pattern data matrix: rows 12 to 86 (75 rows visible!)
+    DIM centerLine AS LONG: centerLine = 49
     DIM dispOrder AS LONG: dispOrder = player.song.orderPosition
     DIM dispRow AS LONG: dispRow = player.song.patternRow
-    DIM rowsAbove AS LONG: rowsAbove = centerLine - 10
+    DIM rowsAbove AS LONG: rowsAbove = centerLine - 12
 
     ' Rewind dispOrder / dispRow by rowsAbove
     WHILE rowsAbove > 0
@@ -528,7 +542,7 @@ SUB UI_RenderTracker (player AS MODPlayer, chanOffset AS LONG)
     WEND
 
     DIM r AS LONG
-    FOR r = 10 TO 86
+    FOR r = 12 TO 86
         DIM isValidRow AS _BYTE: isValidRow = _FALSE
         DIM drawP AS LONG: drawP = -1
 
@@ -623,7 +637,7 @@ SUB UI_RenderMixer (player AS MODPlayer)
         EXIT SUB
     END IF
 
-    TUI_Panel 2, 7, 140, 80, "32-Channel Master Console Mixer", _TRUE
+    TUI_Panel 2, 8, 140, 80, "32-Channel Master Console Mixer", _TRUE
 
     DIM totalChans AS LONG: totalChans = _MIN(32, player.song.channels)
     IF totalChans < 1 THEN EXIT SUB
@@ -706,13 +720,13 @@ SUB UI_RenderInstruments (player AS MODPlayer, selectedInst AS LONG, scrollOffse
     DIM totalInsts AS LONG: totalInsts = player.song.instruments
     selectedInst = _CLAMP(selectedInst, 1, _MAX(1, totalInsts))
 
-    ' Left Panel: Instrument Table (columns 2 to 84, rows 7 to 87)
-    TUI_Panel 2, 7, 82, 80, "Sample & Instrument Bank (" + _TRIM$(STR$(totalInsts)) + ")", _TRUE
+    ' Left Panel: Instrument Table (columns 2 to 84, rows 8 to 87)
+    TUI_Panel 2, 8, 82, 80, "Sample & Instrument Bank (" + _TRIM$(STR$(totalInsts)) + ")", _TRUE
 
     COLOR TUI_COLOR_BLACK, TUI_COLOR_CYAN
-    _PRINTSTRING (4, 9), " #  NAME                     VOL C2SPD   LEN    LOOP TYPE "
+    _PRINTSTRING (4, 10), " #  NAME                     VOL C2SPD   LEN    LOOP TYPE "
 
-    DIM maxRows AS LONG: maxRows = 74
+    DIM maxRows AS LONG: maxRows = 75
     scrollOffset = _CLAMP(scrollOffset, 1, _MAX(1, totalInsts - maxRows + 1))
 
     DIM r AS LONG
@@ -777,8 +791,8 @@ SUB UI_RenderInstruments (player AS MODPlayer, selectedInst AS LONG, scrollOffse
         END IF
     NEXT r
 
-    ' Right Panel: Detailed Synth Inspector (columns 86 to 142, rows 7 to 87)
-    TUI_Panel 86, 7, 56, 80, "Instrument Inspector", _TRUE
+    ' Right Panel: Detailed Synth Inspector (columns 86 to 142, rows 8 to 87)
+    TUI_Panel 86, 8, 56, 80, "Instrument Inspector", _TRUE
 
     DIM selIdx0 AS LONG: selIdx0 = selectedInst - 1
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
@@ -868,8 +882,8 @@ END SUB
 FUNCTION UI_RenderPlaylist%% (pl AS Playlist, selectedItem AS LONG, scrollOffset AS LONG)
     DIM action AS _BYTE: action = UI_ACTION_NONE%%
 
-    ' Left Panel: Playlist Queue Table (columns 2 to 95, rows 7 to 87)
-    TUI_Panel 2, 7, 93, 80, "Playback Queue (" + _TRIM$(STR$(pl.count)) + " Tracks)", _TRUE
+    ' Left Panel: Playlist Queue Table (columns 2 to 95, rows 8 to 87)
+    TUI_Panel 2, 8, 93, 80, "Playback Queue (" + _TRIM$(STR$(pl.count)) + " Tracks)", _TRUE
 
     DIM listItems(1 TO PLAYLIST_MAX_FILES) AS STRING
     DIM i AS LONG
@@ -885,14 +899,14 @@ FUNCTION UI_RenderPlaylist%% (pl AS Playlist, selectedItem AS LONG, scrollOffset
     NEXT i
 
     DIM activated AS LONG
-    activated = TUI_ScrollList(4, 9, 89, 76, listItems(), pl.count, selectedItem, scrollOffset)
+    activated = TUI_ScrollList(4, 10, 89, 76, listItems(), pl.count, selectedItem, scrollOffset)
     IF activated > 0 THEN
         pl.currentIndex = activated
         action = UI_ACTION_PLAY_INDEX
     END IF
 
-    ' Right Panel: Playlist Controls (columns 97 to 142, rows 7 to 87)
-    TUI_Panel 97, 7, 45, 80, "Queue Manager", _TRUE
+    ' Right Panel: Playlist Controls (columns 97 to 142, rows 8 to 87)
+    TUI_Panel 97, 8, 45, 80, "Queue Manager", _TRUE
 
     DIM bY AS LONG: bY = 11
     IF TUI_Button(101, bY, 20, CHR$(14) + " Add File(s)...") THEN action = UI_ACTION_OPEN_FILE
@@ -923,15 +937,15 @@ FUNCTION UI_RenderPlaylist%% (pl AS Playlist, selectedItem AS LONG, scrollOffset
     DIM rLabel AS STRING
     SELECT CASE pl.repeatMode
         CASE PLAYLIST_REPEAT_NONE: rLabel = "Repeat: None"
-        CASE PLAYLIST_REPEAT_ALL:  rLabel = "Repeat: All "
-        CASE PLAYLIST_REPEAT_ONE:  rLabel = "Repeat: Song"
+        CASE PLAYLIST_REPEAT_ALL: rLabel = "Repeat: All "
+        CASE PLAYLIST_REPEAT_ONE: rLabel = "Repeat: Song"
     END SELECT
     IF TUI_Button(101, bY, 20, rLabel) THEN
         DIM nextR AS _BYTE
         SELECT CASE pl.repeatMode
             CASE PLAYLIST_REPEAT_NONE: nextR = PLAYLIST_REPEAT_ALL
-            CASE PLAYLIST_REPEAT_ALL:  nextR = PLAYLIST_REPEAT_ONE
-            CASE PLAYLIST_REPEAT_ONE:  nextR = PLAYLIST_REPEAT_NONE
+            CASE PLAYLIST_REPEAT_ALL: nextR = PLAYLIST_REPEAT_ONE
+            CASE PLAYLIST_REPEAT_ONE: nextR = PLAYLIST_REPEAT_NONE
         END SELECT
         Playlist_SetRepeatMode pl, nextR
     END IF
@@ -970,8 +984,8 @@ SUB UI_RenderSongInfo (player AS MODPlayer, commentScroll AS LONG)
         EXIT SUB
     END IF
 
-    ' Top Panel: Technical Specifications (columns 2 to 142, rows 7 to 37)
-    TUI_Panel 2, 7, 140, 30, "Technical Specifications & Tracker Features", _TRUE
+    ' Top Panel: Technical Specifications (columns 2 to 142, rows 8 to 37)
+    TUI_Panel 2, 8, 140, 30, "Technical Specifications & Tracker Features", _TRUE
 
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
     _PRINTSTRING (6, 10), "Song Name:     " + player.song.caption
@@ -1052,8 +1066,8 @@ SUB UI_RenderVisualizer (player AS MODPlayer, analyzerL AS AudioAnalyzer, analyz
         EXIT SUB
     END IF
 
-    ' Top Panel: Stereo FFT Spectrum Analyzer (columns 2 to 142, rows 7 to 47)
-    TUI_Panel 2, 7, 140, 40, "Stereo FFT Spectrum Analyzer (Left & Right Channels)", _TRUE
+    ' Top Panel: Stereo FFT Spectrum Analyzer (columns 2 to 142, rows 8 to 46)
+    TUI_Panel 2, 8, 140, 39, "Stereo FFT Spectrum Analyzer (Left & Right Channels)", _TRUE
 
     ' Calculate 64-band FFT for Left and Right channels
     REDIM specL(0 TO 63) AS _UNSIGNED INTEGER
@@ -1068,26 +1082,26 @@ SUB UI_RenderVisualizer (player AS MODPlayer, analyzerL AS AudioAnalyzer, analyz
         DIM valR AS LONG: valR = _CLAMP(CLNG(_SHR(specR(b), 7)), 0, 34)
 
         ' Left channel vertical bar
-        TUI_VUMeter 5 + b, 10, 34, valL / 34!, valL / 34!, _FALSE
+        TUI_VUMeter 5 + b, 11, 34, valL / 34!, valL / 34!, _FALSE
 
         ' Right channel vertical bar
-        TUI_VUMeter 74 + b, 10, 34, valR / 34!, valR / 34!, _FALSE
+        TUI_VUMeter 74 + b, 11, 34, valR / 34!, valR / 34!, _FALSE
     NEXT b
 
-    ' Bottom Panel: Real-time Oscilloscope (columns 2 to 142, rows 49 to 87)
-    TUI_Panel 2, 49, 140, 38, "Stereo Real-time Waveform Oscilloscope", _TRUE
+    ' Bottom Panel: Real-time Oscilloscope (columns 2 to 142, rows 48 to 86)
+    TUI_Panel 2, 48, 140, 39, "Stereo Real-time Waveform Oscilloscope", _TRUE
 
-    DIM oscMidL AS LONG: oscMidL = 58
-    DIM oscMidR AS LONG: oscMidR = 76
+    DIM oscMidL AS LONG: oscMidL = 57
+    DIM oscMidR AS LONG: oscMidR = 75
 
     COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
     _PRINTSTRING (6, oscMidL), STRING$(132, 196)
     _PRINTSTRING (6, oscMidR), STRING$(132, 196)
 
     COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
-    _PRINTSTRING (6, 51), "Left Audio Channel"
+    _PRINTSTRING (6, 50), "Left Audio Channel"
     COLOR TUI_COLOR_LIGHT_MAGENTA, TUI_COLOR_BLACK
-    _PRINTSTRING (6, 69), "Right Audio Channel"
+    _PRINTSTRING (6, 68), "Right Audio Channel"
 
     ' Plot samples from soundBuffer
     DIM bufSamples AS LONG: bufSamples = player.synth.soundBufferSamples
@@ -1098,8 +1112,8 @@ SUB UI_RenderVisualizer (player AS MODPlayer, analyzerL AS AudioAnalyzer, analyz
             DIM fL AS SINGLE: fL = player.synth.soundBuffer(frameIdx)
             DIM fR AS SINGLE: fR = player.synth.soundBuffer(frameIdx + 1)
 
-            DIM yL AS LONG: yL = _CLAMP(oscMidL - CLNG(fL * 7!), 52, 64)
-            DIM yR AS LONG: yR = _CLAMP(oscMidR - CLNG(fR * 7!), 70, 82)
+            DIM yL AS LONG: yL = _CLAMP(oscMidL - CLNG(fL * 7!), 51, 63)
+            DIM yR AS LONG: yR = _CLAMP(oscMidR - CLNG(fR * 7!), 69, 81)
 
             COLOR TUI_COLOR_LIGHT_GREEN, TUI_COLOR_BLACK
             _PRINTSTRING (6 + sI, yL), CHR$(254)

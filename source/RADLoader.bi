@@ -80,12 +80,12 @@ FUNCTION RADLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
     ' Setup channels
     player.song.channels = __RADLOADER_CHANNELS
-    REDIM player.channel(0 TO __RADLOADER_CHANNELS - 1) AS __MODPlayerChannel
+    REDIM player.channel(0 TO __RADLOADER_CHANNELS - 1) AS __MODPLAYERCHANNEL
     SoftSynth_SetTotalVoices player.synth, __RADLOADER_CHANNELS
 
     ' Read instruments
     player.song.instruments = 0
-    REDIM player.instrument(0 TO __RADLOADER_MAX_INSTRUMENTS - 1) AS __MODPlayerInstrument
+    REDIM player.instrument(0 TO __RADLOADER_MAX_INSTRUMENTS - 1) AS __MODPLAYERINSTRUMENT
     DO
         IF StringFile_IsEOF(memFile) THEN EXIT FUNCTION
         DIM instNum AS _UNSIGNED _BYTE: instNum = StringFile_ReadByte(memFile)
@@ -131,10 +131,10 @@ FUNCTION RADLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     LOOP
 
     IF player.song.instruments > 0 THEN
-        REDIM _PRESERVE player.instrument(0 TO player.song.instruments - 1) AS __MODPlayerInstrument
+        REDIM _PRESERVE player.instrument(0 TO player.song.instruments - 1) AS __MODPLAYERINSTRUMENT
     ELSE
         player.song.instruments = 1
-        REDIM player.instrument(0 TO 0) AS __MODPlayerInstrument
+        REDIM player.instrument(0 TO 0) AS __MODPLAYERINSTRUMENT
     END IF
 
     ' Read orders
@@ -189,13 +189,13 @@ FUNCTION RADLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
     player.song.patterns = maxPatNum
     IF player.song.patterns = 0 THEN player.song.patterns = 1
-    REDIM player.pattern(0 TO player.song.patterns - 1) AS __MODPlayerPattern
+    REDIM player.pattern(0 TO player.song.patterns - 1) AS __MODPLAYERPATTERN
 
     ' Unpack patterns
     DIM p AS LONG
     FOR p = 0 TO player.song.patterns - 1
         player.pattern(p).rows = __RADLOADER_ROWS_PER_PATTERN
-        REDIM player.pattern(p).note(0 TO __RADLOADER_ROWS_PER_PATTERN - 1, 0 TO __RADLOADER_CHANNELS - 1) AS __MODPlayerNote
+        REDIM player.pattern(p).note(0 TO __RADLOADER_ROWS_PER_PATTERN - 1, 0 TO __RADLOADER_CHANNELS - 1) AS __MODPLAYERNOTE
         DIM rInit AS LONG, cInit AS LONG
         FOR rInit = 0 TO __RADLOADER_ROWS_PER_PATTERN - 1
             FOR cInit = 0 TO __RADLOADER_CHANNELS - 1
@@ -252,7 +252,7 @@ FUNCTION RADLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
                             IF cellInstNum > player.song.instruments THEN
                                 DIM oldInstCount AS LONG: oldInstCount = player.song.instruments
                                 player.song.instruments = cellInstNum
-                                REDIM _PRESERVE player.instrument(0 TO player.song.instruments - 1) AS __MODPlayerInstrument
+                                REDIM _PRESERVE player.instrument(0 TO player.song.instruments - 1) AS __MODPLAYERINSTRUMENT
                                 DIM fillIdx AS LONG
                                 FOR fillIdx = oldInstCount TO player.song.instruments - 1
                                     player.instrument(fillIdx).caption = "AdLib Instrument " + _TRIM$(STR$(fillIdx + 1))

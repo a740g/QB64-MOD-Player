@@ -258,7 +258,7 @@ FUNCTION __AMFLoader_LoadDSMI%% (player AS MODPlayer, memFile AS StringFile, buf
     IF version < 10 _ORELSE isTruncatedV10 THEN smpHdrSize = 59 ELSE smpHdrSize = 65
 
     player.song.instruments = numSamples
-    REDIM player.instrument(0 TO numSamples - 1) AS __MODPlayerInstrument
+    REDIM player.instrument(0 TO numSamples - 1) AS __MODPLAYERINSTRUMENT
     DIM sampleIndexMap(0 TO numSamples - 1) AS _UNSIGNED LONG
 
     DIM s AS LONG
@@ -380,13 +380,13 @@ FUNCTION __AMFLoader_LoadDSMI%% (player AS MODPlayer, memFile AS StringFile, buf
     player.song.orders = numOrders
     player.song.patterns = numOrders
     REDIM player.order(0 TO numOrders - 1) AS _UNSIGNED INTEGER
-    REDIM player.pattern(0 TO numOrders - 1) AS __MODPlayerPattern
+    REDIM player.pattern(0 TO numOrders - 1) AS __MODPLAYERPATTERN
 
     FOR ord = 0 TO numOrders - 1
         player.order(ord) = ord
         DIM patRows AS _UNSIGNED INTEGER: patRows = orderRows(ord)
         player.pattern(ord).rows = patRows
-        REDIM player.pattern(ord).note(0 TO patRows - 1, 0 TO numChannels - 1) AS __MODPlayerNote
+        REDIM player.pattern(ord).note(0 TO patRows - 1, 0 TO numChannels - 1) AS __MODPLAYERNOTE
 
         DIM r AS LONG
         FOR r = 0 TO patRows - 1
@@ -439,7 +439,7 @@ FUNCTION __AMFLoader_LoadDSMI%% (player AS MODPlayer, memFile AS StringFile, buf
 
     ' Channel configuration
     player.song.channels = numChannels
-    REDIM player.channel(0 TO numChannels - 1) AS __MODPlayerChannel
+    REDIM player.channel(0 TO numChannels - 1) AS __MODPLAYERCHANNEL
     SoftSynth_SetTotalVoices player.synth, numChannels
     FOR ch = 0 TO numChannels - 1
         player.channel(ch).subtype = __MODPLAYER_INSTRUMENT_PCM
@@ -462,7 +462,7 @@ FUNCTION __AMFLoader_LoadDSMI%% (player AS MODPlayer, memFile AS StringFile, buf
     player.song.defaultSpeed = defaultSpeed
     player.song.defaultBPM = defaultTempo
     player.song.speed = defaultSpeed
-    player.song.bpm = defaultTempo
+    player.song.BPM = defaultTempo
     player.song.tick = player.song.speed
     player.song.defaultGlobalVolume = __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
     player.song.globalVolume = player.song.defaultGlobalVolume
@@ -510,7 +510,7 @@ FUNCTION __AMFLoader_LoadAsylum%% (player AS MODPlayer, memFile AS StringFile)
 
     ' Sample headers (64 entries * 37 bytes)
     player.song.instruments = numSamples
-    REDIM player.instrument(0 TO numSamples - 1) AS __MODPlayerInstrument
+    REDIM player.instrument(0 TO numSamples - 1) AS __MODPLAYERINSTRUMENT
 
     DIM s AS LONG
     FOR s = 0 TO 63
@@ -546,12 +546,12 @@ FUNCTION __AMFLoader_LoadAsylum%% (player AS MODPlayer, memFile AS StringFile)
     ' Patterns (numPatterns of 64 rows * 8 channels)
     player.song.patterns = numPatterns
     player.song.channels = 8
-    REDIM player.pattern(0 TO numPatterns - 1) AS __MODPlayerPattern
+    REDIM player.pattern(0 TO numPatterns - 1) AS __MODPLAYERPATTERN
 
     DIM p AS LONG
     FOR p = 0 TO numPatterns - 1
         player.pattern(p).rows = 64
-        REDIM player.pattern(p).note(0 TO 63, 0 TO 7) AS __MODPlayerNote
+        REDIM player.pattern(p).note(0 TO 63, 0 TO 7) AS __MODPLAYERNOTE
 
         DIM r AS LONG
         FOR r = 0 TO 63
@@ -589,7 +589,7 @@ FUNCTION __AMFLoader_LoadAsylum%% (player AS MODPlayer, memFile AS StringFile)
     NEXT s
 
     ' Channel setup (8 channels, Amiga LRRL panning)
-    REDIM player.channel(0 TO 7) AS __MODPlayerChannel
+    REDIM player.channel(0 TO 7) AS __MODPLAYERCHANNEL
     SoftSynth_SetTotalVoices player.synth, 8
     FOR ch = 0 TO 7
         player.channel(ch).subtype = __MODPLAYER_INSTRUMENT_PCM
@@ -610,7 +610,7 @@ FUNCTION __AMFLoader_LoadAsylum%% (player AS MODPlayer, memFile AS StringFile)
     player.song.defaultBPM = defaultTempo
     IF player.song.defaultBPM < 32 THEN player.song.defaultBPM = 125
     player.song.speed = player.song.defaultSpeed
-    player.song.bpm = player.song.defaultBPM
+    player.song.BPM = player.song.defaultBPM
     player.song.tick = player.song.speed
     player.song.defaultGlobalVolume = __MODPLAYER_S3M_GLOBAL_VOLUME_MAX
     player.song.globalVolume = player.song.defaultGlobalVolume
