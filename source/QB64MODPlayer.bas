@@ -396,7 +396,7 @@ SUB App_Initialize
 
     Playlist_Initialize GlobalPlaylist
     DIM bgViewport AS Bounds2f
-    Bounds2f_Initialize 2!, 8!, CSNG(UI_SCREEN_WIDTH - 1), CSNG(UI_SCREEN_HEIGHT - 2), bgViewport
+    Bounds2f_Initialize 2!, 8!, UI_SCREEN_WIDTH - 1, UI_SCREEN_HEIGHT - 2, bgViewport
     Background_InitializeEx Bg, bgViewport
     CurrentView = UI_VIEW_MODE_TRACKER
     TrackerChanOffset = 0

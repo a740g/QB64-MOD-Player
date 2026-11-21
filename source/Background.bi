@@ -126,6 +126,7 @@ END TYPE
 TYPE __Background_Balls
     balls(1 TO __BACKGROUND_BALL_COUNT) AS __Background_Ball
     count AS LONG
+    quakeTimer AS LONG
 END TYPE
 
 TYPE __Background_MatrixDrop
@@ -861,6 +862,7 @@ END SUB
 ''' @param ctx Background context to initialize.
 SUB __Background_InitializeBalls (ctx AS Background)
     ctx.balls.count = __BACKGROUND_BALL_COUNT
+    ctx.balls.quakeTimer = Math_GetRandomBetween(150, 240)
     DIM minX AS LONG: minX = CLNG(ctx.viewport.lt.x)
     DIM maxX AS LONG: maxX = CLNG(ctx.viewport.rb.x)
     DIM minY AS LONG: minY = CLNG(ctx.viewport.lt.y)
@@ -890,8 +892,23 @@ SUB __Background_UpdateAndDrawBalls (ctx AS Background)
     DIM maxX AS LONG: maxX = CLNG(ctx.viewport.rb.x)
     DIM minY AS LONG: minY = CLNG(ctx.viewport.lt.y)
     DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
-
+    DIM H AS LONG: H = CLNG(ctx.size.y)
     DIM i AS LONG, j AS LONG
+
+    ' Periodic floor trampoline pulse (popcorn effect every 3-4 seconds)
+    ctx.balls.quakeTimer = ctx.balls.quakeTimer - 1
+    IF ctx.balls.quakeTimer <= 0 THEN
+        ctx.balls.quakeTimer = Math_GetRandomBetween(180, 260)
+        DIM qFloorY AS SINGLE: qFloorY = CSNG(maxY) - CSNG(H) * 0.28!
+        FOR i = 1 TO ctx.balls.count
+            IF ctx.balls.balls(i).position.y >= qFloorY THEN
+                ctx.balls.balls(i).velocity.y = -1.1! - RND * 0.75!
+                ctx.balls.balls(i).velocity.x = ctx.balls.balls(i).velocity.x + (RND - 0.5!) * 1.5!
+                ctx.balls.balls(i).c = Math_GetRandomBetween(9, 14)
+            END IF
+        NEXT i
+    END IF
+
     FOR i = 1 TO ctx.balls.count - 1
         FOR j = i + 1 TO ctx.balls.count
             DIM dx AS SINGLE: dx = ctx.balls.balls(j).position.x - ctx.balls.balls(i).position.x
@@ -904,7 +921,7 @@ SUB __Background_UpdateAndDrawBalls (ctx AS Background)
                 DIM ny AS SINGLE: ny = dy / dist
                 DIM kx AS SINGLE: kx = ctx.balls.balls(i).velocity.x - ctx.balls.balls(j).velocity.x
                 DIM ky AS SINGLE: ky = ctx.balls.balls(i).velocity.y - ctx.balls.balls(j).velocity.y
-                DIM p AS SINGLE: p = 2.0! * (nx * kx + ny * ky) / 2.0!
+                DIM p AS SINGLE: p = 2.04! * (nx * kx + ny * ky) / 2.0!
                 IF p > 0! THEN
                     ctx.balls.balls(i).velocity.x = ctx.balls.balls(i).velocity.x - p * nx
                     ctx.balls.balls(i).velocity.y = ctx.balls.balls(i).velocity.y - p * ny * 0.5!
@@ -920,21 +937,38 @@ SUB __Background_UpdateAndDrawBalls (ctx AS Background)
         ctx.balls.balls(i).position.x = ctx.balls.balls(i).position.x + ctx.balls.balls(i).velocity.x
         ctx.balls.balls(i).position.y = ctx.balls.balls(i).position.y + ctx.balls.balls(i).velocity.y
 
+        ' Left and right wall rebounds (high elasticity)
         IF ctx.balls.balls(i).position.x < CSNG(minX + 1) THEN
             ctx.balls.balls(i).position.x = CSNG(minX + 1)
-            ctx.balls.balls(i).velocity.x = ABS(ctx.balls.balls(i).velocity.x) * 0.95!
+            ctx.balls.balls(i).velocity.x = ABS(ctx.balls.balls(i).velocity.x) * 0.98!
+            IF ctx.balls.balls(i).velocity.x < 0.3! THEN ctx.balls.balls(i).velocity.x = 0.4! + RND * 0.4!
         ELSEIF ctx.balls.balls(i).position.x > CSNG(maxX - 1) THEN
             ctx.balls.balls(i).position.x = CSNG(maxX - 1)
-            ctx.balls.balls(i).velocity.x = -ABS(ctx.balls.balls(i).velocity.x) * 0.95!
+            ctx.balls.balls(i).velocity.x = -ABS(ctx.balls.balls(i).velocity.x) * 0.98!
+            IF ctx.balls.balls(i).velocity.x > -0.3! THEN ctx.balls.balls(i).velocity.x = -0.4! - RND * 0.4!
         END IF
 
+        ' Top ceiling rebound
         IF ctx.balls.balls(i).position.y < CSNG(minY + 1) THEN
             ctx.balls.balls(i).position.y = CSNG(minY + 1)
-            ctx.balls.balls(i).velocity.y = ABS(ctx.balls.balls(i).velocity.y) * 0.92!
+            ctx.balls.balls(i).velocity.y = ABS(ctx.balls.balls(i).velocity.y) * 0.94!
+        ' Bottom floor trampoline rebound
         ELSEIF ctx.balls.balls(i).position.y > CSNG(maxY - 1) THEN
             ctx.balls.balls(i).position.y = CSNG(maxY - 1)
-            ctx.balls.balls(i).velocity.y = -ABS(ctx.balls.balls(i).velocity.y) * 0.92!
-            ctx.balls.balls(i).velocity.x = ctx.balls.balls(i).velocity.x * 0.98!
+            DIM reboundVy AS SINGLE: reboundVy = ABS(ctx.balls.balls(i).velocity.y) * 0.94!
+            ' Trampoline spring threshold: if rebound velocity is small, give it a spring-loaded kick
+            IF reboundVy < 0.65! THEN
+                reboundVy = 0.85! + RND * 0.65!
+                ctx.balls.balls(i).velocity.x = ctx.balls.balls(i).velocity.x + (RND - 0.5!) * 0.6!
+            END IF
+            ctx.balls.balls(i).velocity.y = -reboundVy
+            ctx.balls.balls(i).velocity.x = ctx.balls.balls(i).velocity.x * 0.99!
+        END IF
+
+        ' Anti-stagnation failsafe: if total velocity drops too low, kick it back into action
+        IF ABS(ctx.balls.balls(i).velocity.x) + ABS(ctx.balls.balls(i).velocity.y) < 0.3! THEN
+            ctx.balls.balls(i).velocity.y = -0.9! - RND * 0.6!
+            ctx.balls.balls(i).velocity.x = (RND - 0.5!) * 1.4!
         END IF
 
         DIM bx AS LONG: bx = CLNG(ctx.balls.balls(i).position.x)
