@@ -1060,8 +1060,8 @@ SUB Background_InitializeEx (ctx AS Background, viewport AS Bounds2f)
         ctx.viewport.rb.y = _HEIGHT
     END IF 
 
-    ctx.size.x = Bounds2f_GetWidth(ctx.viewport)
-    ctx.size.y = Bounds2f_GetHeight(ctx.viewport)
+    ctx.size.x = Bounds2f_GetDiscreteWidth(ctx.viewport)
+    ctx.size.y = Bounds2f_GetDiscreteHeight(ctx.viewport)
 
     IF ctx.size.x < 1! _ORELSE ctx.size.y < 1! THEN
         ctx.viewport.lt.x = 1!

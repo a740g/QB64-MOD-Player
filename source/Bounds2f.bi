@@ -68,6 +68,20 @@ FUNCTION Bounds2f_GetHeight! (b AS Bounds2f)
     Bounds2f_GetHeight = b.rb.y - b.lt.y
 END FUNCTION
 
+''' @brief Returns the discrete / inclusive width of a sanitized bounding box including both edges (1 + rb.x - lt.x).
+''' @param b The bounding box.
+''' @return The inclusive width (1 + rb.x - lt.x).
+FUNCTION Bounds2f_GetDiscreteWidth! (b AS Bounds2f)
+    Bounds2f_GetDiscreteWidth = 1! + b.rb.x - b.lt.x
+END FUNCTION
+
+''' @brief Returns the discrete / inclusive height of a sanitized bounding box including both edges (1 + rb.y - lt.y).
+''' @param b The bounding box.
+''' @return The inclusive height (1 + rb.y - lt.y).
+FUNCTION Bounds2f_GetDiscreteHeight! (b AS Bounds2f)
+    Bounds2f_GetDiscreteHeight = 1! + b.rb.y - b.lt.y
+END FUNCTION
+
 ''' @brief Tests if a point lies within a bounding box (assumes sanitized).
 ''' @param b The bounding box.
 ''' @param pt The point to test.

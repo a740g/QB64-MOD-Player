@@ -1213,6 +1213,8 @@ END TYPE
 
 - `FUNCTION Bounds2f_GetWidth! (b AS Bounds2f)`: Returns the width (`rb.x - lt.x`).
 - `FUNCTION Bounds2f_GetHeight! (b AS Bounds2f)`: Returns the height (`rb.y - lt.y`).
+- `FUNCTION Bounds2f_GetDiscreteWidth! (b AS Bounds2f)`: Returns the discrete / inclusive width including both edges (`1 + rb.x - lt.x`).
+- `FUNCTION Bounds2f_GetDiscreteHeight! (b AS Bounds2f)`: Returns the discrete / inclusive height including both edges (`1 + rb.y - lt.y`).
 - `FUNCTION Bounds2f_ContainsPoint%% (b AS Bounds2f, pt AS Vector2f)`: Tests if point is inside or on the boundaries.
 - `FUNCTION Bounds2f_ContainsPointXY%% (b AS Bounds2f, x AS SINGLE, y AS SINGLE)`: Tests if `(x, y)` is inside.
 - `FUNCTION Bounds2f_Intersects%% (a AS Bounds2f, b AS Bounds2f)`: Tests if two bounding boxes overlap.

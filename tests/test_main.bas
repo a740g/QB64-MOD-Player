@@ -3293,7 +3293,9 @@ SUB Test_Background
     TEST_CHECK bg.viewport.rb.x = 90! AND bg.viewport.rb.y = 50!, "Viewport right-bottom set correctly"
     TEST_CHECK Bounds2f_GetWidth(bg.viewport) = 80!, "Viewport width is 80"
     TEST_CHECK Bounds2f_GetHeight(bg.viewport) = 38!, "Viewport height is 38"
-    TEST_CHECK bg.size.x = 80! AND bg.size.y = 38!, "Context size matches viewport dimensions"
+    TEST_CHECK Bounds2f_GetDiscreteWidth(bg.viewport) = 81!, "Viewport discrete width is 81"
+    TEST_CHECK Bounds2f_GetDiscreteHeight(bg.viewport) = 39!, "Viewport discrete height is 39"
+    TEST_CHECK bg.size.x = 81! AND bg.size.y = 39!, "Context size matches discrete viewport dimensions"
     Background_UpdateAndDraw bg
     TEST_CASE_END
 
@@ -3462,6 +3464,8 @@ SUB Test_Bounds2f
     TEST_CHECK b.rb.y = 60.0!, "b.rb.y initialized to 60.0"
     TEST_CHECK Bounds2f_GetWidth(b) = 40.0!, "Width is 40.0"
     TEST_CHECK Bounds2f_GetHeight(b) = 40.0!, "Height is 40.0"
+    TEST_CHECK Bounds2f_GetDiscreteWidth(b) = 41.0!, "Discrete width is 41.0"
+    TEST_CHECK Bounds2f_GetDiscreteHeight(b) = 41.0!, "Discrete height is 41.0"
 
     DIM v1 AS Vector2f, v2 AS Vector2f
     Vector2f_Set 5!, 15!, v1
@@ -3478,6 +3482,8 @@ SUB Test_Bounds2f
     TEST_CHECK b.lt.y = 20! AND b.rb.y = 200!, "Y coordinates swapped by Sanitize"
     TEST_CHECK Bounds2f_GetWidth(b) = 90!, "Sanitized width is 90"
     TEST_CHECK Bounds2f_GetHeight(b) = 180!, "Sanitized height is 180"
+    TEST_CHECK Bounds2f_GetDiscreteWidth(b) = 91!, "Sanitized discrete width is 91"
+    TEST_CHECK Bounds2f_GetDiscreteHeight(b) = 181!, "Sanitized discrete height is 181"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "Bounds2f: ContainsPoint and ContainsPointXY"
