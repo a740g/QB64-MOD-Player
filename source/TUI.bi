@@ -150,6 +150,10 @@ SUB TUI_End
         __TUI.focusedId = 0
     END IF
 
+    IF __TUI.mouseClickedL THEN
+        __TUI.activeId = 0
+    END IF
+
     __TUI.inFrame = _FALSE
 END SUB
 
@@ -267,7 +271,7 @@ FUNCTION TUI_ButtonEx%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isDisa
     ' Hit detection across all 3 lines
     DIM b AS Bounds2f
     Bounds2f_Set x, y, x + w - 0.001!, y + 2.999!, b
-    DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos)
+    DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
 
     IF isHovered THEN
         __TUI.hotId = thisId
@@ -278,8 +282,8 @@ FUNCTION TUI_ButtonEx%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isDisa
         END IF
     END IF
 
-    ' If this button is active or hovered, clicking occurs on mouse release
-    IF (__TUI.activeId = thisId _ANDALSO __TUI.mouseClickedL _ANDALSO isHovered) _ORELSE (isHovered _ANDALSO __TUI.mouseClickedL) THEN
+    ' Clicking occurs on mouse release only if this button was active (pressed) and is still hovered
+    IF __TUI.activeId = thisId _ANDALSO __TUI.mouseClickedL _ANDALSO isHovered THEN
         isClicked = _TRUE
         __TUI.activeId = 0
     END IF
@@ -341,7 +345,7 @@ FUNCTION TUI_ToggleButtonEx%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, 
 
     DIM b AS Bounds2f
     Bounds2f_Set x, y, x + w - 0.001!, y + 2.999!, b
-    DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos)
+    DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
 
     IF isHovered THEN
         __TUI.hotId = thisId
@@ -351,7 +355,7 @@ FUNCTION TUI_ToggleButtonEx%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, 
         END IF
     END IF
 
-    IF (__TUI.activeId = thisId _ANDALSO __TUI.mouseClickedL _ANDALSO isHovered) _ORELSE (isHovered _ANDALSO __TUI.mouseClickedL) THEN
+    IF __TUI.activeId = thisId _ANDALSO __TUI.mouseClickedL _ANDALSO isHovered THEN
         isClicked = _TRUE
         __TUI.activeId = 0
     END IF
@@ -413,16 +417,21 @@ FUNCTION TUI_ChannelBadge%% (x AS LONG, y AS LONG, ch AS LONG, badgeText AS STRI
 
     DIM b AS Bounds2f
     Bounds2f_Set x, y, x + w - 0.001!, y + 0.999!, b
-    DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos)
+    DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
 
     IF isHovered THEN
         __TUI.hotId = thisId
-        IF __TUI.mouseClickedL THEN
+        IF __TUI.mousePressedL THEN
             __TUI.activeId = thisId
-            outAction = TUI_CHANNEL_ACTION_MUTE
-        ELSEIF __TUI.mouseClickedR THEN
-            outAction = TUI_CHANNEL_ACTION_SOLO
+            __TUI.focusedId = thisId
         END IF
+    END IF
+
+    IF __TUI.activeId = thisId _ANDALSO __TUI.mouseClickedL _ANDALSO isHovered THEN
+        outAction = TUI_CHANNEL_ACTION_MUTE
+        __TUI.activeId = 0
+    ELSEIF isHovered _ANDALSO __TUI.mouseClickedR THEN
+        outAction = TUI_CHANNEL_ACTION_SOLO
     END IF
 
     DIM isFocused AS _BYTE: isFocused = (__TUI.focusedId = thisId)
@@ -493,17 +502,17 @@ FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS LONG, maxV
     ' Hit detection
     DIM b AS Bounds2f
     Bounds2f_Set x, y, x + w - 0.001!, y + 0.999!, b
-    DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos)
+    DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
 
     IF isHovered THEN
         __TUI.hotId = thisId
-        IF __TUI.mouseClickedL THEN
+        IF __TUI.mousePressedL _ORELSE __TUI.mouseClickedL THEN
             __TUI.activeId = thisId
         END IF
     END IF
 
     ' Mouse drag / click scrubbing
-    IF __TUI.activeId = thisId _ANDALSO __TUI.mouseDownL THEN
+    IF __TUI.activeId = thisId _ANDALSO (__TUI.mouseDownL _ORELSE __TUI.mouseClickedL) THEN
         DIM colFrac AS SINGLE
         colFrac = (INT(__TUI.mousePos.x) - (x + 1)) / CSNG(_MAX(1, innerW - 1))
         colFrac = _CLAMP(colFrac, 0!, 1!)
@@ -576,16 +585,16 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
     DIM totalW AS LONG: totalW = labelLen + 1 + w + 5 ' includes percentage display
     DIM b AS Bounds2f
     Bounds2f_Set x, y, x + totalW - 0.001!, y + 0.999!, b
-    DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos)
+    DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
 
     IF isHovered THEN
         __TUI.hotId = thisId
-        IF __TUI.mouseClickedL THEN
+        IF __TUI.mousePressedL _ORELSE __TUI.mouseClickedL THEN
             __TUI.activeId = thisId
         END IF
     END IF
 
-    IF __TUI.activeId = thisId _ANDALSO __TUI.mouseDownL THEN
+    IF __TUI.activeId = thisId _ANDALSO (__TUI.mouseDownL _ORELSE __TUI.mouseClickedL) THEN
         DIM ratio AS SINGLE
         ratio = (INT(__TUI.mousePos.x) - (barStart + 1)) / CSNG(_MAX(1, innerW - 1))
         ratio = _CLAMP(ratio, 0!, 1!)
@@ -733,7 +742,7 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount
 
             DIM b AS Bounds2f
             Bounds2f_Set curX, y, curX + tabW - 0.001!, y + 1.999!, b
-            DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos)
+            DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
 
             IF isHovered THEN
                 __TUI.hotId = thisId
@@ -743,7 +752,7 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount
                 END IF
             END IF
 
-            IF (__TUI.activeId = thisId _ANDALSO __TUI.mouseClickedL _ANDALSO isHovered) _ORELSE (isHovered _ANDALSO __TUI.mouseClickedL) THEN
+            IF __TUI.activeId = thisId _ANDALSO __TUI.mouseClickedL _ANDALSO isHovered THEN
                 IF selectedIdx <> i THEN
                     selectedIdx = i
                     changed = _TRUE
@@ -885,10 +894,13 @@ FUNCTION TUI_ScrollList& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS
 
     DIM b AS Bounds2f
     Bounds2f_Set x, y, x + w - 0.001!, y + h - 0.001!, b
-    DIM isListHovered AS _BYTE: isListHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos)
+    DIM isListHovered AS _BYTE: isListHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
 
     IF isListHovered THEN
         __TUI.hotId = thisId
+        IF __TUI.mousePressedL THEN
+            __TUI.activeId = thisId
+        END IF
         ' Mouse wheel scrolls the list
         DIM wheel AS SINGLE: wheel = Input_GetMouseScrollWheelValue
         IF wheel <> 0! THEN
@@ -915,11 +927,12 @@ FUNCTION TUI_ScrollList& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS
             DIM isSelected AS _BYTE: isSelected = (itemIdx = selectedIdx)
             DIM rowBounds AS Bounds2f
             Bounds2f_Set x, drawY, x + textW - 0.001!, drawY + 0.999!, rowBounds
-            DIM isRowHovered AS _BYTE: isRowHovered = Bounds2f_ContainsPoint(rowBounds, __TUI.mousePos)
+            DIM isRowHovered AS _BYTE: isRowHovered = Bounds2f_ContainsPoint(rowBounds, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
 
             IF isRowHovered _ANDALSO __TUI.mouseClickedL THEN
                 selectedIdx = itemIdx
                 itemActivated = itemIdx
+                __TUI.activeId = 0
             END IF
 
             IF isSelected THEN

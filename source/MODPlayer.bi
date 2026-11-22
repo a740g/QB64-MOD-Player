@@ -5,10 +5,10 @@
 
 $INCLUDEONCE
 
-$UNSTABLE:TYPEFIELDS
-
 '$INCLUDE:'SoftSynth.bi'
 '$INCLUDE:'Opal.bi'
+
+$UNSTABLE:TYPEFIELDS
 
 ' Tracker format identifiers
 CONST MODPLAYER_FORMAT_NONE~% = 0~%

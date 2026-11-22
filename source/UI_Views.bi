@@ -1,5 +1,5 @@
 '-----------------------------------------------------------------------------------------------------------------------
-' UI_Views - Modular Workstation Views for QB64-PE MOD Player
+' UI_Views - Modular Views for QB64-PE MOD Player
 ' Copyright (c) 2026 Samuel Gomes
 '-----------------------------------------------------------------------------------------------------------------------
 
@@ -12,7 +12,6 @@ $INCLUDEONCE
 '$INCLUDE:'Bounds2f.bi'
 '$INCLUDE:'Vector3f.bi'
 '$INCLUDE:'AudioAnalyzer.bi'
-'$INCLUDE:'MODPlayer.bi'
 '$INCLUDE:'MODPlayer.bm'
 '$INCLUDE:'Input.bi'
 '$INCLUDE:'TUI.bi'
@@ -124,7 +123,7 @@ END FUNCTION
 ''' @param pl The Playlist instance.
 ''' @param curTime Current song elapsed playback time in seconds.
 ''' @param totalTime Total estimated song duration in seconds (0 if unknown).
-''' @param currentView In/Out: Currently selected workstation view.
+''' @param currentView In/Out: Currently selected view.
 ''' @param showHelpModal In/Out: Flag indicating if help overlay is visible.
 ''' @return UI_ACTION code if transport button was triggered.
 FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, curTime AS DOUBLE, totalTime AS DOUBLE, currentView AS INTEGER, showHelpModal AS _BYTE)
@@ -314,7 +313,7 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, curTime AS DOUBLE
 
     IF TUI_Button(bx, 3, 11, "X Quit F12") THEN action = UI_ACTION_QUIT
 
-    ' Rows 6 to 7: 3D TabBar for Workstation Views
+    ' Rows 6 to 7: 3D TabBar for Views
     DIM tabs(1 TO 6) AS STRING
     tabs(1) = "F2: Tracker"
     tabs(2) = "F3: Mixer"
@@ -1081,7 +1080,7 @@ SUB UI_RenderHelpModal (showHelpModal AS _BYTE)
     TUI_Panel 14, 15, 116, 58, "Help, Engine Capabilities & Controls Reference", _TRUE
 
     COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
-    _PRINTSTRING (17, 17), "QB64-PE Universal MOD Player - Workstation Reference & About"
+    _PRINTSTRING (17, 17), "QB64-PE Universal MOD Player - Reference & About"
     COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
     _PRINTSTRING (85, 17), "by Samuel Gomes (a740g)"
 
@@ -1112,7 +1111,7 @@ SUB UI_RenderHelpModal (showHelpModal AS _BYTE)
     _PRINTSTRING (19, 33), "Command Line (CLI)    Launch from console: QB64MODPlayer.exe [file/folder/URL]"
 
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
-    _PRINTSTRING (17, 35), "Workstation View Navigation (Function Keys & Tabs 1 - 6):"
+    _PRINTSTRING (17, 35), "View Navigation (Function Keys & Tabs 1 - 6):"
     COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
     _PRINTSTRING (19, 37), "F1 / ? Help           Toggle this Help & Reference dialog"
     _PRINTSTRING (19, 38), "F2: Tracker View      8-channel pattern matrix viewport with live playback cursor and per-channel solo/mute"

@@ -1763,7 +1763,7 @@ Include header:
 '$INCLUDE:'Background.bi'
 ```
 
-Provides retro visual animation effects for the player workstation during idle playback or ambient mode. Supports 7 distinct background modes: 3D Starfield Warp, Kinetic Bouncing Snakes, Launching Fireworks, Retro Cellular Fire, Demoscene Plasma, Bouncing Kinetic Balls, and Digital Matrix Rain.
+Provides retro visual animation effects for the player during idle playback or ambient mode. Supports 7 distinct background modes: 3D Starfield Warp, Kinetic Bouncing Snakes, Launching Fireworks, Retro Cellular Fire, Demoscene Plasma, Bouncing Kinetic Balls, and Digital Matrix Rain.
 
 ### Background Constants and Modes
 

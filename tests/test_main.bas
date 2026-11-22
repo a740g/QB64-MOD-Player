@@ -3724,6 +3724,80 @@ SUB Test_TUI
     TUI_End
     TEST_CASE_END
 
+    TEST_CASE_BEGIN "TUI: Mouse Drag-Off Between Buttons (No Cross-Triggering)"
+    ' Step 1: Press and hold mouse down on Button A (at columns 10..19, rows 5..7)
+    TUI_Begin
+    Vector2f_Set 12!, 6!, __TUI.mousePos
+    __TUI.mousePressedL = _TRUE
+    __TUI.mouseDownL = _TRUE
+    __TUI.mouseClickedL = _FALSE
+
+    DIM btnA1 AS _BYTE: btnA1 = TUI_Button(10, 5, 10, "Button A")
+    DIM btnB1 AS _BYTE: btnB1 = TUI_Button(30, 5, 10, "Button B")
+    TEST_CHECK NOT btnA1, "Button A not clicked on press down"
+    TEST_CHECK NOT btnB1, "Button B not clicked on press down"
+    TEST_CHECK __TUI.activeId = 1, "Button A captured activeId = 1"
+    TUI_End
+
+    ' Step 2: Keep mouse button held, move pointer onto Button B (columns 30..39, rows 5..7)
+    TUI_Begin
+    Vector2f_Set 35!, 6!, __TUI.mousePos
+    __TUI.mousePressedL = _FALSE
+    __TUI.mouseDownL = _TRUE
+    __TUI.mouseClickedL = _FALSE
+    __TUI.activeId = 1
+
+    DIM btnA2 AS _BYTE: btnA2 = TUI_Button(10, 5, 10, "Button A")
+    DIM btnB2 AS _BYTE: btnB2 = TUI_Button(30, 5, 10, "Button B")
+    TEST_CHECK NOT btnA2, "Button A not clicked while dragging"
+    TEST_CHECK NOT btnB2, "Button B not clicked while dragging cursor over it"
+    TEST_CHECK __TUI.activeId = 1, "Button A still retains activeId during drag"
+    TUI_End
+
+    ' Step 3: Release mouse button while hovering over Button B!
+    TUI_Begin
+    Vector2f_Set 35!, 6!, __TUI.mousePos
+    __TUI.mousePressedL = _FALSE
+    __TUI.mouseDownL = _FALSE
+    __TUI.mouseClickedL = _TRUE
+    __TUI.activeId = 1
+
+    DIM btnA3 AS _BYTE: btnA3 = TUI_Button(10, 5, 10, "Button A")
+    DIM btnB3 AS _BYTE: btnB3 = TUI_Button(30, 5, 10, "Button B")
+    TEST_CHECK NOT btnA3, "Button A not clicked on release outside"
+    TEST_CHECK NOT btnB3, "Button B must NOT click when release was initiated on Button A"
+    TUI_End
+    TEST_CHECK __TUI.activeId = 0, "activeId reset to 0 in TUI_End"
+
+    ' Step 4: Verify normal press-and-release on Button B works properly
+    TUI_Begin
+    Vector2f_Set 35!, 6!, __TUI.mousePos
+    __TUI.mousePressedL = _TRUE
+    __TUI.mouseDownL = _TRUE
+    __TUI.mouseClickedL = _FALSE
+
+    DIM btnA4 AS _BYTE: btnA4 = TUI_Button(10, 5, 10, "Button A")
+    DIM btnB4 AS _BYTE: btnB4 = TUI_Button(30, 5, 10, "Button B")
+    TEST_CHECK NOT btnA4, "Button A not clicked"
+    TEST_CHECK NOT btnB4, "Button B not clicked on press down"
+    TEST_CHECK __TUI.activeId = 2, "Button B captured activeId = 2"
+    TUI_End
+
+    TUI_Begin
+    Vector2f_Set 35!, 6!, __TUI.mousePos
+    __TUI.mousePressedL = _FALSE
+    __TUI.mouseDownL = _FALSE
+    __TUI.mouseClickedL = _TRUE
+    __TUI.activeId = 2
+
+    DIM btnA5 AS _BYTE: btnA5 = TUI_Button(10, 5, 10, "Button A")
+    DIM btnB5 AS _BYTE: btnB5 = TUI_Button(30, 5, 10, "Button B")
+    TEST_CHECK NOT btnA5, "Button A not clicked"
+    TEST_CHECK btnB5, "Button B clicked on valid press-and-release on itself"
+    TUI_End
+    TEST_CHECK __TUI.activeId = 0, "activeId reset to 0"
+    TEST_CASE_END
+
     TEST_CASE_BEGIN "TUI: Buttons (TUI_Button and TUI_ToggleButton)"
     TUI_Begin
     ' Test 3-line tall bounding box hit detection:
