@@ -83,6 +83,9 @@ TYPE __TUI_Context
     hasNavFocus AS _BYTE ' True when keyboard/gamepad focus indicator is active
     lastScrubTime AS DOUBLE ' Uptime timestamp of last seek scrub
     prevMousePos AS Vector2f ' Previous frame mouse position
+    modalActive AS _BYTE ' True when a modal dialog is currently presented
+    modalBounds AS Bounds2f ' Bounding rectangle of the active modal dialog
+    inModal AS _BYTE ' True while currently executing inside the modal dialog
 END TYPE
 
 DIM __TUI AS __TUI_Context
@@ -94,6 +97,7 @@ SUB TUI_Begin
     __TUI.inFrame = _TRUE
     __TUI.widgetCount = 0
     __TUI.hotId = 0
+    __TUI.inModal = _FALSE
 
     ' Poll mouse state: track press down, held state, and click release
     __TUI.mousePressedL = Input_WasMouseButtonPressed(MOUSE_BUTTON_LEFT)
@@ -179,6 +183,44 @@ SUB TUI_ConsumeClick
     Input_ConsumeMouseButtonClick MOUSE_BUTTON_LEFT
 END SUB
 
+''' @brief Configures modal dialog state for the current TUI frame.
+''' @param active _TRUE if a modal dialog is presented, _FALSE otherwise.
+''' @param x Character column of top-left corner of modal dialog.
+''' @param y Character row of top-left corner of modal dialog.
+''' @param w Total width in characters of modal dialog.
+''' @param h Total height in characters of modal dialog.
+SUB TUI_SetModalState (active AS _BYTE, x AS LONG, y AS LONG, w AS LONG, h AS LONG)
+    SHARED __TUI AS __TUI_Context
+    __TUI.modalActive = active
+    IF active THEN
+        Bounds2f_Set x, y, x + w - 0.001!, y + h - 0.001!, __TUI.modalBounds
+    ELSE
+        Bounds2f_Set 0!, 0!, 0!, 0!, __TUI.modalBounds
+    END IF
+    __TUI.inModal = _FALSE
+END SUB
+
+''' @brief Marks the beginning of widgets belonging to the active modal dialog.
+SUB TUI_ModalBegin
+    SHARED __TUI AS __TUI_Context
+    __TUI.inModal = _TRUE
+END SUB
+
+''' @brief Marks the end of widgets belonging to the active modal dialog.
+SUB TUI_ModalEnd
+    SHARED __TUI AS __TUI_Context
+    __TUI.inModal = _FALSE
+END SUB
+
+''' @brief Checks if mouse interaction is blocked by an active modal dialog.
+''' @return _TRUE if mouse interaction is blocked for the current widget, _FALSE otherwise.
+FUNCTION __TUI_IsInputBlockedByModal%%
+    SHARED __TUI AS __TUI_Context
+    IF NOT __TUI.modalActive THEN EXIT FUNCTION
+    IF __TUI.inModal THEN EXIT FUNCTION
+    __TUI_IsInputBlockedByModal = Bounds2f_ContainsPoint(__TUI.modalBounds, __TUI.mousePos)
+END FUNCTION
+
 ''' @brief Tests if the left mouse button was clicked inside a rectangle, respecting active widget exclusivity.
 ''' @param x1 Left character column.
 ''' @param y1 Top character row.
@@ -188,6 +230,7 @@ END SUB
 FUNCTION TUI_IsMouseClickedInRect%% (x1 AS SINGLE, y1 AS SINGLE, x2 AS SINGLE, y2 AS SINGLE)
     SHARED __TUI AS __TUI_Context
     IF NOT __TUI.mouseClickedL THEN EXIT FUNCTION
+    IF __TUI_IsInputBlockedByModal THEN EXIT FUNCTION
 
     IF Input_WasMouseButtonClicked(MOUSE_BUTTON_LEFT) THEN
         TUI_IsMouseClickedInRect = Input_IsMouseClickInRect(MOUSE_BUTTON_LEFT, x1, y1, x2, y2)
@@ -315,7 +358,10 @@ FUNCTION TUI_ButtonEx%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isDisa
     ' Hit detection across all 3 lines
     DIM b AS Bounds2f
     Bounds2f_Set x, y, x + w - 0.001!, y + 2.999!, b
-    DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+    DIM isHovered AS _BYTE
+    IF NOT __TUI_IsInputBlockedByModal THEN
+        isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+    END IF
 
     IF isHovered THEN
         __TUI.hotId = thisId
@@ -335,7 +381,7 @@ FUNCTION TUI_ButtonEx%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isDisa
 
     ' Keyboard / Controller focus confirmation
     DIM isFocused AS _BYTE: isFocused = (__TUI.focusedId = thisId)
-    IF isFocused _ANDALSO __TUI.navConfirm THEN
+    IF isFocused _ANDALSO __TUI.navConfirm _ANDALSO NOT __TUI_IsInputBlockedByModal THEN
         isClicked = _TRUE
         Input_ConsumeKeyboardKey
     END IF
@@ -389,7 +435,10 @@ FUNCTION TUI_ToggleButtonEx%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, 
 
     DIM b AS Bounds2f
     Bounds2f_Set x, y, x + w - 0.001!, y + 2.999!, b
-    DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+    DIM isHovered AS _BYTE
+    IF NOT __TUI_IsInputBlockedByModal THEN
+        isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+    END IF
 
     IF isHovered THEN
         __TUI.hotId = thisId
@@ -406,7 +455,7 @@ FUNCTION TUI_ToggleButtonEx%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, 
     END IF
 
     DIM isFocused AS _BYTE: isFocused = (__TUI.focusedId = thisId)
-    IF isFocused _ANDALSO __TUI.navConfirm THEN
+    IF isFocused _ANDALSO __TUI.navConfirm _ANDALSO NOT __TUI_IsInputBlockedByModal THEN
         isClicked = _TRUE
         Input_ConsumeKeyboardKey
     END IF
@@ -468,7 +517,10 @@ FUNCTION TUI_ChannelBadge%% (x AS LONG, y AS LONG, ch AS LONG, badgeText AS STRI
 
     DIM b AS Bounds2f
     Bounds2f_Set x, y, x + w - 0.001!, y + 0.999!, b
-    DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+    DIM isHovered AS _BYTE
+    IF NOT __TUI_IsInputBlockedByModal THEN
+        isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+    END IF
 
     IF isHovered THEN
         __TUI.hotId = thisId
@@ -576,7 +628,10 @@ FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, ma
     ' Hit detection
     DIM b AS Bounds2f
     Bounds2f_Set x, y, x + totalW - 0.001!, y + 0.999!, b
-    DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+    DIM isHovered AS _BYTE
+    IF NOT __TUI_IsInputBlockedByModal THEN
+        isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+    END IF
 
     IF isHovered THEN
         __TUI.hotId = thisId
@@ -753,7 +808,10 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
     DIM totalW AS LONG: totalW = labelLen + 1 + w + 5
     DIM b AS Bounds2f
     Bounds2f_Set x, y, x + totalW - 0.001!, y + 0.999!, b
-    DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+    DIM isHovered AS _BYTE
+    IF NOT __TUI_IsInputBlockedByModal THEN
+        isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+    END IF
 
     IF isHovered THEN
         __TUI.hotId = thisId
@@ -1061,7 +1119,10 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, boxX1 AS LONG, boxY1 AS LONG, box
 
             DIM b AS Bounds2f
             Bounds2f_Set curX, y, curX + tabW - 0.001!, y + 1.999!, b
-            DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+            DIM isHovered AS _BYTE
+            IF NOT __TUI_IsInputBlockedByModal THEN
+                isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+            END IF
 
             IF isHovered THEN
                 __TUI.hotId = thisId
@@ -1334,7 +1395,10 @@ FUNCTION TUI_ScrollList& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS
 
     DIM b AS Bounds2f
     Bounds2f_Set x, y, x + w - 0.001!, y + h - 0.001!, b
-    DIM isListHovered AS _BYTE: isListHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+    DIM isListHovered AS _BYTE
+    IF NOT __TUI.modalActive THEN
+        isListHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+    END IF
 
     IF isListHovered THEN
         __TUI.hotId = thisId
@@ -1367,7 +1431,10 @@ FUNCTION TUI_ScrollList& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS
             DIM isSelected AS _BYTE: isSelected = (itemIdx = selectedIdx)
             DIM rowBounds AS Bounds2f
             Bounds2f_Set x, drawY, x + textW - 0.001!, drawY + 0.999!, rowBounds
-            DIM isRowHovered AS _BYTE: isRowHovered = Bounds2f_ContainsPoint(rowBounds, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+            DIM isRowHovered AS _BYTE
+            IF NOT __TUI.modalActive THEN
+                isRowHovered = Bounds2f_ContainsPoint(rowBounds, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+            END IF
 
             IF isRowHovered _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId) _ANDALSO TUI_IsMouseClickedInBounds(rowBounds) THEN
                 selectedIdx = itemIdx

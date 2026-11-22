@@ -1189,6 +1189,8 @@ END SUB
 ''' @brief Renders the pop-up Help & Controls Reference modal dialog.
 ''' @param showHelpModal In/Out: Flag indicating if modal is visible.
 SUB UI_RenderHelpModal (showHelpModal AS _BYTE)
+    TUI_ModalBegin
+
     ' Centered on screen (144x90): x=15 (margin 14 left/right), y=25 (margin 24 top/bottom), w=116, h=41
     TUI_Panel 15, 25, 116, 41, "Help & About Reference", _TRUE
 
@@ -1250,4 +1252,12 @@ SUB UI_RenderHelpModal (showHelpModal AS _BYTE)
     IF TUI_Button(59, 60, 28, "Close Help (F1 / Esc)") THEN
         showHelpModal = _FALSE
     END IF
+
+    ' Absorb any unhandled mouse click inside modal dialog bounds
+    SHARED __TUI AS __TUI_Context
+    IF __TUI.mouseClickedL _ANDALSO Bounds2f_ContainsPoint(__TUI.modalBounds, __TUI.mousePos) THEN
+        TUI_ConsumeClick
+    END IF
+
+    TUI_ModalEnd
 END SUB

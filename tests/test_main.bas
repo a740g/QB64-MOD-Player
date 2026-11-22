@@ -4182,6 +4182,65 @@ SUB Test_TUI
     TEST_CHECK __TUI.widgetCount = 1, "TUI_ScrollList registered as widget 1"
     TUI_End
     TEST_CASE_END
+
+    TEST_CASE_BEGIN "TUI: Modal Dialog Input Isolation and Click Absorption"
+    ' Frame 1: Modal active, click inside modal on a background button vs modal button
+    TUI_Begin
+    TUI_SetModalState _TRUE, 15, 25, 116, 41
+
+    ' Mouse is at (59, 60), left button clicked
+    Vector2f_Set 59!, 60!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE
+    __TUI.activeId = 1
+
+    ' Background button covered by modal dialog: should NOT be triggered
+    DIM bgBtnClicked AS _BYTE: bgBtnClicked = TUI_Button(55, 60, 20, "Background")
+    TEST_CHECK NOT bgBtnClicked, "Background button covered by modal does not receive click"
+
+    ' Background ScrollList: should NOT be triggered while modal is active
+    DIM dummyItems(1 TO 2) AS STRING: dummyItems(1) = "Item 1": dummyItems(2) = "Item 2"
+    DIM modalTestSel AS LONG: modalTestSel = 1
+    DIM modalTestScroll AS LONG: modalTestScroll = 1
+    DIM actItem AS LONG: actItem = TUI_ScrollList(5, 12, 88, 73, dummyItems(), 2, modalTestSel, modalTestScroll)
+    TEST_CHECK actItem = 0, "Background scroll list does not activate items while modal is active"
+    TEST_CHECK modalTestSel = 1, "Background scroll list selected item remains unchanged"
+
+    ' Now enter modal
+    TUI_ModalBegin
+    __TUI.activeId = 3 ' simulate modal button was pressed
+    DIM modalBtnClicked AS _BYTE: modalBtnClicked = TUI_Button(59, 60, 28, "Close")
+    TEST_CHECK modalBtnClicked, "Modal button receives click when mouse is inside"
+    TUI_ModalEnd
+    TUI_End
+
+    ' Frame 2: Mouse click on modal backdrop (unhandled click absorption)
+    TUI_Begin
+    TUI_SetModalState _TRUE, 15, 25, 116, 41
+    Vector2f_Set 30!, 30!, __TUI.mousePos ' Click on modal panel area, no button
+    __TUI.mouseClickedL = _TRUE
+
+    ' Background check is blocked
+    TEST_CHECK NOT TUI_IsMouseClickedInRect(20, 20, 40, 40), "Background click test is blocked by modal"
+
+    ' In modal: absorption check consumes unhandled click
+    TUI_ModalBegin
+    IF __TUI.mouseClickedL _ANDALSO Bounds2f_ContainsPoint(__TUI.modalBounds, __TUI.mousePos) THEN
+        TUI_ConsumeClick
+    END IF
+    TEST_CHECK NOT __TUI.mouseClickedL, "Modal dialog absorbs and consumes unhandled click"
+    TUI_ModalEnd
+    TUI_End
+
+    ' Frame 3: Reset modal state to normal
+    TUI_Begin
+    TUI_SetModalState _FALSE, 0, 0, 0, 0
+    Vector2f_Set 10!, 10!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE
+    __TUI.activeId = 1
+    DIM normalBtnClicked AS _BYTE: normalBtnClicked = TUI_Button(10, 10, 10, "Normal")
+    TEST_CHECK normalBtnClicked, "Normal button works after modal is dismissed"
+    TUI_End
+    TEST_CASE_END
 END SUB
 
 ''' @brief Tests for Playlist.bi queue management, shuffle, repeat, and M3U support.

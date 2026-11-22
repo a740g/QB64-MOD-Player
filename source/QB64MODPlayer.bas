@@ -509,6 +509,12 @@ DO
     ' Begin TUI frame
     TUI_Begin
 
+    IF ShowHelpModal THEN
+        TUI_SetModalState _TRUE, 15, 25, 116, 41
+    ELSE
+        TUI_SetModalState _FALSE, 0, 0, 0, 0
+    END IF
+
     DIM topAction AS _BYTE
     topAction = UI_DrawHeader(Player, GlobalPlaylist, CurrentView, ShowHelpModal)
 
@@ -524,9 +530,11 @@ DO
 
         CASE UI_VIEW_MODE_PLAYLIST
             DIM plAction AS _BYTE: plAction = UI_RenderPlaylist(GlobalPlaylist, SelectedPlaylistItem, PlaylistScrollOffset)
-            IF plAction = UI_ACTION_OPEN_FILE THEN App_OpenFileDialog
-            IF plAction = UI_ACTION_OPEN_FOLDER THEN App_OpenFolderDialog
-            IF plAction = UI_ACTION_PLAY_INDEX THEN App_PlayTrack SelectedPlaylistItem
+            IF NOT ShowHelpModal THEN
+                IF plAction = UI_ACTION_OPEN_FILE THEN App_OpenFileDialog
+                IF plAction = UI_ACTION_OPEN_FOLDER THEN App_OpenFolderDialog
+                IF plAction = UI_ACTION_PLAY_INDEX THEN App_PlayTrack SelectedPlaylistItem
+            END IF
 
         CASE UI_VIEW_MODE_SONGINFO
             UI_RenderSongInfo Player, CommentScrollOffset
@@ -536,7 +544,7 @@ DO
     END SELECT
 
     DIM footerKey AS INTEGER: footerKey = UI_DrawFooter(Player)
-    IF footerKey > 0 THEN App_HandleFKey footerKey
+    IF footerKey > 0 _ANDALSO NOT ShowHelpModal THEN App_HandleFKey footerKey
 
     IF ShowHelpModal THEN
         UI_RenderHelpModal ShowHelpModal
@@ -545,23 +553,25 @@ DO
     TUI_End
 
     ' Process transport actions triggered from header
-    SELECT CASE topAction
-        CASE UI_ACTION_QUIT: EXIT DO
-        CASE UI_ACTION_OPEN_FILE: App_OpenFileDialog
-        CASE UI_ACTION_OPEN_FOLDER: App_OpenFolderDialog
-        CASE UI_ACTION_MODARCHIVE: App_PlayModArchiveRandom
-        CASE UI_ACTION_PREV_TRACK: App_PlayPrevTrack
-        CASE UI_ACTION_NEXT_TRACK: App_PlayNextTrack
-        CASE UI_ACTION_STOP: App_StopPlayback
-        CASE UI_ACTION_PLAY_INDEX
-            IF GlobalPlaylist.currentIndex >= 1 _ANDALSO GlobalPlaylist.currentIndex <= GlobalPlaylist.count THEN
-                App_PlayTrack GlobalPlaylist.currentIndex
-            END IF
-    END SELECT
+    IF NOT ShowHelpModal THEN
+        SELECT CASE topAction
+            CASE UI_ACTION_QUIT: EXIT DO
+            CASE UI_ACTION_OPEN_FILE: App_OpenFileDialog
+            CASE UI_ACTION_OPEN_FOLDER: App_OpenFolderDialog
+            CASE UI_ACTION_MODARCHIVE: App_PlayModArchiveRandom
+            CASE UI_ACTION_PREV_TRACK: App_PlayPrevTrack
+            CASE UI_ACTION_NEXT_TRACK: App_PlayNextTrack
+            CASE UI_ACTION_STOP: App_StopPlayback
+            CASE UI_ACTION_PLAY_INDEX
+                IF GlobalPlaylist.currentIndex >= 1 _ANDALSO GlobalPlaylist.currentIndex <= GlobalPlaylist.count THEN
+                    App_PlayTrack GlobalPlaylist.currentIndex
+                END IF
+        END SELECT
+    END IF
 
     ' Mouse wheel handling based on active view
     DIM mWheel AS SINGLE: mWheel = Input_GetMouseScrollWheelValue
-    IF mWheel <> 0! THEN
+    IF mWheel <> 0! _ANDALSO NOT ShowHelpModal THEN
         SELECT CASE CurrentView
             CASE UI_VIEW_MODE_TRACKER
                 IF mWheel > 0! THEN
@@ -602,57 +612,62 @@ DO
                 EXIT DO
             END IF
 
-        CASE _KEY_LEFT
-            Input_ConsumeKeyboardKey
-            IF Player.song.isPlaying THEN MODPlayer_GoToPreviousPosition Player
+        CASE ELSE
+            IF NOT ShowHelpModal THEN
+                SELECT CASE k
+                    CASE _KEY_LEFT
+                        Input_ConsumeKeyboardKey
+                        IF Player.song.isPlaying THEN MODPlayer_GoToPreviousPosition Player
 
-        CASE _KEY_RIGHT
-            Input_ConsumeKeyboardKey
-            IF Player.song.isPlaying THEN MODPlayer_GoToNextPosition Player
+                    CASE _KEY_RIGHT
+                        Input_ConsumeKeyboardKey
+                        IF Player.song.isPlaying THEN MODPlayer_GoToNextPosition Player
 
-        CASE KEY_SPACE
-            Input_ConsumeKeyboardKey
-            IF Player.song.isPlaying THEN
-                Player.song.isPaused = NOT Player.song.isPaused
-            END IF
+                    CASE KEY_SPACE
+                        Input_ConsumeKeyboardKey
+                        IF Player.song.isPlaying THEN
+                            Player.song.isPaused = NOT Player.song.isPaused
+                        END IF
 
-        CASE KEY_PLUS, KEY_EQUAL
-            Input_ConsumeKeyboardKey
-            SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) + APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
+                    CASE KEY_PLUS, KEY_EQUAL
+                        Input_ConsumeKeyboardKey
+                        SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) + APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
 
-        CASE KEY_MINUS, KEY_UNDERSCORE
-            Input_ConsumeKeyboardKey
-            SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) - APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
+                    CASE KEY_MINUS, KEY_UNDERSCORE
+                        Input_ConsumeKeyboardKey
+                        SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) - APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
 
-        CASE KEY_UPPER_L, KEY_LOWER_L
-            Input_ConsumeKeyboardKey
-            App_CycleRepeatMode
+                    CASE KEY_UPPER_L, KEY_LOWER_L
+                        Input_ConsumeKeyboardKey
+                        App_CycleRepeatMode
 
-        CASE KEY_UPPER_B, KEY_LOWER_B
-            Input_ConsumeKeyboardKey
-            IF NOT Player.song.isPlaying THEN
-                Background_CycleMode Bg
-                CurrentView = UI_VIEW_MODE_VISUALIZER
-            END IF
+                    CASE KEY_UPPER_B, KEY_LOWER_B
+                        Input_ConsumeKeyboardKey
+                        IF NOT Player.song.isPlaying THEN
+                            Background_CycleMode Bg
+                            CurrentView = UI_VIEW_MODE_VISUALIZER
+                        END IF
 
-        CASE _KEY_PAGEUP
-            Input_ConsumeKeyboardKey
-            IF CurrentView = UI_VIEW_MODE_TRACKER THEN
-                TrackerChanOffset = _MAX(0, TrackerChanOffset - UI_TRACKER_VISIBLE_CHANNELS)
-            ELSEIF CurrentView = UI_VIEW_MODE_INSTRUMENTS THEN
-                InstrumentScrollOffset = _MAX(1, InstrumentScrollOffset - 10)
-            ELSEIF CurrentView = UI_VIEW_MODE_SONGINFO THEN
-                CommentScrollOffset = _MAX(1, CommentScrollOffset - 10)
-            END IF
+                    CASE _KEY_PAGEUP
+                        Input_ConsumeKeyboardKey
+                        IF CurrentView = UI_VIEW_MODE_TRACKER THEN
+                            TrackerChanOffset = _MAX(0, TrackerChanOffset - UI_TRACKER_VISIBLE_CHANNELS)
+                        ELSEIF CurrentView = UI_VIEW_MODE_INSTRUMENTS THEN
+                            InstrumentScrollOffset = _MAX(1, InstrumentScrollOffset - 10)
+                        ELSEIF CurrentView = UI_VIEW_MODE_SONGINFO THEN
+                            CommentScrollOffset = _MAX(1, CommentScrollOffset - 10)
+                        END IF
 
-        CASE _KEY_PAGEDOWN
-            Input_ConsumeKeyboardKey
-            IF CurrentView = UI_VIEW_MODE_TRACKER THEN
-                TrackerChanOffset = _MIN(_MAX(0, ((Player.song.channels - 1) \ UI_TRACKER_VISIBLE_CHANNELS) * UI_TRACKER_VISIBLE_CHANNELS), TrackerChanOffset + UI_TRACKER_VISIBLE_CHANNELS)
-            ELSEIF CurrentView = UI_VIEW_MODE_INSTRUMENTS THEN
-                InstrumentScrollOffset = _MIN(_MAX(1, Player.song.instruments), InstrumentScrollOffset + 10)
-            ELSEIF CurrentView = UI_VIEW_MODE_SONGINFO THEN
-                CommentScrollOffset = _MIN(500, CommentScrollOffset + 10)
+                    CASE _KEY_PAGEDOWN
+                        Input_ConsumeKeyboardKey
+                        IF CurrentView = UI_VIEW_MODE_TRACKER THEN
+                            TrackerChanOffset = _MIN(_MAX(0, ((Player.song.channels - 1) \ UI_TRACKER_VISIBLE_CHANNELS) * UI_TRACKER_VISIBLE_CHANNELS), TrackerChanOffset + UI_TRACKER_VISIBLE_CHANNELS)
+                        ELSEIF CurrentView = UI_VIEW_MODE_INSTRUMENTS THEN
+                            InstrumentScrollOffset = _MIN(_MAX(1, Player.song.instruments), InstrumentScrollOffset + 10)
+                        ELSEIF CurrentView = UI_VIEW_MODE_SONGINFO THEN
+                            CommentScrollOffset = _MIN(500, CommentScrollOffset + 10)
+                        END IF
+                END SELECT
             END IF
     END SELECT
 
