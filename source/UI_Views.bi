@@ -118,53 +118,96 @@ FUNCTION UI_FormatTime$ (seconds AS DOUBLE)
     UI_FormatTime = mStr + ":" + sStr
 END FUNCTION
 
+''' @brief Formats an integer to 3 digits with leading zeros (e.g. "005"), or "---" if negative.
+FUNCTION __UI_Format3$ (v AS LONG)
+    IF v < 0 THEN
+        __UI_Format3 = "---"
+    ELSE
+        DIM s AS STRING: s = _TRIM$(STR$(v))
+        IF LEN(s) = 1 THEN
+            __UI_Format3 = "00" + s
+        ELSEIF LEN(s) = 2 THEN
+            __UI_Format3 = "0" + s
+        ELSE
+            __UI_Format3 = s
+        END IF
+    END IF
+END FUNCTION
+
 ''' @brief Renders the fixed top header across rows 1 to 7.
 ''' @param player The active MODPlayer instance.
 ''' @param pl The Playlist instance.
-''' @param curTime Current song elapsed playback time in seconds.
-''' @param totalTime Total estimated song duration in seconds (0 if unknown).
 ''' @param currentView In/Out: Currently selected view.
 ''' @param showHelpModal In/Out: Flag indicating if help overlay is visible.
 ''' @return UI_ACTION code if transport button was triggered.
-FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, curTime AS DOUBLE, totalTime AS DOUBLE, currentView AS INTEGER, showHelpModal AS _BYTE)
+FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS INTEGER, showHelpModal AS _BYTE)
     DIM action AS _BYTE: action = UI_ACTION_NONE%%
 
-    ' Row 1: Logo, Format Badge, Song Title, and Time
-    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
-    _PRINTSTRING (2, 1), "QB64-PE MOD Player v2.2"
+    ' Row 1: Full-width Dark Gray Top Bar (Subtype, Song Title, and Counters)
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_GRAY
+    _PRINTSTRING (1, 1), SPACE$(UI_SCREEN_WIDTH)
 
-    DIM fmtName AS STRING
+    ' 4-character module subtype badge (columns 2 to 7)
+    DIM subTypeStr AS STRING
     IF player.song.isPlaying THEN
-        fmtName = UI_GetFormatName(player.song.format)
+        subTypeStr = String_MakePrintable(player.song.subtype)
+        IF LEN(subTypeStr) < 4 THEN subTypeStr = subTypeStr + SPACE$(4 - LEN(subTypeStr))
+        IF LEN(subTypeStr) > 4 THEN subTypeStr = LEFT$(subTypeStr, 4)
     ELSE
-        fmtName = "IDLE"
+        subTypeStr = "----"
     END IF
     COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLUE
-    _PRINTSTRING (27, 1), " " + fmtName + " "
+    _PRINTSTRING (2, 1), " " + subTypeStr + " "
 
-    COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
+    ' Song title (columns 9 to 101, max 93 chars)
     DIM titleStr AS STRING
     IF player.song.isPlaying THEN
         titleStr = player.song.caption
         IF LEN(titleStr) = 0 THEN titleStr = "[Untitled Module]"
+        COLOR TUI_COLOR_YELLOW, TUI_COLOR_GRAY
     ELSE
         titleStr = "No song loaded - Drag files or press Open..."
+        COLOR TUI_COLOR_WHITE, TUI_COLOR_GRAY
     END IF
-    IF LEN(titleStr) > 85 THEN titleStr = LEFT$(titleStr, 85)
-    _PRINTSTRING (36, 1), titleStr
+    IF LEN(titleStr) > 93 THEN titleStr = LEFT$(titleStr, 93)
+    _PRINTSTRING (9, 1), titleStr
 
-    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
-    DIM timeStr AS STRING
+    ' Counters: ORD: xxx/yyy, PAT: xxx/yyy, ROW: xxx/yyy (columns 104 to 143)
+    DIM ordVal AS LONG, maxOrdVal AS LONG
+    DIM patVal AS LONG, maxPatVal AS LONG
+    DIM rowVal AS LONG, maxRowVal AS LONG
     IF player.song.isPlaying THEN
-        IF totalTime > 0# THEN
-            timeStr = UI_FormatTime(curTime) + " / " + UI_FormatTime(totalTime)
-        ELSE
-            timeStr = UI_FormatTime(curTime) + " / --:--"
-        END IF
+        ordVal = player.song.orderPosition
+        maxOrdVal = _MAX(0, player.song.orders - 1)
+        patVal = player.order(player.song.orderPosition)
+        maxPatVal = _MAX(0, player.song.patterns - 1)
+        rowVal = player.song.patternRow
+        DIM curPatRows AS LONG
+        curPatRows = _IIF(patVal >= 0 _ANDALSO patVal < player.song.patterns, player.pattern(patVal).rows, 64)
+        maxRowVal = _MAX(0, curPatRows - 1)
     ELSE
-        timeStr = "--:-- / --:--"
+        ordVal = -1
+        maxOrdVal = -1
+        patVal = -1
+        maxPatVal = -1
+        rowVal = -1
+        maxRowVal = -1
     END IF
-    _PRINTSTRING (125, 1), timeStr
+
+    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
+    _PRINTSTRING (104, 1), "ORD:"
+    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GRAY
+    _PRINTSTRING (109, 1), __UI_Format3(ordVal) + "/" + __UI_Format3(maxOrdVal)
+
+    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
+    _PRINTSTRING (118, 1), "PAT:"
+    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GRAY
+    _PRINTSTRING (123, 1), __UI_Format3(patVal) + "/" + __UI_Format3(maxPatVal)
+
+    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
+    _PRINTSTRING (132, 1), "ROW:"
+    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GRAY
+    _PRINTSTRING (137, 1), __UI_Format3(rowVal) + "/" + __UI_Format3(maxRowVal)
 
     ' Row 2: Playback Status & Position Scrubber Bar
     DIM curOrd AS LONG: curOrd = _IIF(player.song.isPlaying, player.song.orderPosition, 0)
@@ -178,27 +221,6 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, curTime AS DOUBLE
         player.song.orderPosition = scrubResult
         player.song.patternRow = 0
     END IF
-
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
-    DIM ordInfo AS STRING
-    IF player.song.isPlaying THEN
-        ordInfo = "ORD:" + _TRIM$(STR$(player.song.orderPosition)) + "/" + _TRIM$(STR$(player.song.orders - 1)) + _
-                  " PAT:" + _TRIM$(STR$(player.order(player.song.orderPosition))) + "/" + _TRIM$(STR$(player.song.patterns - 1))
-    ELSE
-        ordInfo = "ORD:--/-- PAT:--/--"
-    END IF
-    _PRINTSTRING (54, 2), ordInfo
-
-    COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-    DIM rowStr AS STRING
-    IF player.song.isPlaying THEN
-        DIM curPat AS LONG: curPat = player.order(player.song.orderPosition)
-        DIM curPatRows AS LONG: curPatRows = _IIF(curPat >= 0 _ANDALSO curPat < player.song.patterns, player.pattern(curPat).rows, 64)
-        rowStr = "ROW:" + _TRIM$(STR$(player.song.patternRow)) + "/" + _TRIM$(STR$(curPatRows - 1))
-    ELSE
-        rowStr = "ROW:--/--"
-    END IF
-    _PRINTSTRING (74, 2), rowStr
 
     DIM bpmStr AS STRING
     IF player.song.isPlaying THEN

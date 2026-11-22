@@ -58,8 +58,6 @@ DIM PlaylistScrollOffset AS LONG
 DIM CommentScrollOffset AS LONG
 DIM ShowHelpModal AS _BYTE
 DIM QuitRequested AS _BYTE
-DIM SongStartTime AS DOUBLE
-DIM SongElapsedTime AS DOUBLE
 DIM Bg AS Background
 DIM Player AS MODPlayer
 DIM AnalyzerL AS AudioAnalyzer, AnalyzerR AS AudioAnalyzer
@@ -89,8 +87,6 @@ SUB App_PlayTrack (trackIdx AS LONG)
     SHARED GlobalPlaylist AS Playlist
     SHARED Player AS MODPlayer
     SHARED CurrentView AS INTEGER
-    SHARED SongStartTime AS DOUBLE
-    SHARED SongElapsedTime AS DOUBLE
     SHARED TrackerChanOffset AS LONG
     SHARED SelectedInstrument AS LONG
     SHARED InstrumentScrollOffset AS LONG
@@ -115,8 +111,6 @@ SUB App_PlayTrack (trackIdx AS LONG)
         MODPlayer_Play Player
         Player.song.isLooping = (GlobalPlaylist.repeatMode = PLAYLIST_REPEAT_ONE)
 
-        SongStartTime = _UPTIME
-        SongElapsedTime = 0#
         TrackerChanOffset = 0
         SelectedInstrument = 1
         InstrumentScrollOffset = 1
@@ -178,8 +172,6 @@ SUB App_HandleFKey (k AS INTEGER)
     SHARED ShowHelpModal AS _BYTE
     SHARED Player AS MODPlayer
     SHARED GlobalPlaylist AS Playlist
-    SHARED SongStartTime AS DOUBLE
-    SHARED SongElapsedTime AS DOUBLE
     SHARED QuitRequested AS _BYTE
 
     SELECT CASE k
@@ -207,7 +199,6 @@ SUB App_HandleFKey (k AS INTEGER)
         CASE 8 ' F8: Play / Pause
             IF Player.song.isPlaying THEN
                 Player.song.isPaused = NOT Player.song.isPaused
-                SongStartTime = _UPTIME - SongElapsedTime
             ELSEIF GlobalPlaylist.count > 0 THEN
                 DIM pIdx AS LONG: pIdx = GlobalPlaylist.currentIndex
                 IF pIdx < 1 THEN pIdx = 1
@@ -456,8 +447,6 @@ DO
         ' Auto-advance when song finishes
         IF NOT MODPlayer_IsPlaying(Player) THEN
             App_PlayNextTrack
-        ELSEIF NOT Player.song.isPaused THEN
-            SongElapsedTime = _UPTIME - SongStartTime
         END IF
     END IF
 
@@ -501,13 +490,8 @@ DO
     ' Begin TUI frame
     TUI_Begin
 
-    DIM estDur AS DOUBLE: estDur = 0#
-    IF GlobalPlaylist.currentIndex >= 1 _ANDALSO GlobalPlaylist.currentIndex <= GlobalPlaylist.count THEN
-        estDur = GlobalPlaylist.entries(GlobalPlaylist.currentIndex).duration
-    END IF
-
     DIM topAction AS _BYTE
-    topAction = UI_DrawHeader(Player, GlobalPlaylist, SongElapsedTime, estDur, CurrentView, ShowHelpModal)
+    topAction = UI_DrawHeader(Player, GlobalPlaylist, CurrentView, ShowHelpModal)
 
     SELECT CASE CurrentView
         CASE UI_VIEW_MODE_TRACKER
@@ -611,11 +595,6 @@ DO
             Input_ConsumeKeyboardKey
             IF Player.song.isPlaying THEN
                 Player.song.isPaused = NOT Player.song.isPaused
-                IF Player.song.isPaused THEN
-                    SongStartTime = _UPTIME - SongElapsedTime
-                ELSE
-                    SongStartTime = _UPTIME - SongElapsedTime
-                END IF
             END IF
 
         CASE KEY_PLUS, KEY_EQUAL
