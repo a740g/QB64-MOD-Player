@@ -167,6 +167,21 @@ END SUB
 
 ''' @brief Handles F1-F12 hotkey events and status bar mouse clicks.
 ''' @param k Key index: 1-10 (F1-F10), 30 (F11), 31 (F12).
+''' @brief Cycles playlist repeat mode (None -> All -> Song -> None).
+SUB App_CycleRepeatMode
+    SHARED GlobalPlaylist AS Playlist
+    SHARED Player AS MODPlayer
+
+    DIM nextRep AS _BYTE
+    SELECT CASE GlobalPlaylist.repeatMode
+        CASE PLAYLIST_REPEAT_NONE: nextRep = PLAYLIST_REPEAT_ALL
+        CASE PLAYLIST_REPEAT_ALL: nextRep = PLAYLIST_REPEAT_ONE
+        CASE PLAYLIST_REPEAT_ONE: nextRep = PLAYLIST_REPEAT_NONE
+    END SELECT
+    Playlist_SetRepeatMode GlobalPlaylist, nextRep
+    Player.song.isLooping = (nextRep = PLAYLIST_REPEAT_ONE)
+END SUB
+
 SUB App_HandleFKey (k AS INTEGER)
     SHARED CurrentView AS INTEGER
     SHARED ShowHelpModal AS _BYTE
@@ -212,9 +227,7 @@ SUB App_HandleFKey (k AS INTEGER)
             App_PlayNextTrack
 
         CASE 30 ' F11: Loop Mode
-            IF Player.song.isPlaying THEN
-                Player.song.isLooping = NOT Player.song.isLooping
-            END IF
+            App_CycleRepeatMode
 
         CASE 31 ' F12: Quit
             QuitRequested = _TRUE
@@ -398,7 +411,7 @@ SUB App_Initialize
     KEY 8, " PLAY"
     KEY 9, " PREV"
     KEY 10, " NEXT"
-    KEY 30, " LOOP"
+    KEY 30, " LP:NONE"
     KEY 31, " QUIT"
     KEY ON
 
@@ -437,7 +450,7 @@ App_Initialize
 App_ProcessCommandLine
 
 DIM lastPlayKeyText AS STRING: lastPlayKeyText = " PLAY"
-DIM lastLoopKeyText AS STRING: lastLoopKeyText = " LOOP"
+DIM lastLoopKeyText AS STRING: lastLoopKeyText = " LP:NONE"
 
 DO
     ' Audio synthesis & playback update
@@ -476,12 +489,14 @@ DO
         lastPlayKeyText = curPlayKeyText
     END IF
 
+    Player.song.isLooping = (GlobalPlaylist.repeatMode = PLAYLIST_REPEAT_ONE)
+
     DIM curLoopKeyText AS STRING
-    IF Player.song.isPlaying _ANDALSO Player.song.isLooping THEN
-        curLoopKeyText = " LOOP"
-    ELSE
-        curLoopKeyText = " ONCE"
-    END IF
+    SELECT CASE GlobalPlaylist.repeatMode
+        CASE PLAYLIST_REPEAT_NONE: curLoopKeyText = " LP:NONE"
+        CASE PLAYLIST_REPEAT_ALL: curLoopKeyText = " LP:ALL "
+        CASE PLAYLIST_REPEAT_ONE: curLoopKeyText = " LP:SONG"
+    END SELECT
     IF curLoopKeyText <> lastLoopKeyText THEN
         KEY 30, curLoopKeyText
         lastLoopKeyText = curLoopKeyText
@@ -607,9 +622,7 @@ DO
 
         CASE KEY_UPPER_L, KEY_LOWER_L
             Input_ConsumeKeyboardKey
-            IF Player.song.isPlaying THEN
-                Player.song.isLooping = NOT Player.song.isLooping
-            END IF
+            App_CycleRepeatMode
 
         CASE KEY_UPPER_B, KEY_LOWER_B
             Input_ConsumeKeyboardKey

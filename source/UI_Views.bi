@@ -984,9 +984,9 @@ FUNCTION UI_RenderPlaylist%% (pl AS Playlist, selectedItem AS LONG, scrollOffset
     ' Repeat mode toggle
     DIM rLabel AS STRING
     SELECT CASE pl.repeatMode
-        CASE PLAYLIST_REPEAT_NONE: rLabel = "Repeat: None"
-        CASE PLAYLIST_REPEAT_ALL: rLabel = "Repeat: All "
-        CASE PLAYLIST_REPEAT_ONE: rLabel = "Repeat: Song"
+        CASE PLAYLIST_REPEAT_NONE: rLabel = "Loop: None"
+        CASE PLAYLIST_REPEAT_ALL: rLabel = "Loop: All "
+        CASE PLAYLIST_REPEAT_ONE: rLabel = "Loop: Song"
     END SELECT
     IF TUI_Button(101, bY, 20, rLabel) THEN
         DIM nextR AS _BYTE
