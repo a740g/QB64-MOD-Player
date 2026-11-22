@@ -37,6 +37,16 @@ CONST TUI_CHANNEL_ACTION_SOLO%% = 2%%
 ' Scrubbing rate-limit cool-off interval in seconds
 CONST TUI_SCRUB_COOLOFF_SECS# = 0.08#
 
+' CP437 glyph constants for TUI widgets
+CONST __TUI_GLYPH_UP_ARROW = CHR$(30) ' Up arrow
+CONST __TUI_GLYPH_DOWN_ARROW = CHR$(31) ' Down arrow
+CONST __TUI_GLYPH_VLINE = CHR$(179) ' Single vertical line
+CONST __TUI_GLYPH_CORNER_TR = CHR$(191) ' Single top-right corner
+CONST __TUI_GLYPH_CORNER_TL = CHR$(218) ' Single top-left corner
+CONST __TUI_GLYPH_SOLID = CHR$(219) ' Solid block
+CONST __TUI_GLYPH_PEAK_DOT = CHR$(223) ' Top half block
+CONST __TUI_GLYPH_INACTIVE_DOT = CHR$(250) ' Inactive dot
+
 TYPE __TUI_Context
     initialized AS _BYTE
     inFrame AS _BYTE
@@ -715,8 +725,8 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount
             ' Render disabled tab (flat single-line border in dark gray, gray text on black)
             DIM hLineDis AS STRING: hLineDis = STRING$(tabW - 2, 196)
             COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-            _PRINTSTRING (curX, y), CHR$(218) + hLineDis + CHR$(191)
-            _PRINTSTRING (curX, y + 1), CHR$(179) + " " + tabText + " " + CHR$(179)
+            _PRINTSTRING (curX, y), __TUI_GLYPH_CORNER_TL + hLineDis + __TUI_GLYPH_CORNER_TR
+            _PRINTSTRING (curX, y + 1), __TUI_GLYPH_VLINE + " " + tabText + " " + __TUI_GLYPH_VLINE
         ELSE
             __TUI.widgetCount = __TUI.widgetCount + 1
             DIM thisId AS LONG: thisId = __TUI.widgetCount
@@ -841,12 +851,12 @@ SUB TUI_VUMeter (x AS LONG, y AS LONG, h AS LONG, level AS SINGLE, peak AS SINGL
         COLOR fgCol, TUI_COLOR_BLACK
 
         IF rowFromBot < filledRows THEN
-            _PRINTSTRING (x, drawY), CHR$(219) ' solid block
+            _PRINTSTRING (x, drawY), __TUI_GLYPH_SOLID ' solid block
         ELSEIF rowFromBot = peakRow _ANDALSO nPeak > 0.05! THEN
-            _PRINTSTRING (x, drawY), CHR$(223) ' top half block peak dot
+            _PRINTSTRING (x, drawY), __TUI_GLYPH_PEAK_DOT ' top half block peak dot
         ELSE
             COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-            _PRINTSTRING (x, drawY), CHR$(250) ' inactive dot
+            _PRINTSTRING (x, drawY), __TUI_GLYPH_INACTIVE_DOT ' inactive dot
         END IF
     NEXT r
 END SUB
@@ -929,9 +939,9 @@ FUNCTION TUI_ScrollList& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS
         ' Right border / scrollbar indicator
         COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
         IF r = 0 THEN
-            _PRINTSTRING (x + w - 1, drawY), CHR$(30) ' Up arrow
+            _PRINTSTRING (x + w - 1, drawY), __TUI_GLYPH_UP_ARROW ' Up arrow
         ELSEIF r = h - 1 THEN
-            _PRINTSTRING (x + w - 1, drawY), CHR$(31) ' Down arrow
+            _PRINTSTRING (x + w - 1, drawY), __TUI_GLYPH_DOWN_ARROW ' Down arrow
         ELSE
             ' Scroll thumb position
             DIM thumbPos AS LONG
@@ -942,10 +952,10 @@ FUNCTION TUI_ScrollList& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS
             END IF
             IF r = thumbPos THEN
                 COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
-                _PRINTSTRING (x + w - 1, drawY), CHR$(219) ' Scroll thumb
+                _PRINTSTRING (x + w - 1, drawY), __TUI_GLYPH_SOLID ' Scroll thumb
             ELSE
                 COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-                _PRINTSTRING (x + w - 1, drawY), CHR$(179) ' Scroll track
+                _PRINTSTRING (x + w - 1, drawY), __TUI_GLYPH_VLINE ' Scroll track
             END IF
         END IF
     NEXT r

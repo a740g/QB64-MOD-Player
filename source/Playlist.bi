@@ -289,7 +289,7 @@ FUNCTION Playlist_LoadM3U%% (pl AS Playlist, m3uFilePath AS STRING)
     DIM cLen AS LONG: cLen = LEN(content)
 
     WHILE pStart <= cLen
-        DIM pEnd AS LONG: pEnd = INSTR(pStart, content, CHR$(10))
+        DIM pEnd AS LONG: pEnd = INSTR(pStart, content, _STR_LF)
         DIM lineStr AS STRING
 
         IF pEnd > 0 THEN
@@ -302,7 +302,7 @@ FUNCTION Playlist_LoadM3U%% (pl AS Playlist, m3uFilePath AS STRING)
 
         ' Trim carriage return and whitespace
         lineStr = _TRIM$(lineStr)
-        IF RIGHT$(lineStr, 1) = CHR$(13) THEN lineStr = LEFT$(lineStr, LEN(lineStr) - 1)
+        IF RIGHT$(lineStr, 1) = _CHR_CR THEN lineStr = LEFT$(lineStr, LEN(lineStr) - 1)
         lineStr = _TRIM$(lineStr)
 
         IF LEN(lineStr) > 0 THEN
@@ -350,13 +350,13 @@ END SUB
 FUNCTION Playlist_SaveM3U%% (pl AS Playlist, m3uFilePath AS STRING)
     IF pl.count <= 0 THEN EXIT FUNCTION
 
-    DIM outStr AS STRING: outStr = "#EXTM3U" + CHR$(13) + CHR$(10)
+    DIM outStr AS STRING: outStr = "#EXTM3U" + _STR_CRLF
 
     DIM i AS LONG
     FOR i = 1 TO pl.count
         DIM durStr AS STRING: durStr = _TRIM$(STR$(CLNG(pl.entries(i).duration)))
-        outStr = outStr + "#EXTINF:" + durStr + "," + pl.entries(i).title + CHR$(13) + CHR$(10)
-        outStr = outStr + pl.entries(i).filePath + CHR$(13) + CHR$(10)
+        outStr = outStr + "#EXTINF:" + durStr + "," + pl.entries(i).title + _STR_CRLF
+        outStr = outStr + pl.entries(i).filePath + _STR_CRLF
     NEXT i
 
     Playlist_SaveM3U = File_Save(outStr, m3uFilePath, _TRUE)

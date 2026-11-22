@@ -659,7 +659,7 @@ SUB Test_MODPlayer_MTM
     TEST_CHECK player.song.instruments = 31, "Instrument count is 31"
     TEST_CHECK player.song.patterns = 49, "Pattern count is 49"
     TEST_CHECK INSTR(player.song.comment, "inspekdah") > 0, "Comment contains author text"
-    TEST_CHECK INSTR(player.song.comment, CHR$(13) + CHR$(10)) > 0, "Comment is formatted with linebreaks"
+    TEST_CHECK INSTR(player.song.comment, _STR_CRLF) > 0, "Comment is formatted with linebreaks"
     TEST_CHECK player.channel(0).panning = player.channel(0).defaultPanning, "Channel panning matches default"
 
     MODPlayer_Play player
@@ -784,7 +784,7 @@ SUB Test_FARLoader
     DIM player AS MODPlayer
     TEST_REQUIRE FARLoader_LoadFromDisk(player, "mods/M31.far"), "FARLoader loads M31.far"
     TEST_CHECK INSTR(MODPlayer_GetName(player), "M31") > 0, "Song caption matches"
-    TEST_CHECK INSTR(player.song.comment, CHR$(13) + CHR$(10)) > 0, "M31 comment contains linebreaks"
+    TEST_CHECK INSTR(player.song.comment, _STR_CRLF) > 0, "M31 comment contains linebreaks"
     TEST_CHECK INSTR(player.song.comment, "S-U-P-E-R-H-O-U-S-E") > 0, "M31 comment text contains S-U-P-E-R-H-O-U-S-E"
     TEST_CHECK MODPlayer_GetType(player) = "FAR", "Song subtype is FAR"
     TEST_CHECK player.song.channels = 16, "FAR has 16 channels"
@@ -2804,7 +2804,7 @@ SUB Test_FAR_Effects
 
     ' Verify comment formatting
     DIM expectedComment AS STRING
-    expectedComment = "First Line" + CHR$(13) + CHR$(10) + "Second Line"
+    expectedComment = "First Line" + _STR_CRLF + "Second Line"
     TEST_CHECK pSynth.song.comment = expectedComment, "FAR comment formatted to multi-line with nulls converted to spaces"
 
     ' Verify Note and Effect translations on Row 0

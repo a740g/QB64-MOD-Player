@@ -57,7 +57,7 @@ FUNCTION RADLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
             DIM chByte AS _UNSIGNED _BYTE: chByte = StringFile_ReadByte(memFile)
             IF chByte = 0 THEN EXIT DO
             IF chByte = 1 THEN
-                descStr = descStr + CHR$(13) + CHR$(10)
+                descStr = descStr + _STR_CRLF
             ELSEIF chByte >= 2 _ANDALSO chByte <= 31 THEN
                 descStr = descStr + SPACE$(chByte)
             ELSE
@@ -72,9 +72,9 @@ FUNCTION RADLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
     player.song.comment = descStr
     DIM firstLine AS STRING: firstLine = descStr
-    DIM crlfPos AS LONG: crlfPos = INSTR(firstLine, CHR$(13))
+    DIM crlfPos AS LONG: crlfPos = INSTR(firstLine, _CHR_CR)
     IF crlfPos > 0 THEN firstLine = LEFT$(firstLine, crlfPos - 1)
-    crlfPos = INSTR(firstLine, CHR$(10))
+    crlfPos = INSTR(firstLine, _STR_LF)
     IF crlfPos > 0 THEN firstLine = LEFT$(firstLine, crlfPos - 1)
     player.song.caption = _TRIM$(firstLine)
 

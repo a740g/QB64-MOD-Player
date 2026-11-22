@@ -13,7 +13,7 @@ $INCLUDEONCE
 '$INCLUDE:'MODPlayerShared.bm'
 
 CONST __FARLOADER_MAGIC = "FAR" + CHR$(254)
-CONST __FARLOADER_EOF = CHR$(13) + CHR$(10) + CHR$(26)
+CONST __FARLOADER_EOF = _STR_CRLF + _CHR_SUB
 CONST __FARLOADER_CHANNELS = 16
 CONST __FARLOADER_HEADER_MIN_SIZE = 869
 CONST __FARLOADER_C2SPD = 16726
@@ -71,13 +71,13 @@ FUNCTION FARLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
             NEXT k
             lineChunk = RTRIM$(String_MakePrintable(lineChunk))
             IF LEN(formattedComment) > 0 THEN
-                formattedComment = formattedComment + CHR$(13) + CHR$(10) + lineChunk
+                formattedComment = formattedComment + _STR_CRLF + lineChunk
             ELSE
                 formattedComment = lineChunk
             END IF
             cOffset = cOffset + 132
         WEND
-        DO WHILE RIGHT$(formattedComment, 2) = CHR$(13) + CHR$(10)
+        DO WHILE RIGHT$(formattedComment, 2) = _STR_CRLF
             formattedComment = LEFT$(formattedComment, LEN(formattedComment) - 2)
         LOOP
         player.song.comment = formattedComment

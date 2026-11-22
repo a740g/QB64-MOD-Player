@@ -15,6 +15,7 @@ $INCLUDEONCE
 
 CONST __AMFLOADER_MAGIC = "AMF"
 CONST __AMFLOADER_ASYLUM_MAGIC = "ASYLUM Music Format V1.0"
+CONST __AMFLOADER_ASYLUM_HEADER_SIG = __AMFLOADER_ASYLUM_MAGIC + _CHR_NUL
 
 ''' @brief Translates an AMF effect command and parameter into the unified replayer note structure.
 ''' @param noteCell The target note cell to update.
@@ -644,7 +645,7 @@ FUNCTION AMFLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     ' Check for Asylum AMF
     StringFile_Seek memFile, 0
     DIM asylumSig AS STRING: asylumSig = StringFile_ReadString(memFile, 25)
-    IF asylumSig = __AMFLOADER_ASYLUM_MAGIC + CHR$(0) THEN
+    IF asylumSig = __AMFLOADER_ASYLUM_HEADER_SIG THEN
         AMFLoader_LoadFromMemory = __AMFLoader_LoadAsylum(player, memFile)
         EXIT FUNCTION
     END IF

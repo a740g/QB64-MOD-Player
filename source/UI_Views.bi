@@ -42,6 +42,19 @@ CONST UI_ACTION_NEXT_TRACK%% = 6%%
 CONST UI_ACTION_STOP%% = 7%%
 CONST UI_ACTION_PLAY_INDEX%% = 8%%
 
+' CP437 glyph and control character constants for UI rendering
+CONST __UI_GLYPH_NOTE = CHR$(14) ' Music note
+CONST __UI_GLYPH_STAR = CHR$(15) ' Sun / star
+CONST __UI_GLYPH_RIGHT_ARROW = CHR$(16) ' Right pointer
+CONST __UI_GLYPH_LEFT_ARROW = CHR$(17) ' Left pointer
+CONST __UI_GLYPH_DOWN_ARROW = CHR$(25) ' Down arrow
+CONST __UI_GLYPH_HLINE = CHR$(196) ' Horizontal line
+CONST __UI_GLYPH_PAUSE = CHR$(186) ' Double vertical bar
+CONST __UI_GLYPH_SOLID = CHR$(219) ' Full block
+CONST __UI_GLYPH_HALF_BLOCK = CHR$(220) ' Lower half block
+CONST __UI_GLYPH_INACTIVE_DOT = CHR$(250) ' Inactive dot
+CONST __UI_GLYPH_STOP = CHR$(254) ' Square block
+
 ''' @brief Returns standard 3-character note name (e.g. "C-4", "F#5", "---", "^^^").
 ''' @param note Note period/semitone code from tracker pattern.
 ''' @return 3-character note string.
@@ -226,19 +239,19 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, curTime AS DOUBLE
     DIM hasQueue AS _BYTE: hasQueue = (pl.count > 0)
 
     DIM bx AS LONG: bx = 2
-    IF TUI_ButtonEx(bx, 3, 8, CHR$(17) + CHR$(17) + " Prev", NOT (isSongPlaying _ORELSE hasMultiQueue)) THEN action = UI_ACTION_PREV_TRACK
+    IF TUI_ButtonEx(bx, 3, 8, __UI_GLYPH_LEFT_ARROW + __UI_GLYPH_LEFT_ARROW + " Prev", NOT (isSongPlaying _ORELSE hasMultiQueue)) THEN action = UI_ACTION_PREV_TRACK
     bx = bx + 9
 
-    IF TUI_ButtonEx(bx, 3, 7, CHR$(17) + " Rwd", NOT isSongPlaying) THEN
+    IF TUI_ButtonEx(bx, 3, 7, __UI_GLYPH_LEFT_ARROW + " Rwd", NOT isSongPlaying) THEN
         IF player.song.isPlaying THEN MODPlayer_GoToPreviousPosition player
     END IF
     bx = bx + 8
 
     DIM playLabel AS STRING
     IF player.song.isPlaying _ANDALSO NOT player.song.isPaused THEN
-        playLabel = CHR$(186) + " Pause"
+        playLabel = __UI_GLYPH_PAUSE + " Pause"
     ELSE
-        playLabel = CHR$(16) + " Play "
+        playLabel = __UI_GLYPH_RIGHT_ARROW + " Play "
     END IF
     DIM canPlay AS _BYTE: canPlay = isSongPlaying _ORELSE hasQueue
     IF TUI_ToggleButtonEx(bx, 3, 9, playLabel, player.song.isPlaying _ANDALSO NOT player.song.isPaused, NOT canPlay) THEN
@@ -250,15 +263,15 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, curTime AS DOUBLE
     END IF
     bx = bx + 10
 
-    IF TUI_ButtonEx(bx, 3, 8, CHR$(254) + " Stop", NOT isSongPlaying) THEN action = UI_ACTION_STOP
+    IF TUI_ButtonEx(bx, 3, 8, __UI_GLYPH_STOP + " Stop", NOT isSongPlaying) THEN action = UI_ACTION_STOP
     bx = bx + 9
 
-    IF TUI_ButtonEx(bx, 3, 7, "Fwd " + CHR$(16), NOT isSongPlaying) THEN
+    IF TUI_ButtonEx(bx, 3, 7, "Fwd " + __UI_GLYPH_RIGHT_ARROW, NOT isSongPlaying) THEN
         IF player.song.isPlaying THEN MODPlayer_GoToNextPosition player
     END IF
     bx = bx + 8
 
-    IF TUI_ButtonEx(bx, 3, 8, "Next " + CHR$(16) + CHR$(16), NOT (isSongPlaying _ORELSE hasMultiQueue)) THEN action = UI_ACTION_NEXT_TRACK
+    IF TUI_ButtonEx(bx, 3, 8, "Next " + __UI_GLYPH_RIGHT_ARROW + __UI_GLYPH_RIGHT_ARROW, NOT (isSongPlaying _ORELSE hasMultiQueue)) THEN action = UI_ACTION_NEXT_TRACK
     bx = bx + 9
 
     ' Repeat mode cycle button
@@ -287,13 +300,13 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, curTime AS DOUBLE
     END IF
     bx = bx + 12
 
-    IF TUI_Button(bx, 3, 11, CHR$(14) + " File...") THEN action = UI_ACTION_OPEN_FILE
+    IF TUI_Button(bx, 3, 11, __UI_GLYPH_NOTE + " File...") THEN action = UI_ACTION_OPEN_FILE
     bx = bx + 12
 
-    IF TUI_Button(bx, 3, 13, CHR$(14) + " Folder...") THEN action = UI_ACTION_OPEN_FOLDER
+    IF TUI_Button(bx, 3, 13, __UI_GLYPH_NOTE + " Folder...") THEN action = UI_ACTION_OPEN_FOLDER
     bx = bx + 14
 
-    IF TUI_Button(bx, 3, 13, CHR$(15) + " ModArch...") THEN action = UI_ACTION_MODARCHIVE
+    IF TUI_Button(bx, 3, 13, __UI_GLYPH_STAR + " ModArch...") THEN action = UI_ACTION_MODARCHIVE
     bx = bx + 14
 
     IF TUI_Button(bx, 3, 11, "? Help F1") THEN showHelpModal = NOT showHelpModal
@@ -364,13 +377,13 @@ FUNCTION UI_DrawFooter% (player AS MODPlayer)
             _PRINTSTRING (chX + 2, 89), "x"
         ELSEIF vVol > 0.65! THEN
             COLOR TUI_COLOR_LIGHT_RED, TUI_COLOR_BLACK
-            _PRINTSTRING (chX + 2, 89), CHR$(219)
+            _PRINTSTRING (chX + 2, 89), __UI_GLYPH_SOLID
         ELSEIF vVol > 0.25! THEN
             COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
-            _PRINTSTRING (chX + 2, 89), CHR$(220)
+            _PRINTSTRING (chX + 2, 89), __UI_GLYPH_HALF_BLOCK
         ELSEIF vVol > 0.05! THEN
             COLOR TUI_COLOR_LIGHT_GREEN, TUI_COLOR_BLACK
-            _PRINTSTRING (chX + 2, 89), CHR$(250)
+            _PRINTSTRING (chX + 2, 89), __UI_GLYPH_INACTIVE_DOT
         ELSE
             COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
             _PRINTSTRING (chX + 2, 89), " "
@@ -405,7 +418,7 @@ SUB UI_RenderTracker (player AS MODPlayer, chanOffset AS LONG)
 
     ' Viewport channel paging buttons
     DIM pX AS LONG: pX = 2
-    IF TUI_Button(pX, 8, 16, CHR$(17) + " Prev Channels") THEN
+    IF TUI_Button(pX, 8, 16, __UI_GLYPH_LEFT_ARROW + " Prev Channels") THEN
         chanOffset = _MAX(0, chanOffset - UI_TRACKER_VISIBLE_CHANNELS)
     END IF
 
@@ -415,7 +428,7 @@ SUB UI_RenderTracker (player AS MODPlayer, chanOffset AS LONG)
     COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
     _PRINTSTRING (60, 9), pageInfo
 
-    IF TUI_Button(126, 8, 16, "Next Channels " + CHR$(16)) THEN
+    IF TUI_Button(126, 8, 16, "Next Channels " + __UI_GLYPH_RIGHT_ARROW) THEN
         chanOffset = _MIN(maxOffset, chanOffset + UI_TRACKER_VISIBLE_CHANNELS)
     END IF
 
@@ -805,7 +818,7 @@ SUB UI_RenderInstruments (player AS MODPlayer, selectedInst AS LONG, scrollOffse
         COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
         DIM colW AS LONG
         FOR colW = 0 TO 50
-            _PRINTSTRING (89 + colW, waveY), CHR$(196)
+            _PRINTSTRING (89 + colW, waveY), __UI_GLYPH_HLINE
         NEXT colW
         COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
         _PRINTSTRING (89, 36), "Direct digital PCM sample playback buffer"
@@ -826,7 +839,7 @@ FUNCTION UI_RenderPlaylist%% (pl AS Playlist, selectedItem AS LONG, scrollOffset
     DIM listItems(1 TO PLAYLIST_MAX_FILES) AS STRING
     DIM i AS LONG
     FOR i = 1 TO pl.count
-        DIM mark AS STRING: mark = _IIF(i = pl.currentIndex, CHR$(16) + " ", "  ")
+        DIM mark AS STRING: mark = _IIF(i = pl.currentIndex, __UI_GLYPH_RIGHT_ARROW + " ", "  ")
         DIM dStr AS STRING
         IF pl.entries(i).duration > 0# THEN
             dStr = "[" + UI_FormatTime(pl.entries(i).duration) + "]"
@@ -847,10 +860,10 @@ FUNCTION UI_RenderPlaylist%% (pl AS Playlist, selectedItem AS LONG, scrollOffset
     TUI_Panel 97, 8, 45, 80, "Queue Manager", _TRUE
 
     DIM bY AS LONG: bY = 11
-    IF TUI_Button(101, bY, 20, CHR$(14) + " Add File(s)...") THEN action = UI_ACTION_OPEN_FILE
+    IF TUI_Button(101, bY, 20, __UI_GLYPH_NOTE + " Add File(s)...") THEN action = UI_ACTION_OPEN_FILE
     bY = bY + 4
 
-    IF TUI_Button(101, bY, 20, CHR$(14) + " Add Folder...") THEN action = UI_ACTION_OPEN_FOLDER
+    IF TUI_Button(101, bY, 20, __UI_GLYPH_NOTE + " Add Folder...") THEN action = UI_ACTION_OPEN_FOLDER
     bY = bY + 4
 
     IF TUI_Button(101, bY, 20, "- Remove Selected") THEN
@@ -966,7 +979,7 @@ SUB UI_RenderSongInfo (player AS MODPlayer, commentScroll AS LONG)
     DIM tL AS LONG: tL = LEN(commentText)
 
     WHILE pS <= tL _ANDALSO numLines < 500
-        DIM pE AS LONG: pE = INSTR(pS, commentText, CHR$(10))
+        DIM pE AS LONG: pE = INSTR(pS, commentText, _STR_LF)
         DIM lStr AS STRING
         IF pE > 0 THEN
             lStr = MID$(commentText, pS, pE - pS)
@@ -975,7 +988,7 @@ SUB UI_RenderSongInfo (player AS MODPlayer, commentScroll AS LONG)
             lStr = MID$(commentText, pS)
             pS = tL + 1
         END IF
-        IF RIGHT$(lStr, 1) = CHR$(13) THEN lStr = LEFT$(lStr, LEN(lStr) - 1)
+        IF RIGHT$(lStr, 1) = _CHR_CR THEN lStr = LEFT$(lStr, LEN(lStr) - 1)
         numLines = numLines + 1
         cLines(numLines) = lStr
     WEND
@@ -1054,10 +1067,10 @@ SUB UI_RenderVisualizer (player AS MODPlayer, analyzerL AS AudioAnalyzer, analyz
             DIM yR AS LONG: yR = _CLAMP(oscMidR - CLNG(fR * 7!), 69, 81)
 
             COLOR TUI_COLOR_LIGHT_GREEN, TUI_COLOR_BLACK
-            _PRINTSTRING (6 + sI, yL), CHR$(254)
+            _PRINTSTRING (6 + sI, yL), __UI_GLYPH_STOP
 
             COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
-            _PRINTSTRING (6 + sI, yR), CHR$(254)
+            _PRINTSTRING (6 + sI, yR), __UI_GLYPH_STOP
         NEXT sI
     END IF
 END SUB
@@ -1074,7 +1087,7 @@ SUB UI_RenderHelpModal (showHelpModal AS _BYTE)
 
     COLOR TUI_COLOR_LIGHT_GREEN, TUI_COLOR_BLACK
     DIM promptMsg AS STRING
-    promptMsg = CHR$(25) + " Drag & Drop: Drag any module, folder, or M3U playlist file into the window to play immediately! " + CHR$(25)
+    promptMsg = __UI_GLYPH_DOWN_ARROW + " Drag & Drop: Drag any module, folder, or M3U playlist file into the window to play immediately! " + __UI_GLYPH_DOWN_ARROW
     _PRINTSTRING (17, 19), promptMsg
 
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK

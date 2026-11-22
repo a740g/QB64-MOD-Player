@@ -294,7 +294,7 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
             ELSE
                 rawLine = LEFT$(rawLine, 39)
             END IF
-            IF lIdx > 0 THEN formattedComment = formattedComment + CHR$(13) + CHR$(10)
+            IF lIdx > 0 THEN formattedComment = formattedComment + _STR_CRLF
             formattedComment = formattedComment + RTRIM$(rawLine)
         NEXT lIdx
 

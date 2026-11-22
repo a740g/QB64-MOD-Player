@@ -53,6 +53,18 @@ CONST __BG_COLOR_LIGHT_MAGENTA% = 13%
 CONST __BG_COLOR_YELLOW% = 14%
 CONST __BG_COLOR_BRIGHT_WHITE% = 15%
 
+' CP437 glyph constants for background rendering
+CONST __BG_GLYPH_SMILEY = CHR$(2) ' Smiley face glyph
+CONST __BG_GLYPH_LIGHT_SHADE = CHR$(176) ' Light shade block
+CONST __BG_GLYPH_MEDIUM_SHADE = CHR$(177) ' Medium shade block
+CONST __BG_GLYPH_DARK_SHADE = CHR$(178) ' Dark shade block
+CONST __BG_GLYPH_HLINE = CHR$(196) ' Horizontal line
+CONST __BG_GLYPH_SOLID = CHR$(219) ' Full solid block
+CONST __BG_GLYPH_APPROX = CHR$(247) ' Approx / ripple
+CONST __BG_GLYPH_DEGREE = CHR$(248) ' Degree / bubble
+CONST __BG_GLYPH_BULLET = CHR$(249) ' Bullet / dot
+CONST __BG_GLYPH_BLOCK = CHR$(254) ' Square block
+
 TYPE __Background_Star
     p AS Vector3f ' position (x, y, z)
     a AS SINGLE ' angle
@@ -363,7 +375,7 @@ SUB __Background_UpdateAndDrawStars (ctx AS Background)
         IF dZ > 250.0! THEN
             sCol = __BG_COLOR_GRAY: sChar = "."
         ELSEIF dZ > 140.0! THEN
-            sCol = __BG_COLOR_WHITE: sChar = CHR$(249)
+            sCol = __BG_COLOR_WHITE: sChar = __BG_GLYPH_BULLET
         ELSEIF dZ > 65.0! THEN
             sCol = ctx.starfield.stars(i).c: sChar = "+"
         ELSEIF dZ > 30.0! THEN
@@ -420,7 +432,7 @@ SUB __Background_UpdateAndDrawStars (ctx AS Background)
                     SELECT CASE tailIdx
                         CASE 4: COLOR __BG_COLOR_GRAY, __BG_COLOR_BLACK: _PRINTSTRING (tailX, tailY), "."
                         CASE 3: COLOR __BG_COLOR_BLUE, __BG_COLOR_BLACK: _PRINTSTRING (tailX, tailY), "."
-                        CASE 2: COLOR __BG_COLOR_CYAN, __BG_COLOR_BLACK: _PRINTSTRING (tailX, tailY), CHR$(249)
+                        CASE 2: COLOR __BG_COLOR_CYAN, __BG_COLOR_BLACK: _PRINTSTRING (tailX, tailY), __BG_GLYPH_BULLET
                         CASE 1: COLOR __BG_COLOR_LIGHT_CYAN, __BG_COLOR_BLACK: _PRINTSTRING (tailX, tailY), "+"
                     END SELECT
                 END IF
@@ -489,8 +501,8 @@ END SUB
 ''' @brief Updates snake segments with collision detection/avoidance and renders bouncing snakes on screen.
 ''' @param ctx Background context.
 SUB __Background_UpdateAndDrawSnakes (ctx AS Background)
-    CONST SNAKE_HEAD = CHR$(2) ' Smiley head glyph
-    CONST SNAKE_BODY = CHR$(254) ' Block body glyph
+    CONST SNAKE_HEAD = __BG_GLYPH_SMILEY ' Smiley head glyph
+    CONST SNAKE_BODY = __BG_GLYPH_BLOCK ' Block body glyph
 
     IF ctx.snakes.count <= 0 THEN EXIT SUB
 
@@ -856,7 +868,7 @@ SUB __Background_UpdateAndDrawFireworks (ctx AS Background)
                     ELSEIF ratio > 0.18! THEN
                         pCol = _MAX(1, ctx.fireworks.particles(p).c - 8): pChar = "x"
                     ELSE
-                        pCol = __BG_COLOR_GRAY: pChar = CHR$(249)
+                        pCol = __BG_COLOR_GRAY: pChar = __BG_GLYPH_BULLET
                     END IF
                     COLOR pCol, __BG_COLOR_BLACK
                     _PRINTSTRING (px, py), pChar
@@ -1009,19 +1021,19 @@ SUB __Background_UpdateAndDrawFire (ctx AS Background)
                 CASE 2 TO 3
                     c = __BG_COLOR_BROWN: ch = "."
                 CASE 4 TO 5
-                    c = __BG_COLOR_RED: ch = CHR$(176)
+                    c = __BG_COLOR_RED: ch = __BG_GLYPH_LIGHT_SHADE
                 CASE 6 TO 7
-                    c = __BG_COLOR_RED: ch = CHR$(177)
+                    c = __BG_COLOR_RED: ch = __BG_GLYPH_MEDIUM_SHADE
                 CASE 8 TO 9
-                    c = __BG_COLOR_LIGHT_RED: ch = CHR$(177)
+                    c = __BG_COLOR_LIGHT_RED: ch = __BG_GLYPH_MEDIUM_SHADE
                 CASE 10 TO 11
-                    c = __BG_COLOR_LIGHT_RED: ch = CHR$(178)
+                    c = __BG_COLOR_LIGHT_RED: ch = __BG_GLYPH_DARK_SHADE
                 CASE 12 TO 13
-                    c = __BG_COLOR_YELLOW: ch = CHR$(178)
+                    c = __BG_COLOR_YELLOW: ch = __BG_GLYPH_DARK_SHADE
                 CASE 14 TO 16
-                    c = __BG_COLOR_YELLOW: ch = CHR$(219)
+                    c = __BG_COLOR_YELLOW: ch = __BG_GLYPH_SOLID
                 CASE ELSE
-                    c = __BG_COLOR_BRIGHT_WHITE: ch = CHR$(219)
+                    c = __BG_COLOR_BRIGHT_WHITE: ch = __BG_GLYPH_SOLID
             END SELECT
 
             IF c <> lastCol THEN
@@ -1093,17 +1105,17 @@ SUB __Background_UpdateAndDrawPlasma (ctx AS Background)
                 CASE 0 TO 1
                     c = __BG_COLOR_BLUE: ch = "."
                 CASE 2 TO 3
-                    c = __BG_COLOR_LIGHT_BLUE: ch = CHR$(176)
+                    c = __BG_COLOR_LIGHT_BLUE: ch = __BG_GLYPH_LIGHT_SHADE
                 CASE 4 TO 5
-                    c = __BG_COLOR_CYAN: ch = CHR$(176)
+                    c = __BG_COLOR_CYAN: ch = __BG_GLYPH_LIGHT_SHADE
                 CASE 6 TO 7
-                    c = __BG_COLOR_LIGHT_CYAN: ch = CHR$(177)
+                    c = __BG_COLOR_LIGHT_CYAN: ch = __BG_GLYPH_MEDIUM_SHADE
                 CASE 8 TO 9
-                    c = __BG_COLOR_BRIGHT_WHITE: ch = CHR$(178)
+                    c = __BG_COLOR_BRIGHT_WHITE: ch = __BG_GLYPH_DARK_SHADE
                 CASE 10 TO 11
-                    c = __BG_COLOR_LIGHT_MAGENTA: ch = CHR$(177)
+                    c = __BG_COLOR_LIGHT_MAGENTA: ch = __BG_GLYPH_MEDIUM_SHADE
                 CASE 12 TO 13
-                    c = __BG_COLOR_MAGENTA: ch = CHR$(176)
+                    c = __BG_COLOR_MAGENTA: ch = __BG_GLYPH_LIGHT_SHADE
                 CASE ELSE
                     c = __BG_COLOR_GRAY: ch = "."
             END SELECT
@@ -1268,7 +1280,7 @@ SUB __Background_UpdateAndDrawBalls (ctx AS Background)
 
         IF bx >= minX _ANDALSO bx <= maxX _ANDALSO by >= minY _ANDALSO by <= maxY THEN
             COLOR __BG_COLOR_BRIGHT_WHITE, __BG_COLOR_BLACK
-            _PRINTSTRING (bx, by), CHR$(2)
+            _PRINTSTRING (bx, by), __BG_GLYPH_SMILEY
         END IF
     NEXT i
 END SUB
@@ -1417,7 +1429,7 @@ SUB __Background_UpdateAndDrawGrid (ctx AS Background)
                 _PRINTSTRING (sx, sy), "*"
             ELSEIF bVal > -0.2! THEN
                 COLOR __BG_COLOR_LIGHT_CYAN, __BG_COLOR_BLACK
-                _PRINTSTRING (sx, sy), CHR$(249)
+                _PRINTSTRING (sx, sy), __BG_GLYPH_BULLET
             ELSE
                 COLOR __BG_COLOR_GRAY, __BG_COLOR_BLACK
                 _PRINTSTRING (sx, sy), "."
@@ -1453,11 +1465,11 @@ SUB __Background_UpdateAndDrawGrid (ctx AS Background)
                 IF NOT isSlat _ANDALSO sunLeft <= sunRight THEN
                     DIM sunCol AS LONG, sunChar AS STRING
                     IF relY < -0.35! THEN
-                        sunCol = __BG_COLOR_YELLOW: sunChar = CHR$(219)
+                        sunCol = __BG_COLOR_YELLOW: sunChar = __BG_GLYPH_SOLID
                     ELSEIF relY < 0.25! THEN
-                        sunCol = __BG_COLOR_LIGHT_RED: sunChar = CHR$(219)
+                        sunCol = __BG_COLOR_LIGHT_RED: sunChar = __BG_GLYPH_SOLID
                     ELSE
-                        sunCol = __BG_COLOR_LIGHT_MAGENTA: sunChar = CHR$(178)
+                        sunCol = __BG_COLOR_LIGHT_MAGENTA: sunChar = __BG_GLYPH_DARK_SHADE
                     END IF
 
                     DIM sunW AS LONG: sunW = sunRight - sunLeft + 1
@@ -1482,7 +1494,7 @@ SUB __Background_UpdateAndDrawGrid (ctx AS Background)
             FOR my = mPeakY TO horizonY - 1
                 IF my >= minY THEN
                     COLOR __BG_COLOR_BLUE, __BG_COLOR_BLACK
-                    _PRINTSTRING (mx, my), CHR$(176)
+                    _PRINTSTRING (mx, my), __BG_GLYPH_LIGHT_SHADE
                 END IF
             NEXT my
         END IF
@@ -1490,7 +1502,7 @@ SUB __Background_UpdateAndDrawGrid (ctx AS Background)
 
     ' Glowing horizon neon line
     COLOR __BG_COLOR_LIGHT_CYAN, __BG_COLOR_BLACK
-    _PRINTSTRING (minX, horizonY), STRING$(maxX - minX + 1, CHR$(196))
+    _PRINTSTRING (minX, horizonY), STRING$(maxX - minX + 1, __BG_GLYPH_HLINE)
 
     ' -------------------------------------------------------------
     ' 4. 3D Wireframe Perspective Ground Grid (Scrolling Forward)
@@ -1548,7 +1560,7 @@ SUB __Background_UpdateAndDrawGrid (ctx AS Background)
             IF isHLine _ANDALSO isVLine THEN
                 c = crossCol: ch = "+"
             ELSEIF isHLine THEN
-                c = gridCol: ch = CHR$(196)
+                c = gridCol: ch = __BG_GLYPH_HLINE
             ELSEIF isVLine THEN
                 c = gridCol: ch = "|"
             END IF
@@ -1717,7 +1729,7 @@ SUB __Background_UpdateAndDrawFishtank (ctx AS Background)
         IF waveVal > 0.4! THEN
             surfChar = "~": surfCol = __BG_COLOR_LIGHT_CYAN
         ELSEIF waveVal > -0.3! THEN
-            surfChar = CHR$(247): surfCol = __BG_COLOR_CYAN
+            surfChar = __BG_GLYPH_APPROX: surfCol = __BG_COLOR_CYAN
         ELSE
             surfChar = "-": surfCol = __BG_COLOR_BLUE
         END IF
@@ -1837,7 +1849,7 @@ SUB __Background_UpdateAndDrawFishtank (ctx AS Background)
             IF bPY > maxY - 15 THEN
                 bubChar = ".": bubCol = __BG_COLOR_LIGHT_CYAN
             ELSEIF bPY > minY + 12 THEN
-                bubChar = CHR$(248): bubCol = __BG_COLOR_BRIGHT_WHITE
+                bubChar = __BG_GLYPH_DEGREE: bubCol = __BG_COLOR_BRIGHT_WHITE
             ELSE
                 bubChar = "o": bubCol = __BG_COLOR_BRIGHT_WHITE
             END IF
@@ -1905,11 +1917,11 @@ SUB __Background_UpdateAndDrawFishtank (ctx AS Background)
                 CASE ELSE ' Silver Guppy
                     IF ctx.fishtank.fish(i).dx < 0! THEN
                         fHead = "<"
-                        fBody = CHR$(249)
+                        fBody = __BG_GLYPH_BULLET
                         fTail = "{"
                     ELSE
                         fTail = "}"
-                        fBody = CHR$(249)
+                        fBody = __BG_GLYPH_BULLET
                         fHead = ">"
                     END IF
             END SELECT
@@ -1978,11 +1990,11 @@ SUB __Background_UpdateAndDrawFishtank (ctx AS Background)
         DIM gravelPattern AS LONG: gravelPattern = (sx * 7 + 13) MOD 11
         DIM gCh AS STRING, gCol AS LONG
         SELECT CASE gravelPattern
-            CASE 0, 1: gCh = CHR$(176): gCol = __BG_COLOR_BROWN
-            CASE 2, 3: gCh = CHR$(177): gCol = __BG_COLOR_GRAY
-            CASE 4: gCh = CHR$(249): gCol = __BG_COLOR_WHITE
+            CASE 0, 1: gCh = __BG_GLYPH_LIGHT_SHADE: gCol = __BG_COLOR_BROWN
+            CASE 2, 3: gCh = __BG_GLYPH_MEDIUM_SHADE: gCol = __BG_COLOR_GRAY
+            CASE 4: gCh = __BG_GLYPH_BULLET: gCol = __BG_COLOR_WHITE
             CASE 5, 6: gCh = ".": gCol = __BG_COLOR_BROWN
-            CASE ELSE: gCh = CHR$(176): gCol = __BG_COLOR_GRAY
+            CASE ELSE: gCh = __BG_GLYPH_LIGHT_SHADE: gCol = __BG_COLOR_GRAY
         END SELECT
         COLOR gCol, __BG_COLOR_BLACK
         _PRINTSTRING (sx, maxY), gCh
