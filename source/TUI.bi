@@ -643,15 +643,13 @@ FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, ma
     ' 4. Playhead thumb (at thumbIdx)
     IF maxVal > 0! THEN
         IF __TUI.activeId = thisId THEN
-            COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
-            _PRINTSTRING (barStart + 1 + thumbIdx, y), CHR$(219)
+            COLOR TUI_COLOR_BLACK, TUI_COLOR_YELLOW
         ELSEIF isHovered THEN
-            COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
-            _PRINTSTRING (barStart + 1 + thumbIdx, y), CHR$(219)
+            COLOR TUI_COLOR_BLACK, TUI_COLOR_CYAN
         ELSE
-            COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
-            _PRINTSTRING (barStart + 1 + thumbIdx, y), CHR$(219)
+            COLOR TUI_COLOR_BLACK, TUI_COLOR_LIGHT_CYAN
         END IF
+        _PRINTSTRING (barStart + 1 + thumbIdx, y), CHR$(254)
     ELSE
         COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
         _PRINTSTRING (barStart + 1 + thumbIdx, y), CHR$(176)
@@ -843,7 +841,7 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
     ELSE
         COLOR TUI_COLOR_BLACK, TUI_COLOR_LIGHT_CYAN
     END IF
-    _PRINTSTRING (xTrack + thumbIdx, y), CHR$(29)
+    _PRINTSTRING (xTrack + thumbIdx, y), CHR$(254)
 
     ' 6. Unfilled track portion (columns thumbIdx + 1 to innerW - 1)
     DIM remChars AS LONG: remChars = (innerW - 1) - thumbIdx
