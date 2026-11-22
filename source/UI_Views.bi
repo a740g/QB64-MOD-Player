@@ -166,7 +166,7 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
         IF LEN(titleStr) = 0 THEN titleStr = "[Untitled Module]"
         COLOR TUI_COLOR_YELLOW, TUI_COLOR_GRAY
     ELSE
-        titleStr = "No song loaded - Drag files or press Open..."
+        titleStr = "No module loaded. Drag and drop a module file or click Open..."
         COLOR TUI_COLOR_WHITE, TUI_COLOR_GRAY
     END IF
     IF LEN(titleStr) > 93 THEN titleStr = LEFT$(titleStr, 93)
@@ -634,8 +634,6 @@ END SUB
 ''' @param player The active MODPlayer instance.
 SUB UI_RenderMixer (player AS MODPlayer)
     IF NOT player.song.isPlaying THEN
-        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-        _PRINTSTRING (50, 45), "No module loaded. Select Open... or drop a file."
         EXIT SUB
     END IF
 
@@ -714,8 +712,6 @@ END SUB
 SUB UI_RenderInstruments (player AS MODPlayer, selectedInst AS LONG, scrollOffset AS LONG)
     SHARED __TUI AS __TUI_Context
     IF NOT player.song.isPlaying THEN
-        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-        _PRINTSTRING (50, 45), "No module loaded. Select Open... or drop a file."
         EXIT SUB
     END IF
 
@@ -982,8 +978,6 @@ END FUNCTION
 ''' @param commentScroll In/Out: Scroll offset for song comment text lines.
 SUB UI_RenderSongInfo (player AS MODPlayer, commentScroll AS LONG)
     IF NOT player.song.isPlaying THEN
-        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-        _PRINTSTRING (50, 45), "No module loaded. Select Open... or drop a file."
         EXIT SUB
     END IF
 
@@ -1064,8 +1058,6 @@ END SUB
 ''' @param analyzerR Right channel AudioAnalyzer.
 SUB UI_RenderVisualizer (player AS MODPlayer, analyzerL AS AudioAnalyzer, analyzerR AS AudioAnalyzer)
     IF NOT player.song.isPlaying THEN
-        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-        _PRINTSTRING (50, 45), "No module loaded. Select Open... or drop a file."
         EXIT SUB
     END IF
 
