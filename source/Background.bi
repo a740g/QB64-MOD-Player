@@ -695,12 +695,17 @@ SUB __Background_InitializeFire (ctx AS Background)
     REDIM ctx.fire.grid(1 TO maxX, 1 TO maxY) AS _BYTE
     REDIM ctx.fire.decayRate(1 TO maxX) AS SINGLE
 
+    DIM x AS LONG
+    FOR x = 1 TO maxX
+        ctx.fire.decayRate(x) = 0.50!
+    NEXT x
+
     ctx.fire.phase1 = RND * 6.2831853!
     ctx.fire.phase2 = RND * 6.2831853!
     ctx.fire.phase3 = RND * 6.2831853!
     ctx.fire.flareX = (CLNG(ctx.viewport.lt.x) + maxX) \ 2
     ctx.fire.flareIntensity = 0!
-    ctx.fire.flareTimer = Math_GetRandomBetween(30, 90)
+    ctx.fire.flareTimer = Math_GetRandomBetween(45, 120)
 END SUB
 
 ''' @brief Updates retro cellular automata fire simulation and renders flames.
@@ -713,92 +718,95 @@ SUB __Background_UpdateAndDrawFire (ctx AS Background)
     DIM H AS LONG: H = CLNG(ctx.size.y)
     IF H < 5 THEN EXIT SUB
 
-    ' Base flame height scales with viewport height (approx 62% of viewport height)
-    DIM baseFlameHeight AS SINGLE: baseFlameHeight = CSNG(H) * 0.62!
-    DIM maxFlameReach AS LONG: maxFlameReach = CLNG(CSNG(H) * 0.85!)
+    ' Base flame height scales gently with viewport height (approx 44% of viewport height)
+    DIM baseFlameHeight AS SINGLE: baseFlameHeight = CSNG(H) * 0.44!
+    DIM maxFlameReach AS LONG: maxFlameReach = CLNG(CSNG(H) * 0.64!)
     DIM topFireY AS LONG: topFireY = _MAX(minY + 1, maxY - maxFlameReach)
 
     ' Gradually advance traveling wave phases for subtle, organic undulations
-    ctx.fire.phase1 = ctx.fire.phase1 + 0.016!
+    ctx.fire.phase1 = ctx.fire.phase1 + 0.012!
     IF ctx.fire.phase1 > 6.2831853! THEN ctx.fire.phase1 = ctx.fire.phase1 - 6.2831853!
 
-    ctx.fire.phase2 = ctx.fire.phase2 + 0.011!
+    ctx.fire.phase2 = ctx.fire.phase2 + 0.008!
     IF ctx.fire.phase2 > 6.2831853! THEN ctx.fire.phase2 = ctx.fire.phase2 - 6.2831853!
 
-    ctx.fire.phase3 = ctx.fire.phase3 + 0.024!
+    ctx.fire.phase3 = ctx.fire.phase3 + 0.016!
     IF ctx.fire.phase3 > 6.2831853! THEN ctx.fire.phase3 = ctx.fire.phase3 - 6.2831853!
 
     ' Update subtle random flare-up bursts
-    ctx.fire.flareIntensity = ctx.fire.flareIntensity * 0.94!
+    ctx.fire.flareIntensity = ctx.fire.flareIntensity * 0.95!
     ctx.fire.flareTimer = ctx.fire.flareTimer - 1
     IF ctx.fire.flareTimer <= 0 THEN
-        DIM safeMinX AS LONG: safeMinX = _MIN(minX + 3, maxX)
-        DIM safeMaxX AS LONG: safeMaxX = _MAX(minX, maxX - 3)
+        DIM safeMinX AS LONG: safeMinX = _MIN(minX + 5, maxX)
+        DIM safeMaxX AS LONG: safeMaxX = _MAX(minX, maxX - 5)
         IF safeMinX > safeMaxX THEN safeMinX = minX: safeMaxX = maxX
         ctx.fire.flareX = Math_GetRandomBetween(safeMinX, safeMaxX)
-        ctx.fire.flareIntensity = 0.22! + RND * 0.28!
-        ctx.fire.flareTimer = Math_GetRandomBetween(45, 120)
+        ctx.fire.flareIntensity = 0.12! + RND * 0.16!
+        ctx.fire.flareTimer = Math_GetRandomBetween(60, 160)
     END IF
 
-    ' 1D precomputation across columns: calculate dynamic flame height and decay rate
+    ' 1D precomputation across columns: calculate dynamic flame height and smoothed decay rate
     DIM x AS LONG
     FOR x = minX TO maxX
         ' Organic traveling harmonic wave modulation
         DIM waveMod AS SINGLE
-        waveMod = 0.18! * SIN(CSNG(x) * 0.065! + ctx.fire.phase1) + _
-                  0.12! * SIN(CSNG(x) * 0.125! - ctx.fire.phase2) + _
-                  0.08! * COS(CSNG(x) * 0.032! + ctx.fire.phase3)
+        waveMod = 0.16! * SIN(CSNG(x) * 0.065! + ctx.fire.phase1) + _
+                  0.10! * SIN(CSNG(x) * 0.125! - ctx.fire.phase2) + _
+                  0.06! * COS(CSNG(x) * 0.032! + ctx.fire.phase3)
 
-        ' Localized subtle flare-up influence
+        ' Localized subtle flare-up influence with smooth cosine bell curve
         DIM flareMod AS SINGLE: flareMod = 0!
         IF ctx.fire.flareIntensity > 0.01! THEN
             DIM distToFlare AS SINGLE: distToFlare = ABS(CSNG(x - ctx.fire.flareX))
-            IF distToFlare < 10! THEN
-                flareMod = ctx.fire.flareIntensity * (1.0! - distToFlare / 10!)
+            IF distToFlare < 12! THEN
+                flareMod = ctx.fire.flareIntensity * 0.5! * (1.0! + COS(distToFlare * 3.14159265! / 12!))
             END IF
         END IF
 
-        DIM heightFactor AS SINGLE: heightFactor = _CLAMP(1.0! + waveMod + flareMod, 0.50!, 1.40!)
+        DIM heightFactor AS SINGLE: heightFactor = _CLAMP(1.0! + waveMod + flareMod, 0.60!, 1.35!)
         DIM colTargetH AS SINGLE: colTargetH = _CLAMP(baseFlameHeight * heightFactor, 5!, CSNG(maxY - topFireY))
 
-        ' Target decay rate per vertical row step to reach zero heat at colTargetH
-        ctx.fire.decayRate(x) = 16.5! / colTargetH
+        ' Target decay rate per vertical row step, smoothed with exponential moving average
+        DIM targetRate AS SINGLE: targetRate = 15.5! / colTargetH
+        ctx.fire.decayRate(x) = ctx.fire.decayRate(x) * 0.88! + targetRate * 0.12!
 
-        ' Seed bottom line (row maxY): fuel intensity gently correlates with tongue height
-        DIM seedChance AS SINGLE: seedChance = _CLAMP(0.55! + (heightFactor - 1.0!) * 0.35!, 0.35!, 0.88!)
-        IF RND < seedChance THEN
-            ctx.fire.grid(x, maxY) = Math_GetRandomBetween(15, 18)
-        ELSE
-            ctx.fire.grid(x, maxY) = Math_GetRandomBetween(0, 3)
-        END IF
+        ' Seed bottom line (row maxY): continuously glowing hot coal bed without dark gaps
+        DIM baseHeat AS LONG
+        baseHeat = CLNG(14! + 3! * (heightFactor - 0.60!) / 0.75! + (RND * 2! - 1!))
+        ctx.fire.grid(x, maxY) = _CLAMP(baseHeat, 13, 18)
     NEXT x
 
-    ' Propagate heat upward with column-dependent probabilistic decay and wind drift
+    ' Propagate heat upward with 3-tap horizontal diffusion and column-dependent decay
     DIM y AS LONG
     FOR y = topFireY TO maxY - 1
         FOR x = minX TO maxX
             DIM wind AS LONG: wind = Math_GetRandomBetween(-1, 1)
-            DIM srcX AS LONG: srcX = _CLAMP(x + wind, minX, maxX)
-            DIM rate AS SINGLE: rate = ctx.fire.decayRate(srcX)
+            DIM cx AS LONG: cx = _CLAMP(x + wind, minX, maxX)
+            DIM lx AS LONG: lx = _CLAMP(cx - 1, minX, maxX)
+            DIM rx AS LONG: rx = _CLAMP(cx + 1, minX, maxX)
 
-            DIM decay AS LONG
+            ' 3-tap horizontal diffusion [1, 2, 1] / 4 to eliminate harsh vertical striping
+            DIM belowHeat AS LONG
+            belowHeat = (CLNG(ctx.fire.grid(lx, y + 1)) + _
+                         CLNG(ctx.fire.grid(cx, y + 1)) * 2 + _
+                         CLNG(ctx.fire.grid(rx, y + 1))) \ 4
+
+            DIM rate AS SINGLE: rate = ctx.fire.decayRate(cx)
+            DIM decay AS LONG: decay = 0
             IF rate <= 1.0! THEN
-                decay = 0
                 IF RND < rate THEN decay = 1
-                IF decay = 1 _ANDALSO RND < 0.18! THEN decay = 2
             ELSE
                 decay = 1
                 IF RND < (rate - 1.0!) THEN decay = 2
-                IF decay = 1 _ANDALSO RND < 0.12! THEN decay = 0
             END IF
 
-            DIM heat AS LONG: heat = CLNG(ctx.fire.grid(srcX, y + 1)) - decay
+            DIM heat AS LONG: heat = belowHeat - decay
             IF heat < 0 THEN heat = 0
             ctx.fire.grid(x, y) = heat
         NEXT x
     NEXT y
 
-    ' Render flame rows with horizontal run-length batching
+    ' Render flame rows with horizontal run-length batching and balanced color ramp
     DIM startRenderY AS LONG: startRenderY = topFireY
     FOR y = startRenderY TO maxY
         DIM runStart AS LONG: runStart = 0
@@ -813,20 +821,22 @@ SUB __Background_UpdateAndDrawFire (ctx AS Background)
             SELECT CASE hVal
                 CASE IS <= 0
                     c = -1: ch = " "
-                CASE 1 TO 2
+                CASE 1
                     c = __BG_COLOR_GRAY: ch = "."
-                CASE 3 TO 4
+                CASE 2 TO 3
                     c = __BG_COLOR_BROWN: ch = "."
-                CASE 5 TO 6
+                CASE 4 TO 5
                     c = __BG_COLOR_RED: ch = CHR$(176)
-                CASE 7 TO 8
-                    c = __BG_COLOR_LIGHT_RED: ch = CHR$(176)
-                CASE 9 TO 10
+                CASE 6 TO 7
+                    c = __BG_COLOR_RED: ch = CHR$(177)
+                CASE 8 TO 9
                     c = __BG_COLOR_LIGHT_RED: ch = CHR$(177)
-                CASE 11 TO 12
-                    c = __BG_COLOR_YELLOW: ch = CHR$(177)
-                CASE 13 TO 14
+                CASE 10 TO 11
+                    c = __BG_COLOR_LIGHT_RED: ch = CHR$(178)
+                CASE 12 TO 13
                     c = __BG_COLOR_YELLOW: ch = CHR$(178)
+                CASE 14 TO 16
+                    c = __BG_COLOR_YELLOW: ch = CHR$(219)
                 CASE ELSE
                     c = __BG_COLOR_BRIGHT_WHITE: ch = CHR$(219)
             END SELECT
