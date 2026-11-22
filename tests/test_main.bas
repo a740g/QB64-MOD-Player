@@ -4114,6 +4114,14 @@ SUB Test_TUI
     TUI_PanelEx 10, 5, 10, 5, "PANEL", _FALSE, _FALSE
     TEST_CHECK _DEFAULTCOLOR = 15, "TUI_PanelEx preserves _DEFAULTCOLOR non-destructively"
     TEST_CHECK _BACKGROUNDCOLOR = 3, "TUI_PanelEx preserves _BACKGROUNDCOLOR non-destructively"
+
+    COLOR 13, 6 ' Light Magenta on Brown
+    DIM dummyTabs(1 TO 2) AS STRING: dummyTabs(1) = "A": dummyTabs(2) = "B"
+    DIM dummySel AS LONG: dummySel = 1
+    DIM dummyChanged AS _BYTE
+    dummyChanged = TUI_TabControl(4, 6, 1, 8, 50, 20, dummyTabs(), 2, dummySel)
+    TEST_CHECK _DEFAULTCOLOR = 13, "TUI_TabControl preserves _DEFAULTCOLOR non-destructively"
+    TEST_CHECK _BACKGROUNDCOLOR = 6, "TUI_TabControl preserves _BACKGROUNDCOLOR non-destructively"
     TUI_End
 
     _DEST oldDest

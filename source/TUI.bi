@@ -1041,12 +1041,13 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, boxX1 AS LONG, boxY1 AS LONG, box
         DIM tabText AS STRING: tabText = tabCaptions(i)
         DIM tabW AS LONG: tabW = LEN(tabText) + 4
         tabWidths(i) = tabW
+        DIM innerW AS LONG: innerW = tabW - 2
         DIM isSelected AS _BYTE: isSelected = (i = selectedIdx)
 
         IF isDisabled THEN
-            ' Render disabled tab (flat single-line border in dark gray, gray text on black)
-            DIM hLineDis AS STRING: hLineDis = STRING$(tabW - 2, __TUI_GLYPH_HLINE)
-            COLOR TUI_COLOR_GRAY, origBg
+            ' Render disabled tab (flat single-line border in dark gray, gray text on black, matching disabled buttons)
+            DIM hLineDis AS STRING: hLineDis = STRING$(innerW, __TUI_GLYPH_HLINE)
+            COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
             _PRINTSTRING (curX, y), __TUI_GLYPH_CORNER_TL + hLineDis + __TUI_GLYPH_CORNER_TR
             _PRINTSTRING (curX, y + 1), __TUI_GLYPH_VLINE + " " + tabText + " " + __TUI_GLYPH_VLINE
         ELSE
@@ -1083,6 +1084,22 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, boxX1 AS LONG, boxY1 AS LONG, box
                 Input_ConsumeKeyboardKey
             END IF
 
+            ' Tab color scheme:
+            ' Inactive: Blue background, White text, Bright White border
+            ' Selected/Focused: Blue background, Bright White text, Bright White double-line border
+            ' Hovered: Cyan background, Bright White text, Bright White border
+            DIM bgCol AS LONG, fgCol AS LONG
+            IF isHovered THEN
+                bgCol = TUI_COLOR_CYAN
+                fgCol = TUI_COLOR_BRIGHT_WHITE
+            ELSEIF isSelected _ORELSE isFocused THEN
+                bgCol = TUI_COLOR_BLUE
+                fgCol = TUI_COLOR_BRIGHT_WHITE
+            ELSE
+                bgCol = TUI_COLOR_BLUE
+                fgCol = TUI_COLOR_WHITE
+            END IF
+
             ' Line characters: selected tab uses double lines, unselected uses single lines
             DIM chTL AS STRING, chTR AS STRING, chH AS STRING, chV AS STRING
             IF isSelected THEN
@@ -1097,40 +1114,24 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, boxX1 AS LONG, boxY1 AS LONG, box
                 chV = __TUI_GLYPH_VLINE
             END IF
 
-            DIM hLine AS STRING: hLine = STRING$(tabW - 2, chH)
+            DIM hLine AS STRING: hLine = STRING$(innerW, chH)
 
-            ' Visual rendering of tab
-            IF isSelected THEN
-                IF isFocused THEN
-                    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLUE
-                    _PRINTSTRING (curX, y), chTL + hLine + chTR
-                    _PRINTSTRING (curX, y + 1), chV + " " + tabText + " " + chV
-                ELSE
-                    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLUE
-                    _PRINTSTRING (curX, y), chTL + hLine + chTR
-                    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLUE
-                    _PRINTSTRING (curX, y + 1), chV + " " + tabText + " " + chV
-                END IF
-            ELSEIF isHovered THEN
-                COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
-                _PRINTSTRING (curX, y), chTL + hLine + chTR
-                _PRINTSTRING (curX, y + 1), chV + " " + tabText + " " + chV
-            ELSEIF isFocused THEN
-                COLOR TUI_COLOR_BRIGHT_WHITE, origBg
-                _PRINTSTRING (curX, y), chTL + hLine + chTR
-                _PRINTSTRING (curX, y + 1), chV + " " + tabText + " " + chV
-            ELSE
-                COLOR TUI_COLOR_GRAY, origBg
-                _PRINTSTRING (curX, y), chTL + hLine + chTR
-                COLOR TUI_COLOR_WHITE, origBg
-                _PRINTSTRING (curX, y + 1), chV + " " + tabText + " " + chV
-            END IF
+            ' Row y: Top border (Bright White border on tab background)
+            COLOR TUI_COLOR_BRIGHT_WHITE, bgCol
+            _PRINTSTRING (curX, y), chTL + hLine + chTR
+
+            ' Row y + 1: Body (Bright White side borders, text in fgCol on tab background)
+            COLOR TUI_COLOR_BRIGHT_WHITE, bgCol
+            _PRINTSTRING (curX, y + 1), chV
+            _PRINTSTRING (curX + tabW - 1, y + 1), chV
+            COLOR fgCol, bgCol
+            _PRINTSTRING (curX + 1, y + 1), " " + tabText + " "
         END IF
 
         curX = curX + tabW + 1
     NEXT i
 
-    ' Optional Diary Container Border Box
+    ' Optional Diary Container Border Box (drawn in Bright White without 3D shadow shading)
     IF boxX1 > 0 _ANDALSO boxY1 > 0 _ANDALSO boxX2 >= boxX1 _ANDALSO boxY2 >= boxY1 THEN
         DIM boxW AS LONG: boxW = boxX2 - boxX1 + 1
 
@@ -1143,7 +1144,7 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, boxX1 AS LONG, boxY1 AS LONG, box
             DIM relX AS LONG: relX = tabStartX(i) - boxX1 + 1
             DIM tW AS LONG: tW = tabWidths(i)
             IF relX >= 1 _ANDALSO relX + tW - 1 <= boxW THEN
-                IF i = selectedIdx THEN
+                IF NOT isDisabled _ANDALSO i = selectedIdx THEN
                     ' Seamless active tab connection: ASCII 189 (CP437), open spaces, ASCII 211 (CP437)
                     MID$(topRowStr, relX, 1) = __TUI_GLYPH_DIARY_TAB_LEFT
                     MID$(topRowStr, relX + 1, tW - 2) = SPACE$(tW - 2)
@@ -1156,29 +1157,26 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, boxX1 AS LONG, boxY1 AS LONG, box
             END IF
         NEXT i
 
-        COLOR TUI_COLOR_GRAY, origBg
-        _PRINTSTRING (boxX1, boxY1), topRowStr
-
-        ' Highlight active tab junctions
-        IF selectedIdx >= 1 _ANDALSO selectedIdx <= tabCount THEN
-            DIM selRelX AS LONG: selRelX = tabStartX(selectedIdx)
-            DIM selTW AS LONG: selTW = tabWidths(selectedIdx)
-            IF selRelX >= boxX1 _ANDALSO selRelX + selTW - 1 <= boxX2 THEN
-                COLOR TUI_COLOR_WHITE, origBg
-                _PRINTSTRING (selRelX, boxY1), __TUI_GLYPH_DIARY_TAB_LEFT
-                _PRINTSTRING (selRelX + selTW - 1, boxY1), __TUI_GLYPH_DIARY_TAB_RIGHT
-            END IF
+        ' Container box border color: matches tab border foreground (Gray when disabled, Bright White when enabled)
+        DIM boxFgCol AS LONG
+        IF isDisabled THEN
+            boxFgCol = TUI_COLOR_GRAY
+        ELSE
+            boxFgCol = TUI_COLOR_BRIGHT_WHITE
         END IF
 
-        ' 2. Vertical side borders (Rows boxY1 + 1 to boxY2 - 1)
-        COLOR TUI_COLOR_GRAY, origBg
+        ' 1. Top border in boxFgCol on Black
+        COLOR boxFgCol, TUI_COLOR_BLACK
+        _PRINTSTRING (boxX1, boxY1), topRowStr
+
+        ' 2. Vertical side borders (Rows boxY1 + 1 to boxY2 - 1) in boxFgCol on Black
         DIM r AS LONG
         FOR r = boxY1 + 1 TO boxY2 - 1
             _PRINTSTRING (boxX1, r), __TUI_GLYPH_VLINE
             _PRINTSTRING (boxX2, r), __TUI_GLYPH_VLINE
         NEXT r
 
-        ' 3. Bottom border (Row boxY2)
+        ' 3. Bottom border (Row boxY2) in boxFgCol on Black
         DIM botRowStr AS STRING
         botRowStr = __TUI_GLYPH_CORNER_BL + STRING$(boxW - 2, __TUI_GLYPH_HLINE) + __TUI_GLYPH_CORNER_BR
         _PRINTSTRING (boxX1, boxY2), botRowStr

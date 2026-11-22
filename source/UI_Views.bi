@@ -300,6 +300,8 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
         SoftSynth_SetMasterVolume player.synth, newVol
     END IF
 
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+
     ' Rows 3 to 5: 3D Transport & Quick Action Toolbar
     DIM isSongPlaying AS _BYTE: isSongPlaying = player.song.isPlaying
     DIM hasMultiQueue AS _BYTE: hasMultiQueue = (pl.count > 1)
@@ -399,6 +401,7 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
     IF tabSel > 6 THEN tabSel = 6
 
     DIM tabsDisabled AS _BYTE: tabsDisabled = NOT player.song.isPlaying
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
     IF TUI_TabBarEx(4, 6, 1, 8, UI_SCREEN_WIDTH, 88, tabs(), 6, tabSel, tabsDisabled) THEN
         currentView = tabSel
     END IF
