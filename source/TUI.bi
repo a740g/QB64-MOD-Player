@@ -640,7 +640,7 @@ FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, ma
         COLOR TUI_COLOR_CYAN, origBg
         _PRINTSTRING (barStart, y), CHR$(179)
     ELSE
-        COLOR TUI_COLOR_GRAY, origBg
+        COLOR TUI_COLOR_WHITE, origBg
         _PRINTSTRING (barStart, y), CHR$(179)
     END IF
 
@@ -853,7 +853,7 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
         _PRINTSTRING (xTrack, y), STRING$(thumbIdx, CHR$(219))
     END IF
 
-    ' 5. Thumb using CHR$(29) with inverted color of solid progress character
+    ' 5. Thumb using CHR$(254) with inverted color of solid progress character
     IF __TUI.activeId = thisId _ANDALSO __TUI.mouseDownL THEN
         COLOR TUI_COLOR_BLACK, TUI_COLOR_YELLOW
     ELSEIF isHovered THEN
@@ -861,7 +861,7 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
     ELSE
         COLOR TUI_COLOR_BLACK, TUI_COLOR_LIGHT_CYAN
     END IF
-    _PRINTSTRING (xTrack + thumbIdx, y), CHR$(29)
+    _PRINTSTRING (xTrack + thumbIdx, y), CHR$(254)
 
     ' 6. Unfilled track portion (columns thumbIdx + 1 to innerW - 1)
     DIM remChars AS LONG: remChars = (innerW - 1) - thumbIdx

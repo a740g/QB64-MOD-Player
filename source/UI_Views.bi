@@ -209,8 +209,10 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
     COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GRAY
     _PRINTSTRING (137, 1), __UI_Format3(rowVal) + "/" + __UI_Format3(maxRowVal)
 
-    ' Row 2: Playback Status & Position Scrubber Bar
-    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+    ' Row 2: Full-width Playback Status & Position Scrubber Deck
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_GRAY
+    _PRINTSTRING (1, 2), SPACE$(UI_SCREEN_WIDTH)
+
     DIM curOrd AS LONG: curOrd = _IIF(player.song.isPlaying, player.song.orderPosition, 0)
     DIM maxOrd AS LONG: maxOrd = _IIF(player.song.isPlaying, _MAX(1, player.song.orders - 1), 1)
 
@@ -225,6 +227,7 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
         smoothOrd = 0!
     END IF
 
+    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
     DIM scrubResult AS LONG
     scrubResult = TUI_ProgressBar(2, 2, 67, smoothOrd, CSNG(maxOrd), "POS:")
     IF scrubResult >= 0 _ANDALSO player.song.isPlaying THEN
@@ -233,7 +236,7 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
     END IF
 
     ' Divider space (cols 79..80)
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_GRAY
     _PRINTSTRING (79, 2), "  "
 
     ' Telemetry: BPM, SPD, VOC, BUF (cols 81..116)
@@ -254,35 +257,35 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
         bufValStr = "---ms"
     END IF
 
-    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
     _PRINTSTRING (81, 2), "BPM:"
-    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GRAY
     _PRINTSTRING (85, 2), bpmValStr
     _PRINTSTRING (88, 2), " "
 
-    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
     _PRINTSTRING (89, 2), "SPD:"
-    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GRAY
     _PRINTSTRING (93, 2), spdValStr
     _PRINTSTRING (95, 2), "  "
 
-    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
     _PRINTSTRING (97, 2), "VOC:"
-    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GRAY
     _PRINTSTRING (101, 2), vocValStr
     _PRINTSTRING (106, 2), "  "
 
-    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
     _PRINTSTRING (108, 2), "BUF:"
-    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GRAY
     _PRINTSTRING (112, 2), bufValStr
 
     ' Divider space (cols 117..118)
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_GRAY
     _PRINTSTRING (117, 2), "  "
 
     ' Interactive Master Volume Slider (cols 119..143)
-    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
     DIM curVol AS SINGLE: curVol = SoftSynth_GetMasterVolume(player.synth)
     DIM newVol AS SINGLE
     newVol = TUI_Slider(119, 2, 16, curVol, 0!, SOFTSYNTH_MASTER_VOLUME_MAX, "VOL")
