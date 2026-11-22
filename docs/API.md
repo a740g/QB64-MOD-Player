@@ -1582,10 +1582,49 @@ SUB TUI_Panel (x AS LONG, y AS LONG, w AS LONG, h AS LONG, title AS STRING, isDo
 FUNCTION TUI_TabBar%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG)
 ```
 
-- **Description**: Renders a horizontal bar of tabs. Clicking or triggering an inactive tab updates `selectedIdx` and returns `_TRUE`.
+- **Description**: Renders a horizontal bar of tabs without an outer container box. Clicking or triggering an inactive tab updates `selectedIdx` and returns `_TRUE`.
 - **Parameters**:
   - `x`: Column coordinate of the start of the tab bar.
   - `y`: Row coordinate.
+  - `tabCaptions()`: Array of tab caption strings.
+  - `tabCount`: Total number of tabs in the array.
+  - `selectedIdx`: In/Out 1-based index of the currently active tab.
+- **Return Value**: `_TRUE` if tab selection changed this frame, `_FALSE` otherwise.
+
+#### `TUI_TabBarEx%%`
+
+```vb
+FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, boxX1 AS LONG, boxY1 AS LONG, boxX2 AS LONG, boxY2 AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG, isDisabled AS _BYTE)
+```
+
+- **Description**: Extended tab bar supporting disabled state and an optional diary-style container border box. When `boxX1 > 0`, draws an enclosing border box whose top edge seamlessly connects to the active tab via CP437 ASCII 189/211 glyphs and seals unselected tabs with ASCII 193.
+- **Parameters**:
+  - `x`: Column coordinate of the start of the tab bar.
+  - `y`: Row coordinate of the tab bar.
+  - `boxX1`: Left column of the container border box (or 0 for no box).
+  - `boxY1`: Top row of the container border box (or 0 for no box).
+  - `boxX2`: Right column of the container border box (or 0 for no box).
+  - `boxY2`: Bottom row of the container border box (or 0 for no box).
+  - `tabCaptions()`: Array of tab caption strings.
+  - `tabCount`: Total number of tabs in the array.
+  - `selectedIdx`: In/Out 1-based index of the currently active tab.
+  - `isDisabled`: Nonzero to render tabs grayed out and non-interactive.
+- **Return Value**: `_TRUE` if tab selection changed this frame, `_FALSE` otherwise.
+
+#### `TUI_TabControl%%`
+
+```vb
+FUNCTION TUI_TabControl%% (x AS LONG, y AS LONG, boxX1 AS LONG, boxY1 AS LONG, boxX2 AS LONG, boxY2 AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG)
+```
+
+- **Description**: Helper wrapper around `TUI_TabBarEx` that renders an interactive diary tab control with integrated content container box.
+- **Parameters**:
+  - `x`: Column coordinate of the start of the tab bar.
+  - `y`: Row coordinate of the tab bar.
+  - `boxX1`: Left column of the container border box.
+  - `boxY1`: Top row of the container border box.
+  - `boxX2`: Right column of the container border box.
+  - `boxY2`: Bottom row of the container border box.
   - `tabCaptions()`: Array of tab caption strings.
   - `tabCount`: Total number of tabs in the array.
   - `selectedIdx`: In/Out 1-based index of the currently active tab.

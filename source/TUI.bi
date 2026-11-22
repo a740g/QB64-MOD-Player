@@ -48,9 +48,15 @@ CONST __TUI_GLYPH_VLINE = CHR$(179) ' Single vertical line
 CONST __TUI_GLYPH_DOUBLE_VLINE = CHR$(186) ' Double vertical line
 CONST __TUI_GLYPH_CORNER_TR = CHR$(191) ' Single top-right corner
 CONST __TUI_GLYPH_CORNER_BL = CHR$(192) ' Single bottom-left corner
+CONST __TUI_GLYPH_T_UP = CHR$(193) ' Single upward T-junction
 CONST __TUI_GLYPH_HLINE = CHR$(196) ' Single horizontal line
 CONST __TUI_GLYPH_CORNER_BR = CHR$(217) ' Single bottom-right corner
 CONST __TUI_GLYPH_CORNER_TL = CHR$(218) ' Single top-left corner
+CONST __TUI_GLYPH_CORNER_DBL_TL = CHR$(201) ' Double top-left corner
+CONST __TUI_GLYPH_CORNER_DBL_TR = CHR$(187) ' Double top-right corner
+CONST __TUI_GLYPH_HLINE_DBL = CHR$(205) ' Double horizontal line
+CONST __TUI_GLYPH_DIARY_TAB_LEFT = CHR$(189) ' Up double, left single junction
+CONST __TUI_GLYPH_DIARY_TAB_RIGHT = CHR$(211) ' Up double, right single junction
 CONST __TUI_GLYPH_SOLID = CHR$(219) ' Solid block
 CONST __TUI_GLYPH_PEAK_DOT = CHR$(223) ' Top half block
 CONST __TUI_GLYPH_INACTIVE_DOT = CHR$(250) ' Inactive dot
@@ -1006,14 +1012,18 @@ SUB TUI_Panel (x AS LONG, y AS LONG, w AS LONG, h AS LONG, title AS STRING, isDo
 END SUB
 
 ''' @brief Renders a 3D tab bar where clicking or activating a tab selects it, with focus & disabled support.
-''' @param x Character column of top-left corner.
-''' @param y Character row of top-left corner.
+''' @param x Character column of top-left corner of first tab.
+''' @param y Character row of top-left corner of tab bar.
+''' @param boxX1 Left column of container border box (or 0 for no box).
+''' @param boxY1 Top row of container border box (or 0 for no box).
+''' @param boxX2 Right column of container border box (or 0 for no box).
+''' @param boxY2 Bottom row of container border box (or 0 for no box).
 ''' @param tabCaptions() Array of tab caption strings.
 ''' @param tabCount Number of tabs in tabCaptions().
 ''' @param selectedIdx In/Out: 1-based index of currently selected tab.
 ''' @param isDisabled _TRUE to render all tabs grayed out and non-interactive.
 ''' @return _TRUE if tab selection changed this frame, _FALSE otherwise.
-FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG, isDisabled AS _BYTE)
+FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, boxX1 AS LONG, boxY1 AS LONG, boxX2 AS LONG, boxY2 AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG, isDisabled AS _BYTE)
     SHARED __TUI AS __TUI_Context
 
     DIM origFg AS _UNSIGNED LONG: origFg = _DEFAULTCOLOR
@@ -1022,15 +1032,20 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount
     DIM changed AS _BYTE
     DIM curX AS LONG: curX = x
 
+    REDIM tabStartX(1 TO tabCount) AS LONG
+    REDIM tabWidths(1 TO tabCount) AS LONG
+
     DIM i AS LONG
     FOR i = 1 TO tabCount
+        tabStartX(i) = curX
         DIM tabText AS STRING: tabText = tabCaptions(i)
         DIM tabW AS LONG: tabW = LEN(tabText) + 4
+        tabWidths(i) = tabW
         DIM isSelected AS _BYTE: isSelected = (i = selectedIdx)
 
         IF isDisabled THEN
             ' Render disabled tab (flat single-line border in dark gray, gray text on black)
-            DIM hLineDis AS STRING: hLineDis = STRING$(tabW - 2, 196)
+            DIM hLineDis AS STRING: hLineDis = STRING$(tabW - 2, __TUI_GLYPH_HLINE)
             COLOR TUI_COLOR_GRAY, origBg
             _PRINTSTRING (curX, y), __TUI_GLYPH_CORNER_TL + hLineDis + __TUI_GLYPH_CORNER_TR
             _PRINTSTRING (curX, y + 1), __TUI_GLYPH_VLINE + " " + tabText + " " + __TUI_GLYPH_VLINE
@@ -1068,12 +1083,18 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount
                 Input_ConsumeKeyboardKey
             END IF
 
-            ' Line characters: double-line if focused, single-line if non-focused
-            DIM chTL AS LONG, chTR AS LONG, chH AS LONG, chV AS LONG
-            IF isFocused THEN
-                chTL = 201: chTR = 187: chH = 205: chV = 186
+            ' Line characters: selected tab uses double lines, unselected uses single lines
+            DIM chTL AS STRING, chTR AS STRING, chH AS STRING, chV AS STRING
+            IF isSelected THEN
+                chTL = __TUI_GLYPH_CORNER_DBL_TL
+                chTR = __TUI_GLYPH_CORNER_DBL_TR
+                chH = __TUI_GLYPH_HLINE_DBL
+                chV = __TUI_GLYPH_DOUBLE_VLINE
             ELSE
-                chTL = 218: chTR = 191: chH = 196: chV = 179
+                chTL = __TUI_GLYPH_CORNER_TL
+                chTR = __TUI_GLYPH_CORNER_TR
+                chH = __TUI_GLYPH_HLINE
+                chV = __TUI_GLYPH_VLINE
             END IF
 
             DIM hLine AS STRING: hLine = STRING$(tabW - 2, chH)
@@ -1082,38 +1103,92 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount
             IF isSelected THEN
                 IF isFocused THEN
                     COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLUE
-                    _PRINTSTRING (curX, y), CHR$(chTL) + hLine + CHR$(chTR)
-                    _PRINTSTRING (curX, y + 1), CHR$(chV) + " " + tabText + " " + CHR$(chV)
+                    _PRINTSTRING (curX, y), chTL + hLine + chTR
+                    _PRINTSTRING (curX, y + 1), chV + " " + tabText + " " + chV
                 ELSE
                     COLOR TUI_COLOR_WHITE, TUI_COLOR_BLUE
-                    _PRINTSTRING (curX, y), CHR$(chTL) + hLine + CHR$(chTR)
+                    _PRINTSTRING (curX, y), chTL + hLine + chTR
                     COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLUE
-                    _PRINTSTRING (curX, y + 1), CHR$(chV) + " " + tabText + " " + CHR$(chV)
+                    _PRINTSTRING (curX, y + 1), chV + " " + tabText + " " + chV
                 END IF
             ELSEIF isHovered THEN
                 COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
-                _PRINTSTRING (curX, y), CHR$(chTL) + hLine + CHR$(chTR)
-                _PRINTSTRING (curX, y + 1), CHR$(chV) + " " + tabText + " " + CHR$(chV)
+                _PRINTSTRING (curX, y), chTL + hLine + chTR
+                _PRINTSTRING (curX, y + 1), chV + " " + tabText + " " + chV
             ELSEIF isFocused THEN
                 COLOR TUI_COLOR_BRIGHT_WHITE, origBg
-                _PRINTSTRING (curX, y), CHR$(chTL) + hLine + CHR$(chTR)
-                _PRINTSTRING (curX, y + 1), CHR$(chV) + " " + tabText + " " + CHR$(chV)
+                _PRINTSTRING (curX, y), chTL + hLine + chTR
+                _PRINTSTRING (curX, y + 1), chV + " " + tabText + " " + chV
             ELSE
                 COLOR TUI_COLOR_GRAY, origBg
-                _PRINTSTRING (curX, y), CHR$(chTL) + hLine + CHR$(chTR)
+                _PRINTSTRING (curX, y), chTL + hLine + chTR
                 COLOR TUI_COLOR_WHITE, origBg
-                _PRINTSTRING (curX, y + 1), CHR$(chV) + " " + tabText + " " + CHR$(chV)
+                _PRINTSTRING (curX, y + 1), chV + " " + tabText + " " + chV
             END IF
         END IF
 
         curX = curX + tabW + 1
     NEXT i
 
+    ' Optional Diary Container Border Box
+    IF boxX1 > 0 _ANDALSO boxY1 > 0 _ANDALSO boxX2 >= boxX1 _ANDALSO boxY2 >= boxY1 THEN
+        DIM boxW AS LONG: boxW = boxX2 - boxX1 + 1
+
+        ' 1. Top border connecting to tabs (Row boxY1)
+        DIM topRowStr AS STRING: topRowStr = STRING$(boxW, __TUI_GLYPH_HLINE)
+        MID$(topRowStr, 1, 1) = __TUI_GLYPH_CORNER_TL
+        MID$(topRowStr, boxW, 1) = __TUI_GLYPH_CORNER_TR
+
+        FOR i = 1 TO tabCount
+            DIM relX AS LONG: relX = tabStartX(i) - boxX1 + 1
+            DIM tW AS LONG: tW = tabWidths(i)
+            IF relX >= 1 _ANDALSO relX + tW - 1 <= boxW THEN
+                IF i = selectedIdx THEN
+                    ' Seamless active tab connection: ASCII 189 (CP437), open spaces, ASCII 211 (CP437)
+                    MID$(topRowStr, relX, 1) = __TUI_GLYPH_DIARY_TAB_LEFT
+                    MID$(topRowStr, relX + 1, tW - 2) = SPACE$(tW - 2)
+                    MID$(topRowStr, relX + tW - 1, 1) = __TUI_GLYPH_DIARY_TAB_RIGHT
+                ELSE
+                    ' Single-line seal for unselected tab
+                    MID$(topRowStr, relX, 1) = __TUI_GLYPH_T_UP
+                    MID$(topRowStr, relX + tW - 1, 1) = __TUI_GLYPH_T_UP
+                END IF
+            END IF
+        NEXT i
+
+        COLOR TUI_COLOR_GRAY, origBg
+        _PRINTSTRING (boxX1, boxY1), topRowStr
+
+        ' Highlight active tab junctions
+        IF selectedIdx >= 1 _ANDALSO selectedIdx <= tabCount THEN
+            DIM selRelX AS LONG: selRelX = tabStartX(selectedIdx)
+            DIM selTW AS LONG: selTW = tabWidths(selectedIdx)
+            IF selRelX >= boxX1 _ANDALSO selRelX + selTW - 1 <= boxX2 THEN
+                COLOR TUI_COLOR_WHITE, origBg
+                _PRINTSTRING (selRelX, boxY1), __TUI_GLYPH_DIARY_TAB_LEFT
+                _PRINTSTRING (selRelX + selTW - 1, boxY1), __TUI_GLYPH_DIARY_TAB_RIGHT
+            END IF
+        END IF
+
+        ' 2. Vertical side borders (Rows boxY1 + 1 to boxY2 - 1)
+        COLOR TUI_COLOR_GRAY, origBg
+        DIM r AS LONG
+        FOR r = boxY1 + 1 TO boxY2 - 1
+            _PRINTSTRING (boxX1, r), __TUI_GLYPH_VLINE
+            _PRINTSTRING (boxX2, r), __TUI_GLYPH_VLINE
+        NEXT r
+
+        ' 3. Bottom border (Row boxY2)
+        DIM botRowStr AS STRING
+        botRowStr = __TUI_GLYPH_CORNER_BL + STRING$(boxW - 2, __TUI_GLYPH_HLINE) + __TUI_GLYPH_CORNER_BR
+        _PRINTSTRING (boxX1, boxY2), botRowStr
+    END IF
+
     COLOR origFg, origBg
     TUI_TabBarEx = changed
 END FUNCTION
 
-''' @brief Renders a 3D tab bar where clicking or activating a tab selects it.
+''' @brief Renders an interactive 3D tab bar without an outer container box.
 ''' @param x Character column of top-left corner.
 ''' @param y Character row of top-left corner.
 ''' @param tabCaptions() Array of tab caption strings.
@@ -1121,7 +1196,22 @@ END FUNCTION
 ''' @param selectedIdx In/Out: 1-based index of currently selected tab.
 ''' @return _TRUE if tab selection changed this frame, _FALSE otherwise.
 FUNCTION TUI_TabBar%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG)
-    TUI_TabBar = TUI_TabBarEx(x, y, tabCaptions(), tabCount, selectedIdx, _FALSE)
+    TUI_TabBar = TUI_TabBarEx(x, y, 0, 0, 0, 0, tabCaptions(), tabCount, selectedIdx, _FALSE)
+END FUNCTION
+
+''' @brief Renders an interactive diary tab control with integrated content container box.
+''' @param x Character column of top-left corner of first tab.
+''' @param y Character row of top-left corner of tab bar.
+''' @param boxX1 Left column of container border box.
+''' @param boxY1 Top row of container border box.
+''' @param boxX2 Right column of container border box.
+''' @param boxY2 Bottom row of container border box.
+''' @param tabCaptions() Array of tab caption strings.
+''' @param tabCount Number of tabs in tabCaptions().
+''' @param selectedIdx In/Out: 1-based index of currently selected tab.
+''' @return _TRUE if tab selection changed this frame, _FALSE otherwise.
+FUNCTION TUI_TabControl%% (x AS LONG, y AS LONG, boxX1 AS LONG, boxY1 AS LONG, boxX2 AS LONG, boxY2 AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG)
+    TUI_TabControl = TUI_TabBarEx(x, y, boxX1, boxY1, boxX2, boxY2, tabCaptions(), tabCount, selectedIdx, _FALSE)
 END FUNCTION
 
 ''' @brief Renders a vertical 1-column VU meter with peak indicator dot.

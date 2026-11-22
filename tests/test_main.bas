@@ -3954,7 +3954,7 @@ SUB Test_TUI
     Vector2f_Set 25!, 5!, __TUI.mousePos
     __TUI.mouseClickedL = _TRUE
     DIM disTabChanged AS _BYTE
-    disTabChanged = TUI_TabBarEx(10, 5, tabs(), 4, selectedTab, _TRUE)
+    disTabChanged = TUI_TabBarEx(10, 5, 0, 0, 0, 0, tabs(), 4, selectedTab, _TRUE)
     TEST_CHECK NOT disTabChanged, "Disabled TUI_TabBarEx does not change selection on click"
     TEST_CHECK selectedTab = 1, "Selected tab unchanged when disabled"
     TEST_CHECK __TUI.widgetCount = 0, "Disabled tab bar does not register interactive widgets"
@@ -3966,9 +3966,40 @@ SUB Test_TUI
     __TUI.mouseClickedL = _FALSE
     __TUI.focusedId = 3 ' Focus on 3rd tab ("Instruments")
     __TUI.navConfirm = _TRUE
-    tabChanged = TUI_TabBarEx(10, 5, tabs(), 4, selectedTab, _FALSE)
+    tabChanged = TUI_TabBarEx(10, 5, 0, 0, 0, 0, tabs(), 4, selectedTab, _FALSE)
     TEST_CHECK tabChanged, "TUI_TabBarEx confirms selection via keyboard focus"
     TEST_CHECK selectedTab = 3, "Selected tab updated to 3 via keyboard"
+    TUI_End
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "TUI: Diary Tab Control with Box Border"
+    TEST_CHECK ASC(__TUI_GLYPH_DIARY_TAB_LEFT) = 189, "__TUI_GLYPH_DIARY_TAB_LEFT is CP437 ASCII 189"
+    TEST_CHECK ASC(__TUI_GLYPH_DIARY_TAB_RIGHT) = 211, "__TUI_GLYPH_DIARY_TAB_RIGHT is CP437 ASCII 211"
+    TEST_CHECK ASC(__TUI_GLYPH_T_UP) = 193, "__TUI_GLYPH_T_UP is CP437 ASCII 193"
+    TEST_CHECK ASC(__TUI_GLYPH_CORNER_DBL_TL) = 201, "__TUI_GLYPH_CORNER_DBL_TL is CP437 ASCII 201"
+    TEST_CHECK ASC(__TUI_GLYPH_CORNER_DBL_TR) = 187, "__TUI_GLYPH_CORNER_DBL_TR is CP437 ASCII 187"
+    TEST_CHECK ASC(__TUI_GLYPH_HLINE_DBL) = 205, "__TUI_GLYPH_HLINE_DBL is CP437 ASCII 205"
+
+    TUI_Begin
+    selectedTab = 1
+    Vector2f_Set 0!, 0!, __TUI.mousePos
+    __TUI.mouseClickedL = _FALSE
+    DIM diaryChanged AS _BYTE
+    diaryChanged = TUI_TabControl(4, 6, 1, 8, 144, 88, tabs(), 4, selectedTab)
+    TEST_CHECK NOT diaryChanged, "TUI_TabControl does not change selection when no input"
+    TEST_CHECK selectedTab = 1, "Selected tab remains 1"
+    TEST_CHECK __TUI.widgetCount = 4, "TUI_TabControl registers tabs as interactive widgets"
+    TUI_End
+
+    ' Test clicking tab 2 in TUI_TabControl
+    TUI_Begin
+    ' Tab 1 starts at x=4, len("Tracker")+4 = 11, x=4..14. Tab 2 starts at x=16, len("Mixer")+4 = 9, x=16..24.
+    Vector2f_Set 18!, 7!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE
+    __TUI.activeId = 2
+    diaryChanged = TUI_TabControl(4, 6, 1, 8, 144, 88, tabs(), 4, selectedTab)
+    TEST_CHECK diaryChanged, "TUI_TabControl switches tab on mouse click"
+    TEST_CHECK selectedTab = 2, "Selected tab is now 2"
     TUI_End
     TEST_CASE_END
 

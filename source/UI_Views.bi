@@ -11,11 +11,12 @@ $INCLUDEONCE
 '$INCLUDE:'Vector2f.bi'
 '$INCLUDE:'Bounds2f.bi'
 '$INCLUDE:'Vector3f.bi'
-'$INCLUDE:'AudioAnalyzer.bi'
-'$INCLUDE:'MODPlayer.bm'
 '$INCLUDE:'Input.bi'
 '$INCLUDE:'TUI.bi'
 '$INCLUDE:'Playlist.bi'
+'$INCLUDE:'AudioAnalyzer.bi'
+'$INCLUDE:'MODPlayer.bi'
+'$include:'MODPlayer.bm'
 
 ' View identifier constants
 CONST UI_VIEW_MODE_TRACKER% = 1%
@@ -398,7 +399,7 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
     IF tabSel > 6 THEN tabSel = 6
 
     DIM tabsDisabled AS _BYTE: tabsDisabled = NOT player.song.isPlaying
-    IF TUI_TabBarEx(2, 6, tabs(), 6, tabSel, tabsDisabled) THEN
+    IF TUI_TabBarEx(4, 6, 1, 8, UI_SCREEN_WIDTH, 88, tabs(), 6, tabSel, tabsDisabled) THEN
         currentView = tabSel
     END IF
 
@@ -516,8 +517,7 @@ SUB UI_RenderTracker (player AS MODPlayer, chanOffset AS LONG)
     IF curPat < 0 _ORELSE curPat >= player.song.patterns THEN EXIT SUB
 
     ' Viewport channel paging buttons
-    DIM pX AS LONG: pX = 2
-    IF TUI_Button(pX, 8, 16, __UI_GLYPH_LEFT_ARROW + " Prev Channels") THEN
+    IF TUI_Button(3, 9, 16, __UI_GLYPH_LEFT_ARROW + " Prev Channels") THEN
         chanOffset = _MAX(0, chanOffset - UI_TRACKER_VISIBLE_CHANNELS)
     END IF
 
@@ -525,21 +525,21 @@ SUB UI_RenderTracker (player AS MODPlayer, chanOffset AS LONG)
     DIM endCh AS LONG: endCh = _MIN(totalChans, chanOffset + UI_TRACKER_VISIBLE_CHANNELS)
     pageInfo = "Channels " + _TOSTR$(chanOffset + 1) + " - " + _TOSTR$(endCh) + " of " + _TOSTR$(totalChans)
     COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
-    _PRINTSTRING (60, 9), pageInfo
+    _PRINTSTRING (58, 10), pageInfo
 
-    IF TUI_Button(126, 8, 16, "Next Channels " + __UI_GLYPH_RIGHT_ARROW) THEN
+    IF TUI_Button(125, 9, 16, "Next Channels " + __UI_GLYPH_RIGHT_ARROW) THEN
         chanOffset = _MIN(maxOffset, chanOffset + UI_TRACKER_VISIBLE_CHANNELS)
     END IF
 
-    ' Pattern Header Row (row 11)
+    ' Pattern Header Row (row 12)
     COLOR TUI_COLOR_BLACK, TUI_COLOR_CYAN
-    _PRINTSTRING (2, 11), " PAT:RW "
+    _PRINTSTRING (3, 12), " PAT:RW "
 
     DIM visCount AS LONG: visCount = _MIN(UI_TRACKER_VISIBLE_CHANNELS, totalChans - chanOffset)
     DIM vc AS LONG
     FOR vc = 0 TO visCount - 1
         DIM ch AS LONG: ch = chanOffset + vc
-        DIM chBadgeX AS LONG: chBadgeX = 11 + vc * 16
+        DIM chBadgeX AS LONG: chBadgeX = 12 + vc * 16
 
         DIM chSub AS STRING: chSub = MODPlayer_GetChannelSubtypeCaption(player, ch)
         DIM badgeText AS STRING
@@ -550,7 +550,7 @@ SUB UI_RenderTracker (player AS MODPlayer, chanOffset AS LONG)
         END IF
 
         DIM chAct AS _BYTE
-        IF TUI_ChannelBadge(chBadgeX, 11, ch, badgeText, MODPlayer_IsChannelMuted(player, ch), MODPlayer_IsChannelSoloed(player, ch), chAct) THEN
+        IF TUI_ChannelBadge(chBadgeX, 12, ch, badgeText, MODPlayer_IsChannelMuted(player, ch), MODPlayer_IsChannelSoloed(player, ch), chAct) THEN
             IF chAct = TUI_CHANNEL_ACTION_MUTE THEN
                 MODPlayer_ToggleChannelMute player, ch
             ELSEIF chAct = TUI_CHANNEL_ACTION_SOLO THEN
@@ -559,14 +559,14 @@ SUB UI_RenderTracker (player AS MODPlayer, chanOffset AS LONG)
         END IF
 
         COLOR TUI_COLOR_BLACK, TUI_COLOR_CYAN
-        _PRINTSTRING (chBadgeX + 4, 11), " S# FX OP   "
+        _PRINTSTRING (chBadgeX + 4, 12), " S# FX OP   "
     NEXT vc
 
-    ' Pattern data matrix: rows 12 to 86 (75 rows visible!)
-    DIM centerLine AS LONG: centerLine = 49
+    ' Pattern data matrix: rows 13 to 86 (74 rows visible!)
+    DIM centerLine AS LONG: centerLine = 50
     DIM dispOrder AS LONG: dispOrder = player.song.orderPosition
     DIM dispRow AS LONG: dispRow = player.song.patternRow
-    DIM rowsAbove AS LONG: rowsAbove = centerLine - 12
+    DIM rowsAbove AS LONG: rowsAbove = centerLine - 13
 
     ' Rewind dispOrder / dispRow by rowsAbove
     WHILE rowsAbove > 0
@@ -592,7 +592,7 @@ SUB UI_RenderTracker (player AS MODPlayer, chanOffset AS LONG)
     WEND
 
     DIM r AS LONG
-    FOR r = 12 TO 86
+    FOR r = 13 TO 86
         DIM isValidRow AS _BYTE: isValidRow = _FALSE
         DIM drawP AS LONG: drawP = -1
 
@@ -618,11 +618,11 @@ SUB UI_RenderTracker (player AS MODPlayer, chanOffset AS LONG)
             DIM rStr AS STRING: rStr = _TOSTR$(dispRow)
             IF LEN(rStr) < 2 THEN rStr = "0" + rStr
             rowHdr = " " + pStr + ":" + rStr + " "
-            _PRINTSTRING (2, r), rowHdr
+            _PRINTSTRING (3, r), rowHdr
 
             FOR vc = 0 TO visCount - 1
                 ch = chanOffset + vc
-                DIM cellX AS LONG: cellX = 11 + vc * 16
+                DIM cellX AS LONG: cellX = 12 + vc * 16
 
                 DIM nNote AS LONG: nNote = player.pattern(drawP).note(dispRow, ch).note
                 DIM nSmp AS LONG: nSmp = player.pattern(drawP).note(dispRow, ch).instrument
@@ -659,16 +659,16 @@ SUB UI_RenderTracker (player AS MODPlayer, chanOffset AS LONG)
             END IF
         ELSE
             COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-            _PRINTSTRING (2, r), " --:-- " + SPACE$(130)
+            _PRINTSTRING (3, r), " --:-- " + SPACE$(130)
         END IF
     NEXT r
 
     ' Row 87: Voice volume & balance for visible channels
     COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
-    _PRINTSTRING (2, 87), "VOL/PAN:"
+    _PRINTSTRING (3, 87), "VOL/PAN:"
     FOR vc = 0 TO visCount - 1
         ch = chanOffset + vc
-        cellX = 11 + vc * 16
+        cellX = 12 + vc * 16
         DIM vV AS LONG: vV = CLNG(SoftSynth_GetVoiceVolume(player.synth, ch) * 100!)
         DIM vB AS LONG: vB = CLNG(SoftSynth_GetVoiceBalance(player.synth, ch) * 100!)
         DIM vpStr AS STRING: vpStr = "V:" + _TOSTR$(vV) + " P:" + _TOSTR$(vB)
@@ -685,7 +685,8 @@ SUB UI_RenderMixer (player AS MODPlayer)
         EXIT SUB
     END IF
 
-    TUI_Panel 2, 8, 140, 80, "32-Channel Master Console Mixer", _TRUE
+    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    _PRINTSTRING (57, 10), "32-Channel Master Console Mixer"
 
     DIM totalChans AS LONG: totalChans = _MIN(32, player.song.channels)
     IF totalChans < 1 THEN EXIT SUB
@@ -693,7 +694,7 @@ SUB UI_RenderMixer (player AS MODPlayer)
     DIM stripW AS LONG
     IF totalChans <= 16 THEN stripW = 8 ELSE stripW = 4
 
-    DIM startX AS LONG: startX = 4 + (136 - totalChans * stripW) \ 2
+    DIM startX AS LONG: startX = 2 + (142 - totalChans * stripW) \ 2
 
     DIM c AS LONG
     FOR c = 0 TO totalChans - 1
@@ -701,35 +702,35 @@ SUB UI_RenderMixer (player AS MODPlayer)
         DIM isMuted AS _BYTE: isMuted = MODPlayer_IsChannelMuted(player, c)
         DIM isSoloed AS _BYTE: isSoloed = MODPlayer_IsChannelSoloed(player, c)
 
-        ' Channel Number (row 9)
+        ' Channel Number (row 11)
         DIM chLabel AS STRING: chLabel = _TOSTR$(c + 1)
         IF LEN(chLabel) < 2 THEN chLabel = "0" + chLabel
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
-        _PRINTSTRING (sx, 9), "[" + chLabel + "]"
+        _PRINTSTRING (sx, 11), "[" + chLabel + "]"
 
-        ' Subtype Badge (row 11)
+        ' Subtype Badge (row 13)
         DIM bText AS STRING: bText = MODPlayer_GetChannelSubtypeCaption(player, c)
         COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
-        _PRINTSTRING (sx, 11), bText
+        _PRINTSTRING (sx, 13), bText
 
-        ' Interactive Mute / Solo buttons (rows 13-17)
-        IF TUI_Button(sx, 13, 3, _IIF(isMuted, "M!", "M ")) THEN
+        ' Interactive Mute / Solo buttons (rows 15-20)
+        IF TUI_Button(sx, 15, 3, _IIF(isMuted, "M!", "M ")) THEN
             MODPlayer_ToggleChannelMute player, c
         END IF
 
-        IF TUI_Button(sx, 16, 3, _IIF(isSoloed, "S!", "S ")) THEN
+        IF TUI_Button(sx, 18, 3, _IIF(isSoloed, "S!", "S ")) THEN
             MODPlayer_SoloChannel player, c
         END IF
 
-        ' Tall 3D VU Meter (rows 20 to 65: 46 characters tall!)
+        ' Tall 3D VU Meter (rows 22 to 67: 46 characters tall!)
         DIM vVol AS SINGLE: vVol = SoftSynth_GetVoiceVolume(player.synth, c)
-        TUI_VUMeter sx + 1, 20, 46, vVol, vVol * 1.1!, isMuted
+        TUI_VUMeter sx + 1, 22, 46, vVol, vVol * 1.1!, isMuted
 
-        ' Volume numeric readout (row 68)
+        ' Volume numeric readout (row 70)
         COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
-        _PRINTSTRING (sx, 68), "V" + _TOSTR$(CLNG(vVol * 64!))
+        _PRINTSTRING (sx, 70), "V" + _TOSTR$(CLNG(vVol * 64!))
 
-        ' Pan pot (row 71)
+        ' Pan pot (row 73)
         DIM panVal AS SINGLE: panVal = SoftSynth_GetVoiceBalance(player.synth, c)
         DIM panStr AS STRING
         IF panVal < -0.1! THEN
@@ -740,16 +741,16 @@ SUB UI_RenderMixer (player AS MODPlayer)
             panStr = "MID"
         END IF
         COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
-        _PRINTSTRING (sx, 71), panStr
+        _PRINTSTRING (sx, 73), panStr
 
-        ' Last Note (row 74)
+        ' Last Note (row 76)
         DIM lastN AS LONG: lastN = player.channel(c).note
         COLOR TUI_COLOR_LIGHT_GREEN, TUI_COLOR_BLACK
-        _PRINTSTRING (sx, 74), UI_GetNoteName(lastN)
+        _PRINTSTRING (sx, 76), UI_GetNoteName(lastN)
 
-        ' Sample # (row 77)
+        ' Sample # (row 79)
         COLOR TUI_COLOR_LIGHT_RED, TUI_COLOR_BLACK
-        _PRINTSTRING (sx, 77), "I" + _TOSTR$(player.channel(c).instrument)
+        _PRINTSTRING (sx, 79), "I" + _TOSTR$(player.channel(c).instrument)
     NEXT c
 END SUB
 
@@ -766,19 +767,19 @@ SUB UI_RenderInstruments (player AS MODPlayer, selectedInst AS LONG, scrollOffse
     DIM totalInsts AS LONG: totalInsts = player.song.instruments
     selectedInst = _CLAMP(selectedInst, 1, _MAX(1, totalInsts))
 
-    ' Left Panel: Instrument Table (columns 2 to 84, rows 8 to 87)
-    TUI_Panel 2, 8, 82, 80, "Sample & Instrument Bank (" + _TOSTR$(totalInsts) + ")", _TRUE
+    ' Left Panel: Instrument Table (columns 3 to 82, rows 10 to 86)
+    TUI_Panel 3, 10, 80, 77, "Sample & Instrument Bank (" + _TOSTR$(totalInsts) + ")", _TRUE
 
     COLOR TUI_COLOR_BLACK, TUI_COLOR_CYAN
-    _PRINTSTRING (4, 10), " #  NAME                     VOL C2SPD   LEN    LOOP TYPE "
+    _PRINTSTRING (5, 12), " #  NAME                     VOL C2SPD   LEN    LOOP TYPE "
 
-    DIM maxRows AS LONG: maxRows = 75
+    DIM maxRows AS LONG: maxRows = 73
     scrollOffset = _CLAMP(scrollOffset, 1, _MAX(1, totalInsts - maxRows + 1))
 
     DIM r AS LONG
     FOR r = 0 TO maxRows - 1
         DIM instIdx AS LONG: instIdx = scrollOffset + r
-        DIM drawY AS LONG: drawY = 11 + r
+        DIM drawY AS LONG: drawY = 13 + r
 
         IF instIdx <= totalInsts THEN
             DIM iName AS STRING: iName = player.instrument(instIdx - 1).caption
@@ -826,11 +827,11 @@ SUB UI_RenderInstruments (player AS MODPlayer, selectedInst AS LONG, scrollOffse
             IF LEN(numStr) < 2 THEN numStr = "0" + numStr
             rowStr = numStr + " " + iName + " " + iVol + " " + iSpd + " " + iLen + " " + iLoop + " " + iType
 
-            _PRINTSTRING (4, drawY), rowStr
+            _PRINTSTRING (5, drawY), rowStr
 
             ' Mouse click row selection
             DIM rowB AS Bounds2f
-            Bounds2f_Set 4, drawY, 80, drawY + 0.999!, rowB
+            Bounds2f_Set 5, drawY, 81, drawY + 0.999!, rowB
             IF __TUI.activeId = 0 _ANDALSO TUI_IsMouseClickedInBounds(rowB) THEN
                 selectedInst = instIdx
                 TUI_ConsumeClick
@@ -838,12 +839,12 @@ SUB UI_RenderInstruments (player AS MODPlayer, selectedInst AS LONG, scrollOffse
         END IF
     NEXT r
 
-    ' Right Panel: Detailed Synth Inspector (columns 86 to 142, rows 8 to 87)
-    TUI_Panel 86, 8, 56, 80, "Instrument Inspector", _TRUE
+    ' Right Panel: Detailed Synth Inspector (columns 85 to 141, rows 10 to 86)
+    TUI_Panel 85, 10, 57, 77, "Instrument Inspector", _TRUE
 
     DIM selIdx0 AS LONG: selIdx0 = selectedInst - 1
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
-    _PRINTSTRING (89, 10), "Slot: #" + _TOSTR$(selectedInst) + " - " + player.instrument(selIdx0).caption
+    _PRINTSTRING (88, 12), "Slot: #" + _TOSTR$(selectedInst) + " - " + player.instrument(selIdx0).caption
 
     COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
     DIM subName AS STRING
@@ -853,19 +854,19 @@ SUB UI_RenderInstruments (player AS MODPlayer, selectedInst AS LONG, scrollOffse
         CASE __MODPLAYER_INSTRUMENT_FM_BASSDRUM TO __MODPLAYER_INSTRUMENT_FM_HIHAT: subName = "AdLib OPL2 FM Percussion Voice"
         CASE ELSE: subName = "Digital PCM Sample"
     END SELECT
-    _PRINTSTRING (89, 12), "Type: " + subName
+    _PRINTSTRING (88, 14), "Type: " + subName
 
     COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
-    _PRINTSTRING (89, 15), "Volume:       " + _TOSTR$(player.instrument(selIdx0).volume) + " / 64"
-    _PRINTSTRING (89, 17), "Sample Rate:  " + _TOSTR$(player.instrument(selIdx0).c2Spd) + " Hz (C-2 Spd)"
-    _PRINTSTRING (89, 19), "Length:       " + _TOSTR$(player.instrument(selIdx0).length) + " bytes"
-    _PRINTSTRING (89, 21), "Loop Start:   " + _TOSTR$(player.instrument(selIdx0).loopStart)
-    _PRINTSTRING (89, 23), "Loop End:     " + _TOSTR$(player.instrument(selIdx0).loopEnd)
+    _PRINTSTRING (88, 17), "Volume:       " + _TOSTR$(player.instrument(selIdx0).volume) + " / 64"
+    _PRINTSTRING (88, 19), "Sample Rate:  " + _TOSTR$(player.instrument(selIdx0).c2Spd) + " Hz (C-2 Spd)"
+    _PRINTSTRING (88, 21), "Length:       " + _TOSTR$(player.instrument(selIdx0).length) + " bytes"
+    _PRINTSTRING (88, 23), "Loop Start:   " + _TOSTR$(player.instrument(selIdx0).loopStart)
+    _PRINTSTRING (88, 25), "Loop End:     " + _TOSTR$(player.instrument(selIdx0).loopEnd)
 
     IF player.instrument(selIdx0).subtype = __MODPLAYER_INSTRUMENT_AM_SYNTH THEN
         ' StarTrekker AM Synth Card
         COLOR TUI_COLOR_LIGHT_GREEN, TUI_COLOR_BLACK
-        _PRINTSTRING (89, 27), "-- StarTrekker AM Synth Parameters --"
+        _PRINTSTRING (88, 29), "-- StarTrekker AM Synth Parameters --"
         COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
         DIM waveName AS STRING
         SELECT CASE player.instrument(selIdx0).am.waveform
@@ -875,49 +876,49 @@ SUB UI_RenderInstruments (player AS MODPlayer, selectedInst AS LONG, scrollOffse
             CASE 3: waveName = "Noise"
             CASE ELSE: waveName = "Unknown"
         END SELECT
-        _PRINTSTRING (89, 30), "Waveform:     " + waveName
-        _PRINTSTRING (89, 32), "Attack 1 Spd: " + _TOSTR$(player.instrument(selIdx0).am.attack1Speed)
-        _PRINTSTRING (89, 34), "Attack 1 Lvl: " + _TOSTR$(player.instrument(selIdx0).am.attack1Level)
-        _PRINTSTRING (89, 36), "Attack 2 Spd: " + _TOSTR$(player.instrument(selIdx0).am.attack2Speed)
-        _PRINTSTRING (89, 38), "Attack 2 Lvl: " + _TOSTR$(player.instrument(selIdx0).am.attack2Level)
-        _PRINTSTRING (89, 40), "Decay Speed:  " + _TOSTR$(player.instrument(selIdx0).am.decaySpeed)
-        _PRINTSTRING (89, 42), "Sustain Time: " + _TOSTR$(player.instrument(selIdx0).am.sustainTime)
-        _PRINTSTRING (89, 44), "Release Spd:  " + _TOSTR$(player.instrument(selIdx0).am.releaseSpeed)
-        _PRINTSTRING (89, 46), "Vibrato Spd:  " + _TOSTR$(player.instrument(selIdx0).am.vibSpeed)
-        _PRINTSTRING (89, 48), "Vibrato Amp:  " + _TOSTR$(player.instrument(selIdx0).am.vibAmp)
-        _PRINTSTRING (89, 50), "Octave Trans: " + _TOSTR$(player.instrument(selIdx0).am.octave)
+        _PRINTSTRING (88, 32), "Waveform:     " + waveName
+        _PRINTSTRING (88, 34), "Attack 1 Spd: " + _TOSTR$(player.instrument(selIdx0).am.attack1Speed)
+        _PRINTSTRING (88, 36), "Attack 1 Lvl: " + _TOSTR$(player.instrument(selIdx0).am.attack1Level)
+        _PRINTSTRING (88, 38), "Attack 2 Spd: " + _TOSTR$(player.instrument(selIdx0).am.attack2Speed)
+        _PRINTSTRING (88, 40), "Attack 2 Lvl: " + _TOSTR$(player.instrument(selIdx0).am.attack2Level)
+        _PRINTSTRING (88, 42), "Decay Speed:  " + _TOSTR$(player.instrument(selIdx0).am.decaySpeed)
+        _PRINTSTRING (88, 44), "Sustain Time: " + _TOSTR$(player.instrument(selIdx0).am.sustainTime)
+        _PRINTSTRING (88, 46), "Release Spd:  " + _TOSTR$(player.instrument(selIdx0).am.releaseSpeed)
+        _PRINTSTRING (88, 48), "Vibrato Spd:  " + _TOSTR$(player.instrument(selIdx0).am.vibSpeed)
+        _PRINTSTRING (88, 50), "Vibrato Amp:  " + _TOSTR$(player.instrument(selIdx0).am.vibAmp)
+        _PRINTSTRING (88, 52), "Octave Trans: " + _TOSTR$(player.instrument(selIdx0).am.octave)
     ELSEIF player.instrument(selIdx0).subtype >= __MODPLAYER_INSTRUMENT_FM_MELODY _ANDALSO player.instrument(selIdx0).subtype <= __MODPLAYER_INSTRUMENT_FM_HIHAT THEN
         ' OPL2 FM Synth Card
         COLOR TUI_COLOR_LIGHT_GREEN, TUI_COLOR_BLACK
-        _PRINTSTRING (89, 27), "-- AdLib OPL2 FM Synthesis Register Card --"
+        _PRINTSTRING (88, 29), "-- AdLib OPL2 FM Synthesis Register Card --"
         COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
-        _PRINTSTRING (89, 30), "Modulator Parameters (D00-D05):"
-        _PRINTSTRING (91, 32), "Mult/KSR/EGT/VIB/AM: &H" + HEX$(player.instrument(selIdx0).adlib(0))
-        _PRINTSTRING (91, 34), "KSL / Total Level:   &H" + HEX$(player.instrument(selIdx0).adlib(2))
-        _PRINTSTRING (91, 36), "Attack / Decay Rate: &H" + HEX$(player.instrument(selIdx0).adlib(4))
-        _PRINTSTRING (91, 38), "Sustain / Release:   &H" + HEX$(player.instrument(selIdx0).adlib(6))
-        _PRINTSTRING (91, 40), "Waveform Select:     &H" + HEX$(player.instrument(selIdx0).adlib(8))
+        _PRINTSTRING (88, 32), "Modulator Parameters (D00-D05):"
+        _PRINTSTRING (90, 34), "Mult/KSR/EGT/VIB/AM: &H" + HEX$(player.instrument(selIdx0).adlib(0))
+        _PRINTSTRING (90, 36), "KSL / Total Level:   &H" + HEX$(player.instrument(selIdx0).adlib(2))
+        _PRINTSTRING (90, 38), "Attack / Decay Rate: &H" + HEX$(player.instrument(selIdx0).adlib(4))
+        _PRINTSTRING (90, 40), "Sustain / Release:   &H" + HEX$(player.instrument(selIdx0).adlib(6))
+        _PRINTSTRING (90, 42), "Waveform Select:     &H" + HEX$(player.instrument(selIdx0).adlib(8))
 
-        _PRINTSTRING (89, 43), "Carrier Parameters (D06-D0B):"
-        _PRINTSTRING (91, 45), "Mult/KSR/EGT/VIB/AM: &H" + HEX$(player.instrument(selIdx0).adlib(1))
-        _PRINTSTRING (91, 47), "KSL / Total Level:   &H" + HEX$(player.instrument(selIdx0).adlib(3))
-        _PRINTSTRING (91, 49), "Attack / Decay Rate: &H" + HEX$(player.instrument(selIdx0).adlib(5))
-        _PRINTSTRING (91, 51), "Sustain / Release:   &H" + HEX$(player.instrument(selIdx0).adlib(7))
-        _PRINTSTRING (91, 53), "Waveform Select:     &H" + HEX$(player.instrument(selIdx0).adlib(9))
+        _PRINTSTRING (88, 45), "Carrier Parameters (D06-D0B):"
+        _PRINTSTRING (90, 47), "Mult/KSR/EGT/VIB/AM: &H" + HEX$(player.instrument(selIdx0).adlib(1))
+        _PRINTSTRING (90, 49), "KSL / Total Level:   &H" + HEX$(player.instrument(selIdx0).adlib(3))
+        _PRINTSTRING (90, 51), "Attack / Decay Rate: &H" + HEX$(player.instrument(selIdx0).adlib(5))
+        _PRINTSTRING (90, 53), "Sustain / Release:   &H" + HEX$(player.instrument(selIdx0).adlib(7))
+        _PRINTSTRING (90, 55), "Waveform Select:     &H" + HEX$(player.instrument(selIdx0).adlib(9))
 
-        _PRINTSTRING (89, 56), "Feedback / Connect:  &H" + HEX$(player.instrument(selIdx0).adlib(10))
+        _PRINTSTRING (88, 58), "Feedback / Connect:  &H" + HEX$(player.instrument(selIdx0).adlib(10))
     ELSE
         ' Digital PCM Waveform Box
         COLOR TUI_COLOR_LIGHT_GREEN, TUI_COLOR_BLACK
-        _PRINTSTRING (89, 27), "-- PCM Sample Waveform Preview --"
-        DIM waveY AS LONG: waveY = 32
+        _PRINTSTRING (88, 29), "-- PCM Sample Waveform Preview --"
+        DIM waveY AS LONG: waveY = 34
         COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
         DIM colW AS LONG
         FOR colW = 0 TO 50
-            _PRINTSTRING (89 + colW, waveY), __UI_GLYPH_HLINE
+            _PRINTSTRING (88 + colW, waveY), __UI_GLYPH_HLINE
         NEXT colW
         COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-        _PRINTSTRING (89, 36), "Direct digital PCM sample playback buffer"
+        _PRINTSTRING (88, 38), "Direct digital PCM sample playback buffer"
     END IF
 END SUB
 
@@ -929,8 +930,8 @@ END SUB
 FUNCTION UI_RenderPlaylist%% (pl AS Playlist, selectedItem AS LONG, scrollOffset AS LONG)
     DIM action AS _BYTE
 
-    ' Left Panel: Playlist Queue Table (columns 2 to 95, rows 8 to 87)
-    TUI_Panel 2, 8, 93, 80, "Playback Queue (" + _TOSTR$(pl.count) + " Tracks)", _TRUE
+    ' Left Panel: Playlist Queue Table (columns 3 to 94, rows 10 to 86)
+    TUI_Panel 3, 10, 92, 77, "Playback Queue (" + _TOSTR$(pl.count) + " Tracks)", _TRUE
 
     REDIM listItems(1 TO _MAX(1, pl.count)) AS STRING
     DIM i AS LONG
@@ -946,16 +947,16 @@ FUNCTION UI_RenderPlaylist%% (pl AS Playlist, selectedItem AS LONG, scrollOffset
     NEXT i
 
     DIM activated AS LONG
-    activated = TUI_ScrollList(4, 10, 89, 76, listItems(), pl.count, selectedItem, scrollOffset)
+    activated = TUI_ScrollList(5, 12, 88, 73, listItems(), pl.count, selectedItem, scrollOffset)
     IF activated > 0 THEN
         pl.currentIndex = activated
         action = UI_ACTION_PLAY_INDEX
     END IF
 
-    ' Right Panel: Playlist Controls (columns 97 to 142, rows 8 to 87)
-    TUI_Panel 97, 8, 45, 80, "Queue Manager", _TRUE
+    ' Right Panel: Playlist Controls (columns 97 to 141, rows 10 to 86)
+    TUI_Panel 97, 10, 45, 77, "Queue Manager", _TRUE
 
-    DIM bY AS LONG: bY = 11
+    DIM bY AS LONG: bY = 13
     IF TUI_Button(101, bY, 20, __UI_GLYPH_NOTE + " Add File(s)...") THEN action = UI_ACTION_OPEN_FILE
     bY = bY + 4
 
@@ -1029,35 +1030,35 @@ SUB UI_RenderSongInfo (player AS MODPlayer, commentScroll AS LONG)
         EXIT SUB
     END IF
 
-    ' Top Panel: Technical Specifications (columns 2 to 142, rows 8 to 37)
-    TUI_Panel 2, 8, 140, 30, "Technical Specifications & Tracker Features", _TRUE
+    ' Top Panel: Technical Specifications (columns 3 to 141, rows 10 to 37)
+    TUI_Panel 3, 10, 139, 28, "Technical Specifications & Tracker Features", _TRUE
 
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
-    _PRINTSTRING (6, 10), "Song Name:     " + player.song.caption
-    _PRINTSTRING (6, 12), "Format Type:   " + UI_GetFormatName(player.song.format) + " (" + player.song.subtype + ")"
-    _PRINTSTRING (6, 14), "Channels:      " + _TOSTR$(player.song.channels)
-    _PRINTSTRING (6, 16), "Orders:        " + _TOSTR$(player.song.orders)
-    _PRINTSTRING (6, 18), "Patterns:      " + _TOSTR$(player.song.patterns)
-    _PRINTSTRING (6, 20), "Instruments:   " + _TOSTR$(player.song.instruments)
+    _PRINTSTRING (6, 12), "Song Name:     " + player.song.caption
+    _PRINTSTRING (6, 14), "Format Type:   " + UI_GetFormatName(player.song.format) + " (" + player.song.subtype + ")"
+    _PRINTSTRING (6, 16), "Channels:      " + _TOSTR$(player.song.channels)
+    _PRINTSTRING (6, 18), "Orders:        " + _TOSTR$(player.song.orders)
+    _PRINTSTRING (6, 20), "Patterns:      " + _TOSTR$(player.song.patterns)
+    _PRINTSTRING (6, 22), "Instruments:   " + _TOSTR$(player.song.instruments)
 
     COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
-    _PRINTSTRING (50, 10), "Default BPM:   " + _TOSTR$(player.song.defaultBPM)
-    _PRINTSTRING (50, 12), "Default Speed: " + _TOSTR$(player.song.defaultSpeed)
-    _PRINTSTRING (50, 14), "Mixer Rate:    " + _TOSTR$(SoftSynth_GetSampleRate(player.synth)) + " Hz"
-    _PRINTSTRING (50, 16), "Mixer Voices:  " + _TOSTR$(SoftSynth_GetTotalVoices(player.synth))
-    _PRINTSTRING (50, 18), "Stereo Mode:   " + _IIF(player.song.isStereo, "Stereo Panning", "Mono")
+    _PRINTSTRING (50, 12), "Default BPM:   " + _TOSTR$(player.song.defaultBPM)
+    _PRINTSTRING (50, 14), "Default Speed: " + _TOSTR$(player.song.defaultSpeed)
+    _PRINTSTRING (50, 16), "Mixer Rate:    " + _TOSTR$(SoftSynth_GetSampleRate(player.synth)) + " Hz"
+    _PRINTSTRING (50, 18), "Mixer Voices:  " + _TOSTR$(SoftSynth_GetTotalVoices(player.synth))
+    _PRINTSTRING (50, 20), "Stereo Mode:   " + _IIF(player.song.isStereo, "Stereo Panning", "Mono")
 
     COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
-    _PRINTSTRING (95, 10), "Engine Flags & Hardware Features:"
-    _PRINTSTRING (97, 12), "Amiga Low-Pass Filter: " + _IIF(player.song.useAmigaLPF, "Yes", "No")
-    _PRINTSTRING (97, 14), "Amiga Hardware Slides: " + _IIF(player.song.useAmigaSlides, "Yes", "No")
-    _PRINTSTRING (97, 16), "Amiga Period Limits:   " + _IIF(player.song.useAmigaLimits, "Yes", "No")
-    _PRINTSTRING (97, 18), "ST2 Vibrato Mode:      " + _IIF(player.song.useST2Vibrato, "Yes", "No")
-    _PRINTSTRING (97, 20), "ST3 Volume Slides:     " + _IIF(player.song.useST300VolumeSlides, "Yes", "No")
-    _PRINTSTRING (97, 22), "AdLib FM Channels:     " + _IIF(player.song.hasFMChannels, "Yes", "No")
+    _PRINTSTRING (95, 12), "Engine Flags & Hardware Features:"
+    _PRINTSTRING (97, 14), "Amiga Low-Pass Filter: " + _IIF(player.song.useAmigaLPF, "Yes", "No")
+    _PRINTSTRING (97, 16), "Amiga Hardware Slides: " + _IIF(player.song.useAmigaSlides, "Yes", "No")
+    _PRINTSTRING (97, 18), "Amiga Period Limits:   " + _IIF(player.song.useAmigaLimits, "Yes", "No")
+    _PRINTSTRING (97, 20), "ST2 Vibrato Mode:      " + _IIF(player.song.useST2Vibrato, "Yes", "No")
+    _PRINTSTRING (97, 22), "ST3 Volume Slides:     " + _IIF(player.song.useST300VolumeSlides, "Yes", "No")
+    _PRINTSTRING (97, 24), "AdLib FM Channels:     " + _IIF(player.song.hasFMChannels, "Yes", "No")
 
-    ' Bottom Panel: Song Message / Comments / Lyrics (columns 2 to 142, rows 39 to 87)
-    TUI_Panel 2, 39, 140, 48, "Song Message / Comments / Lyrics", _TRUE
+    ' Bottom Panel: Song Message / Comments / Lyrics (columns 3 to 141, rows 39 to 86)
+    TUI_Panel 3, 39, 139, 48, "Song Message / Comments / Lyrics", _TRUE
 
     DIM commentText AS STRING: commentText = player.song.comment
     IF LEN(commentText) = 0 THEN
@@ -1109,8 +1110,8 @@ SUB UI_RenderVisualizer (player AS MODPlayer, analyzerL AS AudioAnalyzer, analyz
         EXIT SUB
     END IF
 
-    ' Top Panel: Stereo FFT Spectrum Analyzer (columns 2 to 142, rows 8 to 46)
-    TUI_Panel 2, 8, 140, 39, "Stereo FFT Spectrum Analyzer (Left & Right Channels)", _TRUE
+    ' Top Panel: Stereo FFT Spectrum Analyzer (columns 3 to 141, rows 10 to 47)
+    TUI_Panel 3, 10, 139, 38, "Stereo FFT Spectrum Analyzer (Left & Right Channels)", _TRUE
 
     ' Calculate 64-band FFT for Left and Right channels
     REDIM specL(0 TO 63) AS _UNSIGNED INTEGER
@@ -1121,30 +1122,30 @@ SUB UI_RenderVisualizer (player AS MODPlayer, analyzerL AS AudioAnalyzer, analyz
     ' Draw 64 bars on Left half (columns 5 to 68) and 64 bars on Right half (columns 74 to 137)
     DIM b AS LONG
     FOR b = 0 TO 63
-        DIM valL AS LONG: valL = _CLAMP(CLNG(_SHR(specL(b), 7)), 0, 34)
-        DIM valR AS LONG: valR = _CLAMP(CLNG(_SHR(specR(b), 7)), 0, 34)
+        DIM valL AS LONG: valL = _CLAMP(CLNG(_SHR(specL(b), 7)), 0, 33)
+        DIM valR AS LONG: valR = _CLAMP(CLNG(_SHR(specR(b), 7)), 0, 33)
 
         ' Left channel vertical bar
-        TUI_VUMeter 5 + b, 11, 34, valL / 34!, valL / 34!, _FALSE
+        TUI_VUMeter 5 + b, 13, 33, valL / 33!, valL / 33!, _FALSE
 
         ' Right channel vertical bar
-        TUI_VUMeter 74 + b, 11, 34, valR / 34!, valR / 34!, _FALSE
+        TUI_VUMeter 74 + b, 13, 33, valR / 33!, valR / 33!, _FALSE
     NEXT b
 
-    ' Bottom Panel: Real-time Oscilloscope (columns 2 to 142, rows 48 to 86)
-    TUI_Panel 2, 48, 140, 39, "Stereo Real-time Waveform Oscilloscope", _TRUE
+    ' Bottom Panel: Real-time Oscilloscope (columns 3 to 141, rows 49 to 86)
+    TUI_Panel 3, 49, 139, 38, "Stereo Real-time Waveform Oscilloscope", _TRUE
 
-    DIM oscMidL AS LONG: oscMidL = 57
-    DIM oscMidR AS LONG: oscMidR = 75
+    DIM oscMidL AS LONG: oscMidL = 58
+    DIM oscMidR AS LONG: oscMidR = 76
 
     COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
     _PRINTSTRING (6, oscMidL), STRING$(132, 196)
     _PRINTSTRING (6, oscMidR), STRING$(132, 196)
 
     COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
-    _PRINTSTRING (6, 50), "Left Audio Channel"
+    _PRINTSTRING (6, 51), "Left Audio Channel"
     COLOR TUI_COLOR_LIGHT_MAGENTA, TUI_COLOR_BLACK
-    _PRINTSTRING (6, 68), "Right Audio Channel"
+    _PRINTSTRING (6, 69), "Right Audio Channel"
 
     ' Plot samples from soundBuffer
     DIM bufSamples AS LONG: bufSamples = player.synth.soundBufferSamples
@@ -1155,8 +1156,8 @@ SUB UI_RenderVisualizer (player AS MODPlayer, analyzerL AS AudioAnalyzer, analyz
             DIM fL AS SINGLE: fL = player.synth.soundBuffer(frameIdx)
             DIM fR AS SINGLE: fR = player.synth.soundBuffer(frameIdx + 1)
 
-            DIM yL AS LONG: yL = _CLAMP(oscMidL - CLNG(fL * 7!), 51, 63)
-            DIM yR AS LONG: yR = _CLAMP(oscMidR - CLNG(fR * 7!), 69, 81)
+            DIM yL AS LONG: yL = _CLAMP(oscMidL - CLNG(fL * 7!), 52, 64)
+            DIM yR AS LONG: yR = _CLAMP(oscMidR - CLNG(fR * 7!), 70, 82)
 
             COLOR TUI_COLOR_LIGHT_GREEN, TUI_COLOR_BLACK
             _PRINTSTRING (6 + sI, yL), __UI_GLYPH_STOP
