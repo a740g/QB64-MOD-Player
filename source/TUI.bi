@@ -659,7 +659,7 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
     DIM normVal AS SINGLE: normVal = _CLAMP((updatedVal - minVal) / range, 0!, 1!)
     DIM filledChars AS LONG: filledChars = _CLAMP(CLNG(normVal * innerW), 0, innerW)
 
-    DIM percentStr AS STRING: percentStr = STR$(CLNG(normVal * 100!)) + "%"
+    DIM percentStr AS STRING: percentStr = _TOSTR$(CLNG(normVal * 100!)) + "%"
     percentStr = SPACE$(4 - LEN(percentStr)) + percentStr
 
     DIM sliderStr AS STRING

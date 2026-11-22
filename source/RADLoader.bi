@@ -108,7 +108,7 @@ FUNCTION RADLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
         DIM instIdx AS LONG: instIdx = CLNG(instNum) - 1
         IF instIdx >= player.song.instruments THEN player.song.instruments = instIdx + 1
 
-        player.instrument(instIdx).caption = "AdLib Instrument " + _TRIM$(STR$(instNum))
+        player.instrument(instIdx).caption = "AdLib Instrument" + STR$(instNum)
         player.instrument(instIdx).subtype = __MODPLAYER_INSTRUMENT_FM_MELODY
         player.instrument(instIdx).c2Spd = 8363
         player.instrument(instIdx).channels = 1
@@ -255,7 +255,7 @@ FUNCTION RADLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
                                 REDIM _PRESERVE player.instrument(0 TO player.song.instruments - 1) AS __MODPLAYERINSTRUMENT
                                 DIM fillIdx AS LONG
                                 FOR fillIdx = oldInstCount TO player.song.instruments - 1
-                                    player.instrument(fillIdx).caption = "AdLib Instrument " + _TRIM$(STR$(fillIdx + 1))
+                                    player.instrument(fillIdx).caption = "AdLib Instrument" + STR$(fillIdx + 1)
                                     player.instrument(fillIdx).subtype = __MODPLAYER_INSTRUMENT_FM_MELODY
                                     player.instrument(fillIdx).c2Spd = 8363
                                     player.instrument(fillIdx).channels = 1

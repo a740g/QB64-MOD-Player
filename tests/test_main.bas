@@ -4151,7 +4151,7 @@ SUB Test_Playlist
     Playlist_Initialize pl
     DIM bigI AS LONG
     FOR bigI = 1 TO 1100
-        Playlist_Add pl, "tune" + _TRIM$(STR$(bigI)) + ".mod", "Tune " + _TRIM$(STR$(bigI)), 100#
+        Playlist_Add pl, "tune" + _TOSTR$(bigI) + ".mod", "Tune " + _TOSTR$(bigI), 100#
     NEXT bigI
     TEST_CHECK pl.count = 1100, "1100 entries added exceeding legacy 1024 limit"
     TEST_CHECK UBOUND(pl.entries) >= 1100, "Dynamic entries capacity expanded"

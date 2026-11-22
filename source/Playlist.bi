@@ -365,7 +365,7 @@ FUNCTION Playlist_SaveM3U%% (pl AS Playlist, m3uFilePath AS STRING)
 
     DIM i AS LONG
     FOR i = 1 TO pl.count
-        DIM durStr AS STRING: durStr = _TRIM$(STR$(CLNG(pl.entries(i).duration)))
+        DIM durStr AS STRING: durStr = _TOSTR$(CLNG(pl.entries(i).duration))
         outStr = outStr + "#EXTINF:" + durStr + "," + pl.entries(i).title + _STR_CRLF
         outStr = outStr + pl.entries(i).filePath + _STR_CRLF
     NEXT i
