@@ -3613,6 +3613,43 @@ SUB Test_Input
     Input_ConsumeKeyboardKey
     TEST_CHECK Input_PeekKeyboardKey = 0, "Input_ConsumeKeyboardKey clears pending key"
     TEST_CASE_END
+
+    TEST_CASE_BEGIN "Input: Mouse Click In Rect and Bounds hit testing"
+    DIM bClick AS Bounds2f
+    Bounds2f_Set 10!, 20!, 50!, 60!, bClick
+
+    ' Scenario A: Both down and up inside rect -> Click is TRUE
+    Vector2f_Set 15!, 25!, __Input.mse.button(MOUSE_BUTTON_LEFT).downPosition
+    Vector2f_Set 40!, 55!, __Input.mse.button(MOUSE_BUTTON_LEFT).upPosition
+    __Input.mse.button(MOUSE_BUTTON_LEFT).wasClicked = _TRUE
+    TEST_CHECK Input_IsMouseClickInRect(MOUSE_BUTTON_LEFT, 10!, 20!, 50!, 60!), "Click inside rect returns true"
+    TEST_CHECK Input_IsMouseClickInBounds(MOUSE_BUTTON_LEFT, bClick), "Click inside bounds returns true"
+
+    ' Scenario B: Down outside, up inside -> Drag-in must return FALSE
+    Vector2f_Set 5!, 5!, __Input.mse.button(MOUSE_BUTTON_LEFT).downPosition
+    Vector2f_Set 40!, 55!, __Input.mse.button(MOUSE_BUTTON_LEFT).upPosition
+    __Input.mse.button(MOUSE_BUTTON_LEFT).wasClicked = _TRUE
+    TEST_CHECK_FALSE Input_IsMouseClickInRect(MOUSE_BUTTON_LEFT, 10!, 20!, 50!, 60!), "Drag-in from outside returns false"
+    TEST_CHECK_FALSE Input_IsMouseClickInBounds(MOUSE_BUTTON_LEFT, bClick), "Drag-in from outside bounds returns false"
+
+    ' Scenario C: Down inside, up outside -> Drag-out must return FALSE
+    Vector2f_Set 15!, 25!, __Input.mse.button(MOUSE_BUTTON_LEFT).downPosition
+    Vector2f_Set 70!, 80!, __Input.mse.button(MOUSE_BUTTON_LEFT).upPosition
+    __Input.mse.button(MOUSE_BUTTON_LEFT).wasClicked = _TRUE
+    TEST_CHECK_FALSE Input_IsMouseClickInRect(MOUSE_BUTTON_LEFT, 10!, 20!, 50!, 60!), "Drag-out to outside returns false"
+
+    ' Scenario D: wasClicked is false -> must return FALSE even if positions inside
+    __Input.mse.button(MOUSE_BUTTON_LEFT).wasClicked = _FALSE
+    Vector2f_Set 15!, 25!, __Input.mse.button(MOUSE_BUTTON_LEFT).downPosition
+    Vector2f_Set 40!, 55!, __Input.mse.button(MOUSE_BUTTON_LEFT).upPosition
+    TEST_CHECK_FALSE Input_IsMouseClickInRect(MOUSE_BUTTON_LEFT, 10!, 20!, 50!, 60!), "No click if wasClicked is false"
+
+    ' Scenario E: Input_ConsumeMouseButtonClick clears wasClicked
+    __Input.mse.button(MOUSE_BUTTON_LEFT).wasClicked = _TRUE
+    TEST_CHECK Input_WasMouseButtonClicked(MOUSE_BUTTON_LEFT), "wasClicked is true before consumption"
+    Input_ConsumeMouseButtonClick MOUSE_BUTTON_LEFT
+    TEST_CHECK_FALSE Input_WasMouseButtonClicked(MOUSE_BUTTON_LEFT), "wasClicked is false after consumption"
+    TEST_CASE_END
 END SUB
 
 ''' @brief Tests for channel mute, solo, and unmute operations.
@@ -4254,20 +4291,24 @@ SUB Test_UI_Views
 
     TEST_CASE_BEGIN "UI_Views: Footer mouse drag-off prevention"
     SHARED __TUI AS __TUI_Context
+    SHARED __Input AS __Input
     DIM dummyPlayer AS MODPlayer
     DIM footRes AS INTEGER
 
     ' Scenario 1: Normal click on Key 1 (mouse down at col 6, y 90; mouse release at col 6, y 90)
     Vector2f_Set 6!, 90!, __TUI.mousePos
+    Vector2f_Set 6!, 90!, __Input.mse.button(MOUSE_BUTTON_LEFT).downPosition
+    Vector2f_Set 6!, 90!, __Input.mse.button(MOUSE_BUTTON_LEFT).upPosition
+    __Input.mse.button(MOUSE_BUTTON_LEFT).wasClicked = _FALSE
     __TUI.mousePressedL = _TRUE
     __TUI.mouseDownL = _TRUE
     __TUI.mouseClickedL = _FALSE
     __TUI.activeId = 0
     footRes = UI_DrawFooter(dummyPlayer)
     TEST_CHECK footRes = 0, "No trigger on mouse down"
-    TEST_CHECK __TUI.activeId = -1, "Key 1 captured as active (-1)"
 
     Vector2f_Set 6!, 90!, __TUI.mousePos
+    __Input.mse.button(MOUSE_BUTTON_LEFT).wasClicked = _TRUE
     __TUI.mousePressedL = _FALSE
     __TUI.mouseDownL = _FALSE
     __TUI.mouseClickedL = _TRUE
@@ -4276,81 +4317,55 @@ SUB Test_UI_Views
     TEST_CHECK __TUI.activeId = 0, "Active ID reset after click"
 
     ' Scenario 2: Press on Key 1, drag to Key 2 (col 18), release on Key 2
-    Vector2f_Set 6!, 90!, __TUI.mousePos
-    __TUI.mousePressedL = _TRUE
-    __TUI.mouseDownL = _TRUE
-    __TUI.mouseClickedL = _FALSE
-    __TUI.activeId = 0
-    footRes = UI_DrawFooter(dummyPlayer)
-    TEST_CHECK __TUI.activeId = -1, "Key 1 captured on press down"
-
-    ' Drag over to Key 2
+    Vector2f_Set 6!, 90!, __Input.mse.button(MOUSE_BUTTON_LEFT).downPosition
+    Vector2f_Set 18!, 90!, __Input.mse.button(MOUSE_BUTTON_LEFT).upPosition
     Vector2f_Set 18!, 90!, __TUI.mousePos
-    __TUI.mousePressedL = _FALSE
-    __TUI.mouseDownL = _TRUE
-    __TUI.mouseClickedL = _FALSE
-    footRes = UI_DrawFooter(dummyPlayer)
-    TEST_CHECK footRes = 0, "No trigger while dragging over Key 2"
-
-    ' Release over Key 2
-    Vector2f_Set 18!, 90!, __TUI.mousePos
+    __Input.mse.button(MOUSE_BUTTON_LEFT).wasClicked = _TRUE
     __TUI.mousePressedL = _FALSE
     __TUI.mouseDownL = _FALSE
     __TUI.mouseClickedL = _TRUE
+    __TUI.activeId = 0
     footRes = UI_DrawFooter(dummyPlayer)
     TEST_CHECK footRes = 0, "Key 2 does NOT trigger on drag-off release"
     TEST_CHECK __TUI.activeId = 0, "Active ID cleared after release"
 
     ' Scenario 3: Press on Key 1, drag off Row 90 (row 80), release
-    Vector2f_Set 6!, 90!, __TUI.mousePos
-    __TUI.mousePressedL = _TRUE
-    __TUI.mouseDownL = _TRUE
-    __TUI.mouseClickedL = _FALSE
-    __TUI.activeId = 0
-    footRes = UI_DrawFooter(dummyPlayer)
-
+    Vector2f_Set 6!, 90!, __Input.mse.button(MOUSE_BUTTON_LEFT).downPosition
+    Vector2f_Set 6!, 80!, __Input.mse.button(MOUSE_BUTTON_LEFT).upPosition
     Vector2f_Set 6!, 80!, __TUI.mousePos
+    __Input.mse.button(MOUSE_BUTTON_LEFT).wasClicked = _TRUE
     __TUI.mousePressedL = _FALSE
     __TUI.mouseDownL = _FALSE
     __TUI.mouseClickedL = _TRUE
+    __TUI.activeId = 0
     footRes = UI_DrawFooter(dummyPlayer)
     TEST_CHECK footRes = 0, "Does not trigger when released outside row 90"
 
     ' Scenario 4: Press on Key 1, drag to Key 2, drag BACK to Key 1, release
+    Vector2f_Set 6!, 90!, __Input.mse.button(MOUSE_BUTTON_LEFT).downPosition
+    Vector2f_Set 6!, 90!, __Input.mse.button(MOUSE_BUTTON_LEFT).upPosition
     Vector2f_Set 6!, 90!, __TUI.mousePos
-    __TUI.mousePressedL = _TRUE
-    __TUI.mouseDownL = _TRUE
-    __TUI.mouseClickedL = _FALSE
-    __TUI.activeId = 0
-    footRes = UI_DrawFooter(dummyPlayer)
-
-    Vector2f_Set 18!, 90!, __TUI.mousePos
-    __TUI.mousePressedL = _FALSE
-    __TUI.mouseDownL = _TRUE
-    __TUI.mouseClickedL = _FALSE
-    footRes = UI_DrawFooter(dummyPlayer)
-
-    Vector2f_Set 6!, 90!, __TUI.mousePos
+    __Input.mse.button(MOUSE_BUTTON_LEFT).wasClicked = _TRUE
     __TUI.mousePressedL = _FALSE
     __TUI.mouseDownL = _FALSE
     __TUI.mouseClickedL = _TRUE
+    __TUI.activeId = 0
     footRes = UI_DrawFooter(dummyPlayer)
     TEST_CHECK footRes = 1, "Triggers Key 1 after dragging away and returning"
 
     ' Scenario 5: Another widget is active (__TUI.activeId = 99), release on Key 1
     __TUI.activeId = 99
+    Vector2f_Set 6!, 90!, __Input.mse.button(MOUSE_BUTTON_LEFT).downPosition
+    Vector2f_Set 6!, 90!, __Input.mse.button(MOUSE_BUTTON_LEFT).upPosition
     Vector2f_Set 6!, 90!, __TUI.mousePos
-    __TUI.mousePressedL = _TRUE
-    __TUI.mouseDownL = _TRUE
-    __TUI.mouseClickedL = _FALSE
-    footRes = UI_DrawFooter(dummyPlayer)
-
-    Vector2f_Set 6!, 90!, __TUI.mousePos
+    __Input.mse.button(MOUSE_BUTTON_LEFT).wasClicked = _TRUE
     __TUI.mousePressedL = _FALSE
     __TUI.mouseDownL = _FALSE
     __TUI.mouseClickedL = _TRUE
     footRes = UI_DrawFooter(dummyPlayer)
     TEST_CHECK footRes = 0, "Footer does not trigger when another widget was active"
+    __TUI.activeId = 0
+    TEST_CASE_END
     __TUI.activeId = 0
     TEST_CASE_END
 END SUB

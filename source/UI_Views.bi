@@ -361,7 +361,6 @@ END FUNCTION
 ''' @return The key code clicked (1-10, 30, 31) or 0 if none.
 FUNCTION UI_DrawFooter% (player AS MODPlayer)
     SHARED __TUI AS __TUI_Context
-    STATIC activeSoftkey AS INTEGER
     UI_DrawFooter = 0
 
     ' Row 89: Mini VU Meter Ribbon across all song channels
@@ -412,31 +411,22 @@ FUNCTION UI_DrawFooter% (player AS MODPlayer)
         END IF
     NEXT c
 
-    ' Detect mouse press and click on Row 90 softkeys with drag-off prevention
-    IF __TUI.mousePressedL THEN
-        IF INT(__TUI.mousePos.y) = UI_SCREEN_HEIGHT _ANDALSO __TUI.activeId = 0 THEN
-            activeSoftkey = UI_GetFooterSoftkeyAtColumn(INT(__TUI.mousePos.x))
-            IF activeSoftkey > 0 THEN
-                __TUI.activeId = -activeSoftkey
-            END IF
-        ELSE
-            activeSoftkey = 0
-        END IF
-    END IF
-
-    IF __TUI.mouseClickedL THEN
-        IF activeSoftkey > 0 _ANDALSO INT(__TUI.mousePos.y) = UI_SCREEN_HEIGHT THEN
+    ' Detect mouse click on Row 90 softkeys with drag-in / drag-off prevention
+    IF __TUI.mouseClickedL _ANDALSO __TUI.activeId = 0 THEN
+        IF INT(__TUI.mousePos.y) = UI_SCREEN_HEIGHT THEN
             DIM curReleaseKey AS INTEGER
             curReleaseKey = UI_GetFooterSoftkeyAtColumn(INT(__TUI.mousePos.x))
-            IF curReleaseKey = activeSoftkey THEN
-                UI_DrawFooter = activeSoftkey
+            IF curReleaseKey > 0 THEN
+                DIM slot AS LONG: slot = _IIF(curReleaseKey = 30, 11, _IIF(curReleaseKey = 31, 12, curReleaseKey))
+                DIM baseCol AS LONG: baseCol = (slot - 1) * 12
+                DIM textStart AS LONG: textStart = _IIF(slot < 10, baseCol + 2, baseCol + 3)
+                DIM textEnd AS LONG: textEnd = baseCol + 11
+                IF TUI_IsMouseClickedInRect(textStart, UI_SCREEN_HEIGHT, textEnd, UI_SCREEN_HEIGHT) THEN
+                    UI_DrawFooter = curReleaseKey
+                    TUI_ConsumeClick
+                END IF
             END IF
         END IF
-        activeSoftkey = 0
-        IF __TUI.activeId < 0 THEN __TUI.activeId = 0
-    ELSEIF NOT __TUI.mouseDownL THEN
-        activeSoftkey = 0
-        IF __TUI.activeId < 0 THEN __TUI.activeId = 0
     END IF
 END FUNCTION
 
@@ -773,8 +763,9 @@ SUB UI_RenderInstruments (player AS MODPlayer, selectedInst AS LONG, scrollOffse
             ' Mouse click row selection
             DIM rowB AS Bounds2f
             Bounds2f_Set 4, drawY, 80, drawY + 0.999!, rowB
-            IF Bounds2f_ContainsPoint(rowB, __TUI.mousePos) _ANDALSO __TUI.mouseClickedL THEN
+            IF __TUI.activeId = 0 _ANDALSO TUI_IsMouseClickedInBounds(rowB) THEN
                 selectedInst = instIdx
+                TUI_ConsumeClick
             END IF
         END IF
     NEXT r

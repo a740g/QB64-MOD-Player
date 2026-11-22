@@ -585,6 +585,22 @@ FUNCTION Input_GetMouseButtonClicked%% (button AS LONG)
     END IF
 END FUNCTION
 
+''' @brief Explicitly consumes the mouse button clicked flag.
+SUB Input_ConsumeMouseButtonClick (button AS LONG)
+    SHARED __Input AS __Input
+    IF button >= MOUSE_BUTTON_FIRST _ANDALSO button <= MOUSE_BUTTON_LAST THEN
+        __Input.mse.button(button).wasClicked = _FALSE
+    END IF
+END SUB
+
+''' @brief Explicitly consumes the mouse button pressed flag.
+SUB Input_ConsumeMouseButtonPress (button AS LONG)
+    SHARED __Input AS __Input
+    IF button >= MOUSE_BUTTON_FIRST _ANDALSO button <= MOUSE_BUTTON_LAST THEN
+        __Input.mse.button(button).wasPressed = _FALSE
+    END IF
+END SUB
+
 ''' @brief Gets the position where the mouse button was pressed down.
 SUB Input_GetMouseButtonDownPosition (button AS LONG, position AS Vector2f)
     SHARED __Input AS __Input
@@ -624,7 +640,7 @@ FUNCTION Input_IsMouseInBounds%% (bounds AS Bounds2f)
     Input_IsMouseInBounds = Input_IsMouseInRect(bounds.lt.x, bounds.lt.y, bounds.rb.x, bounds.rb.y)
 END FUNCTION
 
-''' @brief Tests if a mouse button was clicked inside a rectangular region.
+''' @brief Tests if a mouse button was clicked inside a rectangular region (both press and release inside rect).
 FUNCTION Input_IsMouseClickInRect%% (button AS LONG, x1 AS SINGLE, y1 AS SINGLE, x2 AS SINGLE, y2 AS SINGLE)
     SHARED __Input AS __Input
     IF button < MOUSE_BUTTON_FIRST _ORELSE button > MOUSE_BUTTON_LAST THEN EXIT FUNCTION
@@ -633,9 +649,13 @@ FUNCTION Input_IsMouseClickInRect%% (button AS LONG, x1 AS SINGLE, y1 AS SINGLE,
         DIM maxX AS SINGLE: maxX = _MAX(x1, x2)
         DIM minY AS SINGLE: minY = _MIN(y1, y2)
         DIM maxY AS SINGLE: maxY = _MAX(y1, y2)
-        DIM px AS SINGLE: px = __Input.mse.button(button).upPosition.x
-        DIM py AS SINGLE: py = __Input.mse.button(button).upPosition.y
-        Input_IsMouseClickInRect = px >= minX _ANDALSO px <= maxX _ANDALSO py >= minY _ANDALSO py <= maxY
+        DIM dx AS SINGLE: dx = __Input.mse.button(button).downPosition.x
+        DIM dy AS SINGLE: dy = __Input.mse.button(button).downPosition.y
+        DIM ux AS SINGLE: ux = __Input.mse.button(button).upPosition.x
+        DIM uy AS SINGLE: uy = __Input.mse.button(button).upPosition.y
+        DIM downInside AS _BYTE: downInside = (dx >= minX _ANDALSO dx <= maxX _ANDALSO dy >= minY _ANDALSO dy <= maxY)
+        DIM upInside AS _BYTE: upInside = (ux >= minX _ANDALSO ux <= maxX _ANDALSO uy >= minY _ANDALSO uy <= maxY)
+        Input_IsMouseClickInRect = downInside _ANDALSO upInside
     END IF
 END FUNCTION
 

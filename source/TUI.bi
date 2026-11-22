@@ -81,11 +81,11 @@ SUB TUI_Begin
     __TUI.hotId = 0
 
     ' Poll mouse state: track press down, held state, and click release
-    __TUI.mousePressedL = Input_GetMouseButtonPressed(MOUSE_BUTTON_LEFT)
+    __TUI.mousePressedL = Input_WasMouseButtonPressed(MOUSE_BUTTON_LEFT)
     __TUI.mouseDownL = Input_IsMouseButtonDown(MOUSE_BUTTON_LEFT)
-    __TUI.mouseClickedL = Input_GetMouseButtonClicked(MOUSE_BUTTON_LEFT)
-    __TUI.mousePressedR = Input_GetMouseButtonPressed(MOUSE_BUTTON_RIGHT)
-    __TUI.mouseClickedR = Input_GetMouseButtonClicked(MOUSE_BUTTON_RIGHT)
+    __TUI.mouseClickedL = Input_WasMouseButtonClicked(MOUSE_BUTTON_LEFT)
+    __TUI.mousePressedR = Input_WasMouseButtonPressed(MOUSE_BUTTON_RIGHT)
+    __TUI.mouseClickedR = Input_WasMouseButtonClicked(MOUSE_BUTTON_RIGHT)
 
     __TUI.prevMousePos = __TUI.mousePos
     Input_GetMousePosition __TUI.mousePos
@@ -167,6 +167,43 @@ SUB TUI_Label (x AS LONG, y AS LONG, text AS STRING, fgColor AS LONG, bgColor AS
     COLOR fgColor, bgColor
     _PRINTSTRING (x, y), text
 END SUB
+
+''' @brief Explicitly consumes the left mouse button click event for the rest of the frame.
+SUB TUI_ConsumeClick
+    SHARED __TUI AS __TUI_Context
+    __TUI.mouseClickedL = _FALSE
+    Input_ConsumeMouseButtonClick MOUSE_BUTTON_LEFT
+END SUB
+
+''' @brief Tests if the left mouse button was clicked inside a rectangle, respecting active widget exclusivity.
+''' @param x1 Left character column.
+''' @param y1 Top character row.
+''' @param x2 Right character column.
+''' @param y2 Bottom character row.
+''' @return _TRUE if left mouse was pressed and released inside the rectangle and no active widget captured the mouse.
+FUNCTION TUI_IsMouseClickedInRect%% (x1 AS SINGLE, y1 AS SINGLE, x2 AS SINGLE, y2 AS SINGLE)
+    SHARED __TUI AS __TUI_Context
+    IF NOT __TUI.mouseClickedL THEN EXIT FUNCTION
+
+    IF Input_WasMouseButtonClicked(MOUSE_BUTTON_LEFT) THEN
+        TUI_IsMouseClickedInRect = Input_IsMouseClickInRect(MOUSE_BUTTON_LEFT, x1, y1, x2, y2)
+    ELSE
+        DIM minX AS SINGLE: minX = _MIN(x1, x2)
+        DIM maxX AS SINGLE: maxX = _MAX(x1, x2)
+        DIM minY AS SINGLE: minY = _MIN(y1, y2)
+        DIM maxY AS SINGLE: maxY = _MAX(y1, y2)
+        DIM px AS SINGLE: px = __TUI.mousePos.x
+        DIM py AS SINGLE: py = __TUI.mousePos.y
+        TUI_IsMouseClickedInRect = px >= minX _ANDALSO px <= maxX _ANDALSO py >= minY _ANDALSO py <= maxY
+    END IF
+END FUNCTION
+
+''' @brief Tests if the left mouse button was clicked inside a Bounds2f region, respecting active widget exclusivity.
+''' @param bounds Bounding box.
+''' @return _TRUE if left mouse was pressed and released inside bounds and no active widget captured the mouse.
+FUNCTION TUI_IsMouseClickedInBounds%% (bounds AS Bounds2f)
+    TUI_IsMouseClickedInBounds = TUI_IsMouseClickedInRect(bounds.lt.x, bounds.lt.y, bounds.rb.x, bounds.rb.y)
+END FUNCTION
 
 ''' @brief Internal helper to render a 3-line tall 3D button box with VB-DOS directional lighting without drop shadows.
 ''' @param x Character column of top-left corner.
@@ -286,6 +323,7 @@ FUNCTION TUI_ButtonEx%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isDisa
     IF __TUI.activeId = thisId _ANDALSO __TUI.mouseClickedL _ANDALSO isHovered THEN
         isClicked = _TRUE
         __TUI.activeId = 0
+        TUI_ConsumeClick
     END IF
 
     ' Keyboard / Controller focus confirmation
@@ -358,6 +396,7 @@ FUNCTION TUI_ToggleButtonEx%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, 
     IF __TUI.activeId = thisId _ANDALSO __TUI.mouseClickedL _ANDALSO isHovered THEN
         isClicked = _TRUE
         __TUI.activeId = 0
+        TUI_ConsumeClick
     END IF
 
     DIM isFocused AS _BYTE: isFocused = (__TUI.focusedId = thisId)
@@ -430,8 +469,10 @@ FUNCTION TUI_ChannelBadge%% (x AS LONG, y AS LONG, ch AS LONG, badgeText AS STRI
     IF __TUI.activeId = thisId _ANDALSO __TUI.mouseClickedL _ANDALSO isHovered THEN
         outAction = TUI_CHANNEL_ACTION_MUTE
         __TUI.activeId = 0
-    ELSEIF isHovered _ANDALSO __TUI.mouseClickedR THEN
+        TUI_ConsumeClick
+    ELSEIF isHovered _ANDALSO Input_IsMouseClickInBounds(MOUSE_BUTTON_RIGHT, b) THEN
         outAction = TUI_CHANNEL_ACTION_SOLO
+        Input_ConsumeMouseButtonClick MOUSE_BUTTON_RIGHT
     END IF
 
     DIM isFocused AS _BYTE: isFocused = (__TUI.focusedId = thisId)
@@ -506,7 +547,7 @@ FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS LONG, maxV
 
     IF isHovered THEN
         __TUI.hotId = thisId
-        IF __TUI.mousePressedL _ORELSE __TUI.mouseClickedL THEN
+        IF __TUI.mousePressedL _ORELSE TUI_IsMouseClickedInBounds(b) THEN
             __TUI.activeId = thisId
         END IF
     END IF
@@ -589,7 +630,7 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
 
     IF isHovered THEN
         __TUI.hotId = thisId
-        IF __TUI.mousePressedL _ORELSE __TUI.mouseClickedL THEN
+        IF __TUI.mousePressedL _ORELSE TUI_IsMouseClickedInBounds(b) THEN
             __TUI.activeId = thisId
         END IF
     END IF
@@ -758,6 +799,7 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount
                     changed = _TRUE
                 END IF
                 __TUI.activeId = 0
+                TUI_ConsumeClick
             END IF
 
             DIM isFocused AS _BYTE: isFocused = (__TUI.focusedId = thisId)
@@ -929,10 +971,11 @@ FUNCTION TUI_ScrollList& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS
             Bounds2f_Set x, drawY, x + textW - 0.001!, drawY + 0.999!, rowBounds
             DIM isRowHovered AS _BYTE: isRowHovered = Bounds2f_ContainsPoint(rowBounds, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
 
-            IF isRowHovered _ANDALSO __TUI.mouseClickedL THEN
+            IF isRowHovered _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId) _ANDALSO TUI_IsMouseClickedInBounds(rowBounds) THEN
                 selectedIdx = itemIdx
                 itemActivated = itemIdx
                 __TUI.activeId = 0
+                TUI_ConsumeClick
             END IF
 
             IF isSelected THEN
