@@ -659,10 +659,10 @@ FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, ma
     TUI_ProgressBar = targetVal
 END FUNCTION
 
-''' @brief Renders an interactive master volume slider.
+''' @brief Renders an interactive master volume slider with steppers and sunken trough.
 ''' @param x Character column.
 ''' @param y Character row.
-''' @param w Width of slider bar in characters.
+''' @param w Width of slider capsule in characters (steppers, caps, and track).
 ''' @param curVal Current single-precision value.
 ''' @param minVal Minimum allowed value.
 ''' @param maxVal Maximum allowed value.
@@ -677,10 +677,13 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
 
     DIM labelLen AS LONG: labelLen = LEN(label)
     DIM barStart AS LONG: barStart = x + labelLen + 1
-    DIM innerW AS LONG: innerW = _MAX(1, w - 2)
+    DIM innerW AS LONG: innerW = _MAX(1, w - 4)
+    DIM xTrack AS LONG: xTrack = barStart + 2
+    DIM xStepL AS LONG: xStepL = barStart
+    DIM xStepR AS LONG: xStepR = barStart + w - 1
 
-    ' Entire slider bounding box
-    DIM totalW AS LONG: totalW = labelLen + 1 + w + 5 ' includes percentage display
+    ' Entire slider bounding box (label + space + capsule + space + percentage)
+    DIM totalW AS LONG: totalW = labelLen + 1 + w + 5
     DIM b AS Bounds2f
     Bounds2f_Set x, y, x + totalW - 0.001!, y + 0.999!, b
     DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
@@ -692,16 +695,41 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
         END IF
     END IF
 
-    IF __TUI.activeId = thisId _ANDALSO (__TUI.mouseDownL _ORELSE __TUI.mouseClickedL) THEN
-        DIM ratio AS SINGLE
-        ratio = (INT(__TUI.mousePos.x) - (barStart + 1)) / CSNG(_MAX(1, innerW - 1))
-        ratio = _CLAMP(ratio, 0!, 1!)
-        updatedVal = minVal + ratio * (maxVal - minVal)
+    DIM stepSize AS SINGLE: stepSize = (maxVal - minVal) * 0.05!
+
+    ' Hit testing for steppers vs track
+    IF __TUI.activeId = thisId THEN
+        DIM mX AS LONG: mX = INT(__TUI.mousePos.x)
+        DIM mY AS LONG: mY = INT(__TUI.mousePos.y)
+
+        IF mY = y THEN
+            IF mX = xStepL _ANDALSO __TUI.mouseClickedL THEN
+                ' Left stepper clicked (decrement)
+                updatedVal = _CLAMP(curVal - stepSize, minVal, maxVal)
+                __TUI.activeId = 0
+                TUI_ConsumeClick
+            ELSEIF mX = xStepR _ANDALSO __TUI.mouseClickedL THEN
+                ' Right stepper clicked (increment)
+                updatedVal = _CLAMP(curVal + stepSize, minVal, maxVal)
+                __TUI.activeId = 0
+                TUI_ConsumeClick
+            ELSEIF (__TUI.mouseDownL _ORELSE __TUI.mouseClickedL) _ANDALSO mX >= barStart + 1 _ANDALSO mX <= xStepR - 1 THEN
+                ' Track area clicked or dragged
+                DIM ratio AS SINGLE
+                ratio = (mX - xTrack) / CSNG(_MAX(1, innerW - 1))
+                ratio = _CLAMP(ratio, 0!, 1!)
+                updatedVal = minVal + ratio * (maxVal - minVal)
+                IF __TUI.mouseClickedL THEN
+                    __TUI.activeId = 0
+                    TUI_ConsumeClick
+                END IF
+            END IF
+        END IF
     END IF
 
+    ' Keyboard focus navigation (Left/Right arrow nudge)
     DIM isFocused AS _BYTE: isFocused = (__TUI.focusedId = thisId)
     IF isFocused _ANDALSO __TUI.hasNavFocus THEN
-        DIM stepSize AS SINGLE: stepSize = (maxVal - minVal) * 0.05!
         IF Input_NavLeft THEN
             updatedVal = _CLAMP(curVal - stepSize, minVal, maxVal)
             Input_ConsumeKeyboardKey
@@ -714,23 +742,113 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
     ' Rendering
     DIM range AS SINGLE: range = _MAX(0.0001!, maxVal - minVal)
     DIM normVal AS SINGLE: normVal = _CLAMP((updatedVal - minVal) / range, 0!, 1!)
-    DIM filledChars AS LONG: filledChars = _CLAMP(CLNG(normVal * innerW), 0, innerW)
 
-    DIM percentStr AS STRING: percentStr = _TOSTR$(CLNG(normVal * 100!)) + "%"
-    percentStr = SPACE$(4 - LEN(percentStr)) + percentStr
+    ' Thumb index inside the inner track (0 to innerW - 1)
+    DIM thumbIdx AS LONG
+    IF __TUI.activeId = thisId _ANDALSO __TUI.mouseDownL _ANDALSO INT(__TUI.mousePos.y) = y _ANDALSO INT(__TUI.mousePos.x) >= xTrack _ANDALSO INT(__TUI.mousePos.x) <= xTrack + innerW - 1 THEN
+        thumbIdx = _CLAMP(INT(__TUI.mousePos.x) - xTrack, 0, innerW - 1)
+    ELSE
+        thumbIdx = _CLAMP(CLNG(normVal * (innerW - 1)), 0, innerW - 1)
+    END IF
 
-    DIM sliderStr AS STRING
-    sliderStr = label + " [" + STRING$(filledChars, "=") + STRING$(innerW - filledChars, "-") + "]" + percentStr
-
+    ' 1. Label text
     IF isFocused _ANDALSO __TUI.hasNavFocus THEN
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
-    ELSEIF isHovered _ORELSE __TUI.activeId = thisId THEN
+    ELSEIF isHovered THEN
+        COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+    ELSE
+        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+    END IF
+    _PRINTSTRING (x, y), label
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+    _PRINTSTRING (x + labelLen, y), " "
+
+    ' 2. Left Stepper (CHR$(17))
+    DIM isStepLHover AS _BYTE
+    isStepLHover = isHovered _ANDALSO (INT(__TUI.mousePos.x) = xStepL) _ANDALSO (INT(__TUI.mousePos.y) = y)
+    IF isStepLHover _ANDALSO (__TUI.mouseDownL _ORELSE __TUI.activeId = thisId) THEN
+        COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
+    ELSEIF isStepLHover THEN
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
     ELSE
         COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
     END IF
+    _PRINTSTRING (xStepL, y), CHR$(17)
 
-    _PRINTSTRING (x, y), sliderStr
+    ' 3. Left Cap (CHR$(179) / CHR$(186)) directly adjacent to left stepper
+    IF isFocused _ANDALSO __TUI.hasNavFocus THEN
+        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
+        _PRINTSTRING (xStepL + 1, y), CHR$(186)
+    ELSEIF isHovered _ORELSE __TUI.activeId = thisId THEN
+        COLOR TUI_COLOR_CYAN, TUI_COLOR_BLACK
+        _PRINTSTRING (xStepL + 1, y), CHR$(179)
+    ELSE
+        COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+        _PRINTSTRING (xStepL + 1, y), CHR$(179)
+    END IF
+
+    ' 4. Filled track portion (columns 0 to thumbIdx - 1)
+    IF thumbIdx > 0 THEN
+        IF isHovered _ORELSE __TUI.activeId = thisId THEN
+            COLOR TUI_COLOR_CYAN, TUI_COLOR_BLACK
+        ELSE
+            COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+        END IF
+        _PRINTSTRING (xTrack, y), STRING$(thumbIdx, CHR$(219))
+    END IF
+
+    ' 5. Thumb using CHR$(29) with inverted color of solid progress character
+    IF __TUI.activeId = thisId _ANDALSO __TUI.mouseDownL THEN
+        COLOR TUI_COLOR_BLACK, TUI_COLOR_YELLOW
+    ELSEIF isHovered THEN
+        COLOR TUI_COLOR_BLACK, TUI_COLOR_CYAN
+    ELSE
+        COLOR TUI_COLOR_BLACK, TUI_COLOR_LIGHT_CYAN
+    END IF
+    _PRINTSTRING (xTrack + thumbIdx, y), CHR$(29)
+
+    ' 6. Unfilled track portion (columns thumbIdx + 1 to innerW - 1)
+    DIM remChars AS LONG: remChars = (innerW - 1) - thumbIdx
+    IF remChars > 0 THEN
+        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+        _PRINTSTRING (xTrack + thumbIdx + 1, y), STRING$(remChars, CHR$(176))
+    END IF
+
+    ' 7. Right Cap (CHR$(179) / CHR$(186)) directly adjacent to right stepper
+    IF isFocused _ANDALSO __TUI.hasNavFocus THEN
+        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
+        _PRINTSTRING (xStepR - 1, y), CHR$(186)
+    ELSEIF isHovered _ORELSE __TUI.activeId = thisId THEN
+        COLOR TUI_COLOR_CYAN, TUI_COLOR_BLACK
+        _PRINTSTRING (xStepR - 1, y), CHR$(179)
+    ELSE
+        COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+        _PRINTSTRING (xStepR - 1, y), CHR$(179)
+    END IF
+
+    ' 8. Right Stepper (CHR$(16)) directly adjacent to right cap
+    DIM isStepRHover AS _BYTE
+    isStepRHover = isHovered _ANDALSO (INT(__TUI.mousePos.x) = xStepR) _ANDALSO (INT(__TUI.mousePos.y) = y)
+    IF isStepRHover _ANDALSO (__TUI.mouseDownL _ORELSE __TUI.activeId = thisId) THEN
+        COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
+    ELSEIF isStepRHover THEN
+        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
+    ELSE
+        COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+    END IF
+    _PRINTSTRING (xStepR, y), CHR$(16)
+
+    ' 9. Percentage readout (columns barStart + w + 1 to barStart + w + 4)
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+    _PRINTSTRING (barStart + w, y), " "
+    DIM pctVal AS LONG: pctVal = CLNG(normVal * 100!)
+    DIM pctStr AS STRING: pctStr = RIGHT$("  " + _TOSTR$(pctVal), 3) + "%"
+    IF isHovered THEN
+        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    ELSE
+        COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+    END IF
+    _PRINTSTRING (barStart + w + 1, y), pctStr
 
     TUI_Slider = updatedVal
 END FUNCTION

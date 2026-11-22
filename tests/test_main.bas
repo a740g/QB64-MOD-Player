@@ -4017,6 +4017,46 @@ SUB Test_TUI
     TUI_End
     TEST_CASE_END
 
+    TEST_CASE_BEGIN "TUI: Slider Stepper Buttons and Track Interaction"
+    ' Slider placed at (10, 5), w=14, label="VOL" (len=3)
+    ' barStart = 10 + 3 + 1 = 14
+    ' xStepL = 14 (Left stepper)
+    ' Left cap = 15 (cap)
+    ' xTrack = 16 (innerW = 10 -> cols 16 to 25)
+    ' Right cap = 26 (cap)
+    ' xStepR = 27 (Right stepper)
+
+    ' Test 1: Click left stepper (decrement by 5%)
+    TUI_Begin
+    Vector2f_Set 14!, 5!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE
+    __TUI.activeId = 1
+    DIM slVal1 AS SINGLE: slVal1 = TUI_Slider(10, 5, 14, 0.50!, 0!, 1!, "VOL")
+    TEST_CHECK ABS(slVal1 - 0.45!) < 0.001!, "Left stepper decrements value by 5%"
+    TEST_CHECK __TUI.activeId = 0, "Click consumed by left stepper"
+    TUI_End
+
+    ' Test 2: Click right stepper (increment by 5%)
+    TUI_Begin
+    Vector2f_Set 27!, 5!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE
+    __TUI.activeId = 1
+    DIM slVal2 AS SINGLE: slVal2 = TUI_Slider(10, 5, 14, 0.50!, 0!, 1!, "VOL")
+    TEST_CHECK ABS(slVal2 - 0.55!) < 0.001!, "Right stepper increments value by 5%"
+    TEST_CHECK __TUI.activeId = 0, "Click consumed by right stepper"
+    TUI_End
+
+    ' Test 3: Click inside track at position 20 (middle of 16..25)
+    TUI_Begin
+    Vector2f_Set 20!, 5!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE
+    __TUI.activeId = 1
+    DIM slVal3 AS SINGLE: slVal3 = TUI_Slider(10, 5, 14, 0.10!, 0!, 1!, "VOL")
+    TEST_CHECK slVal3 >= 0.40! _ANDALSO slVal3 <= 0.50!, "Track click repositions value near 44%"
+    TEST_CHECK __TUI.activeId = 0, "Click consumed by track"
+    TUI_End
+    TEST_CASE_END
+
     TEST_CASE_BEGIN "TUI: VUMeter Rendering and Clamping"
     TUI_Begin
     TUI_VUMeter 10, 5, 12, 0.65!, 0.90!, _FALSE

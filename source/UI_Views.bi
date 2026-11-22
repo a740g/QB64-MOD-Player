@@ -272,7 +272,7 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
     ' Interactive Master Volume Slider
     DIM curVol AS SINGLE: curVol = SoftSynth_GetMasterVolume(player.synth)
     DIM newVol AS SINGLE
-    newVol = TUI_Slider(121, 2, 11, curVol, 0!, SOFTSYNTH_MASTER_VOLUME_MAX, "VOL")
+    newVol = TUI_Slider(121, 2, 14, curVol, 0!, SOFTSYNTH_MASTER_VOLUME_MAX, "VOL")
     IF newVol <> curVol THEN
         SoftSynth_SetMasterVolume player.synth, newVol
     END IF
