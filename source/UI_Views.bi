@@ -388,13 +388,15 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
     IF TUI_Button(bx, 3, 10, "Quit F12") THEN action = UI_ACTION_QUIT
 
     ' Rows 6 to 7: 3D TabBar for Views
-    DIM tabs(1 TO 6) AS STRING
-    tabs(1) = "F2: Tracker"
-    tabs(2) = "F3: Mixer"
-    tabs(3) = "F4: Instruments"
-    tabs(4) = "F5: Playlist"
-    tabs(5) = "F6: Song Info"
-    tabs(6) = "F7: Visualizer"
+    STATIC tabs(1 TO 6) AS STRING
+    IF LEN(tabs(1)) = 0 THEN
+        tabs(1) = "F2: Tracker"
+        tabs(2) = "F3: Mixer"
+        tabs(3) = "F4: Instruments"
+        tabs(4) = "F5: Playlist"
+        tabs(5) = "F6: Song Info"
+        tabs(6) = "F7: Visualizer"
+    END IF
 
     DIM tabSel AS LONG: tabSel = currentView
     IF tabSel < 1 THEN tabSel = 1
@@ -406,10 +408,10 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
     ' Tab 3: F4: Instruments (bit 2 = 4) - requires active playback
     ' Tab 4: F5: Playlist (bit 3 = 8) - ALWAYS enabled (mask bit remains 0)
     ' Tab 5: F6: Song Info (bit 4 = 16) - requires active playback
-    ' Tab 6: F7: Visualizer (bit 5 = 32) - requires active playback
+    ' Tab 6: F7: Visualizer (bit 5 = 32) - ALWAYS enabled (mask bit remains 0; idle shows demoscene background)
     DIM disabledMask AS _UNSIGNED LONG
     IF NOT player.song.isPlaying THEN
-        disabledMask = &H01& OR &H02& OR &H04& OR &H10& OR &H20&
+        disabledMask = &H01& OR &H02& OR &H04& OR &H10&
     END IF
 
     COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK

@@ -134,6 +134,7 @@ SUB App_PlayNextTrack
     SHARED GlobalPlaylist AS Playlist
     SHARED Player AS MODPlayer
     SHARED Bg AS Background
+    SHARED CurrentView AS INTEGER
 
     DIM nextIdx AS LONG: nextIdx = Playlist_GetNext(GlobalPlaylist)
     IF nextIdx > 0 THEN
@@ -141,6 +142,9 @@ SUB App_PlayNextTrack
     ELSE
         IF Player.song.isPlaying THEN MODPlayer_Stop Player
         Background_SetRandomMode Bg
+        IF CurrentView <> UI_VIEW_MODE_PLAYLIST THEN
+            CurrentView = UI_VIEW_MODE_VISUALIZER
+        END IF
         _TITLE APP_NAME + _CHR_SPACE + _OS$
     END IF
 END SUB
@@ -160,9 +164,13 @@ END SUB
 SUB App_StopPlayback
     SHARED Player AS MODPlayer
     SHARED Bg AS Background
+    SHARED CurrentView AS INTEGER
 
     IF Player.song.isPlaying THEN MODPlayer_Stop Player
     Background_SetRandomMode Bg
+    IF CurrentView <> UI_VIEW_MODE_PLAYLIST THEN
+        CurrentView = UI_VIEW_MODE_VISUALIZER
+    END IF
     _TITLE APP_NAME + _CHR_SPACE + _OS$
 END SUB
 
@@ -210,7 +218,7 @@ SUB App_HandleFKey (k AS INTEGER)
             IF Player.song.isPlaying THEN CurrentView = UI_VIEW_MODE_SONGINFO
 
         CASE 7 ' F7: Visualizer
-            IF Player.song.isPlaying THEN CurrentView = UI_VIEW_MODE_VISUALIZER
+            CurrentView = UI_VIEW_MODE_VISUALIZER
 
         CASE 8 ' F8: Play / Pause
             IF Player.song.isPlaying THEN
@@ -391,7 +399,7 @@ SUB App_Initialize
     DIM bgViewport AS Bounds2f
     Bounds2f_Initialize 2!, 8!, UI_SCREEN_WIDTH - 1, UI_SCREEN_HEIGHT - 2, bgViewport
     Background_InitializeEx Bg, bgViewport
-    CurrentView = UI_VIEW_MODE_PLAYLIST
+    CurrentView = UI_VIEW_MODE_VISUALIZER
     TrackerChanOffset = 0
     SelectedInstrument = 1
     InstrumentScrollOffset = 1
@@ -629,6 +637,7 @@ DO
             Input_ConsumeKeyboardKey
             IF NOT Player.song.isPlaying THEN
                 Background_CycleMode Bg
+                CurrentView = UI_VIEW_MODE_VISUALIZER
             END IF
 
         CASE _KEY_PAGEUP

@@ -4519,7 +4519,19 @@ SUB Test_UI_Views
     TEST_CHECK footRes = 0, "Footer does not trigger when another widget was active"
     __TUI.activeId = 0
     TEST_CASE_END
-    __TUI.activeId = 0
+
+    TEST_CASE_BEGIN "UI_Views: Idle Tab Disabled Mask"
+    ' Verify disabledMask when idle (NOT player.song.isPlaying):
+    ' Tab 1 (Tracker, bit 0), Tab 2 (Mixer, bit 1), Tab 3 (Instruments, bit 2), Tab 5 (SongInfo, bit 4) are disabled (&H17&)
+    ' Tab 4 (Playlist, bit 3) and Tab 6 (Visualizer, bit 5) are enabled (mask bits are 0)
+    DIM idleMask AS _UNSIGNED LONG
+    idleMask = &H01& OR &H02& OR &H04& OR &H10&
+    TEST_CHECK (idleMask AND _SHL(1&, 0)) <> 0, "Tab 1 (Tracker) is disabled when idle"
+    TEST_CHECK (idleMask AND _SHL(1&, 1)) <> 0, "Tab 2 (Mixer) is disabled when idle"
+    TEST_CHECK (idleMask AND _SHL(1&, 2)) <> 0, "Tab 3 (Instruments) is disabled when idle"
+    TEST_CHECK (idleMask AND _SHL(1&, 3)) = 0, "Tab 4 (Playlist) is ENABLED when idle"
+    TEST_CHECK (idleMask AND _SHL(1&, 4)) <> 0, "Tab 5 (Song Info) is disabled when idle"
+    TEST_CHECK (idleMask AND _SHL(1&, 5)) = 0, "Tab 6 (Visualizer) is ENABLED when idle"
     TEST_CASE_END
 END SUB
 
