@@ -1011,7 +1011,7 @@ SUB TUI_Panel (x AS LONG, y AS LONG, w AS LONG, h AS LONG, title AS STRING, isDo
     TUI_PanelEx x, y, w, h, title, isDoubleBorder, _TRUE
 END SUB
 
-''' @brief Renders a 3D tab bar where clicking or activating a tab selects it, with focus & disabled support.
+''' @brief Renders a 3D tab bar where clicking or activating a tab selects it, with per-tab disabled mask support.
 ''' @param x Character column of top-left corner of first tab.
 ''' @param y Character row of top-left corner of tab bar.
 ''' @param boxX1 Left column of container border box (or 0 for no box).
@@ -1021,9 +1021,9 @@ END SUB
 ''' @param tabCaptions() Array of tab caption strings.
 ''' @param tabCount Number of tabs in tabCaptions().
 ''' @param selectedIdx In/Out: 1-based index of currently selected tab.
-''' @param isDisabled _TRUE to render all tabs grayed out and non-interactive.
+''' @param disabledMask Bitmask where bit (i - 1) is 1 if tab i is disabled, 0 if enabled.
 ''' @return _TRUE if tab selection changed this frame, _FALSE otherwise.
-FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, boxX1 AS LONG, boxY1 AS LONG, boxX2 AS LONG, boxY2 AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG, isDisabled AS _BYTE)
+FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, boxX1 AS LONG, boxY1 AS LONG, boxX2 AS LONG, boxY2 AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG, disabledMask AS _UNSIGNED LONG)
     SHARED __TUI AS __TUI_Context
 
     DIM origFg AS _UNSIGNED LONG: origFg = _DEFAULTCOLOR
@@ -1044,7 +1044,12 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, boxX1 AS LONG, boxY1 AS LONG, box
         DIM innerW AS LONG: innerW = tabW - 2
         DIM isSelected AS _BYTE: isSelected = (i = selectedIdx)
 
-        IF isDisabled THEN
+        DIM isTabDisabled AS _BYTE
+        IF i <= 32 THEN
+            isTabDisabled = (disabledMask AND _SHL(1&, i - 1)) <> 0
+        END IF
+
+        IF isTabDisabled THEN
             ' Render disabled tab (flat single-line border in dark gray, gray text on black, matching disabled buttons)
             DIM hLineDis AS STRING: hLineDis = STRING$(innerW, __TUI_GLYPH_HLINE)
             COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
@@ -1143,23 +1148,40 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, boxX1 AS LONG, boxY1 AS LONG, box
         FOR i = 1 TO tabCount
             DIM relX AS LONG: relX = tabStartX(i) - boxX1 + 1
             DIM tW AS LONG: tW = tabWidths(i)
+            DIM curTabDis AS _BYTE
+            IF i <= 32 THEN
+                curTabDis = (disabledMask AND _SHL(1&, i - 1)) <> 0
+            END IF
             IF relX >= 1 _ANDALSO relX + tW - 1 <= boxW THEN
-                IF NOT isDisabled _ANDALSO i = selectedIdx THEN
+                IF i = selectedIdx _ANDALSO NOT curTabDis THEN
                     ' Seamless active tab connection: ASCII 189 (CP437), open spaces, ASCII 211 (CP437)
                     MID$(topRowStr, relX, 1) = __TUI_GLYPH_DIARY_TAB_LEFT
                     MID$(topRowStr, relX + 1, tW - 2) = SPACE$(tW - 2)
                     MID$(topRowStr, relX + tW - 1, 1) = __TUI_GLYPH_DIARY_TAB_RIGHT
                 ELSE
-                    ' Single-line seal for unselected tab
+                    ' Single-line seal for unselected or disabled tab
                     MID$(topRowStr, relX, 1) = __TUI_GLYPH_T_UP
                     MID$(topRowStr, relX + tW - 1, 1) = __TUI_GLYPH_T_UP
                 END IF
             END IF
         NEXT i
 
-        ' Container box border color: matches tab border foreground (Gray when disabled, Bright White when enabled)
+        ' Container box border color: matches tab border foreground (Gray when all tabs disabled, Bright White when any enabled)
+        DIM allTabsDisabled AS _BYTE: allTabsDisabled = _TRUE
+        FOR i = 1 TO tabCount
+            IF i <= 32 THEN
+                IF (disabledMask AND _SHL(1&, i - 1)) = 0 THEN
+                    allTabsDisabled = _FALSE
+                    EXIT FOR
+                END IF
+            ELSE
+                allTabsDisabled = _FALSE
+                EXIT FOR
+            END IF
+        NEXT i
+
         DIM boxFgCol AS LONG
-        IF isDisabled THEN
+        IF allTabsDisabled THEN
             boxFgCol = TUI_COLOR_GRAY
         ELSE
             boxFgCol = TUI_COLOR_BRIGHT_WHITE
@@ -1194,7 +1216,7 @@ END FUNCTION
 ''' @param selectedIdx In/Out: 1-based index of currently selected tab.
 ''' @return _TRUE if tab selection changed this frame, _FALSE otherwise.
 FUNCTION TUI_TabBar%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG)
-    TUI_TabBar = TUI_TabBarEx(x, y, 0, 0, 0, 0, tabCaptions(), tabCount, selectedIdx, _FALSE)
+    TUI_TabBar = TUI_TabBarEx(x, y, 0, 0, 0, 0, tabCaptions(), tabCount, selectedIdx, 0~&)
 END FUNCTION
 
 ''' @brief Renders an interactive diary tab control with integrated content container box.
@@ -1209,7 +1231,23 @@ END FUNCTION
 ''' @param selectedIdx In/Out: 1-based index of currently selected tab.
 ''' @return _TRUE if tab selection changed this frame, _FALSE otherwise.
 FUNCTION TUI_TabControl%% (x AS LONG, y AS LONG, boxX1 AS LONG, boxY1 AS LONG, boxX2 AS LONG, boxY2 AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG)
-    TUI_TabControl = TUI_TabBarEx(x, y, boxX1, boxY1, boxX2, boxY2, tabCaptions(), tabCount, selectedIdx, _FALSE)
+    TUI_TabControl = TUI_TabBarEx(x, y, boxX1, boxY1, boxX2, boxY2, tabCaptions(), tabCount, selectedIdx, 0~&)
+END FUNCTION
+
+''' @brief Renders an interactive diary tab control with integrated content container box and disabled bitmask.
+''' @param x Character column of top-left corner of first tab.
+''' @param y Character row of top-left corner of tab bar.
+''' @param boxX1 Left column of container border box.
+''' @param boxY1 Top row of container border box.
+''' @param boxX2 Right column of container border box.
+''' @param boxY2 Bottom row of container border box.
+''' @param tabCaptions() Array of tab caption strings.
+''' @param tabCount Number of tabs in tabCaptions().
+''' @param selectedIdx In/Out: 1-based index of currently selected tab.
+''' @param disabledMask Bitmask where bit (i - 1) is 1 if tab i is disabled, 0 if enabled.
+''' @return _TRUE if tab selection changed this frame, _FALSE otherwise.
+FUNCTION TUI_TabControlEx%% (x AS LONG, y AS LONG, boxX1 AS LONG, boxY1 AS LONG, boxX2 AS LONG, boxY2 AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG, disabledMask AS _UNSIGNED LONG)
+    TUI_TabControlEx = TUI_TabBarEx(x, y, boxX1, boxY1, boxX2, boxY2, tabCaptions(), tabCount, selectedIdx, disabledMask)
 END FUNCTION
 
 ''' @brief Renders a vertical 1-column VU meter with peak indicator dot.

@@ -3954,10 +3954,21 @@ SUB Test_TUI
     Vector2f_Set 25!, 5!, __TUI.mousePos
     __TUI.mouseClickedL = _TRUE
     DIM disTabChanged AS _BYTE
-    disTabChanged = TUI_TabBarEx(10, 5, 0, 0, 0, 0, tabs(), 4, selectedTab, _TRUE)
+    disTabChanged = TUI_TabBarEx(10, 5, 0, 0, 0, 0, tabs(), 4, selectedTab, &HFFFFFFFF~&)
     TEST_CHECK NOT disTabChanged, "Disabled TUI_TabBarEx does not change selection on click"
     TEST_CHECK selectedTab = 1, "Selected tab unchanged when disabled"
     TEST_CHECK __TUI.widgetCount = 0, "Disabled tab bar does not register interactive widgets"
+    TUI_End
+
+    ' Test selective per-tab disable via bitmask:
+    ' Disable tabs 1, 2, 4 (mask = 1 + 2 + 8 = 11). Tab 3 remains enabled.
+    TUI_Begin
+    selectedTab = 1
+    Vector2f_Set 0!, 0!, __TUI.mousePos
+    DIM maskTabChanged AS _BYTE
+    DIM testDisMask AS _UNSIGNED LONG: testDisMask = _SHL(1&, 0) OR _SHL(1&, 1) OR _SHL(1&, 3)
+    maskTabChanged = TUI_TabBarEx(10, 5, 0, 0, 0, 0, tabs(), 4, selectedTab, testDisMask)
+    TEST_CHECK __TUI.widgetCount = 1, "Only enabled tab (tab 3) registered as interactive widget"
     TUI_End
 
     ' Test keyboard focus confirmation on TabBar
@@ -3966,7 +3977,7 @@ SUB Test_TUI
     __TUI.mouseClickedL = _FALSE
     __TUI.focusedId = 3 ' Focus on 3rd tab ("Instruments")
     __TUI.navConfirm = _TRUE
-    tabChanged = TUI_TabBarEx(10, 5, 0, 0, 0, 0, tabs(), 4, selectedTab, _FALSE)
+    tabChanged = TUI_TabBarEx(10, 5, 0, 0, 0, 0, tabs(), 4, selectedTab, 0~&)
     TEST_CHECK tabChanged, "TUI_TabBarEx confirms selection via keyboard focus"
     TEST_CHECK selectedTab = 3, "Selected tab updated to 3 via keyboard"
     TUI_End

@@ -400,9 +400,20 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
     IF tabSel < 1 THEN tabSel = 1
     IF tabSel > 6 THEN tabSel = 6
 
-    DIM tabsDisabled AS _BYTE: tabsDisabled = NOT player.song.isPlaying
+    ' Bitmask for disabled tabs (bit i-1 for tab i):
+    ' Tab 1: F2: Tracker (bit 0 = 1) - requires active playback
+    ' Tab 2: F3: Mixer (bit 1 = 2) - requires active playback
+    ' Tab 3: F4: Instruments (bit 2 = 4) - requires active playback
+    ' Tab 4: F5: Playlist (bit 3 = 8) - ALWAYS enabled (mask bit remains 0)
+    ' Tab 5: F6: Song Info (bit 4 = 16) - requires active playback
+    ' Tab 6: F7: Visualizer (bit 5 = 32) - requires active playback
+    DIM disabledMask AS _UNSIGNED LONG
+    IF NOT player.song.isPlaying THEN
+        disabledMask = &H01& OR &H02& OR &H04& OR &H10& OR &H20&
+    END IF
+
     COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
-    IF TUI_TabBarEx(4, 6, 1, 8, UI_SCREEN_WIDTH, 88, tabs(), 6, tabSel, tabsDisabled) THEN
+    IF TUI_TabBarEx(4, 6, 1, 8, UI_SCREEN_WIDTH, 88, tabs(), 6, tabSel, disabledMask) THEN
         currentView = tabSel
     END IF
 

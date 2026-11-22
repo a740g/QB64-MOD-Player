@@ -115,6 +115,7 @@ SUB App_PlayTrack (trackIdx AS LONG)
         SelectedInstrument = 1
         InstrumentScrollOffset = 1
         CommentScrollOffset = 1
+        CurrentView = UI_VIEW_MODE_TRACKER
 
         DIM winTitle AS STRING
         IF LEN(Pathname_GetDriveOrScheme(filePath)) > 2 THEN
@@ -194,22 +195,22 @@ SUB App_HandleFKey (k AS INTEGER)
             ShowHelpModal = NOT ShowHelpModal
 
         CASE 2 ' F2: Tracker
-            CurrentView = UI_VIEW_MODE_TRACKER
+            IF Player.song.isPlaying THEN CurrentView = UI_VIEW_MODE_TRACKER
 
         CASE 3 ' F3: Mixer
-            CurrentView = UI_VIEW_MODE_MIXER
+            IF Player.song.isPlaying THEN CurrentView = UI_VIEW_MODE_MIXER
 
         CASE 4 ' F4: Instruments
-            CurrentView = UI_VIEW_MODE_INSTRUMENTS
+            IF Player.song.isPlaying THEN CurrentView = UI_VIEW_MODE_INSTRUMENTS
 
         CASE 5 ' F5: Playlist
             CurrentView = UI_VIEW_MODE_PLAYLIST
 
         CASE 6 ' F6: Song Info
-            CurrentView = UI_VIEW_MODE_SONGINFO
+            IF Player.song.isPlaying THEN CurrentView = UI_VIEW_MODE_SONGINFO
 
         CASE 7 ' F7: Visualizer
-            CurrentView = UI_VIEW_MODE_VISUALIZER
+            IF Player.song.isPlaying THEN CurrentView = UI_VIEW_MODE_VISUALIZER
 
         CASE 8 ' F8: Play / Pause
             IF Player.song.isPlaying THEN
@@ -390,7 +391,7 @@ SUB App_Initialize
     DIM bgViewport AS Bounds2f
     Bounds2f_Initialize 2!, 8!, UI_SCREEN_WIDTH - 1, UI_SCREEN_HEIGHT - 2, bgViewport
     Background_InitializeEx Bg, bgViewport
-    CurrentView = UI_VIEW_MODE_TRACKER
+    CurrentView = UI_VIEW_MODE_PLAYLIST
     TrackerChanOffset = 0
     SelectedInstrument = 1
     InstrumentScrollOffset = 1
