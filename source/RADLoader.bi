@@ -51,7 +51,7 @@ FUNCTION RADLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     END IF
 
     ' Read description string if flag bit 7 is set
-    DIM descStr AS STRING: descStr = ""
+    DIM descStr AS STRING
     IF (flags AND &H80) <> 0 THEN
         DO UNTIL StringFile_IsEOF(memFile)
             DIM chByte AS _UNSIGNED _BYTE: chByte = StringFile_ReadByte(memFile)
@@ -154,7 +154,7 @@ FUNCTION RADLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
         rawOrder(o) = StringFile_ReadByte(memFile)
     NEXT o
 
-    DIM maxPatNum AS LONG: maxPatNum = 0
+    DIM maxPatNum AS LONG
     FOR o = 0 TO numOrders - 1
         DIM oVal AS _UNSIGNED _BYTE: oVal = rawOrder(o)
         IF (oVal AND &H80) <> 0 THEN

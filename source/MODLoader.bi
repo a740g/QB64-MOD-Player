@@ -56,9 +56,6 @@ FUNCTION __MODPlayer_GenerateAMWaveform$ (waveform AS _UNSIGNED _BYTE)
                 ASC(noiseWave, k + 1) = nVal
             NEXT k
             __MODPlayer_GenerateAMWaveform = noiseWave
-
-        CASE ELSE
-            __MODPlayer_GenerateAMWaveform = _STR_EMPTY
     END SELECT
 END FUNCTION
 
@@ -192,7 +189,7 @@ FUNCTION MODLoader_LoadWithCompanion%% (player AS MODPlayer, buffer AS STRING, c
                 IF numOrders15 = 0 _ORELSE numOrders15 > 128 THEN EXIT FUNCTION
 
                 ' Check order table at offset 472 (1-based: 473..600) to find maximum pattern
-                DIM maxPat15 AS _UNSIGNED INTEGER: maxPat15 = 0
+                DIM maxPat15 AS _UNSIGNED INTEGER
                 FOR charIdx = 0 TO 127
                     DIM patNum15 AS _UNSIGNED _BYTE: patNum15 = ASC(buffer, 473 + charIdx)
                     IF patNum15 > maxPat15 THEN maxPat15 = patNum15
@@ -493,7 +490,7 @@ FUNCTION MODLoader_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
     DIM modBuf AS STRING: modBuf = File_Load(fileName)
     IF LEN(modBuf) = 0 THEN EXIT FUNCTION
 
-    DIM compBuf AS STRING: compBuf = _STR_EMPTY
+    DIM compBuf AS STRING
     DIM compPath AS STRING: compPath = __MODPlayer_FindCompanionFile(fileName)
     IF LEN(compPath) > 0 THEN compBuf = File_Load(compPath)
 

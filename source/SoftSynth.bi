@@ -115,9 +115,7 @@ END SUB
 ''' @param channels Channel count (1 for mono, 2 for stereo).
 ''' @return Number of sample frames.
 FUNCTION SoftSynth_ConvertBytesToFrames~& (bytes AS _UNSIGNED LONG, bytesPerSample AS _UNSIGNED _BYTE, channels AS _UNSIGNED _BYTE)
-    IF bytesPerSample = 0 _ORELSE channels = 0 THEN
-        SoftSynth_ConvertBytesToFrames = 0
-    ELSE
+    IF bytesPerSample <> 0 _ANDALSO channels <> 0 THEN
         SoftSynth_ConvertBytesToFrames = bytes \ (CLNG(bytesPerSample) * CLNG(channels))
     END IF
 END FUNCTION

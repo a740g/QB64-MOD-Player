@@ -250,11 +250,7 @@ DIM __Input AS __Input
 ''' @brief Normalizes raw stick axis (1..254 with center ~127) to [-1.0, 1.0] with deadzone filtering.
 FUNCTION __Input_NormalizeAxis! (rawValue AS INTEGER, deadzone AS SINGLE)
     DIM norm AS SINGLE: norm = _CLAMP((rawValue - 127.5!) / 126.5!, -1!, 1!)
-    IF ABS(norm) < deadzone THEN
-        __Input_NormalizeAxis = 0!
-    ELSE
-        __Input_NormalizeAxis = norm
-    END IF
+    IF ABS(norm) >= deadzone THEN __Input_NormalizeAxis = norm
 END FUNCTION
 
 ''' @brief Updates input manager internals, polling keyboard, mouse, gamepads, and window events.

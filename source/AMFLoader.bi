@@ -237,7 +237,7 @@ FUNCTION __AMFLoader_LoadDSMI%% (player AS MODPlayer, memFile AS StringFile, buf
     NEXT ord
 
     ' Sample headers
-    DIM isTruncatedV10 AS _BYTE: isTruncatedV10 = _FALSE
+    DIM isTruncatedV10 AS _BYTE
     IF version = 10 THEN
         DIM probePos AS _UNSIGNED LONG: probePos = StringFile_GetPosition(memFile)
         DIM testSmp AS LONG
@@ -324,7 +324,7 @@ FUNCTION __AMFLoader_LoadDSMI%% (player AS MODPlayer, memFile AS StringFile, buf
     ' Track mapping table
     IF StringFile_GetPosition(memFile) + (CLNG(numTracks) * 2) > bufSize THEN EXIT FUNCTION
     REDIM trackMap(0 TO numTracks - 1) AS _UNSIGNED INTEGER
-    DIM maxPhysicalTrack AS _UNSIGNED INTEGER: maxPhysicalTrack = 0
+    DIM maxPhysicalTrack AS _UNSIGNED INTEGER
     DIM t AS LONG
     FOR t = 0 TO numTracks - 1
         trackMap(t) = StringFile_ReadInteger(memFile)

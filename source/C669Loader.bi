@@ -99,7 +99,7 @@ FUNCTION C669Loader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     player.song.pcmMasterGain = 48.0! / 128.0! ' Matches OpenMPT 669 default pre-amp of 48
 
     ' Determine number of valid orders
-    DIM numOrders AS LONG: numOrders = 0
+    DIM numOrders AS LONG
     FOR oIdx = 0 TO 127
         IF rawOrders(oIdx) < numPatterns AND rawOrders(oIdx) < 128 THEN
             numOrders = numOrders + 1

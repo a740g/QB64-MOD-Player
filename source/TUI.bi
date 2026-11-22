@@ -299,13 +299,12 @@ FUNCTION TUI_ButtonEx%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isDisa
 
     IF isDisabled THEN
         __TUI_DrawButton x, y, w, text, _FALSE, _FALSE, TUI_COLOR_BLACK, TUI_COLOR_GRAY, TUI_COLOR_GRAY, TUI_COLOR_GRAY
-        TUI_ButtonEx = _FALSE
         EXIT FUNCTION
     END IF
 
     __TUI.widgetCount = __TUI.widgetCount + 1
     DIM thisId AS LONG: thisId = __TUI.widgetCount
-    DIM isClicked AS _BYTE: isClicked = _FALSE
+    DIM isClicked AS _BYTE
 
     ' Hit detection across all 3 lines
     DIM b AS Bounds2f
@@ -375,13 +374,12 @@ FUNCTION TUI_ToggleButtonEx%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, 
 
     IF isDisabled THEN
         __TUI_DrawButton x, y, w, text, isToggled, _FALSE, TUI_COLOR_BLACK, TUI_COLOR_GRAY, TUI_COLOR_GRAY, TUI_COLOR_GRAY
-        TUI_ToggleButtonEx = _FALSE
         EXIT FUNCTION
     END IF
 
     __TUI.widgetCount = __TUI.widgetCount + 1
     DIM thisId AS LONG: thisId = __TUI.widgetCount
-    DIM isClicked AS _BYTE: isClicked = _FALSE
+    DIM isClicked AS _BYTE
 
     DIM b AS Bounds2f
     Bounds2f_Set x, y, x + w - 0.001!, y + 2.999!, b
@@ -1021,7 +1019,7 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount
     DIM origFg AS _UNSIGNED LONG: origFg = _DEFAULTCOLOR
     DIM origBg AS _UNSIGNED LONG: origBg = _BACKGROUNDCOLOR
 
-    DIM changed AS _BYTE: changed = _FALSE
+    DIM changed AS _BYTE
     DIM curX AS LONG: curX = x
 
     DIM i AS LONG
@@ -1198,7 +1196,7 @@ FUNCTION TUI_ScrollList& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS
 
     __TUI.widgetCount = __TUI.widgetCount + 1
     DIM thisId AS LONG: thisId = __TUI.widgetCount
-    DIM itemActivated AS LONG: itemActivated = 0
+    DIM itemActivated AS LONG
 
     IF h < 1 _ORELSE w < 3 THEN
         COLOR origFg, origBg

@@ -285,7 +285,7 @@ FUNCTION MTMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
             IF LEN(RTRIM$(rawLine)) > 0 THEN lastNonEmptyLine = lIdx
         NEXT lIdx
 
-        DIM formattedComment AS STRING: formattedComment = _STR_EMPTY
+        DIM formattedComment AS STRING
         FOR lIdx = 0 TO lastNonEmptyLine
             rawLine = MID$(rawComment, lIdx * 40 + 1, 40)
             nulPos = INSTR(rawLine, _CHR_NUL)

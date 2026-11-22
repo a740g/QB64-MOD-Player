@@ -141,7 +141,7 @@ END FUNCTION
 ''' @param showHelpModal In/Out: Flag indicating if help overlay is visible.
 ''' @return UI_ACTION code if transport button was triggered.
 FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS INTEGER, showHelpModal AS _BYTE)
-    DIM action AS _BYTE: action = UI_ACTION_NONE%%
+    DIM action AS _BYTE
 
     ' Row 1: Full-width Dark Gray Top Bar (Subtype, Song Title, and Telemetry)
     COLOR TUI_COLOR_WHITE, TUI_COLOR_GRAY
@@ -432,7 +432,6 @@ END FUNCTION
 ''' @return The key code clicked (1-10, 30, 31) or 0 if none.
 FUNCTION UI_DrawFooter% (player AS MODPlayer)
     SHARED __TUI AS __TUI_Context
-    UI_DrawFooter = 0
 
     ' Row 89: Mini VU Meter Ribbon across all song channels (full-width Dark Gray ribbon)
     COLOR TUI_COLOR_WHITE, TUI_COLOR_GRAY
@@ -928,7 +927,7 @@ END SUB
 ''' @param scrollOffset In/Out: 1-based top visible index.
 ''' @return UI_ACTION code if an action was triggered.
 FUNCTION UI_RenderPlaylist%% (pl AS Playlist, selectedItem AS LONG, scrollOffset AS LONG)
-    DIM action AS _BYTE: action = UI_ACTION_NONE%%
+    DIM action AS _BYTE
 
     ' Left Panel: Playlist Queue Table (columns 2 to 95, rows 8 to 87)
     TUI_Panel 2, 8, 93, 80, "Playback Queue (" + _TOSTR$(pl.count) + " Tracks)", _TRUE
@@ -1069,7 +1068,7 @@ SUB UI_RenderSongInfo (player AS MODPlayer, commentScroll AS LONG)
 
     ' Split comments into lines
     REDIM cLines(1 TO 500) AS STRING
-    DIM numLines AS LONG: numLines = 0
+    DIM numLines AS LONG
     DIM pS AS LONG: pS = 1
     DIM tL AS LONG: tL = LEN(commentText)
 

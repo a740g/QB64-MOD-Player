@@ -160,7 +160,7 @@ FUNCTION STMLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
         rawOrders(i) = StringFile_ReadByte(memFile)
     NEXT i
 
-    DIM validOrderCount AS LONG: validOrderCount = 0
+    DIM validOrderCount AS LONG
     FOR i = 0 TO orderTableLen - 1
         IF rawOrders(i) >= 99 THEN EXIT FOR
         validOrderCount = validOrderCount + 1

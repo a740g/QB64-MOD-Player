@@ -97,7 +97,7 @@ FUNCTION MODPlayer_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
     DIM buffer AS STRING: buffer = File_LoadFromDisk(fileName)
     IF LEN(buffer) = 0 THEN EXIT FUNCTION
 
-    DIM compBuf AS STRING: compBuf = _STR_EMPTY
+    DIM compBuf AS STRING
     DIM compPath AS STRING: compPath = __MODPlayer_FindCompanionFile(fileName)
     IF LEN(compPath) > 0 THEN compBuf = File_LoadFromDisk(compPath)
 
@@ -442,7 +442,6 @@ FUNCTION __MODPlayer_GetOPLDrumBit~%% (subtype AS _UNSIGNED _BYTE)
         CASE __MODPLAYER_INSTRUMENT_FM_TOMTOM: __MODPlayer_GetOPLDrumBit = &H04
         CASE __MODPLAYER_INSTRUMENT_FM_CYMBAL: __MODPlayer_GetOPLDrumBit = &H02
         CASE __MODPLAYER_INSTRUMENT_FM_HIHAT: __MODPlayer_GetOPLDrumBit = &H01
-        CASE ELSE: __MODPlayer_GetOPLDrumBit = 0
     END SELECT
 END FUNCTION
 
@@ -548,7 +547,7 @@ SUB __MODPlayer_DoS3MChannelVolumeSlide (player AS MODPlayer, nChannel AS _UNSIG
 
     DIM slideUp AS _UNSIGNED _BYTE: slideUp = _SHR(nOperand, 4)
     DIM slideDown AS _UNSIGNED _BYTE: slideDown = nOperand AND &HF
-    DIM delta AS LONG: delta = 0
+    DIM delta AS LONG
 
     IF isRowTick THEN
         IF slideDown = &HF _ANDALSO slideUp > 0 THEN
@@ -573,7 +572,7 @@ SUB __MODPlayer_DoS3MGlobalVolumeSlide (player AS MODPlayer, nChannel AS _UNSIGN
 
     DIM slideUp AS _UNSIGNED _BYTE: slideUp = _SHR(nOperand, 4)
     DIM slideDown AS _UNSIGNED _BYTE: slideDown = nOperand AND &HF
-    DIM delta AS LONG: delta = 0
+    DIM delta AS LONG
 
     IF isRowTick THEN
         IF slideDown = &HF _ANDALSO slideUp > 0 THEN
@@ -597,7 +596,7 @@ SUB __MODPlayer_DoS3MPanningSlide (player AS MODPlayer, nChannel AS _UNSIGNED LO
 
     DIM slideLeft AS _UNSIGNED _BYTE: slideLeft = _SHR(nOperand, 4)
     DIM slideRight AS _UNSIGNED _BYTE: slideRight = nOperand AND &HF
-    DIM delta AS LONG: delta = 0
+    DIM delta AS LONG
 
     IF isRowTick THEN
         IF slideRight = &HF _ANDALSO slideLeft > 0 THEN
@@ -680,7 +679,7 @@ SUB __MODPlayer_UpdateAMChannel (player AS MODPlayer, nChannel AS _UNSIGNED LONG
     IF player.channel(nChannel).isMuted THEN finalVol = 0!
     SoftSynth_SetVoiceVolume player.synth, nChannel, finalVol
 
-    DIM vibDelta AS LONG: vibDelta = 0
+    DIM vibDelta AS LONG
     IF player.instrument(inst).am.vibAmp > 0 THEN
         DIM vPhase AS LONG: vPhase = player.channel(nChannel).amVibratoPos AND 63
         DIM sVal AS LONG
@@ -747,7 +746,7 @@ SUB __MODPlayer_ProcessAMChannelTick (player AS MODPlayer, nChannel AS _UNSIGNED
 END SUB
 
 SUB __MODPlayer_TriggerDelayedNote (player AS MODPlayer, nChannel AS _UNSIGNED LONG)
-    DIM delayedPortamento AS _BYTE: delayedPortamento = _FALSE
+    DIM delayedPortamento AS _BYTE
     IF NOT player.channel(nChannel).noteDelayPending _ORELSE player.song.tick <> player.channel(nChannel).noteDelayTick THEN EXIT SUB
 
     player.channel(nChannel).noteDelayPending = _FALSE
@@ -1127,7 +1126,7 @@ SUB __MODPlayer_UpdateFMChannelTick (player AS MODPlayer, nChannel AS _UNSIGNED 
                     curPitch = curPitch - portaSpeed
                     IF curPitch < targetPitch THEN curPitch = targetPitch
                 END IF
-                DIM newBlock AS LONG: newBlock = 0
+                DIM newBlock AS LONG
                 DIM tempPitch AS LONG: tempPitch = curPitch
                 DO WHILE tempPitch >= 1024 _ANDALSO newBlock < 7
                     tempPitch = tempPitch \ 2

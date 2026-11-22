@@ -246,8 +246,6 @@ FUNCTION __MODPlayer_FindCompanionFile$ (fileName AS STRING)
             EXIT FUNCTION
         END IF
     END IF
-
-    __MODPlayer_FindCompanionFile = _STR_EMPTY
 END FUNCTION
 
 ''' @brief Determines if a channel or instrument subtype is an OPL FM synthesizer type.

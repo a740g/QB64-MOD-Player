@@ -88,7 +88,7 @@ FUNCTION AudioConv_ConvertADPCM4ToS8$ (buffer AS STRING, compTab AS STRING)
     NEXT k
 
     DIM result AS STRING: result = SPACE$(srcLen * 2)
-    DIM delta AS _BYTE: delta = 0
+    DIM delta AS _BYTE
     DIM rawByte AS _UNSIGNED _BYTE
     DIM AS _UNSIGNED LONG i, dstIdx
     dstIdx = 1

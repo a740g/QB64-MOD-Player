@@ -292,8 +292,8 @@ FUNCTION Pathname_BuildFileList~& (rootDir AS STRING, extensions AS STRING, file
     DIM __rootDir AS STRING: __rootDir = Pathname_AddDirectorySeparator(rDir)
 
     ' Pre-normalize extensions: tokenize by '|' and ensure leading dot
-    DIM hasFilter AS _BYTE: hasFilter = _FALSE
-    DIM extCount AS LONG: extCount = 0
+    DIM hasFilter AS _BYTE
+    DIM extCount AS LONG
 
     IF LEN(extensions) > 0 THEN
         REDIM rawTokens(0 TO 0) AS STRING
@@ -335,7 +335,7 @@ FUNCTION Pathname_BuildFileList~& (rootDir AS STRING, extensions AS STRING, file
     ' Result array with exponential capacity doubling
     DIM fileCapacity AS LONG: fileCapacity = 64
     REDIM fileList(baseIndex TO baseIndex + fileCapacity - 1) AS STRING
-    DIM fileCount AS _UNSIGNED LONG: fileCount = 0
+    DIM fileCount AS _UNSIGNED LONG
 
     WHILE dirStackCount > 0
         DIM directory AS STRING: directory = dirStack(dirStackCount)

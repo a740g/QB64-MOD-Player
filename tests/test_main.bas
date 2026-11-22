@@ -1244,7 +1244,7 @@ SUB Test_RAD_Playback
     NEXT u
 
     ' Verify non-zero synthesized audio frames in soundBuffer
-    DIM hasAudio AS _BYTE: hasAudio = _FALSE
+    DIM hasAudio AS _BYTE
     DIM i AS LONG
     FOR i = 0 TO UBOUND(player.synth.soundBuffer)
         IF player.synth.soundBuffer(i) <> 0! THEN
@@ -1380,7 +1380,7 @@ SUB Test_ULTLoader
         MODPlayer_Update pPlay, 0.05
     NEXT u
 
-    DIM hasAudio AS _BYTE: hasAudio = _FALSE
+    DIM hasAudio AS _BYTE
     DIM i AS LONG
     FOR i = 0 TO UBOUND(pPlay.synth.soundBuffer)
         IF pPlay.synth.soundBuffer(i) <> 0! THEN
@@ -1422,7 +1422,7 @@ SUB Test_ULTLoader
     TEST_CASE_BEGIN "ULTLoader: Bidirectional looping sample setup"
     DIM pBidi AS MODPlayer
     TEST_REQUIRE ULTLoader_LoadFromDisk(pBidi, "mods/CybOccultation.ult"), "Load CybOccultation.ult for bidi loop inspection"
-    DIM foundBidi AS _BYTE: foundBidi = _FALSE
+    DIM foundBidi AS _BYTE
     DIM sIdx AS LONG
     FOR sIdx = 0 TO pBidi.song.instruments - 1
         IF pBidi.instrument(sIdx).playMode = SOFTSYNTH_VOICE_PLAY_BIDIRECTIONAL_LOOP THEN
@@ -1525,7 +1525,7 @@ SUB Test_MDLLoader
         MODPlayer_Update pPlay, 0.05
     NEXT u
 
-    DIM hasAudio AS _BYTE: hasAudio = _FALSE
+    DIM hasAudio AS _BYTE
     DIM i AS LONG
     FOR i = 0 TO UBOUND(pPlay.synth.soundBuffer)
         IF pPlay.synth.soundBuffer(i) <> 0! THEN
@@ -1543,7 +1543,7 @@ SUB Test_MDLLoader
     TEST_CASE_BEGIN "MDLLoader: Bidirectional looping sample setup"
     DIM pBidi AS MODPlayer
     TEST_REQUIRE MDLLoader_LoadFromDisk(pBidi, "mods/Beyond All Cognitive.mdl"), "Load Beyond All Cognitive.mdl for bidi loop inspection"
-    DIM foundBidi AS _BYTE: foundBidi = _FALSE
+    DIM foundBidi AS _BYTE
     DIM sIdx AS LONG
     FOR sIdx = 0 TO pBidi.song.instruments - 1
         IF pBidi.instrument(sIdx).playMode = SOFTSYNTH_VOICE_PLAY_BIDIRECTIONAL_LOOP THEN
@@ -1681,7 +1681,7 @@ SUB Test_AMFLoader
         MODPlayer_Update pPlay, 0.05
     NEXT u
 
-    DIM hasAudio AS _BYTE: hasAudio = _FALSE
+    DIM hasAudio AS _BYTE
     DIM i AS LONG
     FOR i = 0 TO UBOUND(pPlay.synth.soundBuffer)
         IF pPlay.synth.soundBuffer(i) <> 0! THEN
@@ -1884,7 +1884,7 @@ SUB Test_Opal_SoundGeneration
 
     DIM samples(0 TO 399) AS SINGLE
     DIM AS SINGLE leftSample, rightSample
-    DIM hasNonZero AS _BYTE: hasNonZero = _FALSE
+    DIM hasNonZero AS _BYTE
     DIM i AS LONG
     FOR i = 0 TO 399: samples(i) = 0!: NEXT
     Opal_MixSamples chip, samples(), 200, 1!
@@ -1926,7 +1926,7 @@ SUB Test_Opal_RhythmMode
 
     DIM samples(0 TO 399) AS SINGLE
     DIM AS SINGLE leftSample, rightSample
-    DIM hasSound AS _BYTE: hasSound = _FALSE
+    DIM hasSound AS _BYTE
     DIM i AS LONG
     FOR i = 0 TO 399: samples(i) = 0!: NEXT
     Opal_MixSamples chip, samples(), 200, 1!
@@ -2005,7 +2005,7 @@ SUB Test_MODPlayer_S3M_AdLib
     TEST_CHECK player1.channel(0).oplFNum = 856, "S3M E-3 note maps to the expected OPL F-number"
     TEST_CHECK player1.channel(0).oplBlock = 2, "S3M E-3 note maps to the expected OPL block"
 
-    DIM hasFMOutput AS _BYTE: hasFMOutput = _FALSE
+    DIM hasFMOutput AS _BYTE
     DIM sampleIndex AS _UNSIGNED LONG
     IF player1.synth.soundBufferSamples > 0 THEN
         FOR sampleIndex = 0 TO player1.synth.soundBufferSamples - 1
@@ -2049,7 +2049,7 @@ SUB Test_MODPlayer_S3M_AdLib
     MODPlayer_Play player3
     TEST_CHECK MODPlayer_IsPlaying(player3), "Playing Shrubbing.s3m"
     MODPlayer_Update player3, 0.1
-    DIM hasOutput3 AS _BYTE: hasOutput3 = _FALSE
+    DIM hasOutput3 AS _BYTE
     DIM sIdx3 AS _UNSIGNED LONG
     IF player3.synth.soundBufferSamples > 0 THEN
         FOR sIdx3 = 0 TO player3.synth.soundBufferSamples - 1
@@ -2192,7 +2192,7 @@ SUB Test_MODPlayer_Startrekker_AM
     TEST_CHECK MODPlayer_IsPlaying(player1), "Playing amsyntdemo.mod"
     MODPlayer_Update player1, 0.05
 
-    DIM hasAudioOutput AS _BYTE: hasAudioOutput = _FALSE
+    DIM hasAudioOutput AS _BYTE
     DIM sIdx AS _UNSIGNED LONG
     IF player1.synth.soundBufferSamples > 0 THEN
         FOR sIdx = 0 TO player1.synth.soundBufferSamples - 1
@@ -2735,7 +2735,7 @@ END SUB
 
 SUB Test_FAR_Effects
     TEST_CASE_BEGIN "FAR Effects: Synthetic FAR Module Loading and Effect Translation"
-    DIM farData AS STRING: farData = _STR_EMPTY
+    DIM farData AS STRING
 
     ' Header (869 + msgLen bytes)
     farData = farData + __FARLOADER_MAGIC ' Magic (4 bytes)
@@ -2944,7 +2944,7 @@ END SUB
 ''' @brief Tests for Scream Tracker 2 effect translations and quirk handling.
 SUB Test_STM_Effects
     TEST_CASE_BEGIN "STM Effects: Synthetic STM Module Loading and Effect Translation"
-    DIM stmData AS STRING: stmData = _STR_EMPTY
+    DIM stmData AS STRING
 
     ' Header (48 bytes)
     stmData = stmData + "Synthetic STM" + SPACE$(7) ' Title (20 bytes)
@@ -3286,7 +3286,7 @@ SUB Test_Background
     TEST_CHECK LEN(bg.snakes.snakes(1).p) >= 10, "Snake 1 body buffer has valid length"
 
     ' Ensure initial spawn heads are not overlapping
-    DIM overlaps AS LONG: overlaps = 0
+    DIM overlaps AS LONG
     DIM i AS LONG, j AS LONG
     FOR i = 1 TO bg.snakes.count - 1
         DIM hx AS LONG: hx = ASC(bg.snakes.snakes(i).p, 1)

@@ -191,10 +191,7 @@ END SUB
 ''' @param is16Bit _TRUE if 16-bit signed PCM, _FALSE if 8-bit.
 ''' @return Decompressed signed PCM sample string.
 FUNCTION __MDLLoader_DecompressSample$ (buffer AS STRING, startOffset AS _UNSIGNED LONG, packLen AS _UNSIGNED LONG, sampleFrames AS _UNSIGNED LONG, is16Bit AS _BYTE)
-    IF sampleFrames = 0 THEN
-        __MDLLoader_DecompressSample = _STR_EMPTY
-        EXIT FUNCTION
-    END IF
+    IF sampleFrames = 0 THEN EXIT FUNCTION
 
     DIM outBuf AS STRING
     IF is16Bit THEN
@@ -207,9 +204,9 @@ FUNCTION __MDLLoader_DecompressSample$ (buffer AS STRING, startOffset AS _UNSIGN
     DIM endByte AS _UNSIGNED LONG: endByte = startOffset + packLen - 1
     IF endByte > LEN(buffer) THEN endByte = LEN(buffer)
 
-    DIM bitBuffer AS _UNSIGNED _INTEGER64: bitBuffer = 0
-    DIM bitsLeft AS LONG: bitsLeft = 0
-    DIM lastAccum AS LONG: lastAccum = 0
+    DIM bitBuffer AS _UNSIGNED _INTEGER64
+    DIM bitsLeft AS LONG
+    DIM lastAccum AS LONG
     DIM f AS _UNSIGNED LONG
 
     IF is16Bit THEN
@@ -354,8 +351,6 @@ END FUNCTION
 ''' @param buffer In-memory binary representation of the MDL file.
 ''' @return _TRUE on success, _FALSE on failure.
 FUNCTION MDLLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
-    MDLLoader_LoadFromMemory = _FALSE
-
     ' Header check: must be at least 6 bytes and start with "DMDL"
     IF LEN(buffer) < 6 THEN EXIT FUNCTION
     IF MID$(buffer, 1, 4) <> __MDLLOADER_MAGIC THEN EXIT FUNCTION
@@ -371,40 +366,40 @@ FUNCTION MDLLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     StringFile_Seek memFile, 5 ' skip magic and version
 
     ' File-level state
-    DIM songTitle AS STRING: songTitle = _STR_EMPTY
-    DIM composerName AS STRING: composerName = _STR_EMPTY
-    DIM songLength AS _UNSIGNED INTEGER: songLength = 0
-    DIM songRepeat AS _UNSIGNED INTEGER: songRepeat = 0
+    DIM songTitle AS STRING
+    DIM composerName AS STRING
+    DIM songLength AS _UNSIGNED INTEGER
+    DIM songRepeat AS _UNSIGNED INTEGER
     DIM mainVolume AS _UNSIGNED _BYTE: mainVolume = 255
     DIM defaultSpeed AS _UNSIGNED _BYTE: defaultSpeed = 6
     DIM defaultBPM AS _UNSIGNED _BYTE: defaultBPM = 125
     DIM channelPan(0 TO __MDLLOADER_MAX_CHANNELS - 1) AS _UNSIGNED _BYTE
     DIM channelEnabled(0 TO __MDLLOADER_MAX_CHANNELS - 1) AS _BYTE
-    DIM activeChannels AS LONG: activeChannels = 0
+    DIM activeChannels AS LONG
     DIM orders(0 TO 255) AS _UNSIGNED _BYTE
-    DIM comments AS STRING: comments = _STR_EMPTY
+    DIM comments AS STRING
 
     ' Pattern state
-    DIM numPatterns AS _UNSIGNED _BYTE: numPatterns = 0
+    DIM numPatterns AS _UNSIGNED _BYTE
     DIM patChannels(0 TO 255) AS _UNSIGNED _BYTE
     DIM patRows(0 TO 255) AS _UNSIGNED INTEGER
     DIM patTracks(0 TO 255, 0 TO __MDLLOADER_MAX_CHANNELS - 1) AS _UNSIGNED INTEGER
 
     ' Track storage: each track is stored as a string where each row is 6 bytes:
     ' (note, instrument, volume, fxCmds, fx1Param, fx2Param)
-    DIM totalTracks AS _UNSIGNED INTEGER: totalTracks = 0
+    DIM totalTracks AS _UNSIGNED INTEGER
     REDIM trackRows(0 TO 0) AS _UNSIGNED LONG
     REDIM trackData(0 TO 0) AS STRING
 
     ' Instrument storage (multi-sample mappings)
-    DIM totalInstruments AS _UNSIGNED _BYTE: totalInstruments = 0
+    DIM totalInstruments AS _UNSIGNED _BYTE
     REDIM insMapCount(0 TO __MDLLOADER_MAX_INSTRUMENTS) AS _UNSIGNED _BYTE
     REDIM insMapSmp(0 TO __MDLLOADER_MAX_INSTRUMENTS, 0 TO 15) AS _UNSIGNED _BYTE
     REDIM insMapNote(0 TO __MDLLOADER_MAX_INSTRUMENTS, 0 TO 15) AS _UNSIGNED _BYTE
     REDIM insMapVol(0 TO __MDLLOADER_MAX_INSTRUMENTS, 0 TO 15) AS _UNSIGNED _BYTE
 
     ' Sample storage
-    DIM totalSamples AS _UNSIGNED _BYTE: totalSamples = 0
+    DIM totalSamples AS _UNSIGNED _BYTE
     REDIM sampleCaption(0 TO __MDLLOADER_MAX_SAMPLES) AS STRING
     REDIM sampleC4Spd(0 TO __MDLLOADER_MAX_SAMPLES) AS _UNSIGNED LONG
     REDIM sampleLength(0 TO __MDLLOADER_MAX_SAMPLES) AS _UNSIGNED LONG
@@ -416,7 +411,7 @@ FUNCTION MDLLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     REDIM sampleIsLoop(0 TO __MDLLOADER_MAX_SAMPLES) AS _BYTE
     REDIM samplePackMethod(0 TO __MDLLOADER_MAX_SAMPLES) AS _UNSIGNED _BYTE
     REDIM samplePcm(0 TO __MDLLOADER_MAX_SAMPLES) AS STRING
-    DIM maxSampleID AS LONG: maxSampleID = 0
+    DIM maxSampleID AS LONG
 
     ' First pass: scan and process chunks
     DO UNTIL StringFile_IsEOF(memFile)
@@ -1034,7 +1029,6 @@ END FUNCTION
 ''' @param fileName File path of the MDL module.
 ''' @return _TRUE on success, _FALSE on failure.
 FUNCTION MDLLoader_LoadFromDisk%% (player AS MODPlayer, fileName AS STRING)
-    MDLLoader_LoadFromDisk = _FALSE
     DIM buf AS STRING: buf = File_LoadFromDisk(fileName)
     IF LEN(buf) = 0 THEN EXIT FUNCTION
     MDLLoader_LoadFromDisk = MDLLoader_LoadFromMemory(player, buf)

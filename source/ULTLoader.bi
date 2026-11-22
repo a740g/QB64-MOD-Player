@@ -180,7 +180,7 @@ FUNCTION ULTLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     IF version >= 2 _ANDALSO msgLines > 0 THEN
         DIM msgBytes AS _UNSIGNED LONG: msgBytes = CLNG(msgLines) * 32
         IF StringFile_GetPosition(memFile) + msgBytes <= StringFile_GetSize(memFile) THEN
-            DIM comments AS STRING: comments = _STR_EMPTY
+            DIM comments AS STRING
             DIM mLine AS LONG
             FOR mLine = 1 TO msgLines
                 DIM lineText AS STRING: lineText = _TRIM$(StringFile_ReadString(memFile, 32))
@@ -288,7 +288,7 @@ FUNCTION ULTLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
 
     ' Read order sequence (256 bytes)
     DIM rawOrders(0 TO 255) AS _UNSIGNED _BYTE
-    DIM oCount AS LONG: oCount = 0
+    DIM oCount AS LONG
     DIM oIdx AS LONG
     FOR oIdx = 0 TO 255
         rawOrders(oIdx) = StringFile_ReadByte(memFile)

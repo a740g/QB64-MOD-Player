@@ -159,10 +159,7 @@ FUNCTION __Opal_ChannelPairBit~& (ch AS _UNSIGNED LONG)
 END FUNCTION
 
 FUNCTION __Opal_ChannelIsPaired% (opl AS Opal, ch AS _UNSIGNED LONG)
-    IF (ch MOD __OPAL_CHANNELS_PER_BANK) >= 2 * __OPAL_PAIRS_PER_BANK THEN
-        __Opal_ChannelIsPaired = 0
-        EXIT FUNCTION
-    END IF
+    IF (ch MOD __OPAL_CHANNELS_PER_BANK) >= 2 * __OPAL_PAIRS_PER_BANK THEN EXIT FUNCTION
     __Opal_ChannelIsPaired = ((_SHR(opl.pairEnable, __Opal_ChannelPairBit(ch)) AND 1) <> 0)
 END FUNCTION
 
@@ -602,8 +599,8 @@ SUB __Opal_Output (opl AS Opal, left AS INTEGER, right AS INTEGER)
         time_count = ((pairs - 2) MOD __OPAL_ENVELOPE_PERIOD) + 1
     END IF
 
-    DIM leftSum AS LONG: leftSum = 0
-    DIM rightSum AS LONG: rightSum = 0
+    DIM leftSum AS LONG
+    DIM rightSum AS LONG
 
     DIM slot AS LONG
     FOR slot = 0 TO OPAL_OPERATOR_COUNT - 1

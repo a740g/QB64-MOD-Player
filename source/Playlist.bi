@@ -223,8 +223,6 @@ FUNCTION Playlist_GetNext& (pl AS Playlist)
                 Playlist_Shuffle pl
                 pl.currentIndex = pl.shuffleOrder(1)
                 Playlist_GetNext = pl.currentIndex
-            ELSE
-                Playlist_GetNext = 0
             END IF
         END IF
     ELSE
@@ -235,8 +233,6 @@ FUNCTION Playlist_GetNext& (pl AS Playlist)
             IF pl.repeatMode = PLAYLIST_REPEAT_ALL THEN
                 pl.currentIndex = 1
                 Playlist_GetNext = pl.currentIndex
-            ELSE
-                Playlist_GetNext = 0
             END IF
         END IF
     END IF
@@ -293,8 +289,8 @@ FUNCTION Playlist_LoadM3U%% (pl AS Playlist, m3uFilePath AS STRING)
     DIM m3uDir AS STRING: m3uDir = Pathname_GetPath(m3uFilePath)
     DIM countBefore AS LONG: countBefore = pl.count
 
-    DIM curExtTitle AS STRING: curExtTitle = ""
-    DIM curExtDur AS DOUBLE: curExtDur = 0#
+    DIM curExtTitle AS STRING
+    DIM curExtDur AS DOUBLE
 
     DIM pStart AS LONG: pStart = 1
     DIM cLen AS LONG: cLen = LEN(content)

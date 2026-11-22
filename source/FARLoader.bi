@@ -61,7 +61,7 @@ FUNCTION FARLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
     DIM msgLen AS _UNSIGNED INTEGER: msgLen = StringFile_ReadInteger(memFile)
     IF msgLen > 0 _ANDALSO StringFile_GetPosition(memFile) + msgLen <= StringFile_GetSize(memFile) THEN
         DIM rawComment AS STRING: rawComment = StringFile_ReadString(memFile, msgLen)
-        DIM formattedComment AS STRING: formattedComment = _STR_EMPTY
+        DIM formattedComment AS STRING
         DIM cOffset AS LONG: cOffset = 1
         WHILE cOffset <= LEN(rawComment)
             DIM lineChunk AS STRING: lineChunk = MID$(rawComment, cOffset, 132)
@@ -116,7 +116,7 @@ FUNCTION FARLoader_LoadFromMemory%% (player AS MODPlayer, buffer AS STRING)
         player.order(i) = rawOrders(i)
     NEXT i
 
-    DIM maxPat AS LONG: maxPat = 0
+    DIM maxPat AS LONG
     FOR i = 0 TO 255
         IF patSizes(i) > 0 THEN maxPat = i
     NEXT i

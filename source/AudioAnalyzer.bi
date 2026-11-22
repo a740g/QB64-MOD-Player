@@ -211,7 +211,7 @@ SUB AudioAnalyzer_CalculateFFT (analyzer AS AudioAnalyzer, amplitudeArray() AS _
     IF sampleOffset < 0 _ORELSE sampleIncrement < 1 _ORELSE lastSamplePos > UBOUND(sampleDataArray) THEN EXIT SUB
 
     DIM samplePos AS LONG: samplePos = LBOUND(sampleDataArray) + sampleOffset
-    DIM avgIntensity AS SINGLE: avgIntensity = 0!
+    DIM avgIntensity AS SINGLE
     DIM i AS LONG
 
     FOR i = 0 TO numSamples - 1
@@ -230,8 +230,8 @@ SUB AudioAnalyzer_CalculateFFT (analyzer AS AudioAnalyzer, amplitudeArray() AS _
     __AudioAnalyzer_PerformButterfly analyzer, bitDepth
 
     DIM shiftAmount AS LONG: shiftAmount = AUDIO_ANALYZER_MAX_BIT_DEPTH - bitDepth
-    DIM peakAmp AS _UNSIGNED INTEGER: peakAmp = 0
-    DIM peakBinIdx AS LONG: peakBinIdx = 0
+    DIM peakAmp AS _UNSIGNED INTEGER
+    DIM peakBinIdx AS LONG
 
     FOR i = 1 TO halfNumSamples
         DIM revIdx AS LONG: revIdx = _SHR(__AudioAnalyzer_BitReversalTable(i), shiftAmount)
