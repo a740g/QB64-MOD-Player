@@ -3350,6 +3350,17 @@ SUB Test_Background
     TEST_CHECK Bounds2f_GetDiscreteHeight(bg.viewport) = 39!, "Viewport discrete height is 39"
     TEST_CHECK bg.size.x = 81! AND bg.size.y = 39!, "Context size matches discrete viewport dimensions"
     Background_UpdateAndDraw bg
+
+    ' Test Tab Page Client Area exact viewport (Cols 2..143, Rows 9..87)
+    DIM clientVp AS Bounds2f
+    Bounds2f_Initialize 2!, 9!, 143!, 87!, clientVp
+    Background_InitializeEx bg, clientVp
+    TEST_CHECK bg.viewport.lt.x = 2! AND bg.viewport.lt.y = 9!, "Tab client area left-top is (2, 9)"
+    TEST_CHECK bg.viewport.rb.x = 143! AND bg.viewport.rb.y = 87!, "Tab client area right-bottom is (143, 87)"
+    TEST_CHECK Bounds2f_GetDiscreteWidth(bg.viewport) = 142!, "Tab client area discrete width is exactly 142 cols"
+    TEST_CHECK Bounds2f_GetDiscreteHeight(bg.viewport) = 79!, "Tab client area discrete height is exactly 79 rows"
+    TEST_CHECK bg.size.x = 142! AND bg.size.y = 79!, "Background size matches tab client area exactly"
+    Background_UpdateAndDraw bg
     TEST_CASE_END
 
     TEST_CASE_BEGIN "Background: Unified context and mode cycling"

@@ -1795,7 +1795,7 @@ SUB __Background_UpdateAndDrawFishtank (ctx AS Background)
 
         DIM j AS LONG
         FOR j = 1 TO kH
-            DIM rowY AS LONG: rowY = maxY - 1 - j
+            DIM rowY AS LONG: rowY = maxY - j
             IF rowY >= minY + 1 THEN
                 DIM hFrac AS SINGLE: hFrac = CSNG(j) / CSNG(kH)
                 DIM swayOffset AS SINGLE
