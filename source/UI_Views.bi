@@ -1117,12 +1117,14 @@ SUB UI_RenderSongInfo (player AS MODPlayer, commentScroll AS LONG)
     NEXT li
 END SUB
 
-''' @brief Renders View 7: Full-width stereo visualizer (Spectrum Analyzer & Oscilloscope).
+''' @brief Renders View 7: Full-width stereo visualizer (Spectrum Analyzer & Oscilloscope) or demoscene background when idle.
 ''' @param player The active MODPlayer instance.
 ''' @param analyzerL Left channel AudioAnalyzer.
 ''' @param analyzerR Right channel AudioAnalyzer.
-SUB UI_RenderVisualizer (player AS MODPlayer, analyzerL AS AudioAnalyzer, analyzerR AS AudioAnalyzer)
+''' @param bg Background context for idle demoscene animation.
+SUB UI_RenderVisualizer (player AS MODPlayer, analyzerL AS AudioAnalyzer, analyzerR AS AudioAnalyzer, bg AS Background)
     IF NOT player.song.isPlaying THEN
+        Background_UpdateAndDraw bg
         EXIT SUB
     END IF
 

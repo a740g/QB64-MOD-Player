@@ -481,11 +481,6 @@ DO
     ' Clear framebuffer
     CLS , Black
 
-    ' Draw animated background when idle
-    IF NOT Player.song.isPlaying THEN
-        Background_UpdateAndDraw Bg
-    END IF
-
     ' Dynamic softkey label updates
     DIM curPlayKeyText AS STRING
     IF Player.song.isPlaying _ANDALSO NOT Player.song.isPaused THEN
@@ -537,7 +532,7 @@ DO
             UI_RenderSongInfo Player, CommentScrollOffset
 
         CASE UI_VIEW_MODE_VISUALIZER
-            UI_RenderVisualizer Player, AnalyzerL, AnalyzerR
+            UI_RenderVisualizer Player, AnalyzerL, AnalyzerR, Bg
     END SELECT
 
     DIM footerKey AS INTEGER: footerKey = UI_DrawFooter(Player)
