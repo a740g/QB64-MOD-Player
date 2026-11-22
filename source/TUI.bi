@@ -157,17 +157,6 @@ SUB TUI_End
     __TUI.inFrame = _FALSE
 END SUB
 
-''' @brief Renders a non-interactive colored text label.
-''' @param x Character column.
-''' @param y Character row.
-''' @param text The text string to render.
-''' @param fgColor Foreground color index.
-''' @param bgColor Background color index.
-SUB TUI_Label (x AS LONG, y AS LONG, text AS STRING, fgColor AS LONG, bgColor AS LONG)
-    COLOR fgColor, bgColor
-    _PRINTSTRING (x, y), text
-END SUB
-
 ''' @brief Explicitly consumes the left mouse button click event for the rest of the frame.
 SUB TUI_ConsumeClick
     SHARED __TUI AS __TUI_Context

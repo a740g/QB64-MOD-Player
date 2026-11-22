@@ -1541,21 +1541,6 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, _
 - **Returns**: Updated single-precision value if adjusted; or `curVal` if
   unadjusted.
 
-#### `TUI_Label`
-
-```vb
-SUB TUI_Label (x AS LONG, y AS LONG, text AS STRING, fgColor AS LONG, bgColor AS LONG)
-```
-
-- **Description**: Renders a non-interactive styled text label at the specified
-  character coordinates.
-- **Parameters**:
-  - `x`: Character column coordinate.
-  - `y`: Character row coordinate.
-  - `text`: Text string.
-  - `fgColor`: Foreground color index (`TUI_COLOR_*`).
-  - `bgColor`: Background color index (`TUI_COLOR_*`).
-
 #### `TUI_PanelEx`
 
 ```vb

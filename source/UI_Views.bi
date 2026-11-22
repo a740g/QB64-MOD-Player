@@ -225,40 +225,65 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
     END IF
 
     DIM scrubResult AS LONG
-    scrubResult = TUI_ProgressBar(2, 2, 68, smoothOrd, CSNG(maxOrd), "POS:")
+    scrubResult = TUI_ProgressBar(2, 2, 67, smoothOrd, CSNG(maxOrd), "POS:")
     IF scrubResult >= 0 _ANDALSO player.song.isPlaying THEN
         player.song.orderPosition = scrubResult
         player.song.patternRow = 0
     END IF
 
-    DIM bpmStr AS STRING
-    IF player.song.isPlaying THEN
-        bpmStr = "BPM:" + _TOSTR$(player.song.BPM) + " SPD:" + _TOSTR$(player.song.speed)
-    ELSE
-        bpmStr = "BPM:--- SPD:--"
-    END IF
-    _PRINTSTRING (85, 2), bpmStr
+    ' Divider space (cols 79..80)
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+    _PRINTSTRING (79, 2), "  "
 
-    DIM vocStr AS STRING
+    ' Telemetry: BPM, SPD, VOC, BUF (cols 81..116)
+    DIM bpmValStr AS STRING, spdValStr AS STRING
+    DIM vocValStr AS STRING, bufValStr AS STRING
     IF player.song.isPlaying THEN
-        vocStr = "VOC:" + _TOSTR$(SoftSynth_GetActiveVoices(player.synth)) + "/" + _TOSTR$(SoftSynth_GetTotalVoices(player.synth))
+        bpmValStr = RIGHT$("  " + _TOSTR$(_CLAMP(player.song.BPM, 0, 999)), 3)
+        spdValStr = RIGHT$(" " + _TOSTR$(_CLAMP(player.song.speed, 0, 99)), 2)
+        DIM actVoc AS LONG: actVoc = _CLAMP(SoftSynth_GetActiveVoices(player.synth), 0, 99)
+        DIM totVoc AS LONG: totVoc = _CLAMP(SoftSynth_GetTotalVoices(player.synth), 0, 99)
+        vocValStr = RIGHT$(" " + _TOSTR$(actVoc), 2) + "/" + RIGHT$(" " + _TOSTR$(totVoc), 2)
+        DIM bufMs AS LONG: bufMs = _CLAMP(CLNG(SoftSynth_GetBufferedSoundTime(player.synth) * 1000#), 0, 999)
+        bufValStr = RIGHT$("  " + _TOSTR$(bufMs), 3) + "ms"
     ELSE
-        vocStr = "VOC:--/--"
+        bpmValStr = "---"
+        spdValStr = "--"
+        vocValStr = "--/--"
+        bufValStr = "---ms"
     END IF
-    _PRINTSTRING (100, 2), vocStr
 
-    DIM bufStr AS STRING
-    IF player.song.isPlaying THEN
-        bufStr = "BUF:" + _TOSTR$(CLNG(SoftSynth_GetBufferedSoundTime(player.synth) * 1000#)) + "ms"
-    ELSE
-        bufStr = "BUF:----ms"
-    END IF
-    _PRINTSTRING (110, 2), bufStr
+    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+    _PRINTSTRING (81, 2), "BPM:"
+    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    _PRINTSTRING (85, 2), bpmValStr
+    _PRINTSTRING (88, 2), " "
 
-    ' Interactive Master Volume Slider
+    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+    _PRINTSTRING (89, 2), "SPD:"
+    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    _PRINTSTRING (93, 2), spdValStr
+    _PRINTSTRING (95, 2), "  "
+
+    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+    _PRINTSTRING (97, 2), "VOC:"
+    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    _PRINTSTRING (101, 2), vocValStr
+    _PRINTSTRING (106, 2), "  "
+
+    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+    _PRINTSTRING (108, 2), "BUF:"
+    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    _PRINTSTRING (112, 2), bufValStr
+
+    ' Divider space (cols 117..118)
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+    _PRINTSTRING (117, 2), "  "
+
+    ' Interactive Master Volume Slider (cols 119..143)
     DIM curVol AS SINGLE: curVol = SoftSynth_GetMasterVolume(player.synth)
     DIM newVol AS SINGLE
-    newVol = TUI_Slider(121, 2, 14, curVol, 0!, SOFTSYNTH_MASTER_VOLUME_MAX, "VOL")
+    newVol = TUI_Slider(119, 2, 16, curVol, 0!, SOFTSYNTH_MASTER_VOLUME_MAX, "VOL")
     IF newVol <> curVol THEN
         SoftSynth_SetMasterVolume player.synth, newVol
     END IF
