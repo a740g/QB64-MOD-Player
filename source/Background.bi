@@ -21,8 +21,9 @@ CONST BACKGROUND_MODE_FIRE& = 4&
 CONST BACKGROUND_MODE_PLASMA& = 5&
 CONST BACKGROUND_MODE_BALLS& = 6&
 CONST BACKGROUND_MODE_MATRIX& = 7&
+CONST BACKGROUND_MODE_GRID& = 8&
 CONST BACKGROUND_MODE_FIRST& = BACKGROUND_MODE_STARS
-CONST BACKGROUND_MODE_LAST& = BACKGROUND_MODE_MATRIX
+CONST BACKGROUND_MODE_LAST& = BACKGROUND_MODE_GRID&
 
 CONST __BACKGROUND_STAR_COUNT& = 256& ' default maximum stars
 CONST __BACKGROUND_SNAKE_COUNT& = 48& ' default maximum snakes
@@ -163,6 +164,15 @@ TYPE __Background_Matrix
     _DYNAMIC drops(1 TO 1) AS __Background_MatrixDrop
 END TYPE
 
+TYPE __Background_Grid
+    scrollZ AS SINGLE
+    terrainPhase AS SINGLE
+    sunPulse AS SINGLE
+    starCount AS LONG
+    stars(1 TO 32) AS Vector2f
+    starBlink(1 TO 32) AS SINGLE
+END TYPE
+
 TYPE Background
     starfield AS __Background_Starfield
     snakes AS __Background_Snakes
@@ -171,6 +181,7 @@ TYPE Background
     plasma AS __Background_Plasma
     balls AS __Background_Balls
     matrix AS __Background_Matrix
+    grid AS __Background_Grid
     mode AS LONG
     viewport AS Bounds2f
     size AS Vector2f
@@ -1290,6 +1301,229 @@ SUB __Background_UpdateAndDrawMatrix (ctx AS Background)
     NEXT c
 END SUB
 
+''' @brief Initializes 3D retro cyber grid terrain and sky state.
+''' @param ctx Background context to initialize.
+SUB __Background_InitializeGrid (ctx AS Background)
+    ctx.grid.scrollZ = 0!
+    ctx.grid.terrainPhase = 0!
+    ctx.grid.sunPulse = 0!
+    ctx.grid.starCount = 32
+
+    DIM minX AS LONG: minX = CLNG(ctx.viewport.lt.x)
+    DIM maxX AS LONG: maxX = CLNG(ctx.viewport.rb.x)
+    DIM minY AS LONG: minY = CLNG(ctx.viewport.lt.y)
+    DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
+    DIM H AS LONG: H = CLNG(ctx.size.y)
+    DIM horizonY AS LONG: horizonY = minY + CLNG(CSNG(H) * 0.40!)
+
+    DIM i AS LONG
+    FOR i = 1 TO 32
+        ctx.grid.stars(i).x = CSNG(Math_GetRandomBetween(minX + 1, maxX - 1))
+        ctx.grid.stars(i).y = CSNG(Math_GetRandomBetween(minY + 1, _MAX(minY + 1, horizonY - 2)))
+        ctx.grid.starBlink(i) = RND * 6.2831853!
+    NEXT i
+END SUB
+
+''' @brief Updates and renders 3D Retro Cyber Grid with rolling terrain, segmented sunset, and starry sky.
+''' @param ctx Background context.
+SUB __Background_UpdateAndDrawGrid (ctx AS Background)
+    DIM minX AS LONG: minX = CLNG(ctx.viewport.lt.x)
+    DIM maxX AS LONG: maxX = CLNG(ctx.viewport.rb.x)
+    DIM minY AS LONG: minY = CLNG(ctx.viewport.lt.y)
+    DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
+    DIM W AS LONG: W = CLNG(ctx.size.x)
+    DIM H AS LONG: H = CLNG(ctx.size.y)
+    IF W < 10 _ORELSE H < 10 THEN EXIT SUB
+
+    DIM centerX AS LONG: centerX = (minX + maxX) \ 2
+    DIM horizonY AS LONG: horizonY = minY + CLNG(CSNG(H) * 0.40!)
+    IF horizonY <= minY + 2 THEN horizonY = minY + 3
+    IF horizonY >= maxY - 4 THEN horizonY = maxY - 5
+
+    ' Advance animation phases
+    ctx.grid.scrollZ = ctx.grid.scrollZ + 0.024!
+    IF ctx.grid.scrollZ >= 1.0! THEN ctx.grid.scrollZ = ctx.grid.scrollZ - 1.0!
+
+    ctx.grid.terrainPhase = ctx.grid.terrainPhase + 0.018!
+    IF ctx.grid.terrainPhase > 6.2831853! THEN ctx.grid.terrainPhase = ctx.grid.terrainPhase - 6.2831853!
+
+    ctx.grid.sunPulse = ctx.grid.sunPulse + 0.035!
+    IF ctx.grid.sunPulse > 6.2831853! THEN ctx.grid.sunPulse = ctx.grid.sunPulse - 6.2831853!
+
+    ' -------------------------------------------------------------
+    ' 1. Sky & Stars (Above Horizon)
+    ' -------------------------------------------------------------
+    DIM i AS LONG
+    FOR i = 1 TO ctx.grid.starCount
+        ctx.grid.starBlink(i) = ctx.grid.starBlink(i) + 0.045!
+        IF ctx.grid.starBlink(i) > 6.2831853! THEN ctx.grid.starBlink(i) = ctx.grid.starBlink(i) - 6.2831853!
+
+        DIM sx AS LONG: sx = CLNG(ctx.grid.stars(i).x)
+        DIM sy AS LONG: sy = CLNG(ctx.grid.stars(i).y)
+
+        IF sx >= minX _ANDALSO sx <= maxX _ANDALSO sy >= minY _ANDALSO sy < horizonY - 1 THEN
+            DIM bVal AS SINGLE: bVal = SIN(ctx.grid.starBlink(i))
+            IF bVal > 0.4! THEN
+                COLOR __BG_COLOR_BRIGHT_WHITE, __BG_COLOR_BLACK
+                _PRINTSTRING (sx, sy), "*"
+            ELSEIF bVal > -0.2! THEN
+                COLOR __BG_COLOR_LIGHT_CYAN, __BG_COLOR_BLACK
+                _PRINTSTRING (sx, sy), CHR$(249)
+            ELSE
+                COLOR __BG_COLOR_GRAY, __BG_COLOR_BLACK
+                _PRINTSTRING (sx, sy), "."
+            END IF
+        END IF
+    NEXT i
+
+    ' -------------------------------------------------------------
+    ' 2. Segmented Synthwave Sun (On the Horizon)
+    ' -------------------------------------------------------------
+    DIM sunRadY AS LONG: sunRadY = _CLAMP(H \ 7, 4, 12)
+    DIM sunRadX AS LONG: sunRadX = _CLAMP(CLNG(CSNG(sunRadY) * 1.85!), 8, 25)
+    DIM sunCenterY AS LONG: sunCenterY = horizonY - 1
+
+    DIM syRow AS LONG
+    FOR syRow = sunCenterY - sunRadY TO horizonY
+        IF syRow >= minY _ANDALSO syRow <= horizonY THEN
+            DIM relY AS SINGLE: relY = CSNG(syRow - sunCenterY) / CSNG(sunRadY)
+            IF ABS(relY) <= 1.0! THEN
+                DIM halfW AS LONG: halfW = CLNG(CSNG(sunRadX) * SQR(1.0! - relY * relY))
+                DIM sunLeft AS LONG: sunLeft = _MAX(minX, centerX - halfW)
+                DIM sunRight AS LONG: sunRight = _MIN(maxX, centerX + halfW)
+
+                ' Classic horizontal scanline slats in lower half of sun
+                DIM isSlat AS _BYTE: isSlat = _FALSE
+                DIM distFromHoriz AS LONG: distFromHoriz = horizonY - syRow
+                IF distFromHoriz <= (sunRadY * 3) \ 4 THEN
+                    IF (distFromHoriz MOD 2 = 0) _ORELSE (distFromHoriz <= 2) THEN
+                        isSlat = _TRUE
+                    END IF
+                END IF
+
+                IF NOT isSlat _ANDALSO sunLeft <= sunRight THEN
+                    DIM sunCol AS LONG, sunChar AS STRING
+                    IF relY < -0.35! THEN
+                        sunCol = __BG_COLOR_YELLOW: sunChar = CHR$(219)
+                    ELSEIF relY < 0.25! THEN
+                        sunCol = __BG_COLOR_LIGHT_RED: sunChar = CHR$(219)
+                    ELSE
+                        sunCol = __BG_COLOR_LIGHT_MAGENTA: sunChar = CHR$(178)
+                    END IF
+
+                    DIM sunW AS LONG: sunW = sunRight - sunLeft + 1
+                    COLOR sunCol, __BG_COLOR_BLACK
+                    _PRINTSTRING (sunLeft, syRow), STRING$(sunW, sunChar)
+                END IF
+            END IF
+        END IF
+    NEXT syRow
+
+    ' -------------------------------------------------------------
+    ' 3. Distant Mountain Silhouette & Horizon Line
+    ' -------------------------------------------------------------
+    DIM mx AS LONG
+    FOR mx = minX TO maxX
+        DIM mH AS LONG
+        mH = CLNG(1.8! * SIN(CSNG(mx) * 0.075! + 1.2!) + 1.2! * COS(CSNG(mx) * 0.16! - 0.5!))
+        IF mH < 0 THEN mH = 0
+        DIM mPeakY AS LONG: mPeakY = horizonY - mH
+        IF mPeakY < horizonY THEN
+            DIM my AS LONG
+            FOR my = mPeakY TO horizonY - 1
+                IF my >= minY THEN
+                    COLOR __BG_COLOR_BLUE, __BG_COLOR_BLACK
+                    _PRINTSTRING (mx, my), CHR$(176)
+                END IF
+            NEXT my
+        END IF
+    NEXT mx
+
+    ' Glowing horizon neon line
+    COLOR __BG_COLOR_LIGHT_CYAN, __BG_COLOR_BLACK
+    _PRINTSTRING (minX, horizonY), STRING$(maxX - minX + 1, CHR$(196))
+
+    ' -------------------------------------------------------------
+    ' 4. 3D Wireframe Perspective Ground Grid (Scrolling Forward)
+    ' -------------------------------------------------------------
+    DIM groundH AS LONG: groundH = maxY - horizonY
+    IF groundH < 3 THEN EXIT SUB
+
+    ' Precompute perspective transverse horizontal grid lines
+    DIM numTransverse AS LONG: numTransverse = _CLAMP(groundH \ 3, 6, 16)
+    DIM isTransLine(0 TO 255) AS _BYTE
+    DIM k AS LONG
+    FOR k = 0 TO 255: isTransLine(k) = _FALSE: NEXT k
+
+    FOR k = 1 TO numTransverse
+        DIM vFrac AS SINGLE: vFrac = 1.0! / (CSNG(k) + (1.0! - ctx.grid.scrollZ))
+        DIM gLineY AS LONG: gLineY = horizonY + CLNG(vFrac * CSNG(groundH) * 1.18!)
+        IF gLineY > horizonY _ANDALSO gLineY <= maxY THEN
+            isTransLine(gLineY - minY) = _TRUE
+        END IF
+    NEXT k
+
+    ' Render ground rows with longitudinal rays and intersection crosses
+    DIM gy AS LONG
+    FOR gy = horizonY + 1 TO maxY
+        DIM depthV AS SINGLE: depthV = CSNG(gy - horizonY) / CSNG(groundH)
+        DIM isHLine AS _BYTE: isHLine = isTransLine(gy - minY)
+
+        ' Depth-based color shading
+        DIM gridCol AS LONG, crossCol AS LONG
+        IF depthV > 0.65! THEN
+            gridCol = __BG_COLOR_CYAN: crossCol = __BG_COLOR_BRIGHT_WHITE
+        ELSEIF depthV > 0.35! THEN
+            gridCol = __BG_COLOR_LIGHT_MAGENTA: crossCol = __BG_COLOR_LIGHT_CYAN
+        ELSEIF depthV > 0.15! THEN
+            gridCol = __BG_COLOR_MAGENTA: crossCol = __BG_COLOR_LIGHT_MAGENTA
+        ELSE
+            gridCol = __BG_COLOR_BLUE: crossCol = __BG_COLOR_BLUE
+        END IF
+
+        DIM runStart AS LONG: runStart = 0
+        DIM lastCol AS LONG: lastCol = -1
+        DIM runStr AS STRING: runStr = ""
+
+        DIM gx AS LONG
+        FOR gx = minX TO maxX
+            DIM xDist AS SINGLE: xDist = CSNG(gx - centerX)
+            DIM rayFrac AS SINGLE: rayFrac = (xDist / depthV)
+            DIM rayIdx AS SINGLE: rayIdx = rayFrac / 14.0!
+            DIM isVLine AS _BYTE
+            isVLine = (ABS(rayIdx - CSNG(CLNG(rayIdx))) < (0.18! / (depthV * 0.8! + 0.2!)))
+
+            DIM c AS LONG: c = -1
+            DIM ch AS STRING: ch = " "
+
+            IF isHLine _ANDALSO isVLine THEN
+                c = crossCol: ch = "+"
+            ELSEIF isHLine THEN
+                c = gridCol: ch = CHR$(196)
+            ELSEIF isVLine THEN
+                c = gridCol: ch = "|"
+            END IF
+
+            IF c <> lastCol THEN
+                IF runStart > 0 _ANDALSO lastCol >= 0 THEN
+                    COLOR lastCol, __BG_COLOR_BLACK
+                    _PRINTSTRING (runStart, gy), runStr
+                END IF
+                runStart = gx
+                lastCol = c
+                runStr = ch
+            ELSE
+                runStr = runStr + ch
+            END IF
+        NEXT gx
+
+        IF runStart > 0 _ANDALSO lastCol >= 0 THEN
+            COLOR lastCol, __BG_COLOR_BLACK
+            _PRINTSTRING (runStart, gy), runStr
+        END IF
+    NEXT gy
+END SUB
+
 ''' @brief Initializes all visual background effects within a specified viewport.
 ''' @param ctx Background context to initialize.
 ''' @param viewport Rectangular viewport defining rendering bounds.
@@ -1323,6 +1557,7 @@ SUB Background_InitializeEx (ctx AS Background, viewport AS Bounds2f)
     __Background_InitializePlasma ctx
     __Background_InitializeBalls ctx
     __Background_InitializeMatrix ctx
+    __Background_InitializeGrid ctx
 
     Background_SetRandomMode ctx
 END SUB
@@ -1345,6 +1580,7 @@ SUB Background_UpdateAndDraw (ctx AS Background)
         CASE BACKGROUND_MODE_PLASMA: __Background_UpdateAndDrawPlasma ctx
         CASE BACKGROUND_MODE_BALLS: __Background_UpdateAndDrawBalls ctx
         CASE BACKGROUND_MODE_MATRIX: __Background_UpdateAndDrawMatrix ctx
+        CASE BACKGROUND_MODE_GRID: __Background_UpdateAndDrawGrid ctx
     END SELECT
 END SUB
 
@@ -1373,6 +1609,7 @@ FUNCTION Background_GetModeName$ (mode AS LONG)
         CASE BACKGROUND_MODE_PLASMA: Background_GetModeName = "Demoscene Plasma"
         CASE BACKGROUND_MODE_BALLS: Background_GetModeName = "Bouncing Balls"
         CASE BACKGROUND_MODE_MATRIX: Background_GetModeName = "Digital Matrix Rain"
+        CASE BACKGROUND_MODE_GRID: Background_GetModeName = "Cyber Grid"
         CASE ELSE: Background_GetModeName = "None"
     END SELECT
 END FUNCTION

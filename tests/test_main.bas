@@ -3287,6 +3287,11 @@ SUB Test_Background
     TEST_CHECK bg.matrix.drops(1).length >= 8 AND bg.matrix.drops(1).length <= 26, "Matrix drop length in valid range"
     TEST_CASE_END
 
+    TEST_CASE_BEGIN "Background: Cyber Grid initialization"
+    TEST_CHECK bg.grid.starCount = 32, "Cyber Grid star count allocated"
+    TEST_CHECK bg.grid.stars(1).x > 0! AND bg.grid.stars(1).y > 0!, "Cyber Grid star 1 coordinates initialized"
+    TEST_CASE_END
+
     TEST_CASE_BEGIN "Background: Configurable Viewport via Background_InitializeEx"
     DIM customVp AS Bounds2f
     Bounds2f_Initialize 10!, 12!, 90!, 50!, customVp
