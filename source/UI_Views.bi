@@ -305,8 +305,10 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
     DIM hasQueue AS _BYTE: hasQueue = (pl.count > 0)
 
     DIM bx AS LONG: bx = 2
-    IF TUI_ButtonEx(bx, 3, 8, __UI_GLYPH_LEFT_ARROW + __UI_GLYPH_LEFT_ARROW + " Prev", NOT (isSongPlaying _ORELSE hasMultiQueue)) THEN action = UI_ACTION_PREV_TRACK
-    bx = bx + 9
+
+    ' Group 1: Transport Controls (Cols 2..55)
+    IF TUI_ButtonEx(bx, 3, 9, __UI_GLYPH_LEFT_ARROW + __UI_GLYPH_LEFT_ARROW + " Prev", NOT (isSongPlaying _ORELSE hasMultiQueue)) THEN action = UI_ACTION_PREV_TRACK
+    bx = bx + 10
 
     IF TUI_ButtonEx(bx, 3, 7, __UI_GLYPH_LEFT_ARROW + " Rwd", NOT isSongPlaying) THEN
         IF player.song.isPlaying THEN MODPlayer_GoToPreviousPosition player
@@ -337,10 +339,10 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
     END IF
     bx = bx + 8
 
-    IF TUI_ButtonEx(bx, 3, 8, "Next " + __UI_GLYPH_RIGHT_ARROW + __UI_GLYPH_RIGHT_ARROW, NOT (isSongPlaying _ORELSE hasMultiQueue)) THEN action = UI_ACTION_NEXT_TRACK
-    bx = bx + 9
+    IF TUI_ButtonEx(bx, 3, 9, "Next " + __UI_GLYPH_RIGHT_ARROW + __UI_GLYPH_RIGHT_ARROW, NOT (isSongPlaying _ORELSE hasMultiQueue)) THEN action = UI_ACTION_NEXT_TRACK
+    bx = bx + 9 + 2
 
-    ' Repeat mode cycle button
+    ' Group 2: Playback Modes (Cols 58..81)
     DIM repLabel AS STRING
     SELECT CASE pl.repeatMode
         CASE PLAYLIST_REPEAT_NONE: repLabel = "Loop: None"
@@ -364,21 +366,23 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
     IF TUI_ToggleButton(bx, 3, 11, shufLabel, pl.isShuffle) THEN
         Playlist_SetShuffle pl, NOT pl.isShuffle
     END IF
-    bx = bx + 12
+    bx = bx + 11 + 2
 
+    ' Group 3: File Sources (Cols 84..121)
     IF TUI_Button(bx, 3, 11, __UI_GLYPH_NOTE + " File...") THEN action = UI_ACTION_OPEN_FILE
     bx = bx + 12
 
     IF TUI_Button(bx, 3, 13, __UI_GLYPH_NOTE + " Folder...") THEN action = UI_ACTION_OPEN_FOLDER
     bx = bx + 14
 
-    IF TUI_Button(bx, 3, 13, __UI_GLYPH_STAR + " ModArch...") THEN action = UI_ACTION_MODARCHIVE
-    bx = bx + 14
+    IF TUI_Button(bx, 3, 12, __UI_GLYPH_STAR + " ModArch") THEN action = UI_ACTION_MODARCHIVE
+    bx = bx + 12 + 2
 
-    IF TUI_Button(bx, 3, 11, "? Help F1") THEN showHelpModal = NOT showHelpModal
-    bx = bx + 12
+    ' Group 4: System (Cols 124..143)
+    IF TUI_Button(bx, 3, 9, "Help F1") THEN showHelpModal = NOT showHelpModal
+    bx = bx + 10
 
-    IF TUI_Button(bx, 3, 11, "X Quit F12") THEN action = UI_ACTION_QUIT
+    IF TUI_Button(bx, 3, 10, "Quit F12") THEN action = UI_ACTION_QUIT
 
     ' Rows 6 to 7: 3D TabBar for Views
     DIM tabs(1 TO 6) AS STRING
