@@ -224,26 +224,12 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
         smoothOrd = 0!
     END IF
 
-    COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-    _PRINTSTRING (2, 2), "POS:"
     DIM scrubResult AS LONG
-    scrubResult = TUI_ProgressBar(7, 2, 68, smoothOrd, CSNG(maxOrd))
+    scrubResult = TUI_ProgressBar(2, 2, 68, smoothOrd, CSNG(maxOrd), "POS:")
     IF scrubResult >= 0 _ANDALSO player.song.isPlaying THEN
         player.song.orderPosition = scrubResult
         player.song.patternRow = 0
     END IF
-
-    ' External Percentage Readout (columns 76 to 80)
-    DIM pctStr AS STRING
-    IF player.song.isPlaying _ANDALSO maxOrd > 0 THEN
-        DIM pctVal AS LONG: pctVal = _CLAMP(CLNG((smoothOrd / CSNG(maxOrd)) * 100!), 0, 100)
-        pctStr = RIGHT$("  " + _TOSTR$(pctVal), 3) + "%"
-        COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
-    ELSE
-        pctStr = " ---%"
-        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-    END IF
-    _PRINTSTRING (76, 2), pctStr
 
     DIM bpmStr AS STRING
     IF player.song.isPlaying THEN

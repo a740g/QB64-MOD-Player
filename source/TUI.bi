@@ -524,25 +524,42 @@ FUNCTION TUI_ChannelBadge%% (x AS LONG, y AS LONG, ch AS LONG, badgeText AS STRI
     TUI_ChannelBadge = (outAction <> TUI_CHANNEL_ACTION_NONE)
 END FUNCTION
 
-''' @brief Renders an interactive song order / row progress bar with real-time scrub & cool-off.
+''' @brief Renders an interactive song order / row progress bar with label, percentage, and real-time scrub.
 ''' @param x Character column.
 ''' @param y Character row.
 ''' @param w Total bar width in characters including side caps.
 ''' @param curVal Current numeric value (supports fractional progress).
 ''' @param maxVal Maximum value.
+''' @param label Text prefix label (e.g. "POS:").
 ''' @return Target position if clicked, dragged, or nudged; or -1 if no interaction occurred.
-FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, maxVal AS SINGLE)
+FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, maxVal AS SINGLE, label AS STRING)
     SHARED __TUI AS __TUI_Context
 
     __TUI.widgetCount = __TUI.widgetCount + 1
     DIM thisId AS LONG: thisId = __TUI.widgetCount
     DIM targetVal AS LONG: targetVal = -1&
 
+    DIM labelLen AS LONG: labelLen = LEN(label)
+    DIM barStart AS LONG
+    IF labelLen > 0 THEN
+        barStart = x + labelLen + 1
+    ELSE
+        barStart = x
+    END IF
+
     DIM innerW AS LONG: innerW = _MAX(1, w - 2)
+
+    ' Entire progress bar bounding box (label + space + bar + space + percentage)
+    DIM totalW AS LONG
+    IF labelLen > 0 THEN
+        totalW = labelLen + 1 + w + 5
+    ELSE
+        totalW = w + 5
+    END IF
 
     ' Hit detection
     DIM b AS Bounds2f
-    Bounds2f_Set x, y, x + w - 0.001!, y + 0.999!, b
+    Bounds2f_Set x, y, x + totalW - 0.001!, y + 0.999!, b
     DIM isHovered AS _BYTE: isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
 
     IF isHovered THEN
@@ -555,7 +572,7 @@ FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, ma
     ' Mouse drag / click scrubbing
     IF __TUI.activeId = thisId _ANDALSO (__TUI.mouseDownL _ORELSE __TUI.mouseClickedL) THEN
         DIM colFrac AS SINGLE
-        colFrac = (INT(__TUI.mousePos.x) - (x + 1)) / CSNG(_MAX(1, innerW - 1))
+        colFrac = (INT(__TUI.mousePos.x) - (barStart + 1)) / CSNG(_MAX(1, innerW - 1))
         colFrac = _CLAMP(colFrac, 0!, 1!)
         DIM candidateVal AS LONG: candidateVal = CLNG(colFrac * maxVal)
 
@@ -592,69 +609,101 @@ FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, ma
 
     ' Thumb position inside inner track (0 to innerW - 1)
     DIM thumbIdx AS LONG
-    IF __TUI.activeId = thisId THEN
-        thumbIdx = _CLAMP(INT(__TUI.mousePos.x) - (x + 1), 0, innerW - 1)
+    IF __TUI.activeId = thisId _ANDALSO __TUI.mouseDownL _ANDALSO INT(__TUI.mousePos.y) = y _ANDALSO INT(__TUI.mousePos.x) >= barStart + 1 _ANDALSO INT(__TUI.mousePos.x) <= barStart + innerW THEN
+        thumbIdx = _CLAMP(INT(__TUI.mousePos.x) - (barStart + 1), 0, innerW - 1)
     ELSE
         thumbIdx = _CLAMP(CLNG(normVal * (innerW - 1)), 0, innerW - 1)
     END IF
 
-    ' 1. Left vertical edge cap (sunken trough shadow)
-    IF isFocused _ANDALSO __TUI.hasNavFocus THEN
-        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
-        _PRINTSTRING (x, y), CHR$(186)
-    ELSEIF isHovered _ORELSE __TUI.activeId = thisId THEN
-        COLOR TUI_COLOR_CYAN, TUI_COLOR_BLACK
-        _PRINTSTRING (x, y), CHR$(179)
-    ELSE
+    ' 1. Label text
+    IF labelLen > 0 THEN
+        IF isFocused _ANDALSO __TUI.hasNavFocus THEN
+            COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
+        ELSEIF isHovered THEN
+            COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+        ELSE
+            COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+        END IF
+        _PRINTSTRING (x, y), label
         COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
-        _PRINTSTRING (x, y), CHR$(179)
+        _PRINTSTRING (x + labelLen, y), " "
     END IF
 
-    ' 2. Filled track portion (columns 0 to thumbIdx - 1)
+    ' 2. Left vertical edge cap (sunken trough shadow)
+    IF isFocused _ANDALSO __TUI.hasNavFocus THEN
+        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
+        _PRINTSTRING (barStart, y), CHR$(186)
+    ELSEIF isHovered _ORELSE __TUI.activeId = thisId THEN
+        COLOR TUI_COLOR_CYAN, TUI_COLOR_BLACK
+        _PRINTSTRING (barStart, y), CHR$(179)
+    ELSE
+        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+        _PRINTSTRING (barStart, y), CHR$(179)
+    END IF
+
+    ' 3. Filled track portion (columns 0 to thumbIdx - 1)
     IF thumbIdx > 0 THEN
         IF isHovered _ORELSE __TUI.activeId = thisId THEN
             COLOR TUI_COLOR_CYAN, TUI_COLOR_BLACK
         ELSE
             COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
         END IF
-        _PRINTSTRING (x + 1, y), STRING$(thumbIdx, CHR$(219))
+        _PRINTSTRING (barStart + 1, y), STRING$(thumbIdx, CHR$(219))
     END IF
 
-    ' 3. Playhead thumb (at thumbIdx)
+    ' 4. Playhead thumb (at thumbIdx)
     IF maxVal > 0! THEN
         IF __TUI.activeId = thisId THEN
             COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
-            _PRINTSTRING (x + 1 + thumbIdx, y), CHR$(219)
+            _PRINTSTRING (barStart + 1 + thumbIdx, y), CHR$(219)
         ELSEIF isHovered THEN
             COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
-            _PRINTSTRING (x + 1 + thumbIdx, y), CHR$(219)
+            _PRINTSTRING (barStart + 1 + thumbIdx, y), CHR$(219)
         ELSE
             COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
-            _PRINTSTRING (x + 1 + thumbIdx, y), CHR$(219)
+            _PRINTSTRING (barStart + 1 + thumbIdx, y), CHR$(219)
         END IF
     ELSE
         COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-        _PRINTSTRING (x + 1 + thumbIdx, y), CHR$(176)
+        _PRINTSTRING (barStart + 1 + thumbIdx, y), CHR$(176)
     END IF
 
-    ' 4. Unfilled track portion (columns thumbIdx + 1 to innerW - 1)
+    ' 5. Unfilled track portion (columns thumbIdx + 1 to innerW - 1)
     DIM remChars AS LONG: remChars = (innerW - 1) - thumbIdx
     IF remChars > 0 THEN
         COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-        _PRINTSTRING (x + 1 + thumbIdx + 1, y), STRING$(remChars, CHR$(176))
+        _PRINTSTRING (barStart + 1 + thumbIdx + 1, y), STRING$(remChars, CHR$(176))
     END IF
 
-    ' 5. Right vertical edge cap (sunken trough highlight)
+    ' 6. Right vertical edge cap (sunken trough highlight)
     IF isFocused _ANDALSO __TUI.hasNavFocus THEN
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
-        _PRINTSTRING (x + w - 1, y), CHR$(186)
+        _PRINTSTRING (barStart + w - 1, y), CHR$(186)
     ELSEIF isHovered _ORELSE __TUI.activeId = thisId THEN
         COLOR TUI_COLOR_CYAN, TUI_COLOR_BLACK
-        _PRINTSTRING (x + w - 1, y), CHR$(179)
+        _PRINTSTRING (barStart + w - 1, y), CHR$(179)
     ELSE
         COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
-        _PRINTSTRING (x + w - 1, y), CHR$(179)
+        _PRINTSTRING (barStart + w - 1, y), CHR$(179)
     END IF
+
+    ' 7. Progress percentage text
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+    _PRINTSTRING (barStart + w, y), " "
+    DIM pctStr AS STRING
+    IF maxVal > 0! THEN
+        DIM pctVal AS LONG: pctVal = _CLAMP(CLNG(normVal * 100!), 0, 100)
+        pctStr = RIGHT$("  " + _TOSTR$(pctVal), 3) + "%"
+        IF isHovered THEN
+            COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+        ELSE
+            COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+        END IF
+    ELSE
+        pctStr = " ---%"
+        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+    END IF
+    _PRINTSTRING (barStart + w + 1, y), pctStr
 
     TUI_ProgressBar = targetVal
 END FUNCTION

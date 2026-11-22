@@ -3741,7 +3741,7 @@ SUB Test_TUI
     TEST_CHECK chAct = TUI_CHANNEL_ACTION_NONE, "Channel action is NONE"
     TEST_CHECK __TUI.widgetCount = 3, "Channel badge registered as widget 3"
 
-    DIM seekTarget AS LONG: seekTarget = TUI_ProgressBar(50, 10, 20, 5, 20)
+    DIM seekTarget AS LONG: seekTarget = TUI_ProgressBar(50, 10, 20, 5!, 20!, "POS:")
     TEST_CHECK seekTarget = -1, "Progress bar returns -1 when untouched"
     TEST_CHECK __TUI.widgetCount = 4, "Progress bar registered as widget 4"
 
@@ -3992,19 +3992,19 @@ SUB Test_TUI
     Vector2f_Set 0!, 0!, __TUI.mousePos
     __TUI.mouseClickedL = _FALSE
     __TUI.mouseDownL = _FALSE
-    DIM pbVal AS LONG: pbVal = TUI_ProgressBar(10, 5, 50, 12.5!, 30!)
+    DIM pbVal AS LONG: pbVal = TUI_ProgressBar(10, 5, 50, 12.5!, 30!, "POS:")
     TEST_CHECK pbVal = -1, "Progress bar returns -1 when untouched"
     TEST_CHECK __TUI.widgetCount = 1, "Progress bar registered as widget 1"
     TUI_End
 
     ' Click interaction at 50% position
-    ' Bar is at x=10, width=50 -> inner width is 48 (columns 11 to 58)
-    ' 50% column is approx 11 + 24 = 35
+    ' Bar is at x=10, label="POS:" (len 4) -> barStart = 15, width=50 -> inner width is 48 (columns 16 to 63)
+    ' 50% column is approx 16 + 24 = 40
     TUI_Begin
-    Vector2f_Set 35!, 5!, __TUI.mousePos
+    Vector2f_Set 40!, 5!, __TUI.mousePos
     __TUI.mouseClickedL = _TRUE
     __TUI.activeId = 1
-    pbVal = TUI_ProgressBar(10, 5, 50, 0!, 30!)
+    pbVal = TUI_ProgressBar(10, 5, 50, 0!, 30!, "POS:")
     TEST_CHECK pbVal >= 14 _ANDALSO pbVal <= 16, "Clicking near middle calculates target order near 15"
     TEST_CHECK __TUI.activeId = 0, "Click consumed and activeId reset"
     TUI_End
@@ -4012,7 +4012,7 @@ SUB Test_TUI
     ' Boundary safety: curVal = 0, maxVal = 0 (stopped state)
     TUI_Begin
     Vector2f_Set 0!, 0!, __TUI.mousePos
-    pbVal = TUI_ProgressBar(10, 5, 50, 0!, 0!)
+    pbVal = TUI_ProgressBar(10, 5, 50, 0!, 0!, "")
     TEST_CHECK pbVal = -1, "Zero maxVal returns -1 safely without division by zero"
     TUI_End
     TEST_CASE_END
