@@ -3996,6 +3996,34 @@ SUB Test_Playlist
     IF _FILEEXISTS(tempM3U) THEN KILL tempM3U
     TEST_CHECK NOT _FILEEXISTS(tempM3U), "Cleaned up temporary M3U file"
     TEST_CASE_END
+
+    TEST_CASE_BEGIN "Playlist: Dynamic limit-removing growth"
+    Playlist_Initialize pl
+    DIM bigI AS LONG
+    FOR bigI = 1 TO 1100
+        Playlist_Add pl, "tune" + _TRIM$(STR$(bigI)) + ".mod", "Tune " + _TRIM$(STR$(bigI)), 100#
+    NEXT bigI
+    TEST_CHECK pl.count = 1100, "1100 entries added exceeding legacy 1024 limit"
+    TEST_CHECK UBOUND(pl.entries) >= 1100, "Dynamic entries capacity expanded"
+    TEST_CHECK UBOUND(pl.shuffleOrder) >= 1100, "Dynamic shuffleOrder capacity expanded"
+    TEST_CHECK pl.entries(1100).title = "Tune 1100", "Entry 1100 title matches"
+    TEST_CHECK pl.entries(1100).duration = 100#, "Entry 1100 duration matches"
+
+    Playlist_SetShuffle pl, _TRUE
+    TEST_CHECK pl.isShuffle, "Shuffle mode enabled on 1100 entries"
+    TEST_CHECK pl.shuffleOrder(1) >= 1 _ANDALSO pl.shuffleOrder(1) <= 1100, "First shuffle item valid"
+    Playlist_SetShuffle pl, _FALSE
+
+    DIM rmBigOk AS _BYTE: rmBigOk = Playlist_Remove(pl, 500)
+    TEST_CHECK rmBigOk, "Removed item 500 from 1100 entries"
+    TEST_CHECK pl.count = 1099, "Count reduced to 1099"
+    TEST_CHECK pl.entries(500).title = "Tune 501", "Item 501 shifted to 500"
+
+    Playlist_Clear pl
+    TEST_CHECK pl.count = 0, "Playlist cleared"
+    TEST_CHECK UBOUND(pl.entries) = 0, "Entries array reset to 0"
+    TEST_CHECK UBOUND(pl.shuffleOrder) = 0, "ShuffleOrder array reset to 0"
+    TEST_CASE_END
 END SUB
 
 IF _DIREXISTS("../mods") THEN CHDIR ".."

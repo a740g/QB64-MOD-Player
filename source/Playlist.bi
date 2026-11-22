@@ -12,11 +12,11 @@ $UNSTABLE:TYPEFIELDS
 '$INCLUDE:'File.bi'
 '$INCLUDE:'String.bi'
 
-CONST PLAYLIST_MAX_FILES& = 1024&
-
 CONST PLAYLIST_REPEAT_NONE%% = 0%%
 CONST PLAYLIST_REPEAT_ALL%% = 1%%
 CONST PLAYLIST_REPEAT_ONE%% = 2%%
+
+CONST __PLAYLIST_INITIAL_CAPACITY& = 32&
 
 TYPE PlaylistEntry
     filePath AS STRING
@@ -25,12 +25,12 @@ TYPE PlaylistEntry
 END TYPE
 
 TYPE Playlist
-    entries(1 TO PLAYLIST_MAX_FILES) AS PlaylistEntry
+    _DYNAMIC entries(0 TO 0) AS PlaylistEntry
     count AS LONG
     currentIndex AS LONG
     isShuffle AS _BYTE
     repeatMode AS _BYTE
-    shuffleOrder(1 TO PLAYLIST_MAX_FILES) AS LONG
+    _DYNAMIC shuffleOrder(0 TO 0) AS LONG
     shufflePos AS LONG
 END TYPE
 
@@ -42,14 +42,8 @@ SUB Playlist_Initialize (pl AS Playlist)
     pl.isShuffle = _FALSE
     pl.repeatMode = PLAYLIST_REPEAT_NONE
     pl.shufflePos = 0
-
-    DIM i AS LONG
-    FOR i = 1 TO PLAYLIST_MAX_FILES
-        pl.entries(i).filePath = ""
-        pl.entries(i).title = ""
-        pl.entries(i).duration = 0#
-        pl.shuffleOrder(i) = 0
-    NEXT i
+    REDIM pl.entries(0 TO 0) AS PlaylistEntry
+    REDIM pl.shuffleOrder(0 TO 0) AS LONG
 END SUB
 
 ''' @brief Clears all entries from the playlist.
@@ -63,11 +57,22 @@ END SUB
 ''' @param filePath Absolute or relative path to the music file.
 ''' @param title Optional display title. If empty, the file name is used.
 ''' @param duration Optional duration in seconds.
-''' @return _TRUE if added successfully, _FALSE if playlist is full.
+''' @return _TRUE if added successfully, _FALSE on error.
 FUNCTION Playlist_Add%% (pl AS Playlist, filePath AS STRING, title AS STRING, duration AS DOUBLE)
-    IF pl.count >= PLAYLIST_MAX_FILES THEN EXIT FUNCTION
-
     pl.count = pl.count + 1
+
+    IF pl.count > UBOUND(pl.entries) THEN
+        DIM newCap AS LONG
+        IF UBOUND(pl.entries) <= 0 THEN
+            newCap = __PLAYLIST_INITIAL_CAPACITY&
+        ELSE
+            newCap = UBOUND(pl.entries) * 2
+        END IF
+        IF newCap < pl.count THEN newCap = pl.count
+        REDIM _PRESERVE pl.entries(1 TO newCap) AS PlaylistEntry
+        REDIM _PRESERVE pl.shuffleOrder(1 TO newCap) AS LONG
+    END IF
+
     pl.entries(pl.count).filePath = filePath
 
     IF LEN(title) > 0 THEN
@@ -118,6 +123,8 @@ FUNCTION Playlist_Remove%% (pl AS Playlist, index AS LONG)
     IF pl.count = 0 THEN
         pl.currentIndex = 0
         pl.shufflePos = 0
+        REDIM pl.entries(0 TO 0) AS PlaylistEntry
+        REDIM pl.shuffleOrder(0 TO 0) AS LONG
     ELSEIF pl.currentIndex > pl.count THEN
         pl.currentIndex = pl.count
     END IF
@@ -142,6 +149,10 @@ SUB Playlist_Shuffle (pl AS Playlist)
     IF pl.count <= 0 THEN
         pl.shufflePos = 0
         EXIT SUB
+    END IF
+
+    IF UBOUND(pl.shuffleOrder) < pl.count THEN
+        REDIM _PRESERVE pl.shuffleOrder(1 TO pl.count) AS LONG
     END IF
 
     DIM i AS LONG

@@ -836,7 +836,7 @@ FUNCTION UI_RenderPlaylist%% (pl AS Playlist, selectedItem AS LONG, scrollOffset
     ' Left Panel: Playlist Queue Table (columns 2 to 95, rows 8 to 87)
     TUI_Panel 2, 8, 93, 80, "Playback Queue (" + _TRIM$(STR$(pl.count)) + " Tracks)", _TRUE
 
-    DIM listItems(1 TO PLAYLIST_MAX_FILES) AS STRING
+    REDIM listItems(1 TO _MAX(1, pl.count)) AS STRING
     DIM i AS LONG
     FOR i = 1 TO pl.count
         DIM mark AS STRING: mark = _IIF(i = pl.currentIndex, __UI_GLYPH_RIGHT_ARROW + " ", "  ")

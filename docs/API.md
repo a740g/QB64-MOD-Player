@@ -1647,8 +1647,6 @@ Include header:
 ### Playlist Constants
 
 ```vb
-CONST PLAYLIST_MAX_FILES& = 1024&
-
 CONST PLAYLIST_REPEAT_NONE%% = 0%%
 CONST PLAYLIST_REPEAT_ALL%% = 1%%
 CONST PLAYLIST_REPEAT_ONE%% = 2%%
@@ -1670,12 +1668,12 @@ END TYPE
 
 ```vb
 TYPE Playlist
-    entries(1 TO PLAYLIST_MAX_FILES) AS PlaylistEntry
+    _DYNAMIC entries(0 TO 0) AS PlaylistEntry
     count AS LONG
     currentIndex AS LONG
     isShuffle AS _BYTE
     repeatMode AS _BYTE
-    shuffleOrder(1 TO PLAYLIST_MAX_FILES) AS LONG
+    _DYNAMIC shuffleOrder(0 TO 0) AS LONG
     shufflePos AS LONG
 END TYPE
 ```
