@@ -143,7 +143,7 @@ END FUNCTION
 FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS INTEGER, showHelpModal AS _BYTE)
     DIM action AS _BYTE: action = UI_ACTION_NONE%%
 
-    ' Row 1: Full-width Dark Gray Top Bar (Subtype, Song Title, and Counters)
+    ' Row 1: Full-width Dark Gray Top Bar (Subtype, Song Title, and Telemetry)
     COLOR TUI_COLOR_WHITE, TUI_COLOR_GRAY
     _PRINTSTRING (1, 1), SPACE$(UI_SCREEN_WIDTH)
 
@@ -159,7 +159,7 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
     COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLUE
     _PRINTSTRING (2, 1), " " + subTypeStr + " "
 
-    ' Song title (columns 9 to 101, max 93 chars)
+    ' Song title (columns 9 to 98, max 90 chars)
     DIM titleStr AS STRING
     IF player.song.isPlaying THEN
         titleStr = player.song.caption
@@ -169,10 +169,85 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
         titleStr = "No module loaded. Drag and drop a module file or click File/Folder..."
         COLOR TUI_COLOR_WHITE, TUI_COLOR_GRAY
     END IF
-    IF LEN(titleStr) > 93 THEN titleStr = LEFT$(titleStr, 93)
+    IF LEN(titleStr) > 90 THEN titleStr = LEFT$(titleStr, 90)
     _PRINTSTRING (9, 1), titleStr
 
-    ' Counters: ORD: xxx/yyy, PAT: xxx/yyy, ROW: xxx/yyy (columns 104 to 143)
+    ' Divider space (cols 99..100)
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_GRAY
+    _PRINTSTRING (99, 1), "  "
+
+    ' Telemetry: BPM, SPD, VOC, BUF (columns 101 to 143)
+    DIM bpmValStr AS STRING, spdValStr AS STRING
+    DIM vocValStr AS STRING, bufValStr AS STRING
+    IF player.song.isPlaying THEN
+        bpmValStr = RIGHT$("  " + _TOSTR$(_CLAMP(player.song.BPM, 0, 999)), 3)
+        spdValStr = RIGHT$(" " + _TOSTR$(_CLAMP(player.song.speed, 0, 99)), 2)
+        DIM actVoc AS LONG: actVoc = _CLAMP(SoftSynth_GetActiveVoices(player.synth), 0, 999)
+        DIM totVoc AS LONG: totVoc = _CLAMP(SoftSynth_GetTotalVoices(player.synth), 0, 999)
+        vocValStr = RIGHT$("  " + _TOSTR$(actVoc), 3) + "/" + RIGHT$("  " + _TOSTR$(totVoc), 3)
+        DIM bufMs AS LONG: bufMs = _CLAMP(CLNG(SoftSynth_GetBufferedSoundTime(player.synth) * 1000#), 0, 999)
+        bufValStr = RIGHT$("  " + _TOSTR$(bufMs), 3) + "ms"
+    ELSE
+        bpmValStr = "---"
+        spdValStr = "--"
+        vocValStr = "---/---"
+        bufValStr = "---ms"
+    END IF
+
+    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
+    _PRINTSTRING (101, 1), "BPM:"
+    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GRAY
+    _PRINTSTRING (105, 1), " " + bpmValStr
+    _PRINTSTRING (109, 1), "  "
+
+    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
+    _PRINTSTRING (111, 1), "SPD:"
+    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GRAY
+    _PRINTSTRING (115, 1), " " + spdValStr
+    _PRINTSTRING (118, 1), "  "
+
+    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
+    _PRINTSTRING (120, 1), "VOC:"
+    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GRAY
+    _PRINTSTRING (124, 1), " " + vocValStr
+    _PRINTSTRING (132, 1), "  "
+
+    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
+    _PRINTSTRING (134, 1), "BUF:"
+    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GRAY
+    _PRINTSTRING (138, 1), " " + bufValStr
+
+    ' Row 2: Full-width Dark Gray Top Bar (Scrubber, Order/Pattern/Row Counters, and Volume)
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_GRAY
+    _PRINTSTRING (1, 2), SPACE$(UI_SCREEN_WIDTH)
+
+    DIM curOrd AS LONG: curOrd = _IIF(player.song.isPlaying, player.song.orderPosition, 0)
+    DIM maxOrd AS LONG: maxOrd = _IIF(player.song.isPlaying, _MAX(1, player.song.orders - 1), 1)
+
+    DIM smoothOrd AS SINGLE
+    IF player.song.isPlaying _ANDALSO maxOrd > 0 THEN
+        DIM pRow AS LONG: pRow = player.song.patternRow
+        DIM pIdx AS LONG: pIdx = player.order(curOrd)
+        DIM pRows AS LONG
+        pRows = _IIF(pIdx >= 0 _ANDALSO pIdx < player.song.patterns, player.pattern(pIdx).rows, 64)
+        smoothOrd = CSNG(curOrd) + CSNG(pRow) / CSNG(_MAX(1, pRows))
+    ELSE
+        smoothOrd = 0!
+    END IF
+
+    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
+    DIM scrubResult AS LONG
+    scrubResult = TUI_ProgressBar(2, 2, 63, smoothOrd, CSNG(maxOrd), "POS:")
+    IF scrubResult >= 0 _ANDALSO player.song.isPlaying THEN
+        player.song.orderPosition = scrubResult
+        player.song.patternRow = 0
+    END IF
+
+    ' Divider space (cols 75..76)
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_GRAY
+    _PRINTSTRING (75, 2), "  "
+
+    ' Position Counters: ORD: xxx/yyy, PAT: xxx/yyy, ROW: xxx/yyy (columns 77 to 116)
     DIM ordVal AS LONG, maxOrdVal AS LONG
     DIM patVal AS LONG, maxPatVal AS LONG
     DIM rowVal AS LONG, maxRowVal AS LONG
@@ -195,90 +270,21 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
     END IF
 
     COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
-    _PRINTSTRING (104, 1), "ORD:"
+    _PRINTSTRING (77, 2), "ORD:"
     COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GRAY
-    _PRINTSTRING (109, 1), __UI_Format3(ordVal) + "/" + __UI_Format3(maxOrdVal)
+    _PRINTSTRING (81, 2), " " + __UI_Format3(ordVal) + "/" + __UI_Format3(maxOrdVal)
+    _PRINTSTRING (89, 2), "  "
 
     COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
-    _PRINTSTRING (118, 1), "PAT:"
+    _PRINTSTRING (91, 2), "PAT:"
     COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GRAY
-    _PRINTSTRING (123, 1), __UI_Format3(patVal) + "/" + __UI_Format3(maxPatVal)
+    _PRINTSTRING (95, 2), " " + __UI_Format3(patVal) + "/" + __UI_Format3(maxPatVal)
+    _PRINTSTRING (103, 2), "  "
 
     COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
-    _PRINTSTRING (132, 1), "ROW:"
+    _PRINTSTRING (105, 2), "ROW:"
     COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GRAY
-    _PRINTSTRING (137, 1), __UI_Format3(rowVal) + "/" + __UI_Format3(maxRowVal)
-
-    ' Row 2: Full-width Playback Status & Position Scrubber Deck
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_GRAY
-    _PRINTSTRING (1, 2), SPACE$(UI_SCREEN_WIDTH)
-
-    DIM curOrd AS LONG: curOrd = _IIF(player.song.isPlaying, player.song.orderPosition, 0)
-    DIM maxOrd AS LONG: maxOrd = _IIF(player.song.isPlaying, _MAX(1, player.song.orders - 1), 1)
-
-    DIM smoothOrd AS SINGLE
-    IF player.song.isPlaying _ANDALSO maxOrd > 0 THEN
-        DIM pRow AS LONG: pRow = player.song.patternRow
-        DIM pIdx AS LONG: pIdx = player.order(curOrd)
-        DIM pRows AS LONG
-        pRows = _IIF(pIdx >= 0 _ANDALSO pIdx < player.song.patterns, player.pattern(pIdx).rows, 64)
-        smoothOrd = CSNG(curOrd) + CSNG(pRow) / CSNG(_MAX(1, pRows))
-    ELSE
-        smoothOrd = 0!
-    END IF
-
-    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
-    DIM scrubResult AS LONG
-    scrubResult = TUI_ProgressBar(2, 2, 67, smoothOrd, CSNG(maxOrd), "POS:")
-    IF scrubResult >= 0 _ANDALSO player.song.isPlaying THEN
-        player.song.orderPosition = scrubResult
-        player.song.patternRow = 0
-    END IF
-
-    ' Divider space (cols 79..80)
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_GRAY
-    _PRINTSTRING (79, 2), "  "
-
-    ' Telemetry: BPM, SPD, VOC, BUF (cols 81..116)
-    DIM bpmValStr AS STRING, spdValStr AS STRING
-    DIM vocValStr AS STRING, bufValStr AS STRING
-    IF player.song.isPlaying THEN
-        bpmValStr = RIGHT$("  " + _TOSTR$(_CLAMP(player.song.BPM, 0, 999)), 3)
-        spdValStr = RIGHT$(" " + _TOSTR$(_CLAMP(player.song.speed, 0, 99)), 2)
-        DIM actVoc AS LONG: actVoc = _CLAMP(SoftSynth_GetActiveVoices(player.synth), 0, 99)
-        DIM totVoc AS LONG: totVoc = _CLAMP(SoftSynth_GetTotalVoices(player.synth), 0, 99)
-        vocValStr = RIGHT$(" " + _TOSTR$(actVoc), 2) + "/" + RIGHT$(" " + _TOSTR$(totVoc), 2)
-        DIM bufMs AS LONG: bufMs = _CLAMP(CLNG(SoftSynth_GetBufferedSoundTime(player.synth) * 1000#), 0, 999)
-        bufValStr = RIGHT$("  " + _TOSTR$(bufMs), 3) + "ms"
-    ELSE
-        bpmValStr = "---"
-        spdValStr = "--"
-        vocValStr = "--/--"
-        bufValStr = "---ms"
-    END IF
-
-    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
-    _PRINTSTRING (81, 2), "BPM:"
-    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GRAY
-    _PRINTSTRING (85, 2), bpmValStr
-    _PRINTSTRING (88, 2), " "
-
-    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
-    _PRINTSTRING (89, 2), "SPD:"
-    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GRAY
-    _PRINTSTRING (93, 2), spdValStr
-    _PRINTSTRING (95, 2), "  "
-
-    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
-    _PRINTSTRING (97, 2), "VOC:"
-    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GRAY
-    _PRINTSTRING (101, 2), vocValStr
-    _PRINTSTRING (106, 2), "  "
-
-    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
-    _PRINTSTRING (108, 2), "BUF:"
-    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GRAY
-    _PRINTSTRING (112, 2), bufValStr
+    _PRINTSTRING (109, 2), " " + __UI_Format3(rowVal) + "/" + __UI_Format3(maxRowVal)
 
     ' Divider space (cols 117..118)
     COLOR TUI_COLOR_WHITE, TUI_COLOR_GRAY
