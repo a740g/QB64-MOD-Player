@@ -52,11 +52,25 @@ TYPE __Background_Star
     p AS Vector3f ' position (x, y, z)
     a AS SINGLE ' angle
     c AS _UNSIGNED LONG ' color
+    prevX AS SINGLE ' previous screen X position for motion trails
+    prevY AS SINGLE ' previous screen Y position for motion trails
+    speed AS SINGLE ' individual star velocity multiplier
 END TYPE
 
 TYPE __Background_Starfield
     _DYNAMIC stars(0 TO 0) AS __Background_Star
     count AS LONG
+    rollAngle AS SINGLE
+    rollSpeed AS SINGLE
+    warpTimer AS LONG
+    swayTimer AS SINGLE
+    cometActive AS _BYTE
+    cometX AS SINGLE
+    cometY AS SINGLE
+    cometVX AS SINGLE
+    cometVY AS SINGLE
+    cometLife AS LONG
+    cometCooldown AS LONG
 END TYPE
 
 TYPE __Background_Snake
@@ -164,41 +178,41 @@ END TYPE
 
 ''' @brief Initializes star positions and colors for background starfield effect.
 ''' @param ctx Background context to initialize.
-''' @param starCount Number of stars to allocate (defaults to BACKGROUND_STAR_COUNT if <= 0).
 SUB __Background_InitializeStars (ctx AS Background)
-    CONST Z_DIVIDER = 4096!
-
     DIM nStars AS LONG: nStars = __BACKGROUND_STAR_COUNT
 
     ctx.starfield.count = nStars
     REDIM ctx.starfield.stars(1 TO nStars) AS __BACKGROUND_STAR
 
-    DIM minX AS LONG: minX = CLNG(ctx.viewport.lt.x)
-    DIM maxX AS LONG: maxX = CLNG(ctx.viewport.rb.x)
-    DIM minY AS LONG: minY = CLNG(ctx.viewport.lt.y)
-    DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
-    DIM centerX AS LONG: centerX = (minX + maxX) \ 2
-    DIM centerY AS LONG: centerY = (minY + maxY) \ 2
-    DIM maxDist AS SINGLE: maxDist = ctx.size.x * 0.5!
+    ctx.starfield.rollAngle = 0!
+    ctx.starfield.rollSpeed = 0.0032!
+    ctx.starfield.warpTimer = Math_GetRandomBetween(0, 300)
+    ctx.starfield.swayTimer = RND * 6.2831853!
+    ctx.starfield.cometActive = 0
+    ctx.starfield.cometCooldown = Math_GetRandomBetween(200, 450)
+
+    DIM maxDist AS SINGLE: maxDist = ctx.size.x * 0.85!
+    IF maxDist < 20! THEN maxDist = 60!
 
     DIM i AS LONG
     FOR i = 1 TO nStars
-        DIM ang AS SINGLE: ang = RND * _PI(2!)
-        DIM dist AS SINGLE: dist = 2! + RND * maxDist
-        ctx.starfield.stars(i).p.x = CSNG(centerX) + COS(ang) * dist
-        ctx.starfield.stars(i).p.y = CSNG(centerY) + SIN(ang) * dist * 0.6!
-        ctx.starfield.stars(i).p.z = Z_DIVIDER + RND * 80!
+        DIM ang AS SINGLE: ang = RND * 6.2831853!
+        ' Area-uniform polar distribution using SQR(RND) across full 360 degrees
+        DIM rad AS SINGLE: rad = 4.0! + SQR(RND) * (maxDist - 4.0!)
+        ctx.starfield.stars(i).p.x = COS(ang) * rad
+        ctx.starfield.stars(i).p.y = SIN(ang) * (rad * 0.58!)
+        ctx.starfield.stars(i).p.z = 4100.0! + RND * 400.0!
         ctx.starfield.stars(i).a = ang
         ctx.starfield.stars(i).c = Math_GetRandomBetween(9, 15)
+        ctx.starfield.stars(i).speed = 0.85! + RND * 0.45!
+        ctx.starfield.stars(i).prevX = -1!
+        ctx.starfield.stars(i).prevY = -1!
     NEXT i
 END SUB
 
-''' @brief Updates starfield positions and renders stars on screen with 3D depth shading.
+''' @brief Updates starfield positions and renders stars on screen with 3D depth shading, camera roll, and warp pulses.
 ''' @param ctx Background context.
 SUB __Background_UpdateAndDrawStars (ctx AS Background)
-    CONST Z_DIVIDER = 4096!
-    CONST STAR_SPEED! = 1.2!
-
     IF ctx.starfield.count <= 0 THEN EXIT SUB
 
     DIM minX AS LONG: minX = CLNG(ctx.viewport.lt.x)
@@ -207,49 +221,158 @@ SUB __Background_UpdateAndDrawStars (ctx AS Background)
     DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
     DIM centerX AS LONG: centerX = (minX + maxX) \ 2
     DIM centerY AS LONG: centerY = (minY + maxY) \ 2
+    DIM W AS SINGLE: W = ctx.size.x
+    DIM H AS SINGLE: H = ctx.size.y
+    DIM maxDist AS SINGLE: maxDist = W * 0.85!
+    IF maxDist < 20! THEN maxDist = 60!
 
+    ' Dynamic camera sway (organic wandering vanishing point)
+    ctx.starfield.swayTimer = ctx.starfield.swayTimer + 0.012!
+    IF ctx.starfield.swayTimer > 6.2831853! THEN ctx.starfield.swayTimer = ctx.starfield.swayTimer - 6.2831853!
+    DIM vanishX AS SINGLE: vanishX = CSNG(centerX) + SIN(ctx.starfield.swayTimer) * (W * 0.07!)
+    DIM vanishY AS SINGLE: vanishY = CSNG(centerY) + SIN(ctx.starfield.swayTimer * 1.618!) * (H * 0.07!)
+
+    ' Galactic camera roll rotation
+    ctx.starfield.rollAngle = ctx.starfield.rollAngle + ctx.starfield.rollSpeed
+    IF ctx.starfield.rollAngle > 6.2831853! THEN ctx.starfield.rollAngle = ctx.starfield.rollAngle - 6.2831853!
+    DIM cosRoll AS SINGLE: cosRoll = COS(ctx.starfield.rollAngle)
+    DIM sinRoll AS SINGLE: sinRoll = SIN(ctx.starfield.rollAngle)
+
+    ' Dynamic hyperdrive warp speed pulse (every ~850 frames / ~14 seconds)
+    ctx.starfield.warpTimer = ctx.starfield.warpTimer + 1
+    IF ctx.starfield.warpTimer > 850 THEN ctx.starfield.warpTimer = 0
+
+    DIM warpMult AS SINGLE: warpMult = 1.0!
+    IF ctx.starfield.warpTimer >= 550 _ANDALSO ctx.starfield.warpTimer < 750 THEN
+        DIM pulseProg AS SINGLE: pulseProg = CSNG(ctx.starfield.warpTimer - 550) / 200.0!
+        warpMult = 1.0! + 2.2! * (0.5! - 0.5! * COS(pulseProg * 6.2831853!))
+    END IF
+
+    ' 3D Star projection and rendering loop
     DIM i AS LONG
     FOR i = 1 TO ctx.starfield.count
-        IF ctx.starfield.stars(i).p.x < CSNG(minX) _ORELSE ctx.starfield.stars(i).p.x > CSNG(maxX) _ORELSE ctx.starfield.stars(i).p.y < CSNG(minY) _ORELSE ctx.starfield.stars(i).p.y > CSNG(maxY) _ORELSE ctx.starfield.stars(i).p.z > 4220! THEN
-            DIM ang AS SINGLE: ang = RND * _PI(2!)
-            DIM dist AS SINGLE: dist = 2! + RND * 18!
-            ctx.starfield.stars(i).p.x = CSNG(centerX) + COS(ang) * dist
-            ctx.starfield.stars(i).p.y = CSNG(centerY) + SIN(ang) * dist * 0.6!
-            ctx.starfield.stars(i).p.z = Z_DIVIDER
-            ctx.starfield.stars(i).a = ang
+        DIM dZ AS SINGLE: dZ = ctx.starfield.stars(i).p.z - 4096.0!
+        IF dZ < 4.0! THEN dZ = 4.0!
+        DIM fScale AS SINGLE: fScale = 140.0! / dZ
+
+        ' Rotate world star position by galactic roll angle
+        DIM rotX AS SINGLE
+        rotX = ctx.starfield.stars(i).p.x * cosRoll - ctx.starfield.stars(i).p.y * sinRoll
+        DIM rotY AS SINGLE
+        rotY = ctx.starfield.stars(i).p.x * sinRoll + ctx.starfield.stars(i).p.y * cosRoll
+
+        DIM px AS LONG: px = CLNG(vanishX + rotX * fScale)
+        DIM py AS LONG: py = CLNG(vanishY + rotY * fScale)
+
+        ' Reset star if it exited the screen borders or passed the camera plane
+        IF px < minX _ORELSE px > maxX _ORELSE py < minY _ORELSE py > maxY _ORELSE ctx.starfield.stars(i).p.z <= 4104.0! THEN
+            DIM newAng AS SINGLE: newAng = RND * 6.2831853!
+            DIM newRad AS SINGLE: newRad = 4.0! + SQR(RND) * (maxDist - 4.0!)
+            ctx.starfield.stars(i).p.x = COS(newAng) * newRad
+            ctx.starfield.stars(i).p.y = SIN(newAng) * (newRad * 0.58!)
+            ctx.starfield.stars(i).p.z = 4500.0!
+            ctx.starfield.stars(i).a = newAng
             ctx.starfield.stars(i).c = Math_GetRandomBetween(9, 15)
+            ctx.starfield.stars(i).speed = 0.85! + RND * 0.45!
+            ctx.starfield.stars(i).prevX = -1!
+            ctx.starfield.stars(i).prevY = -1!
+
+            dZ = 404.0!
+            fScale = 140.0! / dZ
+            rotX = ctx.starfield.stars(i).p.x * cosRoll - ctx.starfield.stars(i).p.y * sinRoll
+            rotY = ctx.starfield.stars(i).p.x * sinRoll + ctx.starfield.stars(i).p.y * cosRoll
+            px = CLNG(vanishX + rotX * fScale)
+            py = CLNG(vanishY + rotY * fScale)
         END IF
 
-        DIM sZ AS SINGLE: sZ = ctx.starfield.stars(i).p.z
+        ' Render speed streak/motion blur trail for near stars or during warp surges
+        IF ctx.starfield.stars(i).prevX >= CSNG(minX) _ANDALSO ctx.starfield.stars(i).prevX <= CSNG(maxX) _ANDALSO _
+           ctx.starfield.stars(i).prevY >= CSNG(minY) _ANDALSO ctx.starfield.stars(i).prevY <= CSNG(maxY) THEN
+            DIM prevPX AS LONG: prevPX = CLNG(ctx.starfield.stars(i).prevX)
+            DIM prevPY AS LONG: prevPY = CLNG(ctx.starfield.stars(i).prevY)
+            IF (prevPX <> px _ORELSE prevPY <> py) _ANDALSO (dZ < 90.0! _ORELSE warpMult > 1.3!) THEN
+                COLOR __BG_COLOR_GRAY, __BG_COLOR_BLACK
+                _PRINTSTRING (prevPX, prevPY), "."
+            END IF
+        END IF
+
+        ' Select color and character glyph based on distance (depth shading)
         DIM sChar AS STRING
         DIM sCol AS _UNSIGNED LONG
 
-        IF sZ < 4115! THEN
+        IF dZ > 250.0! THEN
             sCol = __BG_COLOR_GRAY: sChar = "."
-        ELSEIF sZ < 4140! THEN
+        ELSEIF dZ > 140.0! THEN
             sCol = __BG_COLOR_WHITE: sChar = CHR$(249)
-        ELSEIF sZ < 4168! THEN
+        ELSEIF dZ > 65.0! THEN
             sCol = ctx.starfield.stars(i).c: sChar = "+"
-        ELSEIF sZ < 4195! THEN
-            sCol = __BG_COLOR_BRIGHT_WHITE: sChar = "x"
+        ELSEIF dZ > 30.0! THEN
+            sCol = ctx.starfield.stars(i).c: sChar = "x"
         ELSE
             sCol = __BG_COLOR_BRIGHT_WHITE: sChar = "*"
         END IF
 
-        DIM px AS LONG: px = CLNG(ctx.starfield.stars(i).p.x)
-        DIM py AS LONG: py = CLNG(ctx.starfield.stars(i).p.y)
-
         IF px >= minX _ANDALSO px <= maxX _ANDALSO py >= minY _ANDALSO py <= maxY THEN
             COLOR sCol, __BG_COLOR_BLACK
             _PRINTSTRING (px, py), sChar
+            ctx.starfield.stars(i).prevX = CSNG(px)
+            ctx.starfield.stars(i).prevY = CSNG(py)
+        ELSE
+            ctx.starfield.stars(i).prevX = -1!
+            ctx.starfield.stars(i).prevY = -1!
         END IF
 
-        ctx.starfield.stars(i).p.z = ctx.starfield.stars(i).p.z + STAR_SPEED
-        ctx.starfield.stars(i).a = ctx.starfield.stars(i).a + 0.008!
-        DIM zd AS SINGLE: zd = ctx.starfield.stars(i).p.z / Z_DIVIDER
-        ctx.starfield.stars(i).p.x = ((ctx.starfield.stars(i).p.x - CSNG(centerX)) * zd) + CSNG(centerX) + COS(ctx.starfield.stars(i).a * 0.5!) * 0.4!
-        ctx.starfield.stars(i).p.y = ((ctx.starfield.stars(i).p.y - CSNG(centerY)) * zd) + CSNG(centerY) + SIN(ctx.starfield.stars(i).a * 1.5!) * 0.4!
+        ' Move star forward toward camera
+        DIM starAdvance AS SINGLE
+        starAdvance = ctx.starfield.stars(i).speed * warpMult * 1.5!
+        ctx.starfield.stars(i).p.z = ctx.starfield.stars(i).p.z - starAdvance
     NEXT i
+
+    ' Periodic shooting star / comet animation
+    ctx.starfield.cometCooldown = ctx.starfield.cometCooldown - 1
+    IF ctx.starfield.cometCooldown <= 0 _ANDALSO ctx.starfield.cometActive = 0 THEN
+        ctx.starfield.cometActive = 1
+        ctx.starfield.cometX = CSNG(Math_GetRandomBetween(minX + 5, minX + (maxX - minX) \ 2))
+        ctx.starfield.cometY = CSNG(minY + 2)
+        ctx.starfield.cometVX = 2.2! + RND * 1.0!
+        ctx.starfield.cometVY = 0.8! + RND * 0.5!
+        ctx.starfield.cometLife = Math_GetRandomBetween(35, 50)
+        ctx.starfield.cometCooldown = Math_GetRandomBetween(450, 850)
+    END IF
+
+    IF ctx.starfield.cometActive THEN
+        ctx.starfield.cometX = ctx.starfield.cometX + ctx.starfield.cometVX
+        ctx.starfield.cometY = ctx.starfield.cometY + ctx.starfield.cometVY
+        ctx.starfield.cometLife = ctx.starfield.cometLife - 1
+
+        DIM comX AS LONG: comX = CLNG(ctx.starfield.cometX)
+        DIM comY AS LONG: comY = CLNG(ctx.starfield.cometY)
+
+        IF ctx.starfield.cometLife <= 0 _ORELSE comX > maxX _ORELSE comY > maxY THEN
+            ctx.starfield.cometActive = 0
+        ELSE
+            ' Render 4-segment trailing ion tail
+            DIM tailIdx AS LONG
+            FOR tailIdx = 4 TO 1 STEP -1
+                DIM tailX AS LONG: tailX = CLNG(ctx.starfield.cometX - CSNG(tailIdx) * ctx.starfield.cometVX * 0.75!)
+                DIM tailY AS LONG: tailY = CLNG(ctx.starfield.cometY - CSNG(tailIdx) * ctx.starfield.cometVY * 0.75!)
+                IF tailX >= minX _ANDALSO tailX <= maxX _ANDALSO tailY >= minY _ANDALSO tailY <= maxY THEN
+                    SELECT CASE tailIdx
+                        CASE 4: COLOR __BG_COLOR_GRAY, __BG_COLOR_BLACK: _PRINTSTRING (tailX, tailY), "."
+                        CASE 3: COLOR __BG_COLOR_BLUE, __BG_COLOR_BLACK: _PRINTSTRING (tailX, tailY), "."
+                        CASE 2: COLOR __BG_COLOR_CYAN, __BG_COLOR_BLACK: _PRINTSTRING (tailX, tailY), CHR$(249)
+                        CASE 1: COLOR __BG_COLOR_LIGHT_CYAN, __BG_COLOR_BLACK: _PRINTSTRING (tailX, tailY), "+"
+                    END SELECT
+                END IF
+            NEXT tailIdx
+
+            ' Render brilliant comet core
+            IF comX >= minX _ANDALSO comX <= maxX _ANDALSO comY >= minY _ANDALSO comY <= maxY THEN
+                COLOR __BG_COLOR_BRIGHT_WHITE, __BG_COLOR_BLACK
+                _PRINTSTRING (comX, comY), "*"
+            END IF
+        END IF
+    END IF
 END SUB
 
 ''' @brief Initializes bouncing snake positions and colors with collision-free placement.
