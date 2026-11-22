@@ -1074,81 +1074,70 @@ SUB UI_RenderVisualizer (player AS MODPlayer, analyzerL AS AudioAnalyzer, analyz
     END IF
 END SUB
 
-''' @brief Renders the pop-up Help, Engine Capabilities & Controls Reference modal dialog.
+''' @brief Renders the pop-up Help & Controls Reference modal dialog.
 ''' @param showHelpModal In/Out: Flag indicating if modal is visible.
 SUB UI_RenderHelpModal (showHelpModal AS _BYTE)
-    TUI_Panel 14, 15, 116, 58, "Help, Engine Capabilities & Controls Reference", _TRUE
+    ' Centered on screen (144x90): x=15 (margin 14 left/right), y=25 (margin 24 top/bottom), w=116, h=41
+    TUI_Panel 15, 25, 116, 41, "Help & About Reference", _TRUE
 
     COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
-    _PRINTSTRING (17, 17), "QB64-PE Universal MOD Player - Reference & About"
+    _PRINTSTRING (18, 27), "QB64-PE Universal MOD Player - Reference & About"
     COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-    _PRINTSTRING (85, 17), "by Samuel Gomes (a740g)"
+    _PRINTSTRING (105, 27), "by Samuel Gomes (a740g)"
 
     COLOR TUI_COLOR_LIGHT_GREEN, TUI_COLOR_BLACK
     DIM promptMsg AS STRING
-    promptMsg = __UI_GLYPH_DOWN_ARROW + " Drag & Drop: Drag any module, folder, or M3U playlist file into the window to play immediately! " + __UI_GLYPH_DOWN_ARROW
-    _PRINTSTRING (17, 19), promptMsg
+    promptMsg = __UI_GLYPH_DOWN_ARROW + " Drag & Drop: Drag any module, folder, or M3U playlist file into the window to play! " + __UI_GLYPH_DOWN_ARROW
+    _PRINTSTRING (27, 29), promptMsg
 
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
-    _PRINTSTRING (17, 21), "Supported Module Formats & Synthesis Engines:"
-    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
-    _PRINTSTRING (19, 23), "[ MOD ] ProTracker / NoiseTracker / StarTrekker (PCM + AM)"
-    _PRINTSTRING (78, 23), "[ 669 ] Composer 669 / Extended 669 (8-ch)"
-    _PRINTSTRING (19, 24), "[ S3M ] Scream Tracker 3 (PCM + OPL2 FM Synthesis)"
-    _PRINTSTRING (78, 24), "[ RAD ] Reality AdLib Tracker (OPL2 FM)"
-    _PRINTSTRING (19, 25), "[ MTM ] MultiTracker 32-channel digital audio"
-    _PRINTSTRING (78, 25), "[ ULT ] UltraTracker v1.1-1.6 stereo PCM"
-    _PRINTSTRING (19, 26), "[ FAR ] Farandole Composer 16-channel tracker"
-    _PRINTSTRING (78, 26), "[ MDL ] Digitrakker v0.0-1.1 8/16-bit PCM"
-    _PRINTSTRING (19, 27), "[ STM ] Scream Tracker 2 4-channel modules"
-    _PRINTSTRING (78, 27), "[ AMF ] DSMI Advanced Module Format v0.8-1.4"
+    _PRINTSTRING (18, 31), "View Navigation (Function Keys & Tabs):"
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+    _PRINTSTRING (20, 32), "F1 / ? Help           Help & Reference dialog"
+    _PRINTSTRING (74, 32), "F5: Playlist View     Queue manager, search & M3U"
+    _PRINTSTRING (20, 33), "F2: Tracker View      Pattern matrix & solo/mute"
+    _PRINTSTRING (74, 33), "F6: Song Info View    Header specs, message & lyrics"
+    _PRINTSTRING (20, 34), "F3: Mixer View        32-ch console & VU meters"
+    _PRINTSTRING (74, 34), "F7: Visualizer View   Stereo 64-band FFT & scope"
+    _PRINTSTRING (20, 35), "F4: Instruments View  Samples & synth parameters"
+    _PRINTSTRING (74, 35), "Tabs 1 - 6            Click tabs to switch views"
 
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
-    _PRINTSTRING (17, 29), "Loading Files & Command Line:"
+    _PRINTSTRING (18, 37), "Playback & Transport Controls:"
     COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
-    _PRINTSTRING (19, 31), "File... / Folder...   Use top toolbar or Playlist view (F5) to browse files or recursive folders"
-    _PRINTSTRING (19, 32), "ModArchive Random     Click 'ModArch...' on the toolbar to stream a random classic module online"
-    _PRINTSTRING (19, 33), "Command Line (CLI)    Launch from console: QB64MODPlayer.exe [file/folder/URL]"
+    _PRINTSTRING (20, 38), "F8 / Space / Pad X    Play / Pause playback"
+    _PRINTSTRING (74, 38), "Left / Right / DPad   Jump previous / next order"
+    _PRINTSTRING (20, 39), "F9                    Previous track in playlist"
+    _PRINTSTRING (74, 39), "+ / - / Pad Triggers  Master volume up / down"
+    _PRINTSTRING (20, 40), "F10                   Next track in playlist"
+    _PRINTSTRING (74, 40), "S / M                 Solo / Mute channel"
+    _PRINTSTRING (20, 41), "F11 / L               Toggle song loop mode"
+    _PRINTSTRING (74, 41), "Home / End            Top / bottom of active list"
+    _PRINTSTRING (20, 42), "F12                   Quit MOD Player"
+    _PRINTSTRING (74, 42), "PageUp / PageDown     Fast scroll pattern / lists"
+    _PRINTSTRING (20, 43), "Esc                   Close Help / Stop / Quit"
+    _PRINTSTRING (74, 43), "B                     Cycle background effect"
 
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
-    _PRINTSTRING (17, 35), "View Navigation (Function Keys & Tabs 1 - 6):"
+    _PRINTSTRING (18, 45), "Loading Files & Command Line:"
     COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
-    _PRINTSTRING (19, 37), "F1 / ? Help           Toggle this Help & Reference dialog"
-    _PRINTSTRING (19, 38), "F2: Tracker View      8-channel pattern matrix viewport with live playback cursor and per-channel solo/mute"
-    _PRINTSTRING (19, 39), "F3: Mixer View        32-channel mixing console with real-time stereo VU meters, gain, pan, and solo/mute"
-    _PRINTSTRING (19, 40), "F4: Instruments View  Sample metadata, finetune, loop points, and OPL2 FM / AM Synth parameter inspector"
-    _PRINTSTRING (19, 41), "F5: Playlist View     Playback queue management, track search, drag-and-drop reordering, and M3U save/load"
-    _PRINTSTRING (19, 42), "F6: Song Info View    Detailed module header specs, file path, tracker subtype, and full song message/lyrics"
-    _PRINTSTRING (19, 43), "F7: Visualizer View   High-resolution stereo 64-band FFT spectrum analyzer and multi-channel oscilloscope"
+    _PRINTSTRING (20, 46), "File... / Folder...   Browse files or recursive folder via toolbar or Playlist (F5)"
+    _PRINTSTRING (20, 47), "ModArchive Random     Click 'ModArch...' on toolbar to stream a random module online"
+    _PRINTSTRING (20, 48), "Command Line (CLI)    Launch from terminal: QB64MODPlayer.exe [file/folder/URL]"
 
     COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
-    _PRINTSTRING (17, 45), "Playback & Transport Controls:"
+    _PRINTSTRING (18, 50), "Mouse, Keyboard & Controller Navigation:"
     COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
-    _PRINTSTRING (19, 47), "F8 / Space / Pad X    Play / Pause playback"
-    _PRINTSTRING (78, 47), "Left / Right / DPad   Jump previous / next order position"
-    _PRINTSTRING (19, 48), "F9                    Previous track in playlist"
-    _PRINTSTRING (78, 48), "+ / - / Pad Triggers  Master volume up / down"
-    _PRINTSTRING (19, 49), "F10                   Next track in playlist"
-    _PRINTSTRING (78, 49), "S / M                 Solo / Mute channel (Tracker & Mixer)"
-    _PRINTSTRING (19, 50), "F11 / L               Toggle song loop mode"
-    _PRINTSTRING (78, 50), "Home / End            Scroll to top / bottom of active list"
-    _PRINTSTRING (19, 51), "F12                   Quit MOD Player"
-    _PRINTSTRING (78, 51), "PageUp / PageDown     Fast scroll pattern rows / lists"
-    _PRINTSTRING (19, 52), "Esc                   Close Help / Stop playback / Quit"
-
-    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
-    _PRINTSTRING (17, 54), "Mouse, Keyboard & Gamepad Navigation:"
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
-    _PRINTSTRING (19, 56), "Tab / Shift+Tab       Navigate focus between interactive 3D buttons and tabs (double border shows focus)"
-    _PRINTSTRING (19, 57), "Enter / Space / Pad A Activate focused button, tab stop, or select highlighted list item"
-    _PRINTSTRING (19, 58), "Left Click / Drag     Click buttons & tabs, adjust volume slider, drag scrollbars, toggle channel mute/solo"
-    _PRINTSTRING (19, 59), "Right Click           Quick-solo channel in Tracker and Mixer views"
-    _PRINTSTRING (19, 60), "Mouse Wheel           Scroll pattern rows, tracker channel columns, playlist queue, or instrument lists"
+    _PRINTSTRING (20, 51), "Tab / Shift+Tab       Cycle focus between buttons and tabs (double border shows focus)"
+    _PRINTSTRING (20, 52), "Enter / Space / Pad A Activate focused button, tab stop, or select list item"
+    _PRINTSTRING (20, 53), "Left Click / Drag     Click buttons/tabs, drag volume slider, seek bar, scrollbars"
+    _PRINTSTRING (20, 54), "Right Click           Quick-solo channel in Tracker and Mixer views"
+    _PRINTSTRING (20, 55), "Mouse Wheel           Scroll pattern rows, channels, playlist, or instruments"
 
     COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-    _PRINTSTRING (19, 62), "Idle Mode: B key cycles backgrounds (Stars, Snakes, Fireworks, Fire, Plasma, Balls, Matrix)"
+    _PRINTSTRING (25, 57), "Background Effects (8 Modes): Stars, Snakes, Fireworks, Fire, Plasma, Balls, Matrix, Fish Tank"
 
-    IF TUI_Button(58, 66, 28, "Close Help (F1 / Esc)") THEN
+    IF TUI_Button(59, 60, 28, "Close Help (F1 / Esc)") THEN
         showHelpModal = _FALSE
     END IF
 END SUB
