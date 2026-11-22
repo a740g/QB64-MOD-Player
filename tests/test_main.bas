@@ -3986,6 +3986,37 @@ SUB Test_TUI
     TUI_End
     TEST_CASE_END
 
+    TEST_CASE_BEGIN "TUI: ProgressBar Scrubbing and Floating-Point Interpolation"
+    ' Untouched state with fractional progress
+    TUI_Begin
+    Vector2f_Set 0!, 0!, __TUI.mousePos
+    __TUI.mouseClickedL = _FALSE
+    __TUI.mouseDownL = _FALSE
+    DIM pbVal AS LONG: pbVal = TUI_ProgressBar(10, 5, 50, 12.5!, 30!)
+    TEST_CHECK pbVal = -1, "Progress bar returns -1 when untouched"
+    TEST_CHECK __TUI.widgetCount = 1, "Progress bar registered as widget 1"
+    TUI_End
+
+    ' Click interaction at 50% position
+    ' Bar is at x=10, width=50 -> inner width is 48 (columns 11 to 58)
+    ' 50% column is approx 11 + 24 = 35
+    TUI_Begin
+    Vector2f_Set 35!, 5!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE
+    __TUI.activeId = 1
+    pbVal = TUI_ProgressBar(10, 5, 50, 0!, 30!)
+    TEST_CHECK pbVal >= 14 _ANDALSO pbVal <= 16, "Clicking near middle calculates target order near 15"
+    TEST_CHECK __TUI.activeId = 0, "Click consumed and activeId reset"
+    TUI_End
+
+    ' Boundary safety: curVal = 0, maxVal = 0 (stopped state)
+    TUI_Begin
+    Vector2f_Set 0!, 0!, __TUI.mousePos
+    pbVal = TUI_ProgressBar(10, 5, 50, 0!, 0!)
+    TEST_CHECK pbVal = -1, "Zero maxVal returns -1 safely without division by zero"
+    TUI_End
+    TEST_CASE_END
+
     TEST_CASE_BEGIN "TUI: VUMeter Rendering and Clamping"
     TUI_Begin
     TUI_VUMeter 10, 5, 12, 0.65!, 0.90!, _FALSE

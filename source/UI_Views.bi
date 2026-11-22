@@ -213,14 +213,37 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
     DIM curOrd AS LONG: curOrd = _IIF(player.song.isPlaying, player.song.orderPosition, 0)
     DIM maxOrd AS LONG: maxOrd = _IIF(player.song.isPlaying, _MAX(1, player.song.orders - 1), 1)
 
+    DIM smoothOrd AS SINGLE
+    IF player.song.isPlaying _ANDALSO maxOrd > 0 THEN
+        DIM pRow AS LONG: pRow = player.song.patternRow
+        DIM pIdx AS LONG: pIdx = player.order(curOrd)
+        DIM pRows AS LONG
+        pRows = _IIF(pIdx >= 0 _ANDALSO pIdx < player.song.patterns, player.pattern(pIdx).rows, 64)
+        smoothOrd = CSNG(curOrd) + CSNG(pRow) / CSNG(_MAX(1, pRows))
+    ELSE
+        smoothOrd = 0!
+    END IF
+
     COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
     _PRINTSTRING (2, 2), "POS:"
     DIM scrubResult AS LONG
-    scrubResult = TUI_ProgressBar(7, 2, 45, curOrd, maxOrd)
+    scrubResult = TUI_ProgressBar(7, 2, 68, smoothOrd, CSNG(maxOrd))
     IF scrubResult >= 0 _ANDALSO player.song.isPlaying THEN
         player.song.orderPosition = scrubResult
         player.song.patternRow = 0
     END IF
+
+    ' External Percentage Readout (columns 76 to 80)
+    DIM pctStr AS STRING
+    IF player.song.isPlaying _ANDALSO maxOrd > 0 THEN
+        DIM pctVal AS LONG: pctVal = _CLAMP(CLNG((smoothOrd / CSNG(maxOrd)) * 100!), 0, 100)
+        pctStr = RIGHT$("  " + _TOSTR$(pctVal), 3) + "%"
+        COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+    ELSE
+        pctStr = " ---%"
+        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+    END IF
+    _PRINTSTRING (76, 2), pctStr
 
     DIM bpmStr AS STRING
     IF player.song.isPlaying THEN

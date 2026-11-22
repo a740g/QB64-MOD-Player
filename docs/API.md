@@ -1505,7 +1505,7 @@ FUNCTION TUI_ChannelBadge%% (x AS LONG, y AS LONG, ch AS LONG, _
 #### `TUI_ProgressBar&`
 
 ```vb
-FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS LONG, maxVal AS LONG)
+FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, maxVal AS SINGLE)
 ```
 
 - **Description**: Renders an interactive progress / seek bar. Supports real-time

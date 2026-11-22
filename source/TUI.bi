@@ -527,11 +527,11 @@ END FUNCTION
 ''' @brief Renders an interactive song order / row progress bar with real-time scrub & cool-off.
 ''' @param x Character column.
 ''' @param y Character row.
-''' @param w Total bar width in characters including brackets.
-''' @param curVal Current value.
+''' @param w Total bar width in characters including side caps.
+''' @param curVal Current numeric value (supports fractional progress).
 ''' @param maxVal Maximum value.
 ''' @return Target position if clicked, dragged, or nudged; or -1 if no interaction occurred.
-FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS LONG, maxVal AS LONG)
+FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, maxVal AS SINGLE)
     SHARED __TUI AS __TUI_Context
 
     __TUI.widgetCount = __TUI.widgetCount + 1
@@ -564,40 +564,97 @@ FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS LONG, maxV
             __TUI.lastScrubTime = nowUptime
             targetVal = candidateVal
         END IF
+        IF __TUI.mouseClickedL THEN
+            __TUI.activeId = 0
+            TUI_ConsumeClick
+        END IF
     END IF
 
     ' Keyboard focus navigation (Left/Right arrow nudge)
     DIM isFocused AS _BYTE: isFocused = (__TUI.focusedId = thisId)
     IF isFocused _ANDALSO __TUI.hasNavFocus THEN
         IF Input_NavLeft THEN
-            targetVal = _MAX(0, curVal - 1)
+            targetVal = _MAX(0, CLNG(curVal) - 1)
             Input_ConsumeKeyboardKey
         ELSEIF Input_NavRight THEN
-            targetVal = _MIN(maxVal, curVal + 1)
+            targetVal = _MIN(CLNG(maxVal), CLNG(curVal) + 1)
             Input_ConsumeKeyboardKey
         END IF
     END IF
 
     ' Rendering
-    DIM filledChars AS LONG
-    IF maxVal > 0 THEN
-        filledChars = _CLAMP(CLNG((CSNG(curVal) / CSNG(maxVal)) * innerW), 0, innerW)
+    DIM normVal AS SINGLE
+    IF maxVal > 0! THEN
+        normVal = _CLAMP(curVal / maxVal, 0!, 1!)
     ELSE
-        filledChars = 0
+        normVal = 0!
     END IF
 
-    DIM barStr AS STRING
-    barStr = "[" + STRING$(filledChars, "=") + STRING$(innerW - filledChars, "-") + "]"
+    ' Thumb position inside inner track (0 to innerW - 1)
+    DIM thumbIdx AS LONG
+    IF __TUI.activeId = thisId THEN
+        thumbIdx = _CLAMP(INT(__TUI.mousePos.x) - (x + 1), 0, innerW - 1)
+    ELSE
+        thumbIdx = _CLAMP(CLNG(normVal * (innerW - 1)), 0, innerW - 1)
+    END IF
 
+    ' 1. Left vertical edge cap (sunken trough shadow)
     IF isFocused _ANDALSO __TUI.hasNavFocus THEN
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
+        _PRINTSTRING (x, y), CHR$(186)
     ELSEIF isHovered _ORELSE __TUI.activeId = thisId THEN
-        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
+        COLOR TUI_COLOR_CYAN, TUI_COLOR_BLACK
+        _PRINTSTRING (x, y), CHR$(179)
     ELSE
-        COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+        COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+        _PRINTSTRING (x, y), CHR$(179)
     END IF
 
-    _PRINTSTRING (x, y), barStr
+    ' 2. Filled track portion (columns 0 to thumbIdx - 1)
+    IF thumbIdx > 0 THEN
+        IF isHovered _ORELSE __TUI.activeId = thisId THEN
+            COLOR TUI_COLOR_CYAN, TUI_COLOR_BLACK
+        ELSE
+            COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+        END IF
+        _PRINTSTRING (x + 1, y), STRING$(thumbIdx, CHR$(219))
+    END IF
+
+    ' 3. Playhead thumb (at thumbIdx)
+    IF maxVal > 0! THEN
+        IF __TUI.activeId = thisId THEN
+            COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
+            _PRINTSTRING (x + 1 + thumbIdx, y), CHR$(219)
+        ELSEIF isHovered THEN
+            COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
+            _PRINTSTRING (x + 1 + thumbIdx, y), CHR$(219)
+        ELSE
+            COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+            _PRINTSTRING (x + 1 + thumbIdx, y), CHR$(219)
+        END IF
+    ELSE
+        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+        _PRINTSTRING (x + 1 + thumbIdx, y), CHR$(176)
+    END IF
+
+    ' 4. Unfilled track portion (columns thumbIdx + 1 to innerW - 1)
+    DIM remChars AS LONG: remChars = (innerW - 1) - thumbIdx
+    IF remChars > 0 THEN
+        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+        _PRINTSTRING (x + 1 + thumbIdx + 1, y), STRING$(remChars, CHR$(176))
+    END IF
+
+    ' 5. Right vertical edge cap (sunken trough highlight)
+    IF isFocused _ANDALSO __TUI.hasNavFocus THEN
+        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
+        _PRINTSTRING (x + w - 1, y), CHR$(186)
+    ELSEIF isHovered _ORELSE __TUI.activeId = thisId THEN
+        COLOR TUI_COLOR_CYAN, TUI_COLOR_BLACK
+        _PRINTSTRING (x + w - 1, y), CHR$(179)
+    ELSE
+        COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+        _PRINTSTRING (x + w - 1, y), CHR$(179)
+    END IF
 
     TUI_ProgressBar = targetVal
 END FUNCTION
