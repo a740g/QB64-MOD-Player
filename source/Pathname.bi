@@ -6,6 +6,7 @@
 $INCLUDEONCE
 
 '$INCLUDE:'Asc.bi'
+'$INCLUDE:'String.bi'
 
 CONST PATHNAME_DIR_SEPARATOR_CODE_WIN~%% = _ASC_BACKSLASH
 CONST PATHNAME_DIR_SEPARATOR_CODE_NIX~%% = _ASC_FORWARDSLASH
@@ -273,4 +274,124 @@ FUNCTION Pathname_Sanitize$ (fileName AS STRING)
 
         Pathname_Sanitize = s
     END IF
+END FUNCTION
+
+''' @brief Recursively builds a list of files matching a delimited set of extensions.
+''' @param rootDir Root directory to scan.
+''' @param extensions A '|' delimited list of file extensions (e.g. "*.mod|*.s3m|*.xm", ".txt|.doc", or empty / "*.*" for all files). Matching is case-sensitive.
+''' @param fileList() Dynamic string array that receives the matching file paths. The caller's lower bound is preserved.
+''' @return Number of matching files found.
+FUNCTION Pathname_BuildFileList~& (rootDir AS STRING, extensions AS STRING, fileList() AS STRING)
+    DIM baseIndex AS LONG: baseIndex = LBOUND(fileList)
+    REDIM fileList(baseIndex TO baseIndex) AS STRING
+    fileList(baseIndex) = _STR_EMPTY
+
+    DIM rDir AS STRING: rDir = _IIF(LEN(rootDir) = 0, PATHNAME_DIR_CURRENT, rootDir)
+    IF NOT _DIREXISTS(rDir) THEN EXIT FUNCTION
+
+    DIM __rootDir AS STRING: __rootDir = Pathname_AddDirectorySeparator(rDir)
+
+    ' Pre-normalize extensions: tokenize by '|' and ensure leading dot
+    DIM hasFilter AS _BYTE: hasFilter = _FALSE
+    DIM extCount AS LONG: extCount = 0
+
+    IF LEN(extensions) > 0 THEN
+        REDIM rawTokens(0 TO 0) AS STRING
+        DIM numTokens AS LONG
+        numTokens = String_Tokenize(extensions, "|", _STR_EMPTY, _FALSE, rawTokens())
+
+        IF numTokens > 0 THEN
+            REDIM normExt(1 TO numTokens) AS STRING
+            DIM tIdx AS LONG
+            FOR tIdx = LBOUND(rawTokens) TO UBOUND(rawTokens)
+                DIM tok AS STRING: tok = _TRIM$(rawTokens(tIdx))
+                ' Strip leading '*' wildcard
+                IF LEFT$(tok, 1) = _CHR_ASTERISK THEN
+                    tok = MID$(tok, 2)
+                END IF
+                ' If token is "*", "*.*", ".*", or empty, treat as wildcard match-all
+                IF tok = _STR_EMPTY _ORELSE tok = _CHR_ASTERISK _ORELSE tok = _CHR_FULLSTOP _ORELSE tok = ".*" THEN
+                    hasFilter = _FALSE
+                    extCount = 0
+                    EXIT FOR
+                END IF
+                ' Ensure leading dot
+                IF LEFT$(tok, 1) <> _CHR_FULLSTOP THEN
+                    tok = _CHR_FULLSTOP + tok
+                END IF
+                extCount = extCount + 1
+                normExt(extCount) = tok
+            NEXT tIdx
+            IF extCount > 0 THEN hasFilter = _TRUE
+        END IF
+    END IF
+
+    ' Directory traversal stack with exponential capacity doubling
+    DIM dirCapacity AS LONG: dirCapacity = 32
+    REDIM dirStack(1 TO dirCapacity) AS STRING
+    DIM dirStackCount AS LONG: dirStackCount = 1
+    dirStack(1) = __rootDir
+
+    ' Result array with exponential capacity doubling
+    DIM fileCapacity AS LONG: fileCapacity = 64
+    REDIM fileList(baseIndex TO baseIndex + fileCapacity - 1) AS STRING
+    DIM fileCount AS _UNSIGNED LONG: fileCount = 0
+
+    WHILE dirStackCount > 0
+        DIM directory AS STRING: directory = dirStack(dirStackCount)
+        dirStackCount = dirStackCount - 1
+
+        DIM entry AS STRING: entry = _FILES$(directory)
+
+        DO WHILE LEN(entry) > 0
+            DIM lastChar AS STRING: lastChar = RIGHT$(entry, 1)
+            DIM isDir AS _BYTE
+            isDir = (lastChar = PATHNAME_DIR_SEPARATOR_WIN _ORELSE lastChar = PATHNAME_DIR_SEPARATOR_NIX)
+
+            IF isDir THEN
+                IF entry <> ".\" _ANDALSO entry <> "..\" _ANDALSO entry <> "./" _ANDALSO entry <> "../" THEN
+                    dirStackCount = dirStackCount + 1
+                    IF dirStackCount > dirCapacity THEN
+                        dirCapacity = dirCapacity * 2
+                        REDIM _PRESERVE dirStack(1 TO dirCapacity) AS STRING
+                    END IF
+                    dirStack(dirStackCount) = directory + entry
+                END IF
+            ELSE
+                DIM matched AS _BYTE: matched = _FALSE
+                IF hasFilter THEN
+                    DIM fileExt AS STRING: fileExt = Pathname_GetFileExtension(entry)
+                    DIM eIdx AS LONG
+                    FOR eIdx = 1 TO extCount
+                        IF fileExt = normExt(eIdx) THEN
+                            matched = _TRUE
+                            EXIT FOR
+                        END IF
+                    NEXT eIdx
+                ELSE
+                    matched = _TRUE
+                END IF
+
+                IF matched THEN
+                    IF fileCount >= fileCapacity THEN
+                        fileCapacity = fileCapacity * 2
+                        REDIM _PRESERVE fileList(baseIndex TO baseIndex + fileCapacity - 1) AS STRING
+                    END IF
+                    fileList(baseIndex + fileCount) = directory + entry
+                    fileCount = fileCount + 1
+                END IF
+            END IF
+
+            entry = _FILES$
+        LOOP
+    WEND
+
+    IF fileCount > 0 THEN
+        REDIM _PRESERVE fileList(baseIndex TO baseIndex + fileCount - 1) AS STRING
+    ELSE
+        REDIM fileList(baseIndex TO baseIndex) AS STRING
+        fileList(baseIndex) = _STR_EMPTY
+    END IF
+
+    Pathname_BuildFileList = fileCount
 END FUNCTION

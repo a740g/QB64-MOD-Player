@@ -45,6 +45,7 @@ $COLOR:0
 CONST APP_NAME = "QB64 MOD Player"
 CONST APP_FRAME_RATE& = 60&
 CONST APP_VOLUME_STEP! = 0.02!
+CONST APP_TRACKER_FILE_PATTERNS = "*.mod|*.MOD|*.Mod|*.mtm|*.MTM|*.Mtm|*.s3m|*.S3M|*.S3m|*.far|*.FAR|*.Far|*.stm|*.STM|*.Stm|*.669|*.rad|*.RAD|*.Rad|*.ult|*.ULT|*.Ult|*.mdl|*.MDL|*.Mdl|*.amf|*.AMF|*.Amf|*.stk|*.STK|*.Stk|*.m15|*.M15"
 
 ' Global state variables
 DIM GlobalPlaylist AS Playlist
@@ -229,35 +230,22 @@ SUB App_HandleFKey (k AS INTEGER)
     END SELECT
 END SUB
 
-''' @brief Scans a directory for supported tracker files and adds them to the playlist.
+''' @brief Recursively scans a directory for supported tracker files and adds them to the playlist.
 ''' @param folderPath Path to folder.
 SUB App_AddFolderToPlaylist (folderPath AS STRING)
     SHARED GlobalPlaylist AS Playlist
     IF NOT _DIREXISTS(folderPath) THEN EXIT SUB
 
-    DIM sepFolder AS STRING: sepFolder = Pathname_AddDirectorySeparator(folderPath)
-    DIM patterns(1 TO 10) AS STRING
-    patterns(1) = "*.mod"
-    patterns(2) = "*.s3m"
-    patterns(3) = "*.mtm"
-    patterns(4) = "*.far"
-    patterns(5) = "*.stm"
-    patterns(6) = "*.669"
-    patterns(7) = "*.rad"
-    patterns(8) = "*.ult"
-    patterns(9) = "*.mdl"
-    patterns(10) = "*.amf"
+    REDIM matchedFiles(0 TO 0) AS STRING
+    DIM count AS _UNSIGNED LONG
+    count = Pathname_BuildFileList(folderPath, APP_TRACKER_FILE_PATTERNS, matchedFiles())
 
-    DIM p AS LONG
-    FOR p = 1 TO 10
-        DIM fName AS STRING: fName = _FILES$(sepFolder + patterns(p))
-        DO WHILE LEN(fName) > 0
-            IF RIGHT$(fName, 1) <> PATHNAME_DIR_SEPARATOR_WIN _ANDALSO RIGHT$(fName, 1) <> PATHNAME_DIR_SEPARATOR_NIX THEN
-                Playlist_Add GlobalPlaylist, sepFolder + fName, "", 0#
-            END IF
-            fName = _FILES$
-        LOOP
-    NEXT p
+    IF count > 0 THEN
+        DIM i AS _UNSIGNED LONG
+        FOR i = 0 TO count - 1
+            Playlist_Add GlobalPlaylist, matchedFiles(i), "", 0#
+        NEXT i
+    END IF
 END SUB
 
 ''' @brief Displays native file open dialog and queues/plays selected files.
@@ -266,7 +254,7 @@ SUB App_OpenFileDialog
     SHARED Player AS MODPlayer
 
     DIM ofdList AS STRING
-    ofdList = _OPENFILEDIALOG$(APP_NAME, , "*.mod|*.MOD|*.Mod|*.mtm|*.MTM|*.Mtm|*.s3m|*.S3M|*.S3m|*.far|*.FAR|*.Far|*.stm|*.STM|*.Stm|*.669|*.rad|*.RAD|*.Rad|*.ult|*.ULT|*.Ult|*.mdl|*.MDL|*.Mdl|*.amf|*.AMF|*.Amf|*.stk|*.STK|*.Stk|*.m15|*.M15|*.M15", "Music Tracker Files", _TRUE)
+    ofdList = _OPENFILEDIALOG$(APP_NAME, , APP_TRACKER_FILE_PATTERNS, "Music Tracker Files", _TRUE)
     IF LEN(ofdList) = 0 THEN EXIT SUB
 
     REDIM fileNames(0 TO 0) AS STRING

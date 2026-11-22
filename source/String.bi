@@ -41,14 +41,19 @@ END FUNCTION
 ''' @param delims A string containing delimiter characters.
 ''' @param quoteChars A string containing opening and closing quote characters (or empty).
 ''' @param returnDelims If _TRUE, delimiters are also returned as elements in the tokens array.
-''' @param tokens() Dynamic string array that receives the parsed tokens.
+''' @param tokens() Dynamic string array that receives the parsed tokens. The caller's lower bound is preserved.
 ''' @return The number of tokens parsed.
 FUNCTION String_Tokenize& (text AS STRING, delims AS STRING, quoteChars AS STRING, returnDelims AS _BYTE, tokens() AS STRING)
+    DIM baseIndex AS LONG: baseIndex = LBOUND(tokens)
+    REDIM tokens(baseIndex TO baseIndex) AS STRING
+    tokens(baseIndex) = _STR_EMPTY
+
     DIM textLen AS LONG: textLen = LEN(text)
     IF textLen = 0 THEN EXIT FUNCTION ' nothing to be done
 
-    DIM arrIdx AS LONG: arrIdx = LBOUND(tokens) ' we'll always start from the array lower bound - whatever it is
-    IF UBOUND(tokens) < arrIdx THEN REDIM _PRESERVE tokens(arrIdx TO arrIdx + 511) AS STRING
+    DIM arrCapacity AS LONG: arrCapacity = 64
+    REDIM tokens(baseIndex TO baseIndex + arrCapacity - 1) AS STRING
+    DIM arrIdx AS LONG: arrIdx = baseIndex
 
     DIM hasQuotes AS _BYTE: hasQuotes = (LEN(quoteChars) > 0)
     DIM openQuote AS _UNSIGNED _BYTE, closeQuote AS _UNSIGNED _BYTE
@@ -99,7 +104,12 @@ FUNCTION String_Tokenize& (text AS STRING, delims AS STRING, quoteChars AS STRIN
 
     GOSUB add_token ' add the final token if there is any
 
-    IF count THEN REDIM _PRESERVE tokens(LBOUND(tokens) TO arrIdx - 1) AS STRING ' resize the array to the exact size
+    IF count > 0 THEN
+        REDIM _PRESERVE tokens(baseIndex TO baseIndex + count - 1) AS STRING ' resize the array to the exact size
+    ELSE
+        REDIM tokens(baseIndex TO baseIndex) AS STRING
+        tokens(baseIndex) = _STR_EMPTY
+    END IF
 
     String_Tokenize = count
 
@@ -125,6 +135,9 @@ FUNCTION String_Tokenize& (text AS STRING, delims AS STRING, quoteChars AS STRIN
     increment_counters_and_resize_array:
     count = count + 1 ' increment the token count
     arrIdx = arrIdx + 1 ' move to next position
-    IF arrIdx > UBOUND(tokens) THEN REDIM _PRESERVE tokens(LBOUND(tokens) TO UBOUND(tokens) + 512) AS STRING ' resize in 512 chunks
+    IF arrIdx > UBOUND(tokens) THEN
+        arrCapacity = arrCapacity * 2
+        REDIM _PRESERVE tokens(baseIndex TO baseIndex + arrCapacity - 1) AS STRING
+    END IF
     RETURN
 END FUNCTION

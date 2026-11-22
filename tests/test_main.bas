@@ -378,6 +378,44 @@ SUB Test_String
     ' Empty string
     tokCount = String_Tokenize(_STR_EMPTY, ",", _STR_EMPTY, _FALSE, tokens())
     TEST_CHECK tokCount = 0, "Empty string returns 0 tokens"
+    TEST_CHECK LBOUND(tokens) = 0, "Empty string preserves LBOUND = 0"
+    TEST_CHECK UBOUND(tokens) = 0, "Empty string sets UBOUND = 0"
+    TEST_CHECK tokens(0) = _STR_EMPTY, "Empty string element 0 is empty"
+
+    ' User LBOUND preservation (base-1 array)
+    REDIM base1Tokens(1 TO 1) AS STRING
+    tokCount = String_Tokenize("alpha|beta|gamma", "|", _STR_EMPTY, _FALSE, base1Tokens())
+    TEST_CHECK tokCount = 3, "Token count is 3 for base-1 array"
+    TEST_CHECK LBOUND(base1Tokens) = 1, "base-1 array preserves LBOUND = 1"
+    TEST_CHECK UBOUND(base1Tokens) = 3, "base-1 array sets UBOUND = 3"
+    TEST_CHECK base1Tokens(1) = "alpha", "Token 1 is 'alpha'"
+    TEST_CHECK base1Tokens(2) = "beta", "Token 2 is 'beta'"
+    TEST_CHECK base1Tokens(3) = "gamma", "Token 3 is 'gamma'"
+
+    ' User LBOUND preservation (base-10 array)
+    REDIM base10Tokens(10 TO 10) AS STRING
+    tokCount = String_Tokenize("cat,dog", ",", _STR_EMPTY, _FALSE, base10Tokens())
+    TEST_CHECK tokCount = 2, "Token count is 2 for base-10 array"
+    TEST_CHECK LBOUND(base10Tokens) = 10, "base-10 array preserves LBOUND = 10"
+    TEST_CHECK UBOUND(base10Tokens) = 11, "base-10 array sets UBOUND = 11"
+    TEST_CHECK base10Tokens(10) = "cat", "Token 10 is 'cat'"
+    TEST_CHECK base10Tokens(11) = "dog", "Token 11 is 'dog'"
+
+    ' User LBOUND preservation on empty string
+    REDIM emptyCustom(5 TO 5) AS STRING
+    tokCount = String_Tokenize(_STR_EMPTY, ",", _STR_EMPTY, _FALSE, emptyCustom())
+    TEST_CHECK tokCount = 0, "Empty string returns 0 tokens with base-5 array"
+    TEST_CHECK LBOUND(emptyCustom) = 5, "base-5 array preserves LBOUND = 5 on empty string"
+    TEST_CHECK UBOUND(emptyCustom) = 5, "base-5 array sets UBOUND = 5 on empty string"
+    TEST_CHECK emptyCustom(5) = _STR_EMPTY, "base-5 array element is empty"
+
+    ' User LBOUND preservation on delimiter-only string (0 tokens returned)
+    REDIM delimCustom(3 TO 3) AS STRING
+    tokCount = String_Tokenize(",,,", ",", _STR_EMPTY, _FALSE, delimCustom())
+    TEST_CHECK tokCount = 0, "Delimiter-only string returns 0 tokens"
+    TEST_CHECK LBOUND(delimCustom) = 3, "base-3 array preserves LBOUND = 3 on 0 tokens"
+    TEST_CHECK UBOUND(delimCustom) = 3, "base-3 array sets UBOUND = 3 on 0 tokens"
+    TEST_CHECK delimCustom(3) = _STR_EMPTY, "base-3 array element is empty"
     TEST_CASE_END
 END SUB
 
@@ -4100,6 +4138,69 @@ SUB Test_Playlist
     TEST_CASE_END
 END SUB
 
+''' @brief Tests for Pathname.bi and recursive directory scanning.
+SUB Test_Pathname
+    TEST_CASE_BEGIN "Pathname: BuildFileList with specific extensions"
+    REDIM testFiles(0 TO 0) AS STRING
+    DIM count AS _UNSIGNED LONG
+    count = Pathname_BuildFileList("mods/Aladdin", "*.amf", testFiles())
+    TEST_CHECK count = 2, "Found 2 AMF files in mods/Aladdin"
+    TEST_CHECK UBOUND(testFiles) = 1, "UBOUND is 1 for 2 files starting at base index 0"
+    TEST_CHECK LBOUND(testFiles) = 0, "Base index 0 preserved"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Pathname: BuildFileList recursive subdirectories"
+    ' mods/ contains multiple subdirectories with .amf files (Aladdin, etc.)
+    count = Pathname_BuildFileList("mods", "*.amf", testFiles())
+    TEST_CHECK count >= 2, "Recursively found at least 2 AMF files across mods directory tree"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Pathname: BuildFileList pipe-delimited list, case sensitivity and dot handling"
+    REDIM filesUpper(0 TO 0) AS STRING
+    DIM countUpper AS _UNSIGNED LONG
+    countUpper = Pathname_BuildFileList("mods/Aladdin", "*.AMF|*.mod", filesUpper())
+    TEST_CHECK countUpper = 0, "Case-sensitive matching does not match lowercase .amf when only *.AMF specified"
+
+    REDIM filesBoth(0 TO 0) AS STRING
+    DIM countBoth AS _UNSIGNED LONG
+    countBoth = Pathname_BuildFileList("mods/Aladdin", "*.AMF|*.amf|*.mod", filesBoth())
+    TEST_CHECK countBoth = 2, "Matches *.amf when both uppercase and lowercase variants provided in list"
+
+    REDIM filesNoDot(0 TO 0) AS STRING
+    DIM countNoDot AS _UNSIGNED LONG
+    countNoDot = Pathname_BuildFileList("mods/Aladdin", "amf | s3m", filesNoDot())
+    TEST_CHECK countNoDot = 2, "Matches extension without leading dot and with spaces"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Pathname: BuildFileList non-existent directory"
+    REDIM filesFail(0 TO 0) AS STRING
+    DIM countFail AS _UNSIGNED LONG
+    countFail = Pathname_BuildFileList("this_path_does_not_exist_xyz", "*.amf", filesFail())
+    TEST_CHECK countFail = 0, "Returns 0 files for non-existent directory"
+    TEST_CHECK filesFail(0) = "", "Returns empty fileList"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Pathname: BuildFileList preserves non-zero base index"
+    REDIM files1(1 TO 1) AS STRING
+    DIM count1 AS _UNSIGNED LONG
+    count1 = Pathname_BuildFileList("mods/Aladdin", "*.amf", files1())
+    TEST_CHECK count1 = 2, "Found 2 files"
+    TEST_CHECK LBOUND(files1) = 1, "Base index 1 preserved"
+    TEST_CHECK UBOUND(files1) = 2, "UBOUND is 2 for 2 files starting at base index 1"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "Pathname: BuildFileList empty / wildcard filter matches all"
+    REDIM filesAll(0 TO 0) AS STRING
+    DIM countAll AS _UNSIGNED LONG
+    countAll = Pathname_BuildFileList("mods/Aladdin", "*.*", filesAll())
+    TEST_CHECK countAll = 2, "Wildcard *.* matches all files"
+
+    DIM countEmpty AS _UNSIGNED LONG
+    countEmpty = Pathname_BuildFileList("mods/Aladdin", "", filesAll())
+    TEST_CHECK countEmpty = 2, "Empty filter matches all files"
+    TEST_CASE_END
+END SUB
+
 IF _DIREXISTS("../mods") THEN CHDIR ".."
 
 ' Run all test suites
@@ -4157,5 +4258,6 @@ Test_MODPlayer_Errors
 Test_MODPlayer_ChannelMuteSolo
 Test_TUI
 Test_Playlist
+Test_Pathname
 
 TEST_END_ALL
