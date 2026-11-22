@@ -659,6 +659,7 @@ DO
             END IF
     END SELECT
 
+    COLOR White, Black ' This is needed so that the softkey labels are drawn in white on black and do not inherit the last color set by the view renderers
     _DISPLAY
     _LIMIT APP_FRAME_RATE
 LOOP

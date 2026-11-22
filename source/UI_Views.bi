@@ -363,8 +363,10 @@ FUNCTION UI_DrawFooter% (player AS MODPlayer)
     SHARED __TUI AS __TUI_Context
     UI_DrawFooter = 0
 
-    ' Row 89: Mini VU Meter Ribbon across all song channels
-    COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+    ' Row 89: Mini VU Meter Ribbon across all song channels (full-width Dark Gray ribbon)
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_GRAY
+    _PRINTSTRING (1, 89), SPACE$(UI_SCREEN_WIDTH)
+    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_GRAY
     _PRINTSTRING (2, 89), "CH:"
 
     DIM maxChans AS LONG: maxChans = _IIF(player.song.isPlaying, player.song.channels, 0)
@@ -381,11 +383,11 @@ FUNCTION UI_DrawFooter% (player AS MODPlayer)
 
         ' Channel number badge
         IF isMuted THEN
-            COLOR TUI_COLOR_LIGHT_RED, TUI_COLOR_BLACK
+            COLOR TUI_COLOR_LIGHT_RED, TUI_COLOR_GRAY
         ELSEIF isSoloed THEN
-            COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
+            COLOR TUI_COLOR_YELLOW, TUI_COLOR_GRAY
         ELSE
-            COLOR TUI_COLOR_CYAN, TUI_COLOR_BLACK
+            COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_GRAY
         END IF
 
         DIM chStr AS STRING: chStr = _TRIM$(STR$(c + 1))
@@ -394,19 +396,19 @@ FUNCTION UI_DrawFooter% (player AS MODPlayer)
 
         ' 1-character mini activity indicator
         IF isMuted THEN
-            COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+            COLOR TUI_COLOR_LIGHT_RED, TUI_COLOR_GRAY
             _PRINTSTRING (chX + 2, 89), "x"
         ELSEIF vVol > 0.65! THEN
-            COLOR TUI_COLOR_LIGHT_RED, TUI_COLOR_BLACK
+            COLOR TUI_COLOR_LIGHT_RED, TUI_COLOR_GRAY
             _PRINTSTRING (chX + 2, 89), __UI_GLYPH_SOLID
         ELSEIF vVol > 0.25! THEN
-            COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
+            COLOR TUI_COLOR_YELLOW, TUI_COLOR_GRAY
             _PRINTSTRING (chX + 2, 89), __UI_GLYPH_HALF_BLOCK
         ELSEIF vVol > 0.05! THEN
-            COLOR TUI_COLOR_LIGHT_GREEN, TUI_COLOR_BLACK
+            COLOR TUI_COLOR_LIGHT_GREEN, TUI_COLOR_GRAY
             _PRINTSTRING (chX + 2, 89), __UI_GLYPH_INACTIVE_DOT
         ELSE
-            COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+            COLOR TUI_COLOR_BLACK, TUI_COLOR_GRAY
             _PRINTSTRING (chX + 2, 89), " "
         END IF
     NEXT c
