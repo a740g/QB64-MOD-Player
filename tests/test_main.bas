@@ -3292,6 +3292,13 @@ SUB Test_Background
     TEST_CHECK bg.grid.stars(1).x > 0! AND bg.grid.stars(1).y > 0!, "Cyber Grid star 1 coordinates initialized"
     TEST_CASE_END
 
+    TEST_CASE_BEGIN "Background: Fishtank initialization"
+    TEST_CHECK bg.fishtank.fishCount = __BACKGROUND_FISH_COUNT, "Fishtank fish count allocated"
+    TEST_CHECK bg.fishtank.kelpCount = __BACKGROUND_KELP_COUNT, "Fishtank kelp stalk count allocated"
+    TEST_CHECK bg.fishtank.bubbleCount = __BACKGROUND_BUBBLE_COUNT, "Fishtank bubble count allocated"
+    TEST_CHECK bg.fishtank.fish(1).x > 0!, "Fish 1 coordinates initialized"
+    TEST_CASE_END
+
     TEST_CASE_BEGIN "Background: Configurable Viewport via Background_InitializeEx"
     DIM customVp AS Bounds2f
     Bounds2f_Initialize 10!, 12!, 90!, 50!, customVp

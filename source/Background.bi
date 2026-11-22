@@ -22,14 +22,18 @@ CONST BACKGROUND_MODE_PLASMA& = 5&
 CONST BACKGROUND_MODE_BALLS& = 6&
 CONST BACKGROUND_MODE_MATRIX& = 7&
 CONST BACKGROUND_MODE_GRID& = 8&
+CONST BACKGROUND_MODE_FISHTANK& = 9&
 CONST BACKGROUND_MODE_FIRST& = BACKGROUND_MODE_STARS
-CONST BACKGROUND_MODE_LAST& = BACKGROUND_MODE_GRID&
+CONST BACKGROUND_MODE_LAST& = BACKGROUND_MODE_FISHTANK&
 
 CONST __BACKGROUND_STAR_COUNT& = 256& ' default maximum stars
 CONST __BACKGROUND_SNAKE_COUNT& = 48& ' default maximum snakes
 CONST __BACKGROUND_FIREWORK_ROCKETS& = 6& ' simultaneous firework rockets
 CONST __BACKGROUND_FIREWORK_PARTICLES& = 192& ' total firework particle pool (32 per rocket)
 CONST __BACKGROUND_BALL_COUNT& = 20& ' bouncing kinetic balls
+CONST __BACKGROUND_FISH_COUNT& = 24& ' swimming aquarium fish
+CONST __BACKGROUND_KELP_COUNT& = 18& ' swaying kelp stalks
+CONST __BACKGROUND_BUBBLE_COUNT& = 28& ' rising aeration bubbles
 
 ' Standard 16-color CGA/VGA palette constants for background routines
 CONST __BG_COLOR_BLACK% = 0%
@@ -173,6 +177,50 @@ TYPE __Background_Grid
     starBlink(1 TO 32) AS SINGLE
 END TYPE
 
+TYPE __Background_Fish
+    x AS SINGLE
+    y AS SINGLE
+    baseY AS SINGLE
+    dx AS SINGLE
+    swimPhase AS SINGLE
+    swimSpeed AS SINGLE
+    species AS LONG
+    bodyLen AS LONG
+    cHead AS _UNSIGNED LONG
+    cBody AS _UNSIGNED LONG
+    cTail AS _UNSIGNED LONG
+    layer AS LONG
+END TYPE
+
+TYPE __Background_KelpStalk
+    rootX AS LONG
+    height AS LONG
+    swayPhase AS SINGLE
+    swayFlex AS SINGLE
+    layer AS LONG
+END TYPE
+
+TYPE __Background_Bubble
+    x AS SINGLE
+    y AS SINGLE
+    baseX AS SINGLE
+    speed AS SINGLE
+    wobblePhase AS SINGLE
+    active AS _BYTE
+END TYPE
+
+TYPE __Background_Fishtank
+    fish(1 TO __BACKGROUND_FISH_COUNT) AS __Background_Fish
+    kelp(1 TO __BACKGROUND_KELP_COUNT) AS __Background_KelpStalk
+    bubbles(1 TO __BACKGROUND_BUBBLE_COUNT) AS __Background_Bubble
+    waterPhase AS SINGLE
+    crabX AS SINGLE
+    crabDir AS SINGLE
+    fishCount AS LONG
+    kelpCount AS LONG
+    bubbleCount AS LONG
+END TYPE
+
 TYPE Background
     starfield AS __Background_Starfield
     snakes AS __Background_Snakes
@@ -182,6 +230,7 @@ TYPE Background
     balls AS __Background_Balls
     matrix AS __Background_Matrix
     grid AS __Background_Grid
+    fishtank AS __Background_Fishtank
     mode AS LONG
     viewport AS Bounds2f
     size AS Vector2f
@@ -1524,6 +1573,449 @@ SUB __Background_UpdateAndDrawGrid (ctx AS Background)
     NEXT gy
 END SUB
 
+''' @brief Initializes fish, swaying kelp, aeration bubbles, and seabed for aquarium simulation.
+''' @param ctx Background context to initialize.
+SUB __Background_InitializeFishtank (ctx AS Background)
+    ctx.fishtank.fishCount = __BACKGROUND_FISH_COUNT
+    ctx.fishtank.kelpCount = __BACKGROUND_KELP_COUNT
+    ctx.fishtank.bubbleCount = __BACKGROUND_BUBBLE_COUNT
+    ctx.fishtank.waterPhase = 0!
+
+    DIM minX AS LONG: minX = CLNG(ctx.viewport.lt.x)
+    DIM maxX AS LONG: maxX = CLNG(ctx.viewport.rb.x)
+    DIM minY AS LONG: minY = CLNG(ctx.viewport.lt.y)
+    DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
+    DIM W AS LONG: W = CLNG(ctx.size.x)
+    DIM H AS LONG: H = CLNG(ctx.size.y)
+    DIM centerX AS LONG: centerX = (minX + maxX) \ 2
+
+    ctx.fishtank.crabX = CSNG(centerX)
+    ctx.fishtank.crabDir = 0.12!
+
+    ' Initialize Fish species, colors, layers, and swimming lanes
+    DIM i AS LONG
+    FOR i = 1 TO __BACKGROUND_FISH_COUNT
+        ctx.fishtank.fish(i).x = CSNG(Math_GetRandomBetween(minX + 4, maxX - 4))
+        ctx.fishtank.fish(i).baseY = CSNG(Math_GetRandomBetween(minY + 3, _MAX(minY + 3, maxY - 4)))
+        ctx.fishtank.fish(i).y = ctx.fishtank.fish(i).baseY
+        ctx.fishtank.fish(i).swimPhase = RND * 6.2831853!
+        ctx.fishtank.fish(i).swimSpeed = 0.10! + RND * 0.08!
+        ctx.fishtank.fish(i).species = (i - 1) MOD 4
+        ctx.fishtank.fish(i).layer = (i - 1) MOD 3 ' 0 = deep background, 1 = midground, 2 = foreground
+
+        ' Horizontal speed and orientation
+        DIM spd AS SINGLE: spd = 0.28! + RND * 0.35!
+        IF ctx.fishtank.fish(i).layer = 0 THEN spd = spd * 0.65!
+        IF ctx.fishtank.fish(i).layer = 2 THEN spd = spd * 1.35!
+
+        IF RND > 0.5! THEN
+            ctx.fishtank.fish(i).dx = -spd
+        ELSE
+            ctx.fishtank.fish(i).dx = spd
+        END IF
+
+        ' Species-specific body length and vibrant colors
+        SELECT CASE ctx.fishtank.fish(i).species
+            CASE 0 ' Neon Tetra (electric cyan head, neon red body, bright white tail)
+                ctx.fishtank.fish(i).bodyLen = 2
+                IF ctx.fishtank.fish(i).layer = 0 THEN
+                    ctx.fishtank.fish(i).cHead = __BG_COLOR_CYAN
+                    ctx.fishtank.fish(i).cBody = __BG_COLOR_RED
+                    ctx.fishtank.fish(i).cTail = __BG_COLOR_GRAY
+                ELSE
+                    ctx.fishtank.fish(i).cHead = __BG_COLOR_LIGHT_CYAN
+                    ctx.fishtank.fish(i).cBody = __BG_COLOR_LIGHT_RED
+                    ctx.fishtank.fish(i).cTail = __BG_COLOR_BRIGHT_WHITE
+                END IF
+
+            CASE 1 ' Clownfish (gold/orange with white stripes)
+                ctx.fishtank.fish(i).bodyLen = 3
+                IF ctx.fishtank.fish(i).layer = 0 THEN
+                    ctx.fishtank.fish(i).cHead = __BG_COLOR_BROWN
+                    ctx.fishtank.fish(i).cBody = __BG_COLOR_RED
+                    ctx.fishtank.fish(i).cTail = __BG_COLOR_BROWN
+                ELSE
+                    ctx.fishtank.fish(i).cHead = __BG_COLOR_YELLOW
+                    ctx.fishtank.fish(i).cBody = __BG_COLOR_LIGHT_RED
+                    ctx.fishtank.fish(i).cTail = __BG_COLOR_YELLOW
+                END IF
+
+            CASE 2 ' Angelfish (diamond shaped, majestic gold/cyan)
+                ctx.fishtank.fish(i).bodyLen = 3
+                IF ctx.fishtank.fish(i).layer = 0 THEN
+                    ctx.fishtank.fish(i).cHead = __BG_COLOR_GRAY
+                    ctx.fishtank.fish(i).cBody = __BG_COLOR_BROWN
+                    ctx.fishtank.fish(i).cTail = __BG_COLOR_GRAY
+                ELSE
+                    ctx.fishtank.fish(i).cHead = __BG_COLOR_BRIGHT_WHITE
+                    ctx.fishtank.fish(i).cBody = __BG_COLOR_YELLOW
+                    ctx.fishtank.fish(i).cTail = __BG_COLOR_LIGHT_CYAN
+                END IF
+
+            CASE ELSE ' Silver Guppy (quick minnows)
+                ctx.fishtank.fish(i).bodyLen = 1
+                IF ctx.fishtank.fish(i).layer = 0 THEN
+                    ctx.fishtank.fish(i).cHead = __BG_COLOR_GRAY
+                    ctx.fishtank.fish(i).cBody = __BG_COLOR_BLUE
+                    ctx.fishtank.fish(i).cTail = __BG_COLOR_GRAY
+                ELSE
+                    ctx.fishtank.fish(i).cHead = __BG_COLOR_BRIGHT_WHITE
+                    ctx.fishtank.fish(i).cBody = __BG_COLOR_LIGHT_CYAN
+                    ctx.fishtank.fish(i).cTail = __BG_COLOR_WHITE
+                END IF
+        END SELECT
+    NEXT i
+
+    ' Initialize Swaying Kelp Forest
+    DIM k AS LONG
+    FOR k = 1 TO __BACKGROUND_KELP_COUNT
+        ctx.fishtank.kelp(k).rootX = minX + CLNG((CSNG(k) - 0.5!) * (CSNG(W) / CSNG(__BACKGROUND_KELP_COUNT))) + Math_GetRandomBetween(-2, 2)
+        ctx.fishtank.kelp(k).rootX = _CLAMP(ctx.fishtank.kelp(k).rootX, minX + 2, maxX - 2)
+        ctx.fishtank.kelp(k).height = Math_GetRandomBetween(_MAX(10, H \ 3), _MAX(12, (H * 4) \ 5))
+        ctx.fishtank.kelp(k).swayPhase = RND * 6.2831853!
+        ctx.fishtank.kelp(k).swayFlex = 0.7! + RND * 0.6!
+        ctx.fishtank.kelp(k).layer = k MOD 2 ' 0 = background, 1 = foreground
+    NEXT k
+
+    ' Initialize Aeration Bubbles
+    DIM b AS LONG
+    FOR b = 1 TO __BACKGROUND_BUBBLE_COUNT
+        DIM emCol AS LONG
+        emCol = minX + CLNG((CSNG(b MOD 5) + 0.5!) * (CSNG(W) / 5.0!)) + Math_GetRandomBetween(-2, 2)
+        ctx.fishtank.bubbles(b).baseX = CSNG(_CLAMP(emCol, minX + 2, maxX - 2))
+        ctx.fishtank.bubbles(b).x = ctx.fishtank.bubbles(b).baseX
+        ctx.fishtank.bubbles(b).y = CSNG(maxY - 2 - Math_GetRandomBetween(0, _MAX(1, H - 4)))
+        ctx.fishtank.bubbles(b).speed = 0.35! + RND * 0.38!
+        ctx.fishtank.bubbles(b).wobblePhase = RND * 6.2831853!
+        ctx.fishtank.bubbles(b).active = _TRUE
+    NEXT b
+END SUB
+
+''' @brief Updates and renders living aquarium with fish species, swaying kelp, rising bubbles, and seabed.
+''' @param ctx Background context.
+SUB __Background_UpdateAndDrawFishtank (ctx AS Background)
+    DIM minX AS LONG: minX = CLNG(ctx.viewport.lt.x)
+    DIM maxX AS LONG: maxX = CLNG(ctx.viewport.rb.x)
+    DIM minY AS LONG: minY = CLNG(ctx.viewport.lt.y)
+    DIM maxY AS LONG: maxY = CLNG(ctx.viewport.rb.y)
+    DIM W AS LONG: W = CLNG(ctx.size.x)
+    DIM H AS LONG: H = CLNG(ctx.size.y)
+    IF W < 10 _ORELSE H < 8 THEN EXIT SUB
+
+    ' Advance fluid ocean current
+    ctx.fishtank.waterPhase = ctx.fishtank.waterPhase + 0.024!
+    IF ctx.fishtank.waterPhase > 6.2831853! THEN ctx.fishtank.waterPhase = ctx.fishtank.waterPhase - 6.2831853!
+
+    ' -------------------------------------------------------------
+    ' 1. Shimmering Water Surface at top of aquarium (minY)
+    ' -------------------------------------------------------------
+    DIM wx AS LONG
+    FOR wx = minX TO maxX
+        DIM waveVal AS SINGLE
+        waveVal = SIN(CSNG(wx) * 0.22! + ctx.fishtank.waterPhase * 2.2!)
+        DIM surfChar AS STRING, surfCol AS LONG
+        IF waveVal > 0.4! THEN
+            surfChar = "~": surfCol = __BG_COLOR_LIGHT_CYAN
+        ELSEIF waveVal > -0.3! THEN
+            surfChar = CHR$(247): surfCol = __BG_COLOR_CYAN
+        ELSE
+            surfChar = "-": surfCol = __BG_COLOR_BLUE
+        END IF
+        COLOR surfCol, __BG_COLOR_BLACK
+        _PRINTSTRING (wx, minY), surfChar
+    NEXT wx
+
+    DIM i AS LONG
+
+    ' --- Pass 1: Deep Background Fish (behind kelp) ---
+    FOR i = 1 TO ctx.fishtank.fishCount
+        IF ctx.fishtank.fish(i).layer = 0 THEN
+            ctx.fishtank.fish(i).x = ctx.fishtank.fish(i).x + ctx.fishtank.fish(i).dx
+            ctx.fishtank.fish(i).swimPhase = ctx.fishtank.fish(i).swimPhase + ctx.fishtank.fish(i).swimSpeed
+
+            ' Screen boundary wrapping
+            IF ctx.fishtank.fish(i).dx < 0! _ANDALSO ctx.fishtank.fish(i).x < CSNG(minX - 10) THEN
+                ctx.fishtank.fish(i).x = CSNG(maxX + 2)
+                ctx.fishtank.fish(i).baseY = CSNG(Math_GetRandomBetween(minY + 3, _MAX(minY + 3, maxY - 4)))
+            ELSEIF ctx.fishtank.fish(i).dx > 0! _ANDALSO ctx.fishtank.fish(i).x > CSNG(maxX + 10) THEN
+                ctx.fishtank.fish(i).x = CSNG(minX - 8)
+                ctx.fishtank.fish(i).baseY = CSNG(Math_GetRandomBetween(minY + 3, _MAX(minY + 3, maxY - 4)))
+            END IF
+
+            DIM py0 AS LONG: py0 = CLNG(ctx.fishtank.fish(i).baseY + SIN(ctx.fishtank.fish(i).swimPhase) * 0.7!)
+            DIM px0 AS LONG: px0 = CLNG(ctx.fishtank.fish(i).x)
+
+            ' Tail wagging animation frame
+            DIM tailWag0 AS LONG: tailWag0 = CLNG(ctx.fishtank.fish(i).swimPhase * 1.8!) MOD 2
+            DIM fStr0 AS STRING
+
+            IF ctx.fishtank.fish(i).dx < 0! THEN
+                IF tailWag0 = 0 THEN
+                    fStr0 = "<*)" + STRING$(ctx.fishtank.fish(i).bodyLen, ")") + ">{"
+                ELSE
+                    fStr0 = "<*)" + STRING$(ctx.fishtank.fish(i).bodyLen, ")") + ">~"
+                END IF
+            ELSE
+                IF tailWag0 = 0 THEN
+                    fStr0 = "}<" + STRING$(ctx.fishtank.fish(i).bodyLen, "(") + "(*>"
+                ELSE
+                    fStr0 = "~<" + STRING$(ctx.fishtank.fish(i).bodyLen, "(") + "(*>"
+                END IF
+            END IF
+
+            DIM cIdx0 AS LONG
+            FOR cIdx0 = 1 TO LEN(fStr0)
+                DIM drwX0 AS LONG: drwX0 = px0 + cIdx0 - 1
+                IF drwX0 >= minX _ANDALSO drwX0 <= maxX _ANDALSO py0 >= minY + 1 _ANDALSO py0 <= maxY - 2 THEN
+                    COLOR ctx.fishtank.fish(i).cBody, __BG_COLOR_BLACK
+                    _PRINTSTRING (drwX0, py0), MID$(fStr0, cIdx0, 1)
+                END IF
+            NEXT cIdx0
+        END IF
+    NEXT i
+
+    ' --- Pass 2: Swaying Kelp Forest ---
+    DIM k AS LONG
+    FOR k = 1 TO ctx.fishtank.kelpCount
+        DIM rootX AS LONG: rootX = ctx.fishtank.kelp(k).rootX
+        DIM kH AS LONG: kH = ctx.fishtank.kelp(k).height
+        DIM isFg AS _BYTE: isFg = (ctx.fishtank.kelp(k).layer = 1)
+
+        DIM j AS LONG
+        FOR j = 1 TO kH
+            DIM rowY AS LONG: rowY = maxY - 1 - j
+            IF rowY >= minY + 1 THEN
+                DIM hFrac AS SINGLE: hFrac = CSNG(j) / CSNG(kH)
+                DIM swayOffset AS SINGLE
+                swayOffset = SIN(ctx.fishtank.waterPhase + CSNG(j) * 0.14! + ctx.fishtank.kelp(k).swayPhase) * (hFrac * hFrac * ctx.fishtank.kelp(k).swayFlex * 4.5!)
+                DIM stemX AS LONG: stemX = rootX + CLNG(swayOffset)
+
+                IF stemX >= minX _ANDALSO stemX <= maxX THEN
+                    DIM kelpChar AS STRING, kelpCol AS LONG
+                    IF isFg THEN
+                        IF hFrac > 0.70! THEN
+                            kelpCol = __BG_COLOR_LIGHT_CYAN
+                        ELSE
+                            kelpCol = __BG_COLOR_LIGHT_GREEN
+                        END IF
+                    ELSE
+                        kelpCol = __BG_COLOR_GREEN
+                    END IF
+
+                    IF j = kH THEN
+                        kelpChar = "~"
+                    ELSEIF (j MOD 4 = 1) THEN
+                        kelpChar = "("
+                    ELSEIF (j MOD 4 = 3) THEN
+                        kelpChar = ")"
+                    ELSE
+                        kelpChar = "|"
+                    END IF
+
+                    COLOR kelpCol, __BG_COLOR_BLACK
+                    _PRINTSTRING (stemX, rowY), kelpChar
+                END IF
+            END IF
+        NEXT j
+    NEXT k
+
+    ' --- Pass 3: Rising Aeration Bubbles ---
+    DIM b AS LONG
+    FOR b = 1 TO ctx.fishtank.bubbleCount
+        ctx.fishtank.bubbles(b).y = ctx.fishtank.bubbles(b).y - ctx.fishtank.bubbles(b).speed
+        ctx.fishtank.bubbles(b).wobblePhase = ctx.fishtank.bubbles(b).wobblePhase + 0.15!
+        ctx.fishtank.bubbles(b).x = ctx.fishtank.bubbles(b).baseX + SIN(ctx.fishtank.bubbles(b).wobblePhase) * 1.3!
+
+        DIM bPX AS LONG: bPX = CLNG(ctx.fishtank.bubbles(b).x)
+        DIM bPY AS LONG: bPY = CLNG(ctx.fishtank.bubbles(b).y)
+
+        IF bPY <= minY + 1 THEN
+            ctx.fishtank.bubbles(b).y = CSNG(maxY - 2)
+            ctx.fishtank.bubbles(b).wobblePhase = RND * 6.2831853!
+        ELSEIF bPX >= minX _ANDALSO bPX <= maxX _ANDALSO bPY >= minY _ANDALSO bPY <= maxY - 2 THEN
+            DIM bubChar AS STRING, bubCol AS LONG
+            IF bPY > maxY - 15 THEN
+                bubChar = ".": bubCol = __BG_COLOR_LIGHT_CYAN
+            ELSEIF bPY > minY + 12 THEN
+                bubChar = CHR$(248): bubCol = __BG_COLOR_BRIGHT_WHITE
+            ELSE
+                bubChar = "o": bubCol = __BG_COLOR_BRIGHT_WHITE
+            END IF
+            COLOR bubCol, __BG_COLOR_BLACK
+            _PRINTSTRING (bPX, bPY), bubChar
+        END IF
+    NEXT b
+
+    ' --- Pass 4: Midground & Foreground Fish (in front of kelp!) ---
+    FOR i = 1 TO ctx.fishtank.fishCount
+        IF ctx.fishtank.fish(i).layer >= 1 THEN
+            ctx.fishtank.fish(i).x = ctx.fishtank.fish(i).x + ctx.fishtank.fish(i).dx
+            ctx.fishtank.fish(i).swimPhase = ctx.fishtank.fish(i).swimPhase + ctx.fishtank.fish(i).swimSpeed
+
+            ' Screen boundary wrapping
+            IF ctx.fishtank.fish(i).dx < 0! _ANDALSO ctx.fishtank.fish(i).x < CSNG(minX - 10) THEN
+                ctx.fishtank.fish(i).x = CSNG(maxX + 2)
+                ctx.fishtank.fish(i).baseY = CSNG(Math_GetRandomBetween(minY + 3, _MAX(minY + 3, maxY - 4)))
+            ELSEIF ctx.fishtank.fish(i).dx > 0! _ANDALSO ctx.fishtank.fish(i).x > CSNG(maxX + 10) THEN
+                ctx.fishtank.fish(i).x = CSNG(minX - 8)
+                ctx.fishtank.fish(i).baseY = CSNG(Math_GetRandomBetween(minY + 3, _MAX(minY + 3, maxY - 4)))
+            END IF
+
+            DIM py AS LONG: py = CLNG(ctx.fishtank.fish(i).baseY + SIN(ctx.fishtank.fish(i).swimPhase) * 0.9!)
+            DIM px AS LONG: px = CLNG(ctx.fishtank.fish(i).x)
+
+            ' Tail wagging animation frame
+            DIM tailWag AS LONG: tailWag = CLNG(ctx.fishtank.fish(i).swimPhase * 2.0!) MOD 2
+            DIM fHead AS STRING, fBody AS STRING, fTail AS STRING
+
+            SELECT CASE ctx.fishtank.fish(i).species
+                CASE 0 ' Neon Tetra
+                    IF ctx.fishtank.fish(i).dx < 0! THEN
+                        fHead = "<*"
+                        fBody = "=="
+                        IF tailWag = 0 THEN fTail = ">{" ELSE fTail = ">~"
+                    ELSE
+                        IF tailWag = 0 THEN fTail = "}<" ELSE fTail = "~<"
+                        fBody = "=="
+                        fHead = "*>"
+                    END IF
+
+                CASE 1 ' Clownfish
+                    IF ctx.fishtank.fish(i).dx < 0! THEN
+                        fHead = "<o"
+                        fBody = "()()"
+                        IF tailWag = 0 THEN fTail = ">{" ELSE fTail = ">~"
+                    ELSE
+                        IF tailWag = 0 THEN fTail = "}<" ELSE fTail = "~<"
+                        fBody = "()()"
+                        fHead = "o>"
+                    END IF
+
+                CASE 2 ' Angelfish
+                    IF ctx.fishtank.fish(i).dx < 0! THEN
+                        fHead = "<+"
+                        fBody = "###"
+                        IF tailWag = 0 THEN fTail = "><" ELSE fTail = ">~"
+                    ELSE
+                        IF tailWag = 0 THEN fTail = "<>" ELSE fTail = "~<"
+                        fBody = "###"
+                        fHead = "+>"
+                    END IF
+
+                CASE ELSE ' Silver Guppy
+                    IF ctx.fishtank.fish(i).dx < 0! THEN
+                        fHead = "<"
+                        fBody = CHR$(249)
+                        fTail = "{"
+                    ELSE
+                        fTail = "}"
+                        fBody = CHR$(249)
+                        fHead = ">"
+                    END IF
+            END SELECT
+
+            ' Render fish components with individual species colors
+            DIM curX AS LONG: curX = px
+
+            IF ctx.fishtank.fish(i).dx < 0! THEN
+                ' Left-facing: Head -> Body -> Tail
+                DIM cj AS LONG
+                FOR cj = 1 TO LEN(fHead)
+                    IF curX >= minX _ANDALSO curX <= maxX _ANDALSO py >= minY + 1 _ANDALSO py <= maxY - 2 THEN
+                        COLOR ctx.fishtank.fish(i).cHead, __BG_COLOR_BLACK
+                        _PRINTSTRING (curX, py), MID$(fHead, cj, 1)
+                    END IF
+                    curX = curX + 1
+                NEXT cj
+
+                FOR cj = 1 TO LEN(fBody)
+                    IF curX >= minX _ANDALSO curX <= maxX _ANDALSO py >= minY + 1 _ANDALSO py <= maxY - 2 THEN
+                        COLOR ctx.fishtank.fish(i).cBody, __BG_COLOR_BLACK
+                        _PRINTSTRING (curX, py), MID$(fBody, cj, 1)
+                    END IF
+                    curX = curX + 1
+                NEXT cj
+
+                FOR cj = 1 TO LEN(fTail)
+                    IF curX >= minX _ANDALSO curX <= maxX _ANDALSO py >= minY + 1 _ANDALSO py <= maxY - 2 THEN
+                        COLOR ctx.fishtank.fish(i).cTail, __BG_COLOR_BLACK
+                        _PRINTSTRING (curX, py), MID$(fTail, cj, 1)
+                    END IF
+                    curX = curX + 1
+                NEXT cj
+            ELSE
+                ' Right-facing: Tail -> Body -> Head
+                FOR cj = 1 TO LEN(fTail)
+                    IF curX >= minX _ANDALSO curX <= maxX _ANDALSO py >= minY + 1 _ANDALSO py <= maxY - 2 THEN
+                        COLOR ctx.fishtank.fish(i).cTail, __BG_COLOR_BLACK
+                        _PRINTSTRING (curX, py), MID$(fTail, cj, 1)
+                    END IF
+                    curX = curX + 1
+                NEXT cj
+
+                FOR cj = 1 TO LEN(fBody)
+                    IF curX >= minX _ANDALSO curX <= maxX _ANDALSO py >= minY + 1 _ANDALSO py <= maxY - 2 THEN
+                        COLOR ctx.fishtank.fish(i).cBody, __BG_COLOR_BLACK
+                        _PRINTSTRING (curX, py), MID$(fBody, cj, 1)
+                    END IF
+                    curX = curX + 1
+                NEXT cj
+
+                FOR cj = 1 TO LEN(fHead)
+                    IF curX >= minX _ANDALSO curX <= maxX _ANDALSO py >= minY + 1 _ANDALSO py <= maxY - 2 THEN
+                        COLOR ctx.fishtank.fish(i).cHead, __BG_COLOR_BLACK
+                        _PRINTSTRING (curX, py), MID$(fHead, cj, 1)
+                    END IF
+                    curX = curX + 1
+                NEXT cj
+            END IF
+        END IF
+    NEXT i
+
+    ' --- Pass 5: Living Seabed Gravel, Coral Anemones & Scuttling Crab ---
+    DIM sx AS LONG
+    FOR sx = minX TO maxX
+        DIM gravelPattern AS LONG: gravelPattern = (sx * 7 + 13) MOD 11
+        DIM gCh AS STRING, gCol AS LONG
+        SELECT CASE gravelPattern
+            CASE 0, 1: gCh = CHR$(176): gCol = __BG_COLOR_BROWN
+            CASE 2, 3: gCh = CHR$(177): gCol = __BG_COLOR_GRAY
+            CASE 4: gCh = CHR$(249): gCol = __BG_COLOR_WHITE
+            CASE 5, 6: gCh = ".": gCol = __BG_COLOR_BROWN
+            CASE ELSE: gCh = CHR$(176): gCol = __BG_COLOR_GRAY
+        END SELECT
+        COLOR gCol, __BG_COLOR_BLACK
+        _PRINTSTRING (sx, maxY), gCh
+    NEXT sx
+
+    ' Coral anemone tufts at fixed intervals along seabed
+    DIM anemCol AS LONG
+    FOR anemCol = minX + 8 TO maxX - 8 STEP 24
+        DIM anemPhase AS SINGLE: anemPhase = SIN(ctx.fishtank.waterPhase + CSNG(anemCol) * 0.15!)
+        DIM anemChar AS STRING
+        IF anemPhase > 0.0! THEN anemChar = "\|/" ELSE anemChar = "/|\"
+        COLOR __BG_COLOR_LIGHT_MAGENTA, __BG_COLOR_BLACK
+        _PRINTSTRING (anemCol, maxY - 1), anemChar
+    NEXT anemCol
+
+    ' Cute little animated scuttling crab
+    ctx.fishtank.crabX = ctx.fishtank.crabX + ctx.fishtank.crabDir
+    IF ctx.fishtank.crabX < CSNG(minX + 4) THEN ctx.fishtank.crabDir = 0.12!
+    IF ctx.fishtank.crabX > CSNG(maxX - 8) THEN ctx.fishtank.crabDir = -0.12!
+
+    DIM crbX AS LONG: crbX = CLNG(ctx.fishtank.crabX)
+    IF crbX >= minX _ANDALSO crbX + 4 <= maxX THEN
+        DIM crabClaws AS STRING
+        IF (CLNG(ctx.fishtank.waterPhase * 6.0!) MOD 2) = 0 THEN
+            crabClaws = "(\_/)"
+        ELSE
+            crabClaws = "(\~/)"
+        END IF
+        COLOR __BG_COLOR_LIGHT_RED, __BG_COLOR_BLACK
+        _PRINTSTRING (crbX, maxY - 1), crabClaws
+    END IF
+END SUB
+
 ''' @brief Initializes all visual background effects within a specified viewport.
 ''' @param ctx Background context to initialize.
 ''' @param viewport Rectangular viewport defining rendering bounds.
@@ -1558,6 +2050,7 @@ SUB Background_InitializeEx (ctx AS Background, viewport AS Bounds2f)
     __Background_InitializeBalls ctx
     __Background_InitializeMatrix ctx
     __Background_InitializeGrid ctx
+    __Background_InitializeFishtank ctx
 
     Background_SetRandomMode ctx
 END SUB
@@ -1581,6 +2074,7 @@ SUB Background_UpdateAndDraw (ctx AS Background)
         CASE BACKGROUND_MODE_BALLS: __Background_UpdateAndDrawBalls ctx
         CASE BACKGROUND_MODE_MATRIX: __Background_UpdateAndDrawMatrix ctx
         CASE BACKGROUND_MODE_GRID: __Background_UpdateAndDrawGrid ctx
+        CASE BACKGROUND_MODE_FISHTANK: __Background_UpdateAndDrawFishtank ctx
     END SELECT
 END SUB
 
@@ -1610,6 +2104,7 @@ FUNCTION Background_GetModeName$ (mode AS LONG)
         CASE BACKGROUND_MODE_BALLS: Background_GetModeName = "Bouncing Balls"
         CASE BACKGROUND_MODE_MATRIX: Background_GetModeName = "Digital Matrix Rain"
         CASE BACKGROUND_MODE_GRID: Background_GetModeName = "Cyber Grid"
+        CASE BACKGROUND_MODE_FISHTANK: Background_GetModeName = "Fishtank"
         CASE ELSE: Background_GetModeName = "None"
     END SELECT
 END FUNCTION
