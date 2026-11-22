@@ -329,7 +329,7 @@ SUB Test_String
 
     TEST_CASE_BEGIN "String: String_MakePrintable"
     DIM rawStr AS STRING
-    rawStr = "Track" + CHR$(0) + CHR$(1) + "Name" + CHR$(31) + "!" + CHR$(127)
+    rawStr = "Track" + _CHR_NUL + _CHR_SOH + "Name" + _CHR_US + "!" + _CHR_DEL
     DIM cleanStr AS STRING
     cleanStr = String_MakePrintable(rawStr)
     TEST_CHECK cleanStr = "Track  Name ! ", "Control characters < 32 and 127 are replaced by spaces"
@@ -2738,9 +2738,9 @@ SUB Test_FAR_Effects
     DIM farData AS STRING: farData = _STR_EMPTY
 
     ' Header (869 + msgLen bytes)
-    farData = farData + "FAR" + CHR$(254) ' Magic (4 bytes)
+    farData = farData + __FARLOADER_MAGIC ' Magic (4 bytes)
     farData = farData + "FAR Effects Test" + SPACE$(24) ' Song Title (40 bytes)
-    farData = farData + CHR$(13) + CHR$(10) + CHR$(26) ' EOF chars (3 bytes)
+    farData = farData + __FARLOADER_EOF ' EOF chars (3 bytes)
 
     DIM msgLen AS LONG: msgLen = 264
     DIM headerLen AS LONG: headerLen = 869 + msgLen
@@ -2949,7 +2949,7 @@ SUB Test_STM_Effects
     ' Header (48 bytes)
     stmData = stmData + "Synthetic STM" + SPACE$(7) ' Title (20 bytes)
     stmData = stmData + "!Scream!" ' Tracker (8 bytes)
-    stmData = stmData + CHR$(&H1A) ' EOF (1 byte)
+    stmData = stmData + _CHR_SUB ' EOF (1 byte)
     stmData = stmData + CHR$(2) ' File type: module (1 byte)
     stmData = stmData + CHR$(2) ' Major version (1 byte)
     stmData = stmData + CHR$(21) ' Minor version 2.21 (1 byte)

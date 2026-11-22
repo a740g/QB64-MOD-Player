@@ -38,14 +38,23 @@ CONST TUI_CHANNEL_ACTION_SOLO%% = 2%%
 CONST TUI_SCRUB_COOLOFF_SECS# = 0.08#
 
 ' CP437 glyph constants for TUI widgets
+CONST __TUI_GLYPH_RIGHT_ARROW = CHR$(16) ' Right pointer
+CONST __TUI_GLYPH_LEFT_ARROW = CHR$(17) ' Left pointer
+CONST __TUI_GLYPH_LEFTRIGHT_ARROW = CHR$(29) ' Left-right pointer
 CONST __TUI_GLYPH_UP_ARROW = CHR$(30) ' Up arrow
 CONST __TUI_GLYPH_DOWN_ARROW = CHR$(31) ' Down arrow
+CONST __TUI_GLYPH_LIGHT_SHADE = CHR$(176) ' Light shade block (trough)
 CONST __TUI_GLYPH_VLINE = CHR$(179) ' Single vertical line
+CONST __TUI_GLYPH_DOUBLE_VLINE = CHR$(186) ' Double vertical line
 CONST __TUI_GLYPH_CORNER_TR = CHR$(191) ' Single top-right corner
+CONST __TUI_GLYPH_CORNER_BL = CHR$(192) ' Single bottom-left corner
+CONST __TUI_GLYPH_HLINE = CHR$(196) ' Single horizontal line
+CONST __TUI_GLYPH_CORNER_BR = CHR$(217) ' Single bottom-right corner
 CONST __TUI_GLYPH_CORNER_TL = CHR$(218) ' Single top-left corner
 CONST __TUI_GLYPH_SOLID = CHR$(219) ' Solid block
 CONST __TUI_GLYPH_PEAK_DOT = CHR$(223) ' Top half block
 CONST __TUI_GLYPH_INACTIVE_DOT = CHR$(250) ' Inactive dot
+CONST __TUI_GLYPH_STOP = CHR$(254) ' Square block
 
 TYPE __TUI_Context
     initialized AS _BYTE
@@ -635,13 +644,13 @@ FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, ma
     ' 2. Left vertical edge cap (sunken trough shadow)
     IF isFocused _ANDALSO __TUI.hasNavFocus THEN
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
-        _PRINTSTRING (barStart, y), CHR$(186)
+        _PRINTSTRING (barStart, y), __TUI_GLYPH_DOUBLE_VLINE
     ELSEIF isHovered _ORELSE __TUI.activeId = thisId THEN
         COLOR TUI_COLOR_CYAN, origBg
-        _PRINTSTRING (barStart, y), CHR$(179)
+        _PRINTSTRING (barStart, y), __TUI_GLYPH_VLINE
     ELSE
         COLOR TUI_COLOR_WHITE, origBg
-        _PRINTSTRING (barStart, y), CHR$(179)
+        _PRINTSTRING (barStart, y), __TUI_GLYPH_VLINE
     END IF
 
     ' 3. Filled track portion (columns 0 to thumbIdx - 1)
@@ -651,7 +660,7 @@ FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, ma
         ELSE
             COLOR TUI_COLOR_LIGHT_CYAN, origBg
         END IF
-        _PRINTSTRING (barStart + 1, y), STRING$(thumbIdx, CHR$(219))
+        _PRINTSTRING (barStart + 1, y), STRING$(thumbIdx, __TUI_GLYPH_SOLID)
     END IF
 
     ' 4. Playhead thumb (at thumbIdx)
@@ -663,29 +672,29 @@ FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, ma
         ELSE
             COLOR TUI_COLOR_BLACK, TUI_COLOR_LIGHT_CYAN
         END IF
-        _PRINTSTRING (barStart + 1 + thumbIdx, y), CHR$(254)
+        _PRINTSTRING (barStart + 1 + thumbIdx, y), __TUI_GLYPH_STOP
     ELSE
         COLOR TUI_COLOR_GRAY, origBg
-        _PRINTSTRING (barStart + 1 + thumbIdx, y), CHR$(176)
+        _PRINTSTRING (barStart + 1 + thumbIdx, y), __TUI_GLYPH_LIGHT_SHADE
     END IF
 
     ' 5. Unfilled track portion (columns thumbIdx + 1 to innerW - 1)
     DIM remChars AS LONG: remChars = (innerW - 1) - thumbIdx
     IF remChars > 0 THEN
         COLOR TUI_COLOR_GRAY, origBg
-        _PRINTSTRING (barStart + 1 + thumbIdx + 1, y), STRING$(remChars, CHR$(176))
+        _PRINTSTRING (barStart + 1 + thumbIdx + 1, y), STRING$(remChars, __TUI_GLYPH_LIGHT_SHADE)
     END IF
 
     ' 6. Right vertical edge cap (sunken trough highlight)
     IF isFocused _ANDALSO __TUI.hasNavFocus THEN
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
-        _PRINTSTRING (barStart + w - 1, y), CHR$(186)
+        _PRINTSTRING (barStart + w - 1, y), __TUI_GLYPH_DOUBLE_VLINE
     ELSEIF isHovered _ORELSE __TUI.activeId = thisId THEN
         COLOR TUI_COLOR_CYAN, origBg
-        _PRINTSTRING (barStart + w - 1, y), CHR$(179)
+        _PRINTSTRING (barStart + w - 1, y), __TUI_GLYPH_VLINE
     ELSE
         COLOR TUI_COLOR_WHITE, origBg
-        _PRINTSTRING (barStart + w - 1, y), CHR$(179)
+        _PRINTSTRING (barStart + w - 1, y), __TUI_GLYPH_VLINE
     END IF
 
     ' 7. Progress percentage text (drawn non-destructively on caller's background)
@@ -819,7 +828,7 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
         _PRINTSTRING (x + labelLen, y), " "
     END IF
 
-    ' 2. Left Stepper (CHR$(17))
+    ' 2. Left Stepper (__TUI_GLYPH_LEFT_ARROW)
     DIM isStepLHover AS _BYTE
     isStepLHover = isHovered _ANDALSO (INT(__TUI.mousePos.x) = xStepL) _ANDALSO (INT(__TUI.mousePos.y) = y)
     IF isStepLHover _ANDALSO (__TUI.mouseDownL _ORELSE __TUI.activeId = thisId) THEN
@@ -829,18 +838,18 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
     ELSE
         COLOR origFg, origBg
     END IF
-    _PRINTSTRING (xStepL, y), CHR$(17)
+    _PRINTSTRING (xStepL, y), __TUI_GLYPH_LEFT_ARROW
 
-    ' 3. Left Cap (CHR$(179) / CHR$(186)) directly adjacent to left stepper
+    ' 3. Left Cap (__TUI_GLYPH_VLINE / __TUI_GLYPH_DOUBLE_VLINE) directly adjacent to left stepper
     IF isFocused _ANDALSO __TUI.hasNavFocus THEN
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
-        _PRINTSTRING (xStepL + 1, y), CHR$(186)
+        _PRINTSTRING (xStepL + 1, y), __TUI_GLYPH_DOUBLE_VLINE
     ELSEIF isHovered _ORELSE __TUI.activeId = thisId THEN
         COLOR TUI_COLOR_CYAN, origBg
-        _PRINTSTRING (xStepL + 1, y), CHR$(179)
+        _PRINTSTRING (xStepL + 1, y), __TUI_GLYPH_VLINE
     ELSE
         COLOR TUI_COLOR_WHITE, origBg
-        _PRINTSTRING (xStepL + 1, y), CHR$(179)
+        _PRINTSTRING (xStepL + 1, y), __TUI_GLYPH_VLINE
     END IF
 
     ' 4. Filled track portion (columns 0 to thumbIdx - 1)
@@ -850,10 +859,10 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
         ELSE
             COLOR TUI_COLOR_LIGHT_CYAN, origBg
         END IF
-        _PRINTSTRING (xTrack, y), STRING$(thumbIdx, CHR$(219))
+        _PRINTSTRING (xTrack, y), STRING$(thumbIdx, __TUI_GLYPH_SOLID)
     END IF
 
-    ' 5. Thumb using CHR$(254) with inverted color of solid progress character
+    ' 5. Thumb using __TUI_GLYPH_LEFTRIGHT_ARROW with inverted color of solid progress character
     IF __TUI.activeId = thisId _ANDALSO __TUI.mouseDownL THEN
         COLOR TUI_COLOR_BLACK, TUI_COLOR_YELLOW
     ELSEIF isHovered THEN
@@ -861,28 +870,28 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
     ELSE
         COLOR TUI_COLOR_BLACK, TUI_COLOR_LIGHT_CYAN
     END IF
-    _PRINTSTRING (xTrack + thumbIdx, y), CHR$(254)
+    _PRINTSTRING (xTrack + thumbIdx, y), __TUI_GLYPH_LEFTRIGHT_ARROW
 
     ' 6. Unfilled track portion (columns thumbIdx + 1 to innerW - 1)
     DIM remChars AS LONG: remChars = (innerW - 1) - thumbIdx
     IF remChars > 0 THEN
         COLOR TUI_COLOR_GRAY, origBg
-        _PRINTSTRING (xTrack + thumbIdx + 1, y), STRING$(remChars, CHR$(176))
+        _PRINTSTRING (xTrack + thumbIdx + 1, y), STRING$(remChars, __TUI_GLYPH_LIGHT_SHADE)
     END IF
 
-    ' 7. Right Cap (CHR$(179) / CHR$(186)) directly adjacent to right stepper
+    ' 7. Right Cap (__TUI_GLYPH_VLINE / __TUI_GLYPH_DOUBLE_VLINE) directly adjacent to right stepper
     IF isFocused _ANDALSO __TUI.hasNavFocus THEN
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
-        _PRINTSTRING (xStepR - 1, y), CHR$(186)
+        _PRINTSTRING (xStepR - 1, y), __TUI_GLYPH_DOUBLE_VLINE
     ELSEIF isHovered _ORELSE __TUI.activeId = thisId THEN
         COLOR TUI_COLOR_CYAN, origBg
-        _PRINTSTRING (xStepR - 1, y), CHR$(179)
+        _PRINTSTRING (xStepR - 1, y), __TUI_GLYPH_VLINE
     ELSE
         COLOR TUI_COLOR_WHITE, origBg
-        _PRINTSTRING (xStepR - 1, y), CHR$(179)
+        _PRINTSTRING (xStepR - 1, y), __TUI_GLYPH_VLINE
     END IF
 
-    ' 8. Right Stepper (CHR$(16)) directly adjacent to right cap
+    ' 8. Right Stepper (__TUI_GLYPH_RIGHT_ARROW) directly adjacent to right cap
     DIM isStepRHover AS _BYTE
     isStepRHover = isHovered _ANDALSO (INT(__TUI.mousePos.x) = xStepR) _ANDALSO (INT(__TUI.mousePos.y) = y)
     IF isStepRHover _ANDALSO (__TUI.mouseDownL _ORELSE __TUI.activeId = thisId) THEN
@@ -892,7 +901,7 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
     ELSE
         COLOR origFg, origBg
     END IF
-    _PRINTSTRING (xStepR, y), CHR$(16)
+    _PRINTSTRING (xStepR, y), __TUI_GLYPH_RIGHT_ARROW
 
     ' 9. Percentage readout (columns barStart + w + 1 to barStart + w + 4)
     COLOR origFg, origBg
