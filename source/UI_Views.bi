@@ -166,7 +166,7 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
         IF LEN(titleStr) = 0 THEN titleStr = "[Untitled Module]"
         COLOR TUI_COLOR_YELLOW, TUI_COLOR_GRAY
     ELSE
-        titleStr = "No module loaded. Drag and drop a module file or click Open..."
+        titleStr = "No module loaded. Drag and drop a module file or click File/Folder..."
         COLOR TUI_COLOR_WHITE, TUI_COLOR_GRAY
     END IF
     IF LEN(titleStr) > 93 THEN titleStr = LEFT$(titleStr, 93)
