@@ -28,6 +28,7 @@ $LET TEST_CONSOLE_ONLY = TRUE
 '$INCLUDE:'../source/Input.bi'
 '$INCLUDE:'../source/TUI.bi'
 '$INCLUDE:'../source/Playlist.bi'
+'$INCLUDE:'../source/UI_Views.bi'
 
 ''' @brief Tests for Time.bi and _UPTIME functionality.
 SUB Test_Time
@@ -4201,6 +4202,159 @@ SUB Test_Pathname
     TEST_CASE_END
 END SUB
 
+''' @brief Tests for UI_Views.bi softkey hitbox calculations.
+SUB Test_UI_Views
+    TEST_CASE_BEGIN "UI_Views: Footer softkey hitbox calculations"
+    ' Key 1 (F1): Digit at col 1, text at cols 2..11, separator at col 12
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(1) = 0, "Col 1 (digit 1) is not in text hitbox"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(2) = 1, "Col 2 (text start for Key 1) maps to Key 1"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(6) = 1, "Col 6 (middle text for Key 1) maps to Key 1"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(11) = 1, "Col 11 (text end for Key 1) maps to Key 1"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(12) = 0, "Col 12 (separator space) is not in hitbox"
+
+    ' Key 2 (F2): Digit at col 13, text at cols 14..23, separator at col 24
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(13) = 0, "Col 13 (digit 2) is not in text hitbox"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(14) = 2, "Col 14 (text start for Key 2) maps to Key 2"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(23) = 2, "Col 23 (text end for Key 2) maps to Key 2"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(24) = 0, "Col 24 (separator space) is not in hitbox"
+
+    ' Key 9 (F9): Single digit boundary
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(96) = 0, "Col 96 (space before Key 9) is not in hitbox"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(97) = 0, "Col 97 (digit 9) is not in hitbox"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(98) = 9, "Col 98 (text start for Key 9) maps to Key 9"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(107) = 9, "Col 107 (text end for Key 9) maps to Key 9"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(108) = 0, "Col 108 (separator space) is not in hitbox"
+
+    ' Key 10 (F10): 2-digit key number (cols 109, 110), text at cols 111..119, separator at col 120
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(109) = 0, "Col 109 (first digit of 10) is not in hitbox"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(110) = 0, "Col 110 (second digit of 10) is not in hitbox"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(111) = 10, "Col 111 (text start for Key 10) maps to Key 10"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(119) = 10, "Col 119 (text end for Key 10) maps to Key 10"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(120) = 0, "Col 120 (separator space) is not in hitbox"
+
+    ' Key 11 (F11 -> slot code 30): 2-digit key number (cols 121, 122), text at cols 123..131, separator at col 132
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(121) = 0, "Col 121 (first digit of 11) is not in hitbox"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(122) = 0, "Col 122 (second digit of 11) is not in hitbox"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(123) = 30, "Col 123 (text start for Key 11) maps to code 30"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(131) = 30, "Col 131 (text end for Key 11) maps to code 30"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(132) = 0, "Col 132 (separator space) is not in hitbox"
+
+    ' Key 12 (F12 -> slot code 31): 2-digit key number (cols 133, 134), text at cols 135..143, separator at col 144
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(133) = 0, "Col 133 (first digit of 12) is not in hitbox"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(134) = 0, "Col 134 (second digit of 12) is not in hitbox"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(135) = 31, "Col 135 (text start for Key 12) maps to code 31"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(143) = 31, "Col 143 (text end for Key 12) maps to code 31"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(144) = 0, "Col 144 (trailing space) is not in hitbox"
+
+    ' Out of bounds checks
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(0) = 0, "Col 0 is out of bounds"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(-5) = 0, "Negative col is out of bounds"
+    TEST_CHECK UI_GetFooterSoftkeyAtColumn(145) = 0, "Col 145 is out of bounds"
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "UI_Views: Footer mouse drag-off prevention"
+    SHARED __TUI AS __TUI_Context
+    DIM dummyPlayer AS MODPlayer
+    DIM footRes AS INTEGER
+
+    ' Scenario 1: Normal click on Key 1 (mouse down at col 6, y 90; mouse release at col 6, y 90)
+    Vector2f_Set 6!, 90!, __TUI.mousePos
+    __TUI.mousePressedL = _TRUE
+    __TUI.mouseDownL = _TRUE
+    __TUI.mouseClickedL = _FALSE
+    __TUI.activeId = 0
+    footRes = UI_DrawFooter(dummyPlayer)
+    TEST_CHECK footRes = 0, "No trigger on mouse down"
+    TEST_CHECK __TUI.activeId = -1, "Key 1 captured as active (-1)"
+
+    Vector2f_Set 6!, 90!, __TUI.mousePos
+    __TUI.mousePressedL = _FALSE
+    __TUI.mouseDownL = _FALSE
+    __TUI.mouseClickedL = _TRUE
+    footRes = UI_DrawFooter(dummyPlayer)
+    TEST_CHECK footRes = 1, "Triggers Key 1 when released on Key 1"
+    TEST_CHECK __TUI.activeId = 0, "Active ID reset after click"
+
+    ' Scenario 2: Press on Key 1, drag to Key 2 (col 18), release on Key 2
+    Vector2f_Set 6!, 90!, __TUI.mousePos
+    __TUI.mousePressedL = _TRUE
+    __TUI.mouseDownL = _TRUE
+    __TUI.mouseClickedL = _FALSE
+    __TUI.activeId = 0
+    footRes = UI_DrawFooter(dummyPlayer)
+    TEST_CHECK __TUI.activeId = -1, "Key 1 captured on press down"
+
+    ' Drag over to Key 2
+    Vector2f_Set 18!, 90!, __TUI.mousePos
+    __TUI.mousePressedL = _FALSE
+    __TUI.mouseDownL = _TRUE
+    __TUI.mouseClickedL = _FALSE
+    footRes = UI_DrawFooter(dummyPlayer)
+    TEST_CHECK footRes = 0, "No trigger while dragging over Key 2"
+
+    ' Release over Key 2
+    Vector2f_Set 18!, 90!, __TUI.mousePos
+    __TUI.mousePressedL = _FALSE
+    __TUI.mouseDownL = _FALSE
+    __TUI.mouseClickedL = _TRUE
+    footRes = UI_DrawFooter(dummyPlayer)
+    TEST_CHECK footRes = 0, "Key 2 does NOT trigger on drag-off release"
+    TEST_CHECK __TUI.activeId = 0, "Active ID cleared after release"
+
+    ' Scenario 3: Press on Key 1, drag off Row 90 (row 80), release
+    Vector2f_Set 6!, 90!, __TUI.mousePos
+    __TUI.mousePressedL = _TRUE
+    __TUI.mouseDownL = _TRUE
+    __TUI.mouseClickedL = _FALSE
+    __TUI.activeId = 0
+    footRes = UI_DrawFooter(dummyPlayer)
+
+    Vector2f_Set 6!, 80!, __TUI.mousePos
+    __TUI.mousePressedL = _FALSE
+    __TUI.mouseDownL = _FALSE
+    __TUI.mouseClickedL = _TRUE
+    footRes = UI_DrawFooter(dummyPlayer)
+    TEST_CHECK footRes = 0, "Does not trigger when released outside row 90"
+
+    ' Scenario 4: Press on Key 1, drag to Key 2, drag BACK to Key 1, release
+    Vector2f_Set 6!, 90!, __TUI.mousePos
+    __TUI.mousePressedL = _TRUE
+    __TUI.mouseDownL = _TRUE
+    __TUI.mouseClickedL = _FALSE
+    __TUI.activeId = 0
+    footRes = UI_DrawFooter(dummyPlayer)
+
+    Vector2f_Set 18!, 90!, __TUI.mousePos
+    __TUI.mousePressedL = _FALSE
+    __TUI.mouseDownL = _TRUE
+    __TUI.mouseClickedL = _FALSE
+    footRes = UI_DrawFooter(dummyPlayer)
+
+    Vector2f_Set 6!, 90!, __TUI.mousePos
+    __TUI.mousePressedL = _FALSE
+    __TUI.mouseDownL = _FALSE
+    __TUI.mouseClickedL = _TRUE
+    footRes = UI_DrawFooter(dummyPlayer)
+    TEST_CHECK footRes = 1, "Triggers Key 1 after dragging away and returning"
+
+    ' Scenario 5: Another widget is active (__TUI.activeId = 99), release on Key 1
+    __TUI.activeId = 99
+    Vector2f_Set 6!, 90!, __TUI.mousePos
+    __TUI.mousePressedL = _TRUE
+    __TUI.mouseDownL = _TRUE
+    __TUI.mouseClickedL = _FALSE
+    footRes = UI_DrawFooter(dummyPlayer)
+
+    Vector2f_Set 6!, 90!, __TUI.mousePos
+    __TUI.mousePressedL = _FALSE
+    __TUI.mouseDownL = _FALSE
+    __TUI.mouseClickedL = _TRUE
+    footRes = UI_DrawFooter(dummyPlayer)
+    TEST_CHECK footRes = 0, "Footer does not trigger when another widget was active"
+    __TUI.activeId = 0
+    TEST_CASE_END
+END SUB
+
 IF _DIREXISTS("../mods") THEN CHDIR ".."
 
 ' Run all test suites
@@ -4259,5 +4413,6 @@ Test_MODPlayer_ChannelMuteSolo
 Test_TUI
 Test_Playlist
 Test_Pathname
+Test_UI_Views
 
 TEST_END_ALL
