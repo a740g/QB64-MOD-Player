@@ -4057,6 +4057,38 @@ SUB Test_TUI
     TUI_End
     TEST_CASE_END
 
+    TEST_CASE_BEGIN "TUI: Non-Destructive Color Preservation in Controls"
+    DIM testScr AS LONG: testScr = _NEWIMAGE(80, 25, 0)
+    DIM oldDest AS LONG: oldDest = _DEST
+    _DEST testScr
+
+    TUI_Begin
+    COLOR 14, 1 ' Yellow on Blue
+    DIM pbColRet AS LONG: pbColRet = TUI_ProgressBar(10, 5, 20, 5!, 20!, "POS:")
+    TEST_CHECK _DEFAULTCOLOR = 14, "TUI_ProgressBar preserves _DEFAULTCOLOR non-destructively"
+    TEST_CHECK _BACKGROUNDCOLOR = 1, "TUI_ProgressBar preserves _BACKGROUNDCOLOR non-destructively"
+
+    COLOR 10, 2 ' Light Green on Green
+    DIM slColRet AS SINGLE: slColRet = TUI_Slider(10, 5, 14, 0.5!, 0!, 1!, "VOL")
+    TEST_CHECK _DEFAULTCOLOR = 10, "TUI_Slider preserves _DEFAULTCOLOR non-destructively"
+    TEST_CHECK _BACKGROUNDCOLOR = 2, "TUI_Slider preserves _BACKGROUNDCOLOR non-destructively"
+
+    COLOR 12, 4 ' Light Red on Red
+    DIM badgeAction AS _BYTE
+    DIM badgeRet AS _BYTE: badgeRet = TUI_ChannelBadge(10, 5, 0, "PCM", _FALSE, _FALSE, badgeAction)
+    TEST_CHECK _DEFAULTCOLOR = 12, "TUI_ChannelBadge preserves _DEFAULTCOLOR non-destructively"
+    TEST_CHECK _BACKGROUNDCOLOR = 4, "TUI_ChannelBadge preserves _BACKGROUNDCOLOR non-destructively"
+
+    COLOR 15, 3 ' Bright White on Cyan
+    TUI_PanelEx 10, 5, 10, 5, "PANEL", _FALSE, _FALSE
+    TEST_CHECK _DEFAULTCOLOR = 15, "TUI_PanelEx preserves _DEFAULTCOLOR non-destructively"
+    TEST_CHECK _BACKGROUNDCOLOR = 3, "TUI_PanelEx preserves _BACKGROUNDCOLOR non-destructively"
+    TUI_End
+
+    _DEST oldDest
+    _FREEIMAGE testScr
+    TEST_CASE_END
+
     TEST_CASE_BEGIN "TUI: VUMeter Rendering and Clamping"
     TUI_Begin
     TUI_VUMeter 10, 5, 12, 0.65!, 0.90!, _FALSE

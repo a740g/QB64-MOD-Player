@@ -206,6 +206,8 @@ END FUNCTION
 ''' @param hiCol Highlight border color index (simulated top-left light).
 ''' @param loCol Shadow border color index (simulated bottom-right shadow).
 SUB __TUI_DrawButton (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isSunken AS _BYTE, isFocused AS _BYTE, bgCol AS LONG, fgCol AS LONG, hiCol AS LONG, loCol AS LONG)
+    DIM origFg AS _UNSIGNED LONG: origFg = _DEFAULTCOLOR
+    DIM origBg AS _UNSIGNED LONG: origBg = _BACKGROUNDCOLOR
     DIM innerW AS LONG: innerW = _MAX(1, w - 2)
     DIM padLen AS LONG: padLen = innerW - LEN(text)
     DIM lPad AS LONG, rPad AS LONG
@@ -272,6 +274,8 @@ SUB __TUI_DrawButton (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isSunken 
     _PRINTSTRING (x, y + 2), CHR$(chBL)
     COLOR brCol, bgCol
     _PRINTSTRING (x + 1, y + 2), hLine + CHR$(chBR)
+
+    COLOR origFg, origBg
 END SUB
 
 ''' @brief Renders an interactive 3-line tall VB-DOS style push button with optional disabled state.
@@ -436,8 +440,14 @@ END FUNCTION
 FUNCTION TUI_ChannelBadge%% (x AS LONG, y AS LONG, ch AS LONG, badgeText AS STRING, isMuted AS _BYTE, isSoloed AS _BYTE, outAction AS _BYTE)
     SHARED __TUI AS __TUI_Context
 
+    DIM origFg AS _UNSIGNED LONG: origFg = _DEFAULTCOLOR
+    DIM origBg AS _UNSIGNED LONG: origBg = _BACKGROUNDCOLOR
+
     outAction = TUI_CHANNEL_ACTION_NONE
-    IF ch < 0 THEN EXIT FUNCTION
+    IF ch < 0 THEN
+        COLOR origFg, origBg
+        EXIT FUNCTION
+    END IF
 
     __TUI.widgetCount = __TUI.widgetCount + 1
     DIM thisId AS LONG: thisId = __TUI.widgetCount
@@ -490,7 +500,7 @@ FUNCTION TUI_ChannelBadge%% (x AS LONG, y AS LONG, ch AS LONG, badgeText AS STRI
     IF isSoloed THEN
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_LIGHT_MAGENTA
     ELSEIF isMuted THEN
-        COLOR TUI_COLOR_LIGHT_RED, TUI_COLOR_BLACK
+        COLOR TUI_COLOR_LIGHT_RED, origBg
     ELSEIF isHovered THEN
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
     ELSEIF isFocused _ANDALSO __TUI.hasNavFocus THEN
@@ -498,18 +508,19 @@ FUNCTION TUI_ChannelBadge%% (x AS LONG, y AS LONG, ch AS LONG, badgeText AS STRI
     ELSE
         SELECT CASE RTRIM$(LTRIM$(badgeText))
             CASE "AM"
-                COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
+                COLOR TUI_COLOR_YELLOW, origBg
             CASE "FMm"
-                COLOR TUI_COLOR_LIGHT_MAGENTA, TUI_COLOR_BLACK
+                COLOR TUI_COLOR_LIGHT_MAGENTA, origBg
             CASE "FMd"
-                COLOR TUI_COLOR_LIGHT_RED, TUI_COLOR_BLACK
+                COLOR TUI_COLOR_LIGHT_RED, origBg
             CASE ELSE
-                COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+                COLOR TUI_COLOR_LIGHT_CYAN, origBg
         END SELECT
     END IF
 
     _PRINTSTRING (x, y), dispText
 
+    COLOR origFg, origBg
     TUI_ChannelBadge = (outAction <> TUI_CHANNEL_ACTION_NONE)
 END FUNCTION
 
@@ -523,6 +534,9 @@ END FUNCTION
 ''' @return Target position if clicked, dragged, or nudged; or -1 if no interaction occurred.
 FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, maxVal AS SINGLE, label AS STRING)
     SHARED __TUI AS __TUI_Context
+
+    DIM origFg AS _UNSIGNED LONG: origFg = _DEFAULTCOLOR
+    DIM origBg AS _UNSIGNED LONG: origBg = _BACKGROUNDCOLOR
 
     __TUI.widgetCount = __TUI.widgetCount + 1
     DIM thisId AS LONG: thisId = __TUI.widgetCount
@@ -604,17 +618,17 @@ FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, ma
         thumbIdx = _CLAMP(CLNG(normVal * (innerW - 1)), 0, innerW - 1)
     END IF
 
-    ' 1. Label text
+    ' 1. Label text (drawn non-destructively on caller's background)
     IF labelLen > 0 THEN
         IF isFocused _ANDALSO __TUI.hasNavFocus THEN
             COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
         ELSEIF isHovered THEN
-            COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+            COLOR TUI_COLOR_BRIGHT_WHITE, origBg
         ELSE
-            COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+            COLOR origFg, origBg
         END IF
         _PRINTSTRING (x, y), label
-        COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+        COLOR origFg, origBg
         _PRINTSTRING (x + labelLen, y), " "
     END IF
 
@@ -623,19 +637,19 @@ FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, ma
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
         _PRINTSTRING (barStart, y), CHR$(186)
     ELSEIF isHovered _ORELSE __TUI.activeId = thisId THEN
-        COLOR TUI_COLOR_CYAN, TUI_COLOR_BLACK
+        COLOR TUI_COLOR_CYAN, origBg
         _PRINTSTRING (barStart, y), CHR$(179)
     ELSE
-        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+        COLOR TUI_COLOR_GRAY, origBg
         _PRINTSTRING (barStart, y), CHR$(179)
     END IF
 
     ' 3. Filled track portion (columns 0 to thumbIdx - 1)
     IF thumbIdx > 0 THEN
         IF isHovered _ORELSE __TUI.activeId = thisId THEN
-            COLOR TUI_COLOR_CYAN, TUI_COLOR_BLACK
+            COLOR TUI_COLOR_CYAN, origBg
         ELSE
-            COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+            COLOR TUI_COLOR_LIGHT_CYAN, origBg
         END IF
         _PRINTSTRING (barStart + 1, y), STRING$(thumbIdx, CHR$(219))
     END IF
@@ -651,14 +665,14 @@ FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, ma
         END IF
         _PRINTSTRING (barStart + 1 + thumbIdx, y), CHR$(254)
     ELSE
-        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+        COLOR TUI_COLOR_GRAY, origBg
         _PRINTSTRING (barStart + 1 + thumbIdx, y), CHR$(176)
     END IF
 
     ' 5. Unfilled track portion (columns thumbIdx + 1 to innerW - 1)
     DIM remChars AS LONG: remChars = (innerW - 1) - thumbIdx
     IF remChars > 0 THEN
-        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+        COLOR TUI_COLOR_GRAY, origBg
         _PRINTSTRING (barStart + 1 + thumbIdx + 1, y), STRING$(remChars, CHR$(176))
     END IF
 
@@ -667,31 +681,32 @@ FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, ma
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
         _PRINTSTRING (barStart + w - 1, y), CHR$(186)
     ELSEIF isHovered _ORELSE __TUI.activeId = thisId THEN
-        COLOR TUI_COLOR_CYAN, TUI_COLOR_BLACK
+        COLOR TUI_COLOR_CYAN, origBg
         _PRINTSTRING (barStart + w - 1, y), CHR$(179)
     ELSE
-        COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+        COLOR TUI_COLOR_WHITE, origBg
         _PRINTSTRING (barStart + w - 1, y), CHR$(179)
     END IF
 
-    ' 7. Progress percentage text
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+    ' 7. Progress percentage text (drawn non-destructively on caller's background)
+    COLOR origFg, origBg
     _PRINTSTRING (barStart + w, y), " "
     DIM pctStr AS STRING
     IF maxVal > 0! THEN
         DIM pctVal AS LONG: pctVal = _CLAMP(CLNG(normVal * 100!), 0, 100)
         pctStr = RIGHT$("  " + _TOSTR$(pctVal), 3) + "%"
         IF isHovered THEN
-            COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+            COLOR TUI_COLOR_BRIGHT_WHITE, origBg
         ELSE
-            COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+            COLOR origFg, origBg
         END IF
     ELSE
         pctStr = " ---%"
-        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+        COLOR TUI_COLOR_GRAY, origBg
     END IF
     _PRINTSTRING (barStart + w + 1, y), pctStr
 
+    COLOR origFg, origBg
     TUI_ProgressBar = targetVal
 END FUNCTION
 
@@ -706,6 +721,9 @@ END FUNCTION
 ''' @return Updated value if changed, or curVal if unchanged.
 FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal AS SINGLE, maxVal AS SINGLE, label AS STRING)
     SHARED __TUI AS __TUI_Context
+
+    DIM origFg AS _UNSIGNED LONG: origFg = _DEFAULTCOLOR
+    DIM origBg AS _UNSIGNED LONG: origBg = _BACKGROUNDCOLOR
 
     __TUI.widgetCount = __TUI.widgetCount + 1
     DIM thisId AS LONG: thisId = __TUI.widgetCount
@@ -787,27 +805,29 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
         thumbIdx = _CLAMP(CLNG(normVal * (innerW - 1)), 0, innerW - 1)
     END IF
 
-    ' 1. Label text
-    IF isFocused _ANDALSO __TUI.hasNavFocus THEN
-        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
-    ELSEIF isHovered THEN
-        COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
-    ELSE
-        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+    ' 1. Label text (drawn non-destructively on caller's background)
+    IF labelLen > 0 THEN
+        IF isFocused _ANDALSO __TUI.hasNavFocus THEN
+            COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
+        ELSEIF isHovered THEN
+            COLOR TUI_COLOR_BRIGHT_WHITE, origBg
+        ELSE
+            COLOR origFg, origBg
+        END IF
+        _PRINTSTRING (x, y), label
+        COLOR origFg, origBg
+        _PRINTSTRING (x + labelLen, y), " "
     END IF
-    _PRINTSTRING (x, y), label
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
-    _PRINTSTRING (x + labelLen, y), " "
 
     ' 2. Left Stepper (CHR$(17))
     DIM isStepLHover AS _BYTE
     isStepLHover = isHovered _ANDALSO (INT(__TUI.mousePos.x) = xStepL) _ANDALSO (INT(__TUI.mousePos.y) = y)
     IF isStepLHover _ANDALSO (__TUI.mouseDownL _ORELSE __TUI.activeId = thisId) THEN
-        COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
+        COLOR TUI_COLOR_YELLOW, origBg
     ELSEIF isStepLHover THEN
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
     ELSE
-        COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+        COLOR origFg, origBg
     END IF
     _PRINTSTRING (xStepL, y), CHR$(17)
 
@@ -816,19 +836,19 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
         _PRINTSTRING (xStepL + 1, y), CHR$(186)
     ELSEIF isHovered _ORELSE __TUI.activeId = thisId THEN
-        COLOR TUI_COLOR_CYAN, TUI_COLOR_BLACK
+        COLOR TUI_COLOR_CYAN, origBg
         _PRINTSTRING (xStepL + 1, y), CHR$(179)
     ELSE
-        COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+        COLOR TUI_COLOR_WHITE, origBg
         _PRINTSTRING (xStepL + 1, y), CHR$(179)
     END IF
 
     ' 4. Filled track portion (columns 0 to thumbIdx - 1)
     IF thumbIdx > 0 THEN
         IF isHovered _ORELSE __TUI.activeId = thisId THEN
-            COLOR TUI_COLOR_CYAN, TUI_COLOR_BLACK
+            COLOR TUI_COLOR_CYAN, origBg
         ELSE
-            COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+            COLOR TUI_COLOR_LIGHT_CYAN, origBg
         END IF
         _PRINTSTRING (xTrack, y), STRING$(thumbIdx, CHR$(219))
     END IF
@@ -841,12 +861,12 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
     ELSE
         COLOR TUI_COLOR_BLACK, TUI_COLOR_LIGHT_CYAN
     END IF
-    _PRINTSTRING (xTrack + thumbIdx, y), CHR$(254)
+    _PRINTSTRING (xTrack + thumbIdx, y), CHR$(29)
 
     ' 6. Unfilled track portion (columns thumbIdx + 1 to innerW - 1)
     DIM remChars AS LONG: remChars = (innerW - 1) - thumbIdx
     IF remChars > 0 THEN
-        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+        COLOR TUI_COLOR_GRAY, origBg
         _PRINTSTRING (xTrack + thumbIdx + 1, y), STRING$(remChars, CHR$(176))
     END IF
 
@@ -855,10 +875,10 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_MAGENTA
         _PRINTSTRING (xStepR - 1, y), CHR$(186)
     ELSEIF isHovered _ORELSE __TUI.activeId = thisId THEN
-        COLOR TUI_COLOR_CYAN, TUI_COLOR_BLACK
+        COLOR TUI_COLOR_CYAN, origBg
         _PRINTSTRING (xStepR - 1, y), CHR$(179)
     ELSE
-        COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+        COLOR TUI_COLOR_WHITE, origBg
         _PRINTSTRING (xStepR - 1, y), CHR$(179)
     END IF
 
@@ -866,26 +886,27 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
     DIM isStepRHover AS _BYTE
     isStepRHover = isHovered _ANDALSO (INT(__TUI.mousePos.x) = xStepR) _ANDALSO (INT(__TUI.mousePos.y) = y)
     IF isStepRHover _ANDALSO (__TUI.mouseDownL _ORELSE __TUI.activeId = thisId) THEN
-        COLOR TUI_COLOR_YELLOW, TUI_COLOR_BLACK
+        COLOR TUI_COLOR_YELLOW, origBg
     ELSEIF isStepRHover THEN
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
     ELSE
-        COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+        COLOR origFg, origBg
     END IF
     _PRINTSTRING (xStepR, y), CHR$(16)
 
     ' 9. Percentage readout (columns barStart + w + 1 to barStart + w + 4)
-    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+    COLOR origFg, origBg
     _PRINTSTRING (barStart + w, y), " "
     DIM pctVal AS LONG: pctVal = CLNG(normVal * 100!)
     DIM pctStr AS STRING: pctStr = RIGHT$("  " + _TOSTR$(pctVal), 3) + "%"
     IF isHovered THEN
-        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+        COLOR TUI_COLOR_BRIGHT_WHITE, origBg
     ELSE
-        COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
+        COLOR origFg, origBg
     END IF
     _PRINTSTRING (barStart + w + 1, y), pctStr
 
+    COLOR origFg, origBg
     TUI_Slider = updatedVal
 END FUNCTION
 
@@ -898,10 +919,23 @@ END FUNCTION
 ''' @param isDoubleBorder _TRUE for double-line border, _FALSE for single-line.
 ''' @param isOpaque _TRUE to fill interior with background spaces, _FALSE for transparent.
 SUB TUI_PanelEx (x AS LONG, y AS LONG, w AS LONG, h AS LONG, title AS STRING, isDoubleBorder AS _BYTE, isOpaque AS _BYTE)
-    IF w < 2 _ORELSE h < 2 THEN EXIT SUB
+    DIM origFg AS _UNSIGNED LONG: origFg = _DEFAULTCOLOR
+    DIM origBg AS _UNSIGNED LONG: origBg = _BACKGROUNDCOLOR
+
+    IF w < 2 _ORELSE h < 2 THEN
+        COLOR origFg, origBg
+        EXIT SUB
+    END IF
 
     DIM innerW AS LONG: innerW = w - 2
     DIM innerH AS LONG: innerH = h - 2
+
+    DIM panelBg AS LONG
+    IF isOpaque THEN
+        panelBg = TUI_COLOR_BLACK
+    ELSE
+        panelBg = origBg
+    END IF
 
     DIM chTL AS LONG, chTR AS LONG, chBL AS LONG, chBR AS LONG, chH AS LONG, chV AS LONG
     IF isDoubleBorder THEN
@@ -925,30 +959,32 @@ SUB TUI_PanelEx (x AS LONG, y AS LONG, w AS LONG, h AS LONG, title AS STRING, is
     IF isOpaque THEN fillStr = SPACE$(innerW)
 
     ' Top border
-    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    COLOR TUI_COLOR_BRIGHT_WHITE, panelBg
     _PRINTSTRING (x, y), CHR$(chTL) + topBar
-    COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+    COLOR TUI_COLOR_GRAY, panelBg
     _PRINTSTRING (x + w - 1, y), CHR$(chTR)
 
     ' Side borders and interior
     DIM row AS LONG
     FOR row = 1 TO innerH
         IF isOpaque THEN
-            COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+            COLOR TUI_COLOR_BRIGHT_WHITE, panelBg
             _PRINTSTRING (x, y + row), vChar + fillStr
         ELSE
-            COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+            COLOR TUI_COLOR_BRIGHT_WHITE, panelBg
             _PRINTSTRING (x, y + row), vChar
         END IF
-        COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+        COLOR TUI_COLOR_GRAY, panelBg
         _PRINTSTRING (x + w - 1, y + row), vChar
     NEXT row
 
     ' Bottom border
-    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+    COLOR TUI_COLOR_BRIGHT_WHITE, panelBg
     _PRINTSTRING (x, y + h - 1), CHR$(chBL)
-    COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+    COLOR TUI_COLOR_GRAY, panelBg
     _PRINTSTRING (x + 1, y + h - 1), botBar + CHR$(chBR)
+
+    COLOR origFg, origBg
 END SUB
 
 ''' @brief Renders a bordered panel container with optional title and border style (opaque by default).
@@ -973,6 +1009,9 @@ END SUB
 FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG, isDisabled AS _BYTE)
     SHARED __TUI AS __TUI_Context
 
+    DIM origFg AS _UNSIGNED LONG: origFg = _DEFAULTCOLOR
+    DIM origBg AS _UNSIGNED LONG: origBg = _BACKGROUNDCOLOR
+
     DIM changed AS _BYTE: changed = _FALSE
     DIM curX AS LONG: curX = x
 
@@ -985,7 +1024,7 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount
         IF isDisabled THEN
             ' Render disabled tab (flat single-line border in dark gray, gray text on black)
             DIM hLineDis AS STRING: hLineDis = STRING$(tabW - 2, 196)
-            COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+            COLOR TUI_COLOR_GRAY, origBg
             _PRINTSTRING (curX, y), __TUI_GLYPH_CORNER_TL + hLineDis + __TUI_GLYPH_CORNER_TR
             _PRINTSTRING (curX, y + 1), __TUI_GLYPH_VLINE + " " + tabText + " " + __TUI_GLYPH_VLINE
         ELSE
@@ -1049,13 +1088,13 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount
                 _PRINTSTRING (curX, y), CHR$(chTL) + hLine + CHR$(chTR)
                 _PRINTSTRING (curX, y + 1), CHR$(chV) + " " + tabText + " " + CHR$(chV)
             ELSEIF isFocused THEN
-                COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
+                COLOR TUI_COLOR_BRIGHT_WHITE, origBg
                 _PRINTSTRING (curX, y), CHR$(chTL) + hLine + CHR$(chTR)
                 _PRINTSTRING (curX, y + 1), CHR$(chV) + " " + tabText + " " + CHR$(chV)
             ELSE
-                COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+                COLOR TUI_COLOR_GRAY, origBg
                 _PRINTSTRING (curX, y), CHR$(chTL) + hLine + CHR$(chTR)
-                COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+                COLOR TUI_COLOR_WHITE, origBg
                 _PRINTSTRING (curX, y + 1), CHR$(chV) + " " + tabText + " " + CHR$(chV)
             END IF
         END IF
@@ -1063,6 +1102,7 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount
         curX = curX + tabW + 1
     NEXT i
 
+    COLOR origFg, origBg
     TUI_TabBarEx = changed
 END FUNCTION
 
@@ -1085,7 +1125,13 @@ END FUNCTION
 ''' @param peak Normalized peak level (0.0 to 1.0).
 ''' @param isMuted _TRUE if channel is muted (renders in gray).
 SUB TUI_VUMeter (x AS LONG, y AS LONG, h AS LONG, level AS SINGLE, peak AS SINGLE, isMuted AS _BYTE)
-    IF h < 1 THEN EXIT SUB
+    DIM origFg AS _UNSIGNED LONG: origFg = _DEFAULTCOLOR
+    DIM origBg AS _UNSIGNED LONG: origBg = _BACKGROUNDCOLOR
+
+    IF h < 1 THEN
+        COLOR origFg, origBg
+        EXIT SUB
+    END IF
 
     DIM nLevel AS SINGLE: nLevel = _CLAMP(level, 0!, 1!)
     DIM nPeak AS SINGLE: nPeak = _CLAMP(peak, 0!, 1!)
@@ -1121,6 +1167,8 @@ SUB TUI_VUMeter (x AS LONG, y AS LONG, h AS LONG, level AS SINGLE, peak AS SINGL
             _PRINTSTRING (x, drawY), __TUI_GLYPH_INACTIVE_DOT ' inactive dot
         END IF
     NEXT r
+
+    COLOR origFg, origBg
 END SUB
 
 ''' @brief Renders a scrollable selection list with item hover, selection, and scrollbar.
@@ -1136,11 +1184,17 @@ END SUB
 FUNCTION TUI_ScrollList& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS STRING, totalItems AS LONG, selectedIdx AS LONG, scrollOffset AS LONG)
     SHARED __TUI AS __TUI_Context
 
+    DIM origFg AS _UNSIGNED LONG: origFg = _DEFAULTCOLOR
+    DIM origBg AS _UNSIGNED LONG: origBg = _BACKGROUNDCOLOR
+
     __TUI.widgetCount = __TUI.widgetCount + 1
     DIM thisId AS LONG: thisId = __TUI.widgetCount
     DIM itemActivated AS LONG: itemActivated = 0
 
-    IF h < 1 _ORELSE w < 3 THEN EXIT FUNCTION
+    IF h < 1 _ORELSE w < 3 THEN
+        COLOR origFg, origBg
+        EXIT FUNCTION
+    END IF
 
     DIM maxScroll AS LONG: maxScroll = _MAX(1, totalItems - h + 1)
     scrollOffset = _CLAMP(scrollOffset, 1, maxScroll)
@@ -1227,5 +1281,6 @@ FUNCTION TUI_ScrollList& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS
         END IF
     NEXT r
 
+    COLOR origFg, origBg
     TUI_ScrollList = itemActivated
 END FUNCTION

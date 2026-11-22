@@ -1511,7 +1511,9 @@ FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, _
 
 - **Description**: Renders an interactive progress / seek bar. Supports real-time
   scrubbing with an ~80 ms rate-limiting cool-off interval to prevent rapid order
-  jumping.
+  jumping. Renders non-destructively: prefix label and percentage readout inherit
+  the current `_BACKGROUNDCOLOR`, and caller's `_DEFAULTCOLOR` / `_BACKGROUNDCOLOR`
+  are preserved upon return.
 - **Parameters**:
   - `x`: Character column coordinate.
   - `y`: Character row coordinate.
@@ -1528,8 +1530,10 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, _
     minVal AS SINGLE, maxVal AS SINGLE, label AS STRING)
 ```
 
-- **Description**: Renders an interactive floating-point slider bar with
-  percentage readout.
+- **Description**: Renders an interactive floating-point slider bar with steppers
+  and percentage readout. Renders non-destructively: prefix label and percentage
+  readout inherit the current `_BACKGROUNDCOLOR`, and caller's `_DEFAULTCOLOR` /
+  `_BACKGROUNDCOLOR` are preserved upon return.
 - **Parameters**:
   - `x`: Character column coordinate.
   - `y`: Character row coordinate.

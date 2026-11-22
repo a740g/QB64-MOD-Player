@@ -210,6 +210,7 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
     _PRINTSTRING (137, 1), __UI_Format3(rowVal) + "/" + __UI_Format3(maxRowVal)
 
     ' Row 2: Playback Status & Position Scrubber Bar
+    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
     DIM curOrd AS LONG: curOrd = _IIF(player.song.isPlaying, player.song.orderPosition, 0)
     DIM maxOrd AS LONG: maxOrd = _IIF(player.song.isPlaying, _MAX(1, player.song.orders - 1), 1)
 
@@ -281,6 +282,7 @@ FUNCTION UI_DrawHeader%% (player AS MODPlayer, pl AS Playlist, currentView AS IN
     _PRINTSTRING (117, 2), "  "
 
     ' Interactive Master Volume Slider (cols 119..143)
+    COLOR TUI_COLOR_LIGHT_CYAN, TUI_COLOR_BLACK
     DIM curVol AS SINGLE: curVol = SoftSynth_GetMasterVolume(player.synth)
     DIM newVol AS SINGLE
     newVol = TUI_Slider(119, 2, 16, curVol, 0!, SOFTSYNTH_MASTER_VOLUME_MAX, "VOL")
