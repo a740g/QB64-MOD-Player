@@ -1,14 +1,19 @@
 # QB64 MOD Player
 
-A tracker music replayer and library written in [QB64-PE](https://www.qb64phoenix.com/).
+A high-performance tracker music player and library written in [QB64-PE](https://www.qb64phoenix.com/).
 
-It supports the following classic module formats:
+Supports classic module formats:
 
-- [ProTracker](https://en.wikipedia.org/wiki/ProTracker) (and compatibles, `.mod`)
-- [MultiTracker](https://en.wikipedia.org/wiki/Module_file#Popular_formats) (`.mtm`)
-- [Scream Tracker 2](https://en.wikipedia.org/wiki/Scream_Tracker) (`.stm`)
-- [Scream Tracker 3](https://en.wikipedia.org/wiki/Scream_Tracker) (`.s3m`)
-- [Farandole Composer](https://en.wikipedia.org/wiki/Farandole_Composer) (`.far`)
+- **MOD**: ProTracker, SoundTracker, StarTrekker (1 to 99 channels, AM synth)
+- **S3M**: Scream Tracker 3 (digital audio + Yamaha OPL2/OPL3 AdLib FM)
+- **MTM**: MultiTracker
+- **669**: Composer 669
+- **FAR**: Farandole Composer
+- **STM**: Scream Tracker 2
+- **RAD**: Reality Adlib Tracker (OPL2 FM)
+- **ULT**: UltraTracker
+- **MDL**: Digitrakker
+- **AMF**: Advanced Music Format
 
 ---
 
@@ -17,93 +22,39 @@ It supports the following classic module formats:
 
 ## Features
 
-- Pure native QB64-PE code statically compiled without shared libraries or
-  runtime DLL requirements.
-- Fully supported on Windows, Linux, and macOS.
-- Format Support:
-  - ProTracker MOD files with 1 to 99 channels, 15 or 31 samples, Amiga period
-    limits, and StarTrekker 1.2/1.3 AM synthesized instruments (auto-loading
-    companion `.mod.nt`, `.nt`, and `.as` files).
-  - Scream Tracker 2 (STM) files with 4 channels, ST2 tempo conversion, signed
-    8-bit PCM samples, and ST2 effects (volume slides, portamentos, vibrato,
-    tremor, arpeggio).
-  - Scream Tracker 3 (S3M) files with multi-channel digital audio, custom sample
-    rates, ST3 panning, and Yamaha OPL2/OPL3 AdLib FM synthesis (melodic and
-    rhythm channels) with real-time software mixing.
-  - MultiTracker (MTM) files with track sequencing and 8-bit PCM samples.
-  - Farandole Composer (FAR) files with up to 16 channels, custom tempo, 8-bit
-    samples, and per-pattern row counts.
-- Modular Architecture:
-  - Core Player engine (`MODPlayer.bi`, `MODPlayer.bm`, `MODPlayerShared.bm`)
-    decoupled from file parsers.
-  - Dedicated format loaders (`MODLoader.bi`, `S3MLoader.bi`, `MTMLoader.bi`,
-    `FARLoader.bi`, `STMLoader.bi`)
-    that parse native tracker files into a unified internal representation.
-  - Extensible design inspired by OpenMPT and MikMod: new tracker formats (e.g.
-    XM, IT) can be added simply by implementing a loader.
-- Multi-Instance Capability:
-  - Fully encapsulated song state, synthesizer instance, order list, patterns,
-    instruments, and channel states inside `MODPlayer`.
-  - Supports multiple independent module instances loaded and played
-    concurrently without crosstalk.
-- Supports pitch slides, portamento, vibrato, tremolo, volume slides, arpeggio,
-  sample offset, panning, pattern delay, and extended commands.
-- Full-screen visualizer showcasing real-time FFT spectrum analysis, pattern
-  viewers, and text-mode animations.
+- 100% pure BASIC code compiled without external DLLs or runtime dependencies (Windows, Linux, macOS).
+- Multi-channel software mixing, volume/pan attenuation, frequency control, and Yamaha OPL2/OPL3 FM emulation.
+- Real-time Radix-2 FFT spectral analysis, oscilloscope, VU meters, pattern display, and animated backgrounds.
+- Multi-Instance API that supports independent playback instances concurrently without crosstalk.
+- Independent core replayer engine with dedicated format loaders for each tracker standard.
 
-## Building and Running
+## Quick Start
 
 ### Prerequisites
 
-- The latest version of [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe/releases).
+- [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe/releases) (latest release)
 
-### Method 1: Using the Makefile (Recommended)
+### Building and Running
 
-A [Makefile](Makefile) is included for building with GNU Make or `mingw32-make`:
-
-```sh
-# Build the application (outputs QB64MODPlayer in root)
-make
-
-# Build with C++ compiler optimizations
-make release
-
-# Run the test suite
-make test
-
-# Remove compiled executable
-make clean
-
-# Display help and usage information
-make help
-```
-
-### Method 2: Command Line Compilation
-
-Compile directly using the QB64-PE compiler:
+Using [Makefile](Makefile):
 
 ```sh
-qb64pe -x -w -e source/QB64MODPlayer.bas
+make          # Build QB64MODPlayer executable
+make release  # Build with C++ compiler optimizations
+make test     # Build and run the test suite
 ```
 
-Then run the generated `QB64MODPlayer` executable.
+Or compiling directly with the QB64-PE CLI:
 
-### Method 3: Using the QB64-PE IDE
+```sh
+qb64pe -x -e -w source/QB64MODPlayer.bas
+```
 
-1. Open `source/QB64MODPlayer.bas` in the QB64-PE IDE.
-2. Press `F5` to compile and run.
+Run the generated `QB64MODPlayer` executable.
 
 ## Using the Library in Your Project
 
-1. Copy the [`source`](source/) directory into your project.
-2. Include the library headers in your source code:
-
-   ```vb
-   '$INCLUDE:'source/MODPlayer.bi'
-   '$INCLUDE:'source/MODPlayer.bm'
-   ```
-
-### Quick Example
+Include the replayer headers in your QB64-PE project:
 
 ```vb
 $CONSOLE:ONLY
@@ -123,9 +74,7 @@ IF NOT MODPlayer_LoadFromDisk(Player, "mods/Enigma.mod") THEN
     END
 END IF
 
-PRINT "Playing: "; MODPlayer_GetName(Player)
-PRINT "Format:  "; MODPlayer_GetType(Player)
-
+PRINT "Playing: "; MODPlayer_GetName(Player); " ["; MODPlayer_GetType(Player); "]"
 MODPlayer_Play Player
 
 DO WHILE MODPlayer_IsPlaying(Player)
@@ -138,93 +87,12 @@ MODPlayer_Finalize Player
 SYSTEM
 ```
 
-## API Reference
+## Documentation
 
-The complete API documentation, parameter specifications, type definitions,
-and constants are documented in [docs/API.md](docs/API.md).
+- **[API Reference](docs/API.md)**: Complete API documentation.
+- **[References](docs/REFERENCES.md)**: Specification and tutorial references.
 
-- **[Core Player API](docs/API.md#core-player-api-modplayerbi--modplayerbm)**: Playback
-  control (`MODPlayer_Play`, `MODPlayer_Stop`, `MODPlayer_Pause`,
-  `MODPlayer_Update`), lifecycle routines (`MODPlayer_Initialize`,
-  `MODPlayer_Finalize`, `MODPlayer_IsInitialized`), position navigation,
-  metadata getters, and unified module loading (`MODPlayer_LoadFromDisk`,
-  `MODPlayer_LoadFromMemory`).
-- **[Dedicated Format Loaders API](docs/API.md#dedicated-format-loaders-api-loaderbi)**:
-  Direct loading routines for ProTracker/SoundTracker (`MODLoader_*`), Scream
-  Tracker 2 (`STMLoader_*`), Scream Tracker 3 (`S3MLoader_*`), MultiTracker
-  (`MTMLoader_*`), Farandole Composer (`FARLoader_*`), Composer 669 (`C669Loader_*`),
-  Reality Adlib Tracker (`RADLoader_*`), UltraTracker (`ULTLoader_*`),
-  Digitrakker (`MDLLoader_*`), and Advanced Music Format (`AMFLoader_*`).
-- **[Software Synthesizer API](docs/API.md#software-synthesizer-api-softsynthbi)**:
-  Multi-instance PCM voice mixing, buffer streaming, pan/volume attenuation,
-  frequency control, and direct sample frame peeking/poking.
-- **[Audio Spectrum Analyzer API](docs/API.md#audio-spectrum-analyzer-api-audioanalyzerbi)**:
-  Multi-instance Radix-2 FFT spectral analysis, average intensity, RMS energy
-  calculation, and peak amplitude/bin detection.
-- **[Opal OPL2/OPL3 FM Synthesizer Emulator API](docs/API.md#opal-opl2opl3-emulator-api-opalbi--opalbm)**:
-  Pure native emulation of Yamaha YM3812 (OPL2) and YMF262 (OPL3) sound chips,
-  supporting 2-op/4-op melodic patches, rhythm mode percussion, and stereo panning.
-- **[Audio Conversion API](docs/API.md#audio-conversion-api-audioconvbi)**:
-  In-place sample format conversion (unsigned/signed 8-bit and 16-bit), dual-mono to
-  stereo interleaving, and 4-bit ADPCM sample decompression.
+## License
 
-## Frequently Asked Questions
-
-### Why create a MOD player in QB64?
-
-Just for learning and fun! While there are many tracker replayers written in C
-and C++, very few exist in high-level BASIC dialects. Having grown up coding on
-DOS using QuickBASIC before moving to C and C++, QuickBASIC has always held a
-special place in my heart. This project explores how far pure QB64-PE can be
-pushed in digital signal processing and sound synthesis.
-
-### Can this library be used in games or demos?
-
-Yes! The library is designed specifically for plug-and-play integration into
-demos, games, and multimedia tools. The included visualizer demo demonstrates
-how to query song states, visualize audio, and render graphics in sync with
-playback.
-
-### How does this compare to QB64-PE's built-in audio engine?
-
-Recent versions of QB64-PE include built-in tracker playback via the miniaudio
-and Libxmp-lite backend. Libxmp-lite is great for general playback, but this
-project is a pure QB64-PE implementation designed for learning, transparency,
-and full hackability directly within BASIC code.
-
-### Can you implement a specific feature or format?
-
-Feature additions are guided by available free time and personal interest. If
-you need a specific feature or format enhancement, feel free to open a GitHub
-issue or submit a pull request!
-
-### I found a bug. How can I report it?
-
-Please report any issues or edge cases using the
-[GitHub issue tracker](https://github.com/a740g/QB64-MOD-Player/issues), or
-submit a pull request with a fix.
-
-## References and Documentation
-
-<!-- markdownlint-disable MD013 -->
-- [MOD Player Tutorial](docs/FireLight%20MOD%20Player%20Tutorial.txt) by *FireLight*
-- [S3M Player Tutorial](docs/FireLight%20S3M%20Player%20Tutorial.txt) by *FireLight*
-- [Noisetracker/Soundtracker/Protracker Module Format](docs/Pro-Noise-Soundtracker%20module%20format%20(rev%204).txt) by *Andrew Scott*
-- [MODFIL10.TXT](docs/Protracker%20effects%20(MODFIL12.TXT)%20(.mod).txt) by *Thunder*
-- [Protracker Module](https://wiki.multimedia.cx/index.php/Protracker_Module) from *MultimediaWiki*
-- [Scream Tracker 3 Module](https://wiki.multimedia.cx/index.php/Scream_Tracker_3_Module) from *MultimediaWiki*
-- [S3M Format](https://moddingwiki.shikadi.net/wiki/S3M_Format) by *ModdingWiki*
-- [Scream Tracker 3 module](http://fileformats.archiveteam.org/wiki/Scream_Tracker_3_module) from *Solve the File Format Problem*
-- [MultiTracker Module (MTM) Format](docs/MultiTracker%20(.mtm).txt) by *Renaissance*
-- [Manual: Effect Reference](https://wiki.openmpt.org/Manual:_Effect_Reference) from *OpenMPT Wiki*
-- [Weasel audio library](https://weaselaudiolib.sourceforge.net/) by *Warren Willmey*
-- [Digital Audio Mixing Techniques](docs/FSBDOC.TXT) by *jedi / oxygen*
-- [Writing Mixing Routines](docs/MIXING10.TXT) by *BYTERAVER/TNT*
-- [Audio Mixer Tutorial](docs/mixer_tutorial) by *benhenshaw*
-- [Opal OPL3 Emulator](https://github.com/RealBitdancer/opal) by *RealBitdancer*
-<!-- markdownlint-enable MD013 -->
-
-## Assets and License
-
-- **Project License**: Licensed under the [MIT License](LICENSE.txt).
-- **Application Icon**: Created by [Tsukasa-Tux (Azrael Jackie Lockheart)](https://iconarchive.com/artist/tsukasa-tux.html).
+- Licensed under the [MIT License](LICENSE.txt).
+- Application icon by [Tsukasa-Tux](https://iconarchive.com/artist/tsukasa-tux.html).
