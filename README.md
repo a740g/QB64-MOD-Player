@@ -32,7 +32,7 @@ Supports classic module formats:
 
 ### Prerequisites
 
-- [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe/releases) (latest release)
+- [QB64-PE](https://github.com/QB64-Phoenix-Edition/QB64pe/releases/latest) (latest release)
 
 ### Building and Running
 
