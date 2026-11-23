@@ -2,8 +2,6 @@
 
 A curated collection of format specifications, player tutorials, audio mixing guides, and hardware emulation references used in developing this project.
 
-Internal repository documentation is preferred and linked locally under `references/`. High-quality external specifications and wikis are included for supplementary reference.
-
 ---
 
 ## Table of Contents
