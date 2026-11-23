@@ -116,7 +116,7 @@ FUNCTION MODLoader_LoadWithCompanion%% (player AS MODPlayer, buffer AS STRING, c
         StringFile_Seek memFile, 1080
         player.song.subtype = StringFile_ReadString(memFile, 4) ' signature is 4 bytes
     ELSE
-        player.song.subtype = ""
+        player.song.subtype = _STR_EMPTY
     END IF
 
     ' Also, seek to the beginning of the file and get the song title

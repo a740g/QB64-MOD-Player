@@ -107,20 +107,6 @@ FUNCTION UI_GetFormatName$ (fmt AS _UNSIGNED INTEGER)
     END SELECT
 END FUNCTION
 
-''' @brief Formats seconds into MM:SS string.
-''' @param seconds Duration in seconds.
-''' @return Formatted MM:SS string.
-FUNCTION UI_FormatTime$ (seconds AS DOUBLE)
-    DIM totalSec AS LONG: totalSec = _CLAMP(CLNG(seconds), 0, 359999)
-    DIM m AS LONG: m = totalSec \ 60
-    DIM s AS LONG: s = totalSec MOD 60
-    DIM mStr AS STRING: mStr = _TOSTR$(m)
-    IF LEN(mStr) < 2 THEN mStr = "0" + mStr
-    DIM sStr AS STRING: sStr = _TOSTR$(s)
-    IF LEN(sStr) < 2 THEN sStr = "0" + sStr
-    UI_FormatTime = mStr + ":" + sStr
-END FUNCTION
-
 ''' @brief Formats an integer to 3 digits with leading zeros (e.g. "005"), or "---" if negative.
 FUNCTION __UI_Format3$ (v AS LONG)
     IF v < 0 THEN
@@ -955,13 +941,7 @@ FUNCTION UI_RenderPlaylist%% (pl AS Playlist, selectedItem AS LONG, scrollOffset
     DIM i AS LONG
     FOR i = 1 TO pl.count
         DIM mark AS STRING: mark = _IIF(i = pl.currentIndex, __UI_GLYPH_RIGHT_ARROW + " ", "  ")
-        DIM dStr AS STRING
-        IF pl.entries(i).duration > 0# THEN
-            dStr = "[" + UI_FormatTime(pl.entries(i).duration) + "]"
-        ELSE
-            dStr = "[--:--]"
-        END IF
-        listItems(i) = mark + RIGHT$("00" + _TOSTR$(i), 3) + ". " + pl.entries(i).title + " " + dStr + "  " + Pathname_GetFileName(pl.entries(i).filePath)
+        listItems(i) = mark + RIGHT$("00" + _TOSTR$(i), 3) + ". " + pl.entries(i).fileName
     NEXT i
 
     DIM activated AS LONG

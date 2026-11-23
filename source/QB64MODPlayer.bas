@@ -261,7 +261,7 @@ SUB App_AddFolderToPlaylist (folderPath AS STRING)
     IF count > 0 THEN
         DIM i AS _UNSIGNED LONG
         FOR i = 0 TO count - 1
-            Playlist_Add GlobalPlaylist, matchedFiles(i), "", 0#
+            Playlist_Add GlobalPlaylist, matchedFiles(i)
         NEXT i
     END IF
 END SUB
@@ -298,7 +298,7 @@ SUB App_OpenFileDialog (clearAndPlay AS _BYTE)
     DIM firstAdded AS LONG: firstAdded = GlobalPlaylist.count + 1
     FOR i = 0 TO j - 1
         IF LEN(fileNames(i)) > 0 THEN
-            Playlist_Add GlobalPlaylist, fileNames(i), "", 0#
+            Playlist_Add GlobalPlaylist, fileNames(i)
         END IF
     NEXT i
 
@@ -322,7 +322,7 @@ SUB App_OpenFolderDialog (clearAndPlay AS _BYTE)
     SHARED PlaylistScrollOffset AS LONG
 
     DIM folderPath AS STRING
-    folderPath = _SELECTFOLDERDIALOG$("Select folder containing module music:", "")
+    folderPath = _SELECTFOLDERDIALOG$("Select folder containing module music:")
     IF LEN(folderPath) = 0 THEN EXIT SUB
     IF NOT _DIREXISTS(folderPath) THEN EXIT SUB
 
@@ -340,7 +340,7 @@ SUB App_OpenFolderDialog (clearAndPlay AS _BYTE)
     DIM firstAdded AS LONG: firstAdded = GlobalPlaylist.count + 1
     DIM fi AS _UNSIGNED LONG
     FOR fi = 0 TO count - 1
-        Playlist_Add GlobalPlaylist, matchedFiles(fi), "", 0#
+        Playlist_Add GlobalPlaylist, matchedFiles(fi)
     NEXT fi
 
     IF clearAndPlay THEN
@@ -362,7 +362,7 @@ SUB App_PlayModArchiveRandom
     DIM ext AS STRING: ext = LCASE$(Pathname_GetFileExtension(url))
 
     IF ext = ".mod" _ORELSE ext = ".mtm" _ORELSE ext = ".s3m" _ORELSE ext = ".far" _ORELSE ext = ".stm" _ORELSE ext = ".669" _ORELSE ext = ".rad" _ORELSE ext = ".ult" _ORELSE ext = ".mdl" _ORELSE ext = ".amf" _ORELSE ext = ".stk" _ORELSE ext = ".m15" THEN
-        Playlist_Add GlobalPlaylist, url, App_GetSaveFileName(url), 0#
+        Playlist_Add GlobalPlaylist, url
         App_PlayTrack GlobalPlaylist.count
     ELSE
         _MESSAGEBOX APP_NAME, "Failed to retrieve module from ModArchive.", "warning"
@@ -390,7 +390,7 @@ SUB App_ProcessDroppedFiles
         IF _DIREXISTS(dropFiles(i)) THEN
             App_AddFolderToPlaylist dropFiles(i)
         ELSE
-            Playlist_Add GlobalPlaylist, dropFiles(i), "", 0#
+            Playlist_Add GlobalPlaylist, dropFiles(i)
         END IF
     NEXT i
 
@@ -410,7 +410,7 @@ SUB App_ProcessCommandLine
 
         DIM i AS LONG
         FOR i = 1 TO _COMMANDCOUNT
-            Playlist_Add GlobalPlaylist, COMMAND$(i), "", 0#
+            Playlist_Add GlobalPlaylist, COMMAND$(i)
         NEXT i
 
         IF GlobalPlaylist.count > 0 THEN

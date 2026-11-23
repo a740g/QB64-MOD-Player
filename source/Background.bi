@@ -1006,7 +1006,7 @@ SUB __Background_UpdateAndDrawFire (ctx AS Background)
     FOR y = startRenderY TO maxY
         DIM runStart AS LONG: runStart = 0
         DIM lastCol AS LONG: lastCol = -1
-        DIM runStr AS STRING: runStr = ""
+        DIM runStr AS STRING: runStr = _STR_EMPTY
 
         FOR x = minX TO maxX
             DIM hVal AS LONG: hVal = ctx.fire.grid(x, y)
@@ -1093,7 +1093,7 @@ SUB __Background_UpdateAndDrawPlasma (ctx AS Background)
         DIM rowTerm AS LONG: rowTerm = ctx.plasma.sinLUT((y * 5 + t2) AND 511)
         DIM runStart AS LONG: runStart = 0
         DIM lastCol AS LONG: lastCol = -1
-        DIM runStr AS STRING: runStr = ""
+        DIM runStr AS STRING: runStr = _STR_EMPTY
 
         FOR x = minX TO maxX
             DIM pVal AS LONG
@@ -1544,7 +1544,7 @@ SUB __Background_UpdateAndDrawGrid (ctx AS Background)
 
         DIM runStart AS LONG: runStart = 0
         DIM lastCol AS LONG: lastCol = -1
-        DIM runStr AS STRING: runStr = ""
+        DIM runStr AS STRING: runStr = _STR_EMPTY
 
         DIM gx AS LONG
         FOR gx = minX TO maxX

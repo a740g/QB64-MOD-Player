@@ -20,8 +20,7 @@ CONST __PLAYLIST_INITIAL_CAPACITY& = 32&
 
 TYPE PlaylistEntry
     filePath AS STRING
-    title AS STRING
-    duration AS DOUBLE
+    fileName AS STRING
 END TYPE
 
 TYPE Playlist
@@ -55,10 +54,8 @@ END SUB
 ''' @brief Appends a song file to the playlist.
 ''' @param pl The Playlist instance.
 ''' @param filePath Absolute or relative path to the music file.
-''' @param title Optional display title. If empty, the file name is used.
-''' @param duration Optional duration in seconds.
 ''' @return _TRUE if added successfully, _FALSE on error.
-FUNCTION Playlist_Add%% (pl AS Playlist, filePath AS STRING, title AS STRING, duration AS DOUBLE)
+FUNCTION Playlist_Add%% (pl AS Playlist, filePath AS STRING)
     pl.count = pl.count + 1
 
     IF pl.count > UBOUND(pl.entries) THEN
@@ -74,14 +71,7 @@ FUNCTION Playlist_Add%% (pl AS Playlist, filePath AS STRING, title AS STRING, du
     END IF
 
     pl.entries(pl.count).filePath = filePath
-
-    IF LEN(title) > 0 THEN
-        pl.entries(pl.count).title = title
-    ELSE
-        pl.entries(pl.count).title = Pathname_GetFileName(filePath)
-    END IF
-
-    pl.entries(pl.count).duration = duration
+    pl.entries(pl.count).fileName = Pathname_GetFileName(filePath)
 
     IF pl.currentIndex = 0 THEN
         pl.currentIndex = 1
@@ -97,10 +87,8 @@ END FUNCTION
 ''' @brief Appends a song file to the playlist (subroutine version).
 ''' @param pl The Playlist instance.
 ''' @param filePath Absolute or relative path to the music file.
-''' @param title Optional display title. If empty, the file name is used.
-''' @param duration Optional duration in seconds.
-SUB Playlist_Add (pl AS Playlist, filePath AS STRING, title AS STRING, duration AS DOUBLE)
-    DIM ignored AS _BYTE: ignored = Playlist_Add(pl, filePath, title, duration)
+SUB Playlist_Add (pl AS Playlist, filePath AS STRING)
+    DIM ignored AS _BYTE: ignored = Playlist_Add(pl, filePath)
 END SUB
 
 ''' @brief Removes a song entry from the playlist by 1-based index.
@@ -115,9 +103,8 @@ FUNCTION Playlist_Remove%% (pl AS Playlist, index AS LONG)
         pl.entries(i) = pl.entries(i + 1)
     NEXT i
 
-    pl.entries(pl.count).filePath = ""
-    pl.entries(pl.count).title = ""
-    pl.entries(pl.count).duration = 0#
+    pl.entries(pl.count).filePath = _STR_EMPTY
+    pl.entries(pl.count).fileName = _STR_EMPTY
     pl.count = pl.count - 1
 
     IF pl.count = 0 THEN
@@ -289,9 +276,6 @@ FUNCTION Playlist_LoadM3U%% (pl AS Playlist, m3uFilePath AS STRING)
     DIM m3uDir AS STRING: m3uDir = Pathname_GetPath(m3uFilePath)
     DIM countBefore AS LONG: countBefore = pl.count
 
-    DIM curExtTitle AS STRING
-    DIM curExtDur AS DOUBLE
-
     DIM pStart AS LONG: pStart = 1
     DIM cLen AS LONG: cLen = LEN(content)
 
@@ -313,18 +297,8 @@ FUNCTION Playlist_LoadM3U%% (pl AS Playlist, m3uFilePath AS STRING)
         lineStr = _TRIM$(lineStr)
 
         IF LEN(lineStr) > 0 THEN
-            IF LEFT$(lineStr, 8) = "#EXTINF:" THEN
-                ' Parse #EXTINF:<seconds>,<title>
-                DIM commaPos AS LONG: commaPos = INSTR(9, lineStr, ",")
-                IF commaPos > 0 THEN
-                    curExtDur = VAL(MID$(lineStr, 9, commaPos - 9))
-                    curExtTitle = _TRIM$(MID$(lineStr, commaPos + 1))
-                ELSE
-                    curExtDur = VAL(MID$(lineStr, 9))
-                    curExtTitle = ""
-                END IF
-            ELSEIF LEFT$(lineStr, 1) = "#" THEN
-                ' Other comment or directive; ignore
+            IF LEFT$(lineStr, 1) = "#" THEN
+                ' Directive or comment (#EXTM3U, #EXTINF, etc.); ignore
             ELSE
                 ' File path entry
                 DIM resolvedPath AS STRING: resolvedPath = lineStr
@@ -333,9 +307,7 @@ FUNCTION Playlist_LoadM3U%% (pl AS Playlist, m3uFilePath AS STRING)
                 END IF
 
                 DIM added AS _BYTE
-                added = Playlist_Add(pl, resolvedPath, curExtTitle, curExtDur)
-                curExtTitle = ""
-                curExtDur = 0#
+                added = Playlist_Add(pl, resolvedPath)
             END IF
         END IF
     WEND
@@ -361,8 +333,7 @@ FUNCTION Playlist_SaveM3U%% (pl AS Playlist, m3uFilePath AS STRING)
 
     DIM i AS LONG
     FOR i = 1 TO pl.count
-        DIM durStr AS STRING: durStr = _TOSTR$(CLNG(pl.entries(i).duration))
-        outStr = outStr + "#EXTINF:" + durStr + "," + pl.entries(i).title + _STR_CRLF
+        outStr = outStr + "#EXTINF:-1," + pl.entries(i).fileName + _STR_CRLF
         outStr = outStr + pl.entries(i).filePath + _STR_CRLF
     NEXT i
 

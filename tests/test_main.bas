@@ -278,7 +278,7 @@ END SUB
 SUB Test_StringFile
     TEST_CASE_BEGIN "StringFile: Write, Seek, and Read"
     DIM mf AS StringFile
-    StringFile_Create mf, ""
+    StringFile_Create mf, _STR_EMPTY
 
     StringFile_WriteByte mf, 42
     StringFile_WriteInteger mf, 12345
@@ -1836,7 +1836,7 @@ SUB Test_MODPlayer_Errors
     TEST_CASE_END
 
     TEST_CASE_BEGIN "MODPlayer: Empty memory buffer"
-    TEST_REQUIRE_FALSE MODPlayer_LoadFromMemory(player, ""), "Should return FALSE for empty buffer"
+    TEST_REQUIRE_FALSE MODPlayer_LoadFromMemory(player, _STR_EMPTY), "Should return FALSE for empty buffer"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "MODPlayer: Corrupt/Invalid memory buffer"
@@ -2511,7 +2511,7 @@ SUB Test_MODPlayer_ChannelBadges
     TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pMod, 1) = "PCM", "Channel 1 is PCM"
     TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pMod, 2) = "PCM", "Channel 2 is PCM"
     TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pMod, 3) = "PCM", "Channel 3 is PCM"
-    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pMod, 4) = "", "Channel out of bounds is empty string"
+    TEST_CHECK MODPlayer_GetChannelSubtypeCaption(pMod, 4) = _STR_EMPTY, "Channel out of bounds is empty string"
     MODPlayer_Finalize pMod
     TEST_CASE_END
 
@@ -3913,7 +3913,7 @@ SUB Test_TUI
     TEST_CASE_BEGIN "TUI: Panel Container"
     TUI_Begin
     TUI_Panel 5, 5, 30, 10, "Control Center", _TRUE
-    TUI_Panel 40, 5, 20, 10, "", _FALSE
+    TUI_Panel 40, 5, 20, 10, _STR_EMPTY, _FALSE
     TUI_PanelEx 65, 5, 20, 10, "Opaque", _TRUE, _TRUE
     TUI_PanelEx 90, 5, 20, 10, "Trans", _FALSE, _FALSE
     TEST_CHECK __TUI.widgetCount = 0, "Panel does not increment interactive widget count"
@@ -4065,7 +4065,7 @@ SUB Test_TUI
     ' Boundary safety: curVal = 0, maxVal = 0 (stopped state)
     TUI_Begin
     Vector2f_Set 0!, 0!, __TUI.mousePos
-    pbVal = TUI_ProgressBar(10, 5, 50, 0!, 0!, "")
+    pbVal = TUI_ProgressBar(10, 5, 50, 0!, 0!, _STR_EMPTY)
     TEST_CHECK pbVal = -1, "Zero maxVal returns -1 safely without division by zero"
     TUI_End
     TEST_CASE_END
@@ -4259,7 +4259,7 @@ SUB Test_Playlist
     TEST_CHECK NOT pl.isShuffle, "Initial shuffle is disabled"
     TEST_CHECK pl.repeatMode = PLAYLIST_REPEAT_NONE, "Initial repeat mode is NONE"
 
-    Playlist_Add pl, "mods/test1.mod", "Test Song 1", 120#
+    Playlist_Add pl, "mods/test1.mod"
     TEST_CHECK pl.count = 1, "Count is 1 after add"
     TEST_CHECK pl.currentIndex = 1, "CurrentIndex is 1 after initial add"
 
@@ -4270,20 +4270,20 @@ SUB Test_Playlist
 
     TEST_CASE_BEGIN "Playlist: Add and Remove"
     Playlist_Initialize pl
-    Playlist_Add pl, "mods/track1.mod", "Track 1", 60#
-    Playlist_Add pl, "mods/track2.s3m", "Track 2", 90#
-    Playlist_Add pl, "mods/track3.xm", "", 150# ' empty title tests filename fallback
+    Playlist_Add pl, "mods/track1.mod"
+    Playlist_Add pl, "mods/track2.s3m"
+    Playlist_Add pl, "mods/track3.xm"
 
     TEST_CHECK pl.count = 3, "Added 3 tracks"
-    TEST_CHECK pl.entries(1).title = "Track 1", "Track 1 title preserved"
-    TEST_CHECK pl.entries(2).duration = 90#, "Track 2 duration preserved"
-    TEST_CHECK pl.entries(3).title = "track3.xm", "Track 3 title defaults to filename"
+    TEST_CHECK pl.entries(1).fileName = "track1.mod", "Track 1 filename matches"
+    TEST_CHECK pl.entries(2).fileName = "track2.s3m", "Track 2 filename matches"
+    TEST_CHECK pl.entries(3).fileName = "track3.xm", "Track 3 filename matches"
 
     ' Remove middle track
     DIM rmOk AS _BYTE: rmOk = Playlist_Remove(pl, 2)
     TEST_CHECK rmOk, "Remove middle track returns true"
     TEST_CHECK pl.count = 2, "Count is now 2"
-    TEST_CHECK pl.entries(2).title = "track3.xm", "Track 3 shifted to position 2"
+    TEST_CHECK pl.entries(2).fileName = "track3.xm", "Track 3 shifted to position 2"
 
     ' Remove invalid index
     DIM rmFail AS _BYTE: rmFail = Playlist_Remove(pl, 99)
@@ -4292,9 +4292,9 @@ SUB Test_Playlist
 
     TEST_CASE_BEGIN "Playlist: Sequential and Repeat Modes"
     Playlist_Initialize pl
-    Playlist_Add pl, "song1.mod", "Song 1", 10#
-    Playlist_Add pl, "song2.mod", "Song 2", 20#
-    Playlist_Add pl, "song3.mod", "Song 3", 30#
+    Playlist_Add pl, "song1.mod"
+    Playlist_Add pl, "song2.mod"
+    Playlist_Add pl, "song3.mod"
 
     ' Sequential advance without repeat
     Playlist_SetRepeatMode pl, PLAYLIST_REPEAT_NONE
@@ -4327,7 +4327,7 @@ SUB Test_Playlist
     Playlist_Initialize pl
     DIM sI AS LONG
     FOR sI = 1 TO 10
-        Playlist_Add pl, "song" + STR$(sI) + ".mod", "Song " + STR$(sI), 60#
+        Playlist_Add pl, "song" + STR$(sI) + ".mod"
     NEXT sI
 
     Playlist_SetShuffle pl, _TRUE
@@ -4353,8 +4353,8 @@ SUB Test_Playlist
 
     TEST_CASE_BEGIN "Playlist: M3U Load and Save"
     Playlist_Initialize pl
-    Playlist_Add pl, "mods/tune1.mod", "Tune 1", 125#
-    Playlist_Add pl, "mods/tune2.s3m", "Tune 2", 210#
+    Playlist_Add pl, "mods/tune1.mod"
+    Playlist_Add pl, "mods/tune2.s3m"
 
     DIM tempM3U AS STRING: tempM3U = "test_playlist_temp.m3u"
     DIM saveOk AS _BYTE: saveOk = Playlist_SaveM3U(pl, tempM3U)
@@ -4366,10 +4366,8 @@ SUB Test_Playlist
     DIM loadOk AS _BYTE: loadOk = Playlist_LoadM3U(pl2, tempM3U)
     TEST_CHECK loadOk, "Playlist loaded from M3U file"
     TEST_CHECK pl2.count = 2, "Loaded 2 entries from M3U"
-    TEST_CHECK pl2.entries(1).title = "Tune 1", "First entry title restored"
-    TEST_CHECK pl2.entries(1).duration = 125#, "First entry duration restored"
-    TEST_CHECK pl2.entries(2).title = "Tune 2", "Second entry title restored"
-    TEST_CHECK pl2.entries(2).duration = 210#, "Second entry duration restored"
+    TEST_CHECK pl2.entries(1).fileName = "tune1.mod", "First entry filename restored"
+    TEST_CHECK pl2.entries(2).fileName = "tune2.s3m", "Second entry filename restored"
 
     ' Cleanup temporary file
     IF _FILEEXISTS(tempM3U) THEN KILL tempM3U
@@ -4380,13 +4378,12 @@ SUB Test_Playlist
     Playlist_Initialize pl
     DIM bigI AS LONG
     FOR bigI = 1 TO 1100
-        Playlist_Add pl, "tune" + _TOSTR$(bigI) + ".mod", "Tune " + _TOSTR$(bigI), 100#
+        Playlist_Add pl, "tune" + _TOSTR$(bigI) + ".mod"
     NEXT bigI
     TEST_CHECK pl.count = 1100, "1100 entries added exceeding legacy 1024 limit"
     TEST_CHECK UBOUND(pl.entries) >= 1100, "Dynamic entries capacity expanded"
     TEST_CHECK UBOUND(pl.shuffleOrder) >= 1100, "Dynamic shuffleOrder capacity expanded"
-    TEST_CHECK pl.entries(1100).title = "Tune 1100", "Entry 1100 title matches"
-    TEST_CHECK pl.entries(1100).duration = 100#, "Entry 1100 duration matches"
+    TEST_CHECK pl.entries(1100).fileName = "tune1100.mod", "Entry 1100 filename matches"
 
     Playlist_SetShuffle pl, _TRUE
     TEST_CHECK pl.isShuffle, "Shuffle mode enabled on 1100 entries"
@@ -4396,7 +4393,7 @@ SUB Test_Playlist
     DIM rmBigOk AS _BYTE: rmBigOk = Playlist_Remove(pl, 500)
     TEST_CHECK rmBigOk, "Removed item 500 from 1100 entries"
     TEST_CHECK pl.count = 1099, "Count reduced to 1099"
-    TEST_CHECK pl.entries(500).title = "Tune 501", "Item 501 shifted to 500"
+    TEST_CHECK pl.entries(500).fileName = "tune501.mod", "Item 501 shifted to 500"
 
     Playlist_Clear pl
     TEST_CHECK pl.count = 0, "Playlist cleared"
@@ -4406,8 +4403,8 @@ SUB Test_Playlist
 
     TEST_CASE_BEGIN "Playlist: Clear vs Append Queue Workflows"
     Playlist_Initialize pl
-    Playlist_Add pl, "old1.mod", "Old 1", 50#
-    Playlist_Add pl, "old2.mod", "Old 2", 60#
+    Playlist_Add pl, "old1.mod"
+    Playlist_Add pl, "old2.mod"
     TEST_CHECK pl.count = 2, "Initial playlist has 2 items"
 
     ' Simulate Append: adding multi-selected files
@@ -4415,11 +4412,11 @@ SUB Test_Playlist
     appendFiles(0) = "new1.mod": appendFiles(1) = "new2.mod"
     DIM afI AS LONG
     FOR afI = 0 TO 1
-        Playlist_Add pl, appendFiles(afI), "", 0#
+        Playlist_Add pl, appendFiles(afI)
     NEXT afI
     TEST_CHECK pl.count = 4, "Appended 2 items, total is 4"
-    TEST_CHECK pl.entries(1).title = "Old 1", "Old 1 still at index 1"
-    TEST_CHECK pl.entries(3).title = "new1.mod", "Appended item at index 3"
+    TEST_CHECK pl.entries(1).fileName = "old1.mod", "Old 1 still at index 1"
+    TEST_CHECK pl.entries(3).fileName = "new1.mod", "Appended item at index 3"
 
     ' Simulate Clear & Play: clearing then adding multi-selected files
     Playlist_Clear pl
@@ -4427,10 +4424,10 @@ SUB Test_Playlist
     DIM clearPlayFiles(0 TO 1) AS STRING
     clearPlayFiles(0) = "fresh1.mod": clearPlayFiles(1) = "fresh2.mod"
     FOR afI = 0 TO 1
-        Playlist_Add pl, clearPlayFiles(afI), "", 0#
+        Playlist_Add pl, clearPlayFiles(afI)
     NEXT afI
     TEST_CHECK pl.count = 2, "Cleared and reloaded playlist has 2 items"
-    TEST_CHECK pl.entries(1).title = "fresh1.mod", "First item is fresh1.mod"
+    TEST_CHECK pl.entries(1).fileName = "fresh1.mod", "First item is fresh1.mod"
     TEST_CASE_END
 END SUB
 
@@ -4479,7 +4476,7 @@ SUB Test_Pathname
     DIM countFail AS _UNSIGNED LONG
     countFail = Pathname_BuildFileList("this_path_does_not_exist_xyz", "*.amf", filesFail())
     TEST_CHECK countFail = 0, "Returns 0 files for non-existent directory"
-    TEST_CHECK filesFail(0) = "", "Returns empty fileList"
+    TEST_CHECK filesFail(0) = _STR_EMPTY, "Returns empty fileList"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "Pathname: BuildFileList preserves non-zero base index"
@@ -4498,7 +4495,7 @@ SUB Test_Pathname
     TEST_CHECK countAll = 2, "Wildcard *.* matches all files"
 
     DIM countEmpty AS _UNSIGNED LONG
-    countEmpty = Pathname_BuildFileList(testDir, "", filesAll())
+    countEmpty = Pathname_BuildFileList(testDir, _STR_EMPTY, filesAll())
     TEST_CHECK countEmpty = 2, "Empty filter matches all files"
     TEST_CASE_END
 
