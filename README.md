@@ -61,10 +61,6 @@ $CONSOLE:ONLY
 _DEFINE A-Z AS LONG
 OPTION _EXPLICIT
 
-'$INCLUDE:'source/File.bi'
-'$INCLUDE:'source/String.bi'
-'$INCLUDE:'source/AudioAnalyzer.bi'
-'$INCLUDE:'source/MODPlayer.bi'
 '$INCLUDE:'source/MODPlayer.bm'
 
 DIM Player AS MODPlayer
