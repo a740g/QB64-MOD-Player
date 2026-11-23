@@ -198,6 +198,11 @@ SUB App_HandleFKey (k AS INTEGER)
     SHARED GlobalPlaylist AS Playlist
     SHARED QuitRequested AS _BYTE
 
+    IF ShowHelpModal THEN
+        IF k = 1 THEN ShowHelpModal = _FALSE
+        EXIT SUB
+    END IF
+
     SELECT CASE k
         CASE 1 ' F1: Help
             ShowHelpModal = NOT ShowHelpModal
@@ -522,7 +527,7 @@ DO
     Input_Update
 
     IF Input_WindowShouldClose _ORELSE QuitRequested THEN EXIT DO
-    IF _TOTALDROPPEDFILES > 0 THEN App_ProcessDroppedFiles
+    IF _TOTALDROPPEDFILES > 0 _ANDALSO NOT ShowHelpModal THEN App_ProcessDroppedFiles
 
     ' Clear framebuffer
     CLS , Black
@@ -633,16 +638,18 @@ DO
     END IF
 
     ' Gamepad navigation
-    IF Input_GetGamepadButtonPressed(GAMEPAD_BUTTON_X, 1) THEN
-        IF Player.song.isPlaying THEN Player.song.isPaused = NOT Player.song.isPaused
-    END IF
+    IF NOT ShowHelpModal THEN
+        IF Input_GetGamepadButtonPressed(GAMEPAD_BUTTON_X, 1) THEN
+            IF Player.song.isPlaying THEN Player.song.isPaused = NOT Player.song.isPaused
+        END IF
 
-    IF Input_IsGamepadButtonDown(GAMEPAD_BUTTON_RT, 1) THEN
-        SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) + APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
-    END IF
+        IF Input_IsGamepadButtonDown(GAMEPAD_BUTTON_RT, 1) THEN
+            SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) + APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
+        END IF
 
-    IF Input_IsGamepadButtonDown(GAMEPAD_BUTTON_LT, 1) THEN
-        SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) - APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
+        IF Input_IsGamepadButtonDown(GAMEPAD_BUTTON_LT, 1) THEN
+            SoftSynth_SetMasterVolume Player.synth, _CLAMP(SoftSynth_GetMasterVolume(Player.synth) - APP_VOLUME_STEP, 0!, SOFTSYNTH_MASTER_VOLUME_MAX)
+        END IF
     END IF
 
     ' Keyboard navigation & shortcuts

@@ -4197,6 +4197,12 @@ SUB Test_TUI
     DIM bgBtnClicked AS _BYTE: bgBtnClicked = TUI_Button(55, 60, 20, "Background")
     TEST_CHECK NOT bgBtnClicked, "Background button covered by modal does not receive click"
 
+    ' Background button outside modal bounds (peeking on right or toolbar on top): should ALSO NOT be triggered
+    DIM peekingBtnClicked AS _BYTE: peekingBtnClicked = TUI_Button(133, 30, 10, "Peeking")
+    TEST_CHECK NOT peekingBtnClicked, "Peeking button outside modal does not receive click"
+    DIM topBtnClicked AS _BYTE: topBtnClicked = TUI_Button(10, 3, 10, "TopButton")
+    TEST_CHECK NOT topBtnClicked, "Top button outside modal does not receive click"
+
     ' Background ScrollList: should NOT be triggered while modal is active
     DIM dummyItems(1 TO 2) AS STRING: dummyItems(1) = "Item 1": dummyItems(2) = "Item 2"
     DIM modalTestSel AS LONG: modalTestSel = 1
@@ -4207,27 +4213,27 @@ SUB Test_TUI
 
     ' Now enter modal
     TUI_ModalBegin
-    __TUI.activeId = 3 ' simulate modal button was pressed
+    __TUI.activeId = 5 ' simulate modal button was pressed
     DIM modalBtnClicked AS _BYTE: modalBtnClicked = TUI_Button(59, 60, 28, "Close")
     TEST_CHECK modalBtnClicked, "Modal button receives click when mouse is inside"
     TUI_ModalEnd
     TUI_End
 
-    ' Frame 2: Mouse click on modal backdrop (unhandled click absorption)
+    ' Frame 2: Mouse click outside modal dialog on toolbar area (unhandled click absorption)
     TUI_Begin
     TUI_SetModalState _TRUE, 15, 25, 116, 41
-    Vector2f_Set 30!, 30!, __TUI.mousePos ' Click on modal panel area, no button
+    Vector2f_Set 10!, 3!, __TUI.mousePos ' Click on top toolbar area
     __TUI.mouseClickedL = _TRUE
 
     ' Background check is blocked
-    TEST_CHECK NOT TUI_IsMouseClickedInRect(20, 20, 40, 40), "Background click test is blocked by modal"
+    TEST_CHECK NOT TUI_IsMouseClickedInRect(2, 2, 20, 5), "Background click test is blocked by modal"
 
-    ' In modal: absorption check consumes unhandled click
+    ' In modal: absorption check consumes unhandled click anywhere on screen
     TUI_ModalBegin
-    IF __TUI.mouseClickedL _ANDALSO Bounds2f_ContainsPoint(__TUI.modalBounds, __TUI.mousePos) THEN
+    IF __TUI.mouseClickedL THEN
         TUI_ConsumeClick
     END IF
-    TEST_CHECK NOT __TUI.mouseClickedL, "Modal dialog absorbs and consumes unhandled click"
+    TEST_CHECK NOT __TUI.mouseClickedL, "Modal dialog absorbs and consumes unhandled click outside modal"
     TUI_ModalEnd
     TUI_End
 

@@ -218,7 +218,7 @@ FUNCTION __TUI_IsInputBlockedByModal%%
     SHARED __TUI AS __TUI_Context
     IF NOT __TUI.modalActive THEN EXIT FUNCTION
     IF __TUI.inModal THEN EXIT FUNCTION
-    __TUI_IsInputBlockedByModal = Bounds2f_ContainsPoint(__TUI.modalBounds, __TUI.mousePos)
+    __TUI_IsInputBlockedByModal = _TRUE
 END FUNCTION
 
 ''' @brief Tests if the left mouse button was clicked inside a rectangle, respecting active widget exclusivity.
@@ -1142,7 +1142,7 @@ FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, boxX1 AS LONG, boxY1 AS LONG, box
             END IF
 
             DIM isFocused AS _BYTE: isFocused = (__TUI.focusedId = thisId)
-            IF isFocused _ANDALSO __TUI.navConfirm THEN
+            IF isFocused _ANDALSO __TUI.navConfirm _ANDALSO NOT __TUI_IsInputBlockedByModal THEN
                 IF selectedIdx <> i THEN
                     selectedIdx = i
                     changed = _TRUE
@@ -1396,7 +1396,7 @@ FUNCTION TUI_ScrollList& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS
     DIM b AS Bounds2f
     Bounds2f_Set x, y, x + w - 0.001!, y + h - 0.001!, b
     DIM isListHovered AS _BYTE
-    IF NOT __TUI.modalActive THEN
+    IF NOT __TUI_IsInputBlockedByModal THEN
         isListHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
     END IF
 
@@ -1432,7 +1432,7 @@ FUNCTION TUI_ScrollList& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS
             DIM rowBounds AS Bounds2f
             Bounds2f_Set x, drawY, x + textW - 0.001!, drawY + 0.999!, rowBounds
             DIM isRowHovered AS _BYTE
-            IF NOT __TUI.modalActive THEN
+            IF NOT __TUI_IsInputBlockedByModal THEN
                 isRowHovered = Bounds2f_ContainsPoint(rowBounds, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
             END IF
 

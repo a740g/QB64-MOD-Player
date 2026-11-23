@@ -1255,9 +1255,9 @@ SUB UI_RenderHelpModal (showHelpModal AS _BYTE)
         showHelpModal = _FALSE
     END IF
 
-    ' Absorb any unhandled mouse click inside modal dialog bounds
+    ' Absorb any unhandled mouse click while modal dialog is active
     SHARED __TUI AS __TUI_Context
-    IF __TUI.mouseClickedL _ANDALSO Bounds2f_ContainsPoint(__TUI.modalBounds, __TUI.mousePos) THEN
+    IF __TUI.mouseClickedL THEN
         TUI_ConsumeClick
     END IF
 
