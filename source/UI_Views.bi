@@ -514,26 +514,23 @@ SUB UI_RenderTracker (player AS MODPlayer, chanOffset AS LONG)
     IF NOT player.song.isPlaying THEN EXIT SUB
 
     DIM totalChans AS LONG: totalChans = player.song.channels
-    DIM maxOffset AS LONG: maxOffset = _MAX(0, ((totalChans - 1) \ UI_TRACKER_VISIBLE_CHANNELS) * UI_TRACKER_VISIBLE_CHANNELS)
+    DIM maxOffset AS LONG: maxOffset = _MAX(0, totalChans - UI_TRACKER_VISIBLE_CHANNELS)
     chanOffset = _CLAMP(chanOffset, 0, maxOffset)
 
     DIM curPat AS LONG: curPat = player.order(player.song.orderPosition)
     IF curPat < 0 _ORELSE curPat >= player.song.patterns THEN EXIT SUB
 
-    ' Viewport channel paging buttons
-    IF TUI_Button(3, 9, 16, __UI_GLYPH_LEFT_ARROW + " Prev Channels") THEN
-        chanOffset = _MAX(0, chanOffset - UI_TRACKER_VISIBLE_CHANNELS)
-    END IF
-
-    DIM pageInfo AS STRING
     DIM endCh AS LONG: endCh = _MIN(totalChans, chanOffset + UI_TRACKER_VISIBLE_CHANNELS)
+    DIM pageInfo AS STRING
     pageInfo = "Channels " + _TOSTR$(chanOffset + 1) + " - " + _TOSTR$(endCh) + " of " + _TOSTR$(totalChans)
+    DIM infoX AS LONG: infoX = 72 - (LEN(pageInfo) \ 2)
     COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
-    _PRINTSTRING (58, 10), pageInfo
+    _PRINTSTRING (infoX, 9), pageInfo
 
-    IF TUI_Button(127, 9, 16, "Next Channels " + __UI_GLYPH_RIGHT_ARROW) THEN
-        chanOffset = _MIN(maxOffset, chanOffset + UI_TRACKER_VISIBLE_CHANNELS)
-    END IF
+    ' Horizontal channel scrollbar (columns 3 to 142, width 140, row 10)
+    DIM newChOffset1 AS LONG
+    newChOffset1 = TUI_ScrollBarH(3, 10, 140, chanOffset + 1, UI_TRACKER_VISIBLE_CHANNELS, totalChans)
+    chanOffset = newChOffset1 - 1
 
     ' Pattern Header Row (row 12)
     COLOR TUI_COLOR_BLACK, TUI_COLOR_CYAN
@@ -835,13 +832,16 @@ SUB UI_RenderInstruments (player AS MODPlayer, selectedInst AS LONG, scrollOffse
 
             ' Mouse click row selection
             DIM rowB AS Bounds2f
-            Bounds2f_Set 5, drawY, 81, drawY + 0.999!, rowB
+            Bounds2f_Set 5, drawY, 80, drawY + 0.999!, rowB
             IF __TUI.activeId = 0 _ANDALSO TUI_IsMouseClickedInBounds(rowB) THEN
                 selectedInst = instIdx
                 TUI_ConsumeClick
             END IF
         END IF
     NEXT r
+
+    ' Standalone Vertical Scrollbar at column 81 (rows 13 to 85, height 73)
+    scrollOffset = TUI_ScrollBarV(81, 13, maxRows, scrollOffset, maxRows, totalInsts)
 
     ' Right Panel: Detailed Synth Inspector (columns 85 to 142, rows 10 to 86)
     TUI_Panel 85, 10, 58, 77, "Instrument Inspector", _TRUE
@@ -932,20 +932,86 @@ END SUB
 ''' @param scrollOffset In/Out: 1-based top visible index.
 ''' @return UI_ACTION code if an action was triggered.
 FUNCTION UI_RenderPlaylist%% (pl AS Playlist, selectedItem AS LONG, scrollOffset AS LONG)
+    SHARED __TUI AS __TUI_Context
     DIM action AS _BYTE
 
     ' Left Panel: Playlist Queue Table (columns 3 to 94, rows 10 to 86)
     TUI_Panel 3, 10, 92, 77, "Playback Queue (" + _TOSTR$(pl.count) + " Tracks)", _TRUE
 
-    REDIM listItems(1 TO _MAX(1, pl.count)) AS STRING
+    DIM maxNameLen AS LONG: maxNameLen = 80
     DIM i AS LONG
     FOR i = 1 TO pl.count
-        DIM mark AS STRING: mark = _IIF(i = pl.currentIndex, __UI_GLYPH_RIGHT_ARROW + " ", "  ")
-        listItems(i) = mark + RIGHT$("00" + _TOSTR$(i), 3) + ". " + pl.entries(i).fileName
+        IF LEN(pl.entries(i).fileName) > maxNameLen THEN maxNameLen = LEN(pl.entries(i).fileName)
     NEXT i
 
+    STATIC plHScroll AS LONG
+    IF plHScroll < 1 THEN plHScroll = 1
+    DIM visRows AS LONG: visRows = 72
+    DIM maxScroll AS LONG: maxScroll = _MAX(1, pl.count - visRows + 1)
+    scrollOffset = _CLAMP(scrollOffset, 1, maxScroll)
+
     DIM activated AS LONG
-    activated = TUI_ScrollList(5, 12, 88, 73, listItems(), pl.count, selectedItem, scrollOffset)
+    DIM r AS LONG
+    FOR r = 0 TO visRows - 1
+        DIM itemIdx AS LONG: itemIdx = scrollOffset + r
+        DIM drawY AS LONG: drawY = 12 + r
+
+        IF itemIdx <= pl.count THEN
+            DIM mark AS STRING: mark = _IIF(itemIdx = pl.currentIndex, __UI_GLYPH_RIGHT_ARROW + " ", "  ")
+            DIM pfx AS STRING: pfx = mark + RIGHT$("00" + _TOSTR$(itemIdx), 3) + ". "
+
+            DIM rawName AS STRING: rawName = pl.entries(itemIdx).fileName
+            DIM visName AS STRING
+            IF plHScroll > 1 THEN
+                IF LEN(rawName) >= plHScroll THEN
+                    visName = MID$(rawName, plHScroll, 80)
+                ELSE
+                    visName = ""
+                END IF
+            ELSE
+                visName = MID$(rawName, 1, 80)
+            END IF
+            IF LEN(visName) < 80 THEN visName = visName + SPACE$(80 - LEN(visName))
+
+            DIM isSelected AS _BYTE: isSelected = (itemIdx = selectedItem)
+            DIM rowBounds AS Bounds2f
+            Bounds2f_Set 5, drawY, 91, drawY + 0.999!, rowBounds
+            DIM isRowHovered AS _BYTE
+            IF NOT __TUI_IsInputBlockedByModal THEN
+                isRowHovered = Bounds2f_ContainsPoint(rowBounds, __TUI.mousePos) _ANDALSO __TUI.activeId = 0
+            END IF
+
+            IF isRowHovered _ANDALSO __TUI.activeId = 0 _ANDALSO TUI_IsMouseClickedInBounds(rowBounds) THEN
+                selectedItem = itemIdx
+                activated = itemIdx
+                TUI_ConsumeClick
+            END IF
+
+            IF isSelected THEN
+                COLOR TUI_COLOR_BLACK, TUI_COLOR_WHITE
+            ELSEIF isRowHovered THEN
+                COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
+            ELSE
+                COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
+            END IF
+
+            _PRINTSTRING (5, drawY), pfx + visName
+        ELSE
+            COLOR TUI_COLOR_BLACK, TUI_COLOR_BLACK
+            _PRINTSTRING (5, drawY), SPACE$(87)
+        END IF
+    NEXT r
+
+    ' Standalone Vertical Scrollbar at column 92 (rows 12 to 83, height 72)
+    scrollOffset = TUI_ScrollBarV(92, 12, visRows, scrollOffset, visRows, pl.count)
+
+    ' Standalone Horizontal Scrollbar at row 84 (columns 12 to 91, width 80)
+    plHScroll = TUI_ScrollBarH(12, 84, 80, plHScroll, 80, maxNameLen)
+
+    ' Corner junction cell at (92, 84)
+    COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+    _PRINTSTRING (92, 84), __TUI_GLYPH_CORNER_BR
+
     IF activated > 0 THEN
         pl.currentIndex = activated
         action = UI_ACTION_PLAY_INDEX
@@ -1097,6 +1163,9 @@ SUB UI_RenderSongInfo (player AS MODPlayer, commentScroll AS LONG)
             _PRINTSTRING (6, 41 + li), cLines(lineIdx)
         END IF
     NEXT li
+
+    ' Standalone Vertical Scrollbar at column 141 (rows 41 to 84, height 44)
+    commentScroll = TUI_ScrollBarV(141, 41, visLines, commentScroll, visLines, numLines)
 END SUB
 
 ''' @brief Renders View 7: Full-width stereo visualizer (Spectrum Analyzer & Oscilloscope) or demoscene background when idle.

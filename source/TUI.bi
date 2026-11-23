@@ -1,5 +1,5 @@
 '-----------------------------------------------------------------------------------------------------------------------
-' TUI - Immediate-Mode Text User Interface (IMTUI) for QB64-PE
+' Immediate-Mode Text User Interface for QB64-PE
 ' Copyright (c) 2026 Samuel Gomes
 '-----------------------------------------------------------------------------------------------------------------------
 
@@ -1378,6 +1378,314 @@ SUB TUI_VUMeter (x AS LONG, y AS LONG, h AS LONG, level AS SINGLE, peak AS SINGL
     COLOR origFg, origBg
 END SUB
 
+''' @brief Renders a standalone vertical scrollbar with proportional thumb and forgiving drag.
+''' @param x Character column.
+''' @param y Character row of top stepper.
+''' @param h Total height in characters (minimum 3: up arrow, track, down arrow).
+''' @param offset Current 1-based scroll offset (1..totalSize - pageSize + 1).
+''' @param pageSize Visible lines in viewport.
+''' @param totalSize Total lines in content.
+''' @return Updated 1-based scroll offset.
+FUNCTION TUI_ScrollBarV& (x AS LONG, y AS LONG, h AS LONG, offset AS LONG, pageSize AS LONG, totalSize AS LONG)
+    SHARED __TUI AS __TUI_Context
+
+    DIM origFg AS _UNSIGNED LONG: origFg = _DEFAULTCOLOR
+    DIM origBg AS _UNSIGNED LONG: origBg = _BACKGROUNDCOLOR
+
+    __TUI.widgetCount = __TUI.widgetCount + 1
+    DIM thisId AS LONG: thisId = __TUI.widgetCount
+
+    IF h < 3 THEN
+        COLOR origFg, origBg
+        TUI_ScrollBarV = offset
+        EXIT FUNCTION
+    END IF
+
+    DIM maxOffset AS LONG: maxOffset = _MAX(1, totalSize - pageSize + 1)
+    DIM curOffset AS LONG: curOffset = _CLAMP(offset, 1, maxOffset)
+    DIM trackLen AS LONG: trackLen = _MAX(1, h - 2)
+
+    DIM isDisabled AS _BYTE: isDisabled = (totalSize <= pageSize)
+    DIM thumbLen AS LONG
+    DIM travelLen AS LONG
+    DIM thumbStart AS LONG
+
+    IF NOT isDisabled THEN
+        thumbLen = _CLAMP(CLNG((CSNG(pageSize) / CSNG(_MAX(1, totalSize))) * CSNG(trackLen)), 1, trackLen - 1)
+        travelLen = trackLen - thumbLen
+        IF maxOffset > 1 AND travelLen > 0 THEN
+            thumbStart = _CLAMP(CLNG(((curOffset - 1) / CSNG(maxOffset - 1)) * travelLen), 0, travelLen)
+        ELSE
+            thumbStart = 0
+        END IF
+    ELSE
+        thumbLen = trackLen
+        travelLen = 0
+        thumbStart = 0
+    END IF
+
+    DIM b AS Bounds2f
+    Bounds2f_Set x, y, x + 0.999!, y + h - 0.001!, b
+    DIM isHovered AS _BYTE
+    IF NOT __TUI_IsInputBlockedByModal THEN
+        isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+    END IF
+
+    IF NOT isDisabled THEN
+        IF isHovered THEN
+            __TUI.hotId = thisId
+            DIM wheel AS SINGLE: wheel = Input_GetMouseScrollWheelValue
+            IF wheel <> 0! THEN
+                curOffset = _CLAMP(curOffset - CLNG(wheel * 3!), 1, maxOffset)
+            END IF
+
+            IF __TUI.mousePressedL _ORELSE TUI_IsMouseClickedInBounds(b) THEN
+                DIM pY AS LONG: pY = INT(__TUI.mousePos.y)
+                IF pY = y THEN
+                    ' Up arrow
+                    curOffset = _CLAMP(curOffset - 1, 1, maxOffset)
+                    TUI_ConsumeClick
+                ELSEIF pY = y + h - 1 THEN
+                    ' Down arrow
+                    curOffset = _CLAMP(curOffset + 1, 1, maxOffset)
+                    TUI_ConsumeClick
+                ELSE
+                    DIM clickRelY AS LONG: clickRelY = pY - (y + 1)
+                    IF clickRelY < thumbStart THEN
+                        ' Page Up
+                        curOffset = _CLAMP(curOffset - _MAX(1, pageSize - 1), 1, maxOffset)
+                        TUI_ConsumeClick
+                    ELSEIF clickRelY >= thumbStart + thumbLen THEN
+                        ' Page Down
+                        curOffset = _CLAMP(curOffset + _MAX(1, pageSize - 1), 1, maxOffset)
+                        TUI_ConsumeClick
+                    ELSE
+                        ' Thumb pressed
+                        __TUI.activeId = thisId
+                        __TUI.activePart = 4
+                    END IF
+                END IF
+            END IF
+        END IF
+
+        ' Forgiving active thumb dragging
+        IF __TUI.activeId = thisId _ANDALSO __TUI.activePart = 4 _ANDALSO (__TUI.mouseDownL _ORELSE __TUI.mouseClickedL) THEN
+            IF travelLen > 0 THEN
+                DIM mRelY AS LONG: mRelY = INT(__TUI.mousePos.y) - (y + 1)
+                DIM dragRatio AS SINGLE
+                dragRatio = (CSNG(mRelY) - CSNG(thumbLen \ 2)) / CSNG(travelLen)
+                dragRatio = _CLAMP(dragRatio, 0!, 1!)
+                curOffset = 1 + CLNG(dragRatio * CSNG(maxOffset - 1))
+                curOffset = _CLAMP(curOffset, 1, maxOffset)
+            END IF
+            IF __TUI.mouseClickedL THEN
+                __TUI.activeId = 0
+                __TUI.activePart = 0
+                TUI_ConsumeClick
+            END IF
+        END IF
+    END IF
+
+    ' Rendering
+    ' Up Arrow
+    IF NOT isDisabled _ANDALSO isHovered _ANDALSO INT(__TUI.mousePos.y) = y THEN
+        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
+    ELSEIF isDisabled THEN
+        COLOR TUI_COLOR_GRAY, origBg
+    ELSE
+        COLOR TUI_COLOR_GRAY, origBg
+    END IF
+    _PRINTSTRING (x, y), __TUI_GLYPH_UP_ARROW
+
+    ' Track & Thumb
+    DIM t AS LONG
+    FOR t = 0 TO trackLen - 1
+        DIM drawY AS LONG: drawY = y + 1 + t
+        IF NOT isDisabled _ANDALSO t >= thumbStart _ANDALSO t < thumbStart + thumbLen THEN
+            IF __TUI.activeId = thisId _ANDALSO __TUI.activePart = 4 _ANDALSO __TUI.mouseDownL THEN
+                COLOR TUI_COLOR_BLACK, TUI_COLOR_YELLOW
+            ELSE
+                COLOR TUI_COLOR_BRIGHT_WHITE, origBg
+            END IF
+            _PRINTSTRING (x, drawY), __TUI_GLYPH_SOLID
+        ELSE
+            IF isDisabled THEN
+                COLOR TUI_COLOR_GRAY, origBg
+            ELSE
+                COLOR TUI_COLOR_GRAY, origBg
+            END IF
+            _PRINTSTRING (x, drawY), __TUI_GLYPH_VLINE
+        END IF
+    NEXT t
+
+    ' Down Arrow
+    IF NOT isDisabled _ANDALSO isHovered _ANDALSO INT(__TUI.mousePos.y) = y + h - 1 THEN
+        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
+    ELSEIF isDisabled THEN
+        COLOR TUI_COLOR_GRAY, origBg
+    ELSE
+        COLOR TUI_COLOR_GRAY, origBg
+    END IF
+    _PRINTSTRING (x, y + h - 1), __TUI_GLYPH_DOWN_ARROW
+
+    COLOR origFg, origBg
+    TUI_ScrollBarV = curOffset
+END FUNCTION
+
+''' @brief Renders a standalone horizontal scrollbar with proportional thumb and forgiving drag.
+''' @param x Character column of left stepper.
+''' @param y Character row.
+''' @param w Total width in characters (minimum 3: left arrow, track, right arrow).
+''' @param offset Current 1-based scroll offset (1..totalSize - pageSize + 1).
+''' @param pageSize Visible columns in viewport.
+''' @param totalSize Total columns in content.
+''' @return Updated 1-based scroll offset.
+FUNCTION TUI_ScrollBarH& (x AS LONG, y AS LONG, w AS LONG, offset AS LONG, pageSize AS LONG, totalSize AS LONG)
+    SHARED __TUI AS __TUI_Context
+
+    DIM origFg AS _UNSIGNED LONG: origFg = _DEFAULTCOLOR
+    DIM origBg AS _UNSIGNED LONG: origBg = _BACKGROUNDCOLOR
+
+    __TUI.widgetCount = __TUI.widgetCount + 1
+    DIM thisId AS LONG: thisId = __TUI.widgetCount
+
+    IF w < 3 THEN
+        COLOR origFg, origBg
+        TUI_ScrollBarH = offset
+        EXIT FUNCTION
+    END IF
+
+    DIM maxOffset AS LONG: maxOffset = _MAX(1, totalSize - pageSize + 1)
+    DIM curOffset AS LONG: curOffset = _CLAMP(offset, 1, maxOffset)
+    DIM trackLen AS LONG: trackLen = _MAX(1, w - 2)
+
+    DIM isDisabled AS _BYTE: isDisabled = (totalSize <= pageSize)
+    DIM thumbLen AS LONG
+    DIM travelLen AS LONG
+    DIM thumbStart AS LONG
+
+    IF NOT isDisabled THEN
+        thumbLen = _CLAMP(CLNG((CSNG(pageSize) / CSNG(_MAX(1, totalSize))) * CSNG(trackLen)), 1, trackLen - 1)
+        travelLen = trackLen - thumbLen
+        IF maxOffset > 1 AND travelLen > 0 THEN
+            thumbStart = _CLAMP(CLNG(((curOffset - 1) / CSNG(maxOffset - 1)) * travelLen), 0, travelLen)
+        ELSE
+            thumbStart = 0
+        END IF
+    ELSE
+        thumbLen = trackLen
+        travelLen = 0
+        thumbStart = 0
+    END IF
+
+    DIM b AS Bounds2f
+    Bounds2f_Set x, y, x + w - 0.001!, y + 0.999!, b
+    DIM isHovered AS _BYTE
+    IF NOT __TUI_IsInputBlockedByModal THEN
+        isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+    END IF
+
+    IF NOT isDisabled THEN
+        IF isHovered THEN
+            __TUI.hotId = thisId
+            DIM wheel AS SINGLE: wheel = Input_GetMouseScrollWheelValue
+            IF wheel <> 0! THEN
+                curOffset = _CLAMP(curOffset - CLNG(wheel * 3!), 1, maxOffset)
+            END IF
+
+            IF __TUI.mousePressedL _ORELSE TUI_IsMouseClickedInBounds(b) THEN
+                DIM pX AS LONG: pX = INT(__TUI.mousePos.x)
+                IF pX = x THEN
+                    ' Left arrow
+                    curOffset = _CLAMP(curOffset - 1, 1, maxOffset)
+                    TUI_ConsumeClick
+                ELSEIF pX = x + w - 1 THEN
+                    ' Right arrow
+                    curOffset = _CLAMP(curOffset + 1, 1, maxOffset)
+                    TUI_ConsumeClick
+                ELSE
+                    DIM clickRelX AS LONG: clickRelX = pX - (x + 1)
+                    IF clickRelX < thumbStart THEN
+                        ' Page Left
+                        curOffset = _CLAMP(curOffset - _MAX(1, pageSize - 1), 1, maxOffset)
+                        TUI_ConsumeClick
+                    ELSEIF clickRelX >= thumbStart + thumbLen THEN
+                        ' Page Right
+                        curOffset = _CLAMP(curOffset + _MAX(1, pageSize - 1), 1, maxOffset)
+                        TUI_ConsumeClick
+                    ELSE
+                        ' Thumb pressed
+                        __TUI.activeId = thisId
+                        __TUI.activePart = 5
+                    END IF
+                END IF
+            END IF
+        END IF
+
+        ' Forgiving active thumb dragging
+        IF __TUI.activeId = thisId _ANDALSO __TUI.activePart = 5 _ANDALSO (__TUI.mouseDownL _ORELSE __TUI.mouseClickedL) THEN
+            IF travelLen > 0 THEN
+                DIM mRelX AS LONG: mRelX = INT(__TUI.mousePos.x) - (x + 1)
+                DIM dragRatio AS SINGLE
+                dragRatio = (CSNG(mRelX) - CSNG(thumbLen \ 2)) / CSNG(travelLen)
+                dragRatio = _CLAMP(dragRatio, 0!, 1!)
+                curOffset = 1 + CLNG(dragRatio * CSNG(maxOffset - 1))
+                curOffset = _CLAMP(curOffset, 1, maxOffset)
+            END IF
+            IF __TUI.mouseClickedL THEN
+                __TUI.activeId = 0
+                __TUI.activePart = 0
+                TUI_ConsumeClick
+            END IF
+        END IF
+    END IF
+
+    ' Rendering
+    ' Left Arrow
+    IF NOT isDisabled _ANDALSO isHovered _ANDALSO INT(__TUI.mousePos.x) = x THEN
+        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
+    ELSEIF isDisabled THEN
+        COLOR TUI_COLOR_GRAY, origBg
+    ELSE
+        COLOR TUI_COLOR_GRAY, origBg
+    END IF
+    _PRINTSTRING (x, y), __TUI_GLYPH_LEFT_ARROW
+
+    ' Track & Thumb
+    DIM t AS LONG
+    FOR t = 0 TO trackLen - 1
+        DIM drawX AS LONG: drawX = x + 1 + t
+        IF NOT isDisabled _ANDALSO t >= thumbStart _ANDALSO t < thumbStart + thumbLen THEN
+            IF __TUI.activeId = thisId _ANDALSO __TUI.activePart = 5 _ANDALSO __TUI.mouseDownL THEN
+                COLOR TUI_COLOR_BLACK, TUI_COLOR_YELLOW
+            ELSE
+                COLOR TUI_COLOR_BRIGHT_WHITE, origBg
+            END IF
+            _PRINTSTRING (drawX, y), __TUI_GLYPH_SOLID
+        ELSE
+            IF isDisabled THEN
+                COLOR TUI_COLOR_GRAY, origBg
+            ELSE
+                COLOR TUI_COLOR_GRAY, origBg
+            END IF
+            _PRINTSTRING (drawX, y), __TUI_GLYPH_HLINE
+        END IF
+    NEXT t
+
+    ' Right Arrow
+    IF NOT isDisabled _ANDALSO isHovered _ANDALSO INT(__TUI.mousePos.x) = x + w - 1 THEN
+        COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
+    ELSEIF isDisabled THEN
+        COLOR TUI_COLOR_GRAY, origBg
+    ELSE
+        COLOR TUI_COLOR_GRAY, origBg
+    END IF
+    _PRINTSTRING (x + w - 1, y), __TUI_GLYPH_RIGHT_ARROW
+
+    COLOR origFg, origBg
+    TUI_ScrollBarH = curOffset
+END FUNCTION
+
 ''' @brief Renders a scrollable selection list with item hover, selection, and scrollbar.
 ''' @param x Character column of top-left corner.
 ''' @param y Character row of top-left corner.
@@ -1387,8 +1695,9 @@ END SUB
 ''' @param totalItems Number of valid items in items().
 ''' @param selectedIdx In/Out: 1-based index of currently selected item.
 ''' @param scrollOffset In/Out: 1-based index of top visible item.
+''' @param hScrollOffset 1-based horizontal text scroll offset.
 ''' @return 1-based index of item activated by mouse click, or 0 if none.
-FUNCTION TUI_ScrollList& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS STRING, totalItems AS LONG, selectedIdx AS LONG, scrollOffset AS LONG)
+FUNCTION TUI_ScrollListEx& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS STRING, totalItems AS LONG, selectedIdx AS LONG, scrollOffset AS LONG, hScrollOffset AS LONG)
     SHARED __TUI AS __TUI_Context
 
     DIM origFg AS _UNSIGNED LONG: origFg = _DEFAULTCOLOR
@@ -1406,70 +1715,7 @@ FUNCTION TUI_ScrollList& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS
     DIM maxScroll AS LONG: maxScroll = _MAX(1, totalItems - h + 1)
     scrollOffset = _CLAMP(scrollOffset, 1, maxScroll)
 
-    DIM b AS Bounds2f
-    Bounds2f_Set x, y, x + w - 0.001!, y + h - 0.001!, b
-    DIM isListHovered AS _BYTE
-    IF NOT __TUI_IsInputBlockedByModal THEN
-        isListHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
-    END IF
-
     DIM textW AS LONG: textW = w - 2 ' leave 1 column for border/scrollbar, 1 for padding
-    DIM xScroll AS LONG: xScroll = x + w - 1
-
-    IF isListHovered THEN
-        __TUI.hotId = thisId
-        ' Mouse wheel scrolls the list
-        DIM wheel AS SINGLE: wheel = Input_GetMouseScrollWheelValue
-        IF wheel <> 0! THEN
-            scrollOffset = _CLAMP(scrollOffset - CLNG(wheel * 3!), 1, maxScroll)
-        END IF
-
-        IF __TUI.mousePressedL _ORELSE TUI_IsMouseClickedInBounds(b) THEN
-            DIM pX AS LONG: pX = INT(__TUI.mousePos.x)
-            DIM pY AS LONG: pY = INT(__TUI.mousePos.y)
-
-            IF pX = xScroll THEN
-                ' Scrollbar clicked / pressed
-                IF pY = y THEN
-                    ' Up arrow
-                    scrollOffset = _CLAMP(scrollOffset - 1, 1, maxScroll)
-                    TUI_ConsumeClick
-                ELSEIF pY = y + h - 1 THEN
-                    ' Down arrow
-                    scrollOffset = _CLAMP(scrollOffset + 1, 1, maxScroll)
-                    TUI_ConsumeClick
-                ELSEIF totalItems > h _ANDALSO h > 3 THEN
-                    ' Scrollbar track / thumb drag
-                    __TUI.activeId = thisId
-                    __TUI.activePart = 4
-                    DIM sRatio AS SINGLE
-                    sRatio = (CSNG(pY) - CSNG(y + 1)) / CSNG(h - 3)
-                    sRatio = _CLAMP(sRatio, 0!, 1!)
-                    scrollOffset = 1 + CLNG(sRatio * CSNG(maxScroll - 1))
-                    scrollOffset = _CLAMP(scrollOffset, 1, maxScroll)
-                END IF
-            ELSE
-                __TUI.activeId = thisId
-                __TUI.activePart = 0
-            END IF
-        END IF
-    END IF
-
-    ' Active scrollbar dragging (forgiving: continues dragging even if pointer drifts outside list hitbox)
-    IF __TUI.activeId = thisId _ANDALSO __TUI.activePart = 4 _ANDALSO (__TUI.mouseDownL _ORELSE __TUI.mouseClickedL) THEN
-        IF totalItems > h _ANDALSO h > 3 THEN
-            DIM dragRatio AS SINGLE
-            dragRatio = (CSNG(__TUI.mousePos.y) - CSNG(y + 1)) / CSNG(h - 3)
-            dragRatio = _CLAMP(dragRatio, 0!, 1!)
-            scrollOffset = 1 + CLNG(dragRatio * CSNG(maxScroll - 1))
-            scrollOffset = _CLAMP(scrollOffset, 1, maxScroll)
-        END IF
-        IF __TUI.mouseClickedL THEN
-            __TUI.activeId = 0
-            __TUI.activePart = 0
-            TUI_ConsumeClick
-        END IF
-    END IF
 
     ' Draw items
     DIM r AS LONG
@@ -1478,7 +1724,17 @@ FUNCTION TUI_ScrollList& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS
         DIM drawY AS LONG: drawY = y + r
 
         IF itemIdx <= totalItems THEN
-            DIM itemStr AS STRING: itemStr = items(itemIdx)
+            DIM itemStr AS STRING
+            IF hScrollOffset > 1 THEN
+                IF LEN(items(itemIdx)) >= hScrollOffset THEN
+                    itemStr = MID$(items(itemIdx), hScrollOffset)
+                ELSE
+                    itemStr = ""
+                END IF
+            ELSE
+                itemStr = items(itemIdx)
+            END IF
+
             IF LEN(itemStr) > textW THEN
                 itemStr = MID$(itemStr, 1, textW)
             ELSE
@@ -1514,36 +1770,25 @@ FUNCTION TUI_ScrollList& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS
             COLOR TUI_COLOR_BLACK, TUI_COLOR_BLACK
             _PRINTSTRING (x, drawY), SPACE$(textW)
         END IF
-
-        ' Right border / scrollbar indicator
-        IF r = 0 THEN
-            COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-            _PRINTSTRING (x + w - 1, drawY), __TUI_GLYPH_UP_ARROW ' Up arrow
-        ELSEIF r = h - 1 THEN
-            COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-            _PRINTSTRING (x + w - 1, drawY), __TUI_GLYPH_DOWN_ARROW ' Down arrow
-        ELSE
-            ' Scroll thumb position
-            DIM thumbPos AS LONG
-            IF totalItems > h _ANDALSO h > 3 THEN
-                thumbPos = 1 + CLNG(((scrollOffset - 1) / CSNG(maxScroll - 1)) * (h - 3))
-            ELSE
-                thumbPos = -1
-            END IF
-            IF r = thumbPos THEN
-                IF __TUI.activeId = thisId _ANDALSO __TUI.activePart = 4 _ANDALSO __TUI.mouseDownL THEN
-                    COLOR TUI_COLOR_BLACK, TUI_COLOR_YELLOW
-                ELSE
-                    COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_BLACK
-                END IF
-                _PRINTSTRING (x + w - 1, drawY), __TUI_GLYPH_SOLID ' Scroll thumb
-            ELSE
-                COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
-                _PRINTSTRING (x + w - 1, drawY), __TUI_GLYPH_VLINE ' Scroll track
-            END IF
-        END IF
     NEXT r
 
+    ' Right border: Delegate to standalone vertical scrollbar
+    scrollOffset = TUI_ScrollBarV(x + w - 1, y, h, scrollOffset, h, totalItems)
+
     COLOR origFg, origBg
-    TUI_ScrollList = itemActivated
+    TUI_ScrollListEx = itemActivated
+END FUNCTION
+
+''' @brief Renders a scrollable selection list with item hover, selection, and scrollbar.
+''' @param x Character column of top-left corner.
+''' @param y Character row of top-left corner.
+''' @param w Total list width in characters.
+''' @param h Total visible lines.
+''' @param items() Array of string items.
+''' @param totalItems Number of valid items in items().
+''' @param selectedIdx In/Out: 1-based index of currently selected item.
+''' @param scrollOffset In/Out: 1-based index of top visible item.
+''' @return 1-based index of item activated by mouse click, or 0 if none.
+FUNCTION TUI_ScrollList& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS STRING, totalItems AS LONG, selectedIdx AS LONG, scrollOffset AS LONG)
+    TUI_ScrollList = TUI_ScrollListEx(x, y, w, h, items(), totalItems, selectedIdx, scrollOffset, 1)
 END FUNCTION

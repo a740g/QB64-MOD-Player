@@ -4209,7 +4209,7 @@ SUB Test_TUI
     activatedItem = TUI_ScrollList(10, 5, 25, 5, listItems(), 8, listSel, listScroll)
     TEST_CHECK activatedItem = 2, "TUI_ScrollList activates clicked item index 2"
     TEST_CHECK listSel = 2, "Selected index updated to 2"
-    TEST_CHECK __TUI.widgetCount = 1, "TUI_ScrollList registered as widget 1"
+    TEST_CHECK __TUI.widgetCount = 2, "TUI_ScrollList registered with composite widgets"
     TUI_End
 
     ' Test 2: Scrollbar Down Arrow click increments scrollOffset
@@ -4236,15 +4236,119 @@ SUB Test_TUI
 
     ' Test 4: Forgiving scrollbar thumb drag drifting horizontally outside list hitbox
     TUI_Begin
-    ' Mouse at column 0 (far left, outside list), row 9 (bottom). activeId=1, activePart=4
+    ' Mouse at column 0 (far left, outside list), row 9 (bottom). activeId=2 (scrollbar widget), activePart=4
     Vector2f_Set 0!, 9!, __TUI.mousePos
     __TUI.mouseDownL = _TRUE
-    __TUI.activeId = 1
+    __TUI.activeId = 2
     __TUI.activePart = 4
     DIM dragItem AS LONG
     dragItem = TUI_ScrollList(10, 5, 25, 5, listItems(), 8, listSel, listScroll)
     TEST_CHECK listScroll = 4, "Forgiving scrollbar drag advances scrollOffset to maxScroll (4) despite drifting outside hitbox"
     TEST_CHECK dragItem = 0, "Scrollbar drag does not activate list items"
+    TUI_End
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "TUI: Standalone Vertical Scrollbar (TUI_ScrollBarV)"
+    ' 1. Untouched return
+    TUI_Begin
+    Vector2f_Set 0!, 0!, __TUI.mousePos
+    DIM sbv1 AS LONG: sbv1 = TUI_ScrollBarV(10, 5, 20, 1, 5, 20)
+    TEST_CHECK sbv1 = 1, "TUI_ScrollBarV returns current offset when untouched"
+    TEST_CHECK __TUI.widgetCount = 1, "TUI_ScrollBarV registers widget 1"
+    TUI_End
+
+    ' 2. Disabled state when totalSize <= pageSize
+    TUI_Begin
+    Vector2f_Set 10!, 24!, __TUI.mousePos ' Down arrow position
+    __TUI.mouseClickedL = _TRUE
+    DIM sbvDis AS LONG: sbvDis = TUI_ScrollBarV(10, 5, 20, 1, 20, 15)
+    TEST_CHECK sbvDis = 1, "TUI_ScrollBarV ignores clicks when disabled (totalSize <= pageSize)"
+    TUI_End
+
+    ' 3. Down arrow single click (row 24)
+    TUI_Begin
+    Vector2f_Set 10!, 24!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE
+    DIM sbvDown AS LONG: sbvDown = TUI_ScrollBarV(10, 5, 20, 1, 5, 20)
+    TEST_CHECK sbvDown = 2, "TUI_ScrollBarV Down Arrow increments offset"
+    TUI_End
+
+    ' 4. Up arrow single click (row 5)
+    TUI_Begin
+    Vector2f_Set 10!, 5!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE
+    DIM sbvUp AS LONG: sbvUp = TUI_ScrollBarV(10, 5, 20, 2, 5, 20)
+    TEST_CHECK sbvUp = 1, "TUI_ScrollBarV Up Arrow decrements offset"
+    TUI_End
+
+    ' 5. Page Down track click below thumb (row 18)
+    TUI_Begin
+    Vector2f_Set 10!, 18!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE
+    DIM sbvPageDn AS LONG: sbvPageDn = TUI_ScrollBarV(10, 5, 20, 1, 5, 20)
+    TEST_CHECK sbvPageDn > 1, "TUI_ScrollBarV Page Down advances by page step"
+    TUI_End
+
+    ' 6. Forgiving thumb drag with horizontal pointer drift (x=80 vs x=10)
+    TUI_Begin
+    Vector2f_Set 80!, 23!, __TUI.mousePos ' Near bottom of track, 70 columns away!
+    __TUI.mouseDownL = _TRUE
+    __TUI.activeId = 1
+    __TUI.activePart = 4
+    DIM sbvDrag AS LONG: sbvDrag = TUI_ScrollBarV(10, 5, 20, 1, 5, 20)
+    TEST_CHECK sbvDrag = 16, "TUI_ScrollBarV forgiving drag advances to maxOffset (16) despite horizontal drift"
+    TUI_End
+    TEST_CASE_END
+
+    TEST_CASE_BEGIN "TUI: Standalone Horizontal Scrollbar (TUI_ScrollBarH)"
+    ' 1. Untouched return
+    TUI_Begin
+    Vector2f_Set 0!, 0!, __TUI.mousePos
+    DIM sbh1 AS LONG: sbh1 = TUI_ScrollBarH(10, 5, 40, 1, 8, 32)
+    TEST_CHECK sbh1 = 1, "TUI_ScrollBarH returns current offset when untouched"
+    TEST_CHECK __TUI.widgetCount = 1, "TUI_ScrollBarH registers widget 1"
+    TUI_End
+
+    ' 2. Disabled state when totalSize <= pageSize
+    TUI_Begin
+    Vector2f_Set 49!, 5!, __TUI.mousePos ' Right arrow position (10 + 40 - 1 = 49)
+    __TUI.mouseClickedL = _TRUE
+    DIM sbhDis AS LONG: sbhDis = TUI_ScrollBarH(10, 5, 40, 1, 32, 16)
+    TEST_CHECK sbhDis = 1, "TUI_ScrollBarH ignores clicks when disabled"
+    TUI_End
+
+    ' 3. Right arrow single click (col 49)
+    TUI_Begin
+    Vector2f_Set 49!, 5!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE
+    DIM sbhRight AS LONG: sbhRight = TUI_ScrollBarH(10, 5, 40, 1, 8, 32)
+    TEST_CHECK sbhRight = 2, "TUI_ScrollBarH Right Arrow increments offset"
+    TUI_End
+
+    ' 4. Left arrow single click (col 10)
+    TUI_Begin
+    Vector2f_Set 10!, 5!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE
+    DIM sbhLeft AS LONG: sbhLeft = TUI_ScrollBarH(10, 5, 40, 2, 8, 32)
+    TEST_CHECK sbhLeft = 1, "TUI_ScrollBarH Left Arrow decrements offset"
+    TUI_End
+
+    ' 5. Page Right track click (col 35)
+    TUI_Begin
+    Vector2f_Set 35!, 5!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE
+    DIM sbhPageR AS LONG: sbhPageR = TUI_ScrollBarH(10, 5, 40, 1, 8, 32)
+    TEST_CHECK sbhPageR > 1, "TUI_ScrollBarH Page Right advances by page step"
+    TUI_End
+
+    ' 6. Forgiving thumb drag with vertical pointer drift (y=40 vs y=5)
+    TUI_Begin
+    Vector2f_Set 48!, 40!, __TUI.mousePos ' Near right end of track, 35 rows away!
+    __TUI.mouseDownL = _TRUE
+    __TUI.activeId = 1
+    __TUI.activePart = 5
+    DIM sbhDrag AS LONG: sbhDrag = TUI_ScrollBarH(10, 5, 40, 1, 8, 32)
+    TEST_CHECK sbhDrag = 25, "TUI_ScrollBarH forgiving drag advances to maxOffset (25) despite vertical drift"
     TUI_End
     TEST_CASE_END
 
@@ -4278,7 +4382,7 @@ SUB Test_TUI
 
     ' Now enter modal
     TUI_ModalBegin
-    __TUI.activeId = 5 ' simulate modal button was pressed
+    __TUI.activeId = __TUI.widgetCount + 1 ' simulate modal button was pressed
     DIM modalBtnClicked AS _BYTE: modalBtnClicked = TUI_Button(59, 60, 28, "Close")
     TEST_CHECK modalBtnClicked, "Modal button receives click when mouse is inside"
     TUI_ModalEnd
