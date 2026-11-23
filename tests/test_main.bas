@@ -4430,17 +4430,23 @@ END SUB
 
 ''' @brief Tests for Pathname.bi and recursive directory scanning.
 SUB Test_Pathname
+    DIM testDir AS STRING: testDir = "tests/pathname_test"
+    IF NOT _DIREXISTS(testDir) THEN MKDIR testDir
+    DIM fh AS LONG
+    fh = FREEFILE: OPEN testDir + "/file1.amf" FOR OUTPUT AS #fh: PRINT #fh, "test1": CLOSE #fh
+    fh = FREEFILE: OPEN testDir + "/file2.amf" FOR OUTPUT AS #fh: PRINT #fh, "test2": CLOSE #fh
+
     TEST_CASE_BEGIN "Pathname: BuildFileList with specific extensions"
     REDIM testFiles(0 TO 0) AS STRING
     DIM count AS _UNSIGNED LONG
-    count = Pathname_BuildFileList("mods/Aladdin", "*.amf", testFiles())
-    TEST_CHECK count = 2, "Found 2 AMF files in mods/Aladdin"
+    count = Pathname_BuildFileList(testDir, "*.amf", testFiles())
+    TEST_CHECK count = 2, "Found 2 AMF files in " + testDir
     TEST_CHECK UBOUND(testFiles) = 1, "UBOUND is 1 for 2 files starting at base index 0"
     TEST_CHECK LBOUND(testFiles) = 0, "Base index 0 preserved"
     TEST_CASE_END
 
     TEST_CASE_BEGIN "Pathname: BuildFileList recursive subdirectories"
-    ' mods/ contains multiple subdirectories with .amf files (Aladdin, etc.)
+    ' mods/ contains multiple .amf files
     count = Pathname_BuildFileList("mods", "*.amf", testFiles())
     TEST_CHECK count >= 2, "Recursively found at least 2 AMF files across mods directory tree"
     TEST_CASE_END
@@ -4448,17 +4454,17 @@ SUB Test_Pathname
     TEST_CASE_BEGIN "Pathname: BuildFileList pipe-delimited list, case sensitivity and dot handling"
     REDIM filesUpper(0 TO 0) AS STRING
     DIM countUpper AS _UNSIGNED LONG
-    countUpper = Pathname_BuildFileList("mods/Aladdin", "*.AMF|*.mod", filesUpper())
+    countUpper = Pathname_BuildFileList(testDir, "*.AMF|*.mod", filesUpper())
     TEST_CHECK countUpper = 0, "Case-sensitive matching does not match lowercase .amf when only *.AMF specified"
 
     REDIM filesBoth(0 TO 0) AS STRING
     DIM countBoth AS _UNSIGNED LONG
-    countBoth = Pathname_BuildFileList("mods/Aladdin", "*.AMF|*.amf|*.mod", filesBoth())
+    countBoth = Pathname_BuildFileList(testDir, "*.AMF|*.amf|*.mod", filesBoth())
     TEST_CHECK countBoth = 2, "Matches *.amf when both uppercase and lowercase variants provided in list"
 
     REDIM filesNoDot(0 TO 0) AS STRING
     DIM countNoDot AS _UNSIGNED LONG
-    countNoDot = Pathname_BuildFileList("mods/Aladdin", "amf | s3m", filesNoDot())
+    countNoDot = Pathname_BuildFileList(testDir, "amf | s3m", filesNoDot())
     TEST_CHECK countNoDot = 2, "Matches extension without leading dot and with spaces"
     TEST_CASE_END
 
@@ -4473,7 +4479,7 @@ SUB Test_Pathname
     TEST_CASE_BEGIN "Pathname: BuildFileList preserves non-zero base index"
     REDIM files1(1 TO 1) AS STRING
     DIM count1 AS _UNSIGNED LONG
-    count1 = Pathname_BuildFileList("mods/Aladdin", "*.amf", files1())
+    count1 = Pathname_BuildFileList(testDir, "*.amf", files1())
     TEST_CHECK count1 = 2, "Found 2 files"
     TEST_CHECK LBOUND(files1) = 1, "Base index 1 preserved"
     TEST_CHECK UBOUND(files1) = 2, "UBOUND is 2 for 2 files starting at base index 1"
@@ -4482,13 +4488,18 @@ SUB Test_Pathname
     TEST_CASE_BEGIN "Pathname: BuildFileList empty / wildcard filter matches all"
     REDIM filesAll(0 TO 0) AS STRING
     DIM countAll AS _UNSIGNED LONG
-    countAll = Pathname_BuildFileList("mods/Aladdin", "*.*", filesAll())
+    countAll = Pathname_BuildFileList(testDir, "*.*", filesAll())
     TEST_CHECK countAll = 2, "Wildcard *.* matches all files"
 
     DIM countEmpty AS _UNSIGNED LONG
-    countEmpty = Pathname_BuildFileList("mods/Aladdin", "", filesAll())
+    countEmpty = Pathname_BuildFileList(testDir, "", filesAll())
     TEST_CHECK countEmpty = 2, "Empty filter matches all files"
     TEST_CASE_END
+
+    ' Cleanup test directory
+    IF _FILEEXISTS(testDir + "/file1.amf") THEN KILL testDir + "/file1.amf"
+    IF _FILEEXISTS(testDir + "/file2.amf") THEN KILL testDir + "/file2.amf"
+    IF _DIREXISTS(testDir) THEN RMDIR testDir
 END SUB
 
 ''' @brief Tests for UI_Views.bi softkey hitbox calculations.

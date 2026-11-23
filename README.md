@@ -143,7 +143,7 @@ SYSTEM
 The complete API documentation, parameter specifications, type definitions,
 and constants are documented in [docs/API.md](docs/API.md).
 
-- **[Core Player API](docs/API.md#core-player-api-modplayerbi)**: Playback
+- **[Core Player API](docs/API.md#core-player-api-modplayerbi--modplayerbm)**: Playback
   control (`MODPlayer_Play`, `MODPlayer_Stop`, `MODPlayer_Pause`,
   `MODPlayer_Update`), lifecycle routines (`MODPlayer_Initialize`,
   `MODPlayer_Finalize`, `MODPlayer_IsInitialized`), position navigation,
@@ -151,16 +151,22 @@ and constants are documented in [docs/API.md](docs/API.md).
   `MODPlayer_LoadFromMemory`).
 - **[Dedicated Format Loaders API](docs/API.md#dedicated-format-loaders-api-loaderbi)**:
   Direct loading routines for ProTracker/SoundTracker (`MODLoader_*`), Scream
-  Tracker 3 (`S3MLoader_*`), and MultiTracker (`MTMLoader_*`).
+  Tracker 2 (`STMLoader_*`), Scream Tracker 3 (`S3MLoader_*`), MultiTracker
+  (`MTMLoader_*`), Farandole Composer (`FARLoader_*`), Composer 669 (`C669Loader_*`),
+  Reality Adlib Tracker (`RADLoader_*`), UltraTracker (`ULTLoader_*`),
+  Digitrakker (`MDLLoader_*`), and Advanced Music Format (`AMFLoader_*`).
 - **[Software Synthesizer API](docs/API.md#software-synthesizer-api-softsynthbi)**:
   Multi-instance PCM voice mixing, buffer streaming, pan/volume attenuation,
   frequency control, and direct sample frame peeking/poking.
-- **[Opal OPL2/OPL3 FM Synthesizer Emulator API](docs/API.md#opal-opl2opl3-emulator-api-opalbi--opalbm)**:
-  Pure native emulation of Yamaha YM3812 (OPL2) and YMF262 (OPL3) sound chips,
-  supporting 2-op/4-op melodic patches, rhythm mode percussion, and stereo panning.
 - **[Audio Spectrum Analyzer API](docs/API.md#audio-spectrum-analyzer-api-audioanalyzerbi)**:
   Multi-instance Radix-2 FFT spectral analysis, average intensity, RMS energy
   calculation, and peak amplitude/bin detection.
+- **[Opal OPL2/OPL3 FM Synthesizer Emulator API](docs/API.md#opal-opl2opl3-emulator-api-opalbi--opalbm)**:
+  Pure native emulation of Yamaha YM3812 (OPL2) and YMF262 (OPL3) sound chips,
+  supporting 2-op/4-op melodic patches, rhythm mode percussion, and stereo panning.
+- **[Audio Conversion API](docs/API.md#audio-conversion-api-audioconvbi)**:
+  In-place sample format conversion (unsigned/signed 8-bit and 16-bit), dual-mono to
+  stereo interleaving, and 4-bit ADPCM sample decompression.
 
 ## Frequently Asked Questions
 

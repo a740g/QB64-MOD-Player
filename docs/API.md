@@ -1,8 +1,9 @@
-# QB64 MOD Player API Reference
+# QB64 MOD Player Audio API Reference
 
 This document provides the complete API reference for the QB64 MOD Player
-libraries, including the Core Player, Dedicated Format Loaders, Software
-Synthesizer / Sample Mixer, and Audio Spectrum Analyzer.
+audio libraries, including the Core Player, Dedicated Format Loaders, Software
+Synthesizer / Sample Mixer, Audio Spectrum Analyzer, Opal OPL2/OPL3 FM
+Synthesizer Emulator, and Audio Sample Conversion Utilities.
 
 ---
 
@@ -45,36 +46,14 @@ Synthesizer / Sample Mixer, and Audio Spectrum Analyzer.
   - [Lifecycle Management](#opal-lifecycle-management)
   - [Register Programming and I/O](#opal-register-programming-and-io)
   - [Audio Generation](#opal-audio-generation)
-- [Geometry and Bounding Box API (`Bounds2f.bi`)](#geometry-and-bounding-box-api-bounds2fbi)
-  - [Types](#bounds2f-types)
-  - [Initialization and Sanitization](#bounds2f-initialization-and-sanitization)
-  - [Geometric Queries](#bounds2f-geometric-queries)
-- [Input Management API (`Input.bi`)](#input-management-api-inputbi)
-  - [Constants](#input-constants)
-  - [Frame Polling](#input-frame-polling)
-  - [Keyboard APIs](#input-keyboard-apis)
-  - [Mouse APIs](#input-mouse-apis)
-  - [Game Controller APIs](#input-game-controller-apis)
-  - [TUI Navigation Actions](#input-tui-navigation-actions)
-  - [Window Event APIs](#input-window-event-apis)
-- [Immediate-Mode TUI API (`TUI.bi`)](#immediate-mode-tui-api-tuibi)
-  - [Constants](#tui-constants)
-  - [Types](#tui-types)
-  - [Frame Lifecycle Management](#tui-frame-lifecycle-management)
-  - [Immediate Widgets](#tui-immediate-widgets)
-- [Playlist Management API (`Playlist.bi`)](#playlist-management-api-playlistbi)
-  - [Constants](#playlist-constants)
-  - [Types](#playlist-types)
-  - [Queue Management and Navigation](#playlist-queue-management-and-navigation)
-  - [M3U File I/O](#playlist-m3u-file-io)
-- [Background Visual Animation API (`Background.bi`)](#background-visual-animation-api-backgroundbi)
-  - [Constants and Modes](#background-constants-and-modes)
-  - [Types](#background-types)
-  - [Lifecycle and Rendering](#background-lifecycle-and-rendering)
-  - [Mode Control and Queries](#background-mode-control-and-queries)
+- [Audio Conversion API (`AudioConv.bi`)](#audio-conversion-api-audioconvbi)
+  - [Sample Format In-Place Conversion](#sample-format-in-place-conversion)
+  - [Dual Mono to Stereo Interleaving](#dual-mono-to-stereo-interleaving)
+  - [ADPCM Sample Decompression](#adpcm-sample-decompression)
 
 ---
 
+<a name="core-player-api-modplayerbi"></a>
 ## Core Player API (`MODPlayer.bi` & `MODPlayer.bm`)
 
 Include headers:
@@ -1183,696 +1162,80 @@ SUB Opal_GenerateSample (self AS Opal, left AS INTEGER, right AS INTEGER)
   - `left`: Output variable receiving signed 16-bit left channel sample.
   - `right`: Output variable receiving signed 16-bit right channel sample.
 
+
 ---
 
-## Geometry and Bounding Box API (`Bounds2f.bi`)
+## Audio Conversion API (`AudioConv.bi`)
 
 Include header:
 
 ```vb
-'$INCLUDE:'source/Bounds2f.bi'
+'$INCLUDE:'source/AudioConv.bi'
 ```
 
-### Bounds2f Types
+The Audio Conversion library provides high-performance audio buffer and sample format conversion utilities, stereo interleaving, and ADPCM decompression for tracker module loaders and audio playback routines.
+
+### Sample Format In-Place Conversion
+
+#### `AudioConv_ConvertU8ToS8`
 
 ```vb
-TYPE Bounds2f
-    lt AS Vector2f ' Left-Top coordinate
-    rb AS Vector2f ' Right-Bottom coordinate
-END TYPE
+SUB AudioConv_ConvertU8ToS8 (buffer AS STRING)
 ```
 
-### Bounds2f Initialization and Sanitization
+- **Description**: Converts unsigned 8-bit PCM audio samples (`0..255`) to signed 8-bit PCM samples (`-128..127`) in-place by toggling the sign bit (`XOR &H80~%%`).
+- **Parameters**:
+  - `buffer`: Unsigned 8-bit audio sample buffer (modified in-place).
 
-- `SUB Bounds2f_Initialize (x1 AS SINGLE, y1 AS SINGLE, x2 AS SINGLE, y2 AS SINGLE, dst AS Bounds2f)`: Initializes a bounding box with coordinates.
-- `SUB Bounds2f_InitializeWithVectors (lt AS Vector2f, rb AS Vector2f, dst AS Bounds2f)`: Initializes with two Vector2f corner points.
-- `SUB Bounds2f_Set (x1 AS SINGLE, y1 AS SINGLE, x2 AS SINGLE, y2 AS SINGLE, dst AS Bounds2f)`: Sets box coordinates.
-- `SUB Bounds2f_Sanitize (b AS Bounds2f)`: Ensures `lt.x <= rb.x` and `lt.y <= rb.y` by swapping if inverted.
+#### `AudioConv_ConvertU16ToS16`
 
-### Bounds2f Geometric Queries
+```vb
+SUB AudioConv_ConvertU16ToS16 (buffer AS STRING)
+```
 
-- `FUNCTION Bounds2f_GetWidth! (b AS Bounds2f)`: Returns the width (`rb.x - lt.x`).
-- `FUNCTION Bounds2f_GetHeight! (b AS Bounds2f)`: Returns the height (`rb.y - lt.y`).
-- `FUNCTION Bounds2f_GetDiscreteWidth! (b AS Bounds2f)`: Returns the discrete / inclusive width including both edges (`1 + rb.x - lt.x`).
-- `FUNCTION Bounds2f_GetDiscreteHeight! (b AS Bounds2f)`: Returns the discrete / inclusive height including both edges (`1 + rb.y - lt.y`).
-- `FUNCTION Bounds2f_ContainsPoint%% (b AS Bounds2f, pt AS Vector2f)`: Tests if point is inside or on the boundaries.
-- `FUNCTION Bounds2f_ContainsPointXY%% (b AS Bounds2f, x AS SINGLE, y AS SINGLE)`: Tests if `(x, y)` is inside.
-- `FUNCTION Bounds2f_Intersects%% (a AS Bounds2f, b AS Bounds2f)`: Tests if two bounding boxes overlap.
+- **Description**: Converts unsigned 16-bit little-endian PCM audio samples (`0..65535`) to signed 16-bit PCM samples (`-32768..32767`) in-place by toggling the high-byte sign bit (`XOR &H80~%%`).
+- **Parameters**:
+  - `buffer`: Unsigned 16-bit little-endian audio sample buffer (modified in-place).
 
 ---
 
-## Input Management API (`Input.bi`)
+### Dual Mono to Stereo Interleaving
 
-Unified frame-based input polling for keyboard, mouse, game controller, and window events with discrete TUI navigation actions.
-
-Include header:
+#### `AudioConv_ConvertDualMonoToStereoS8$`
 
 ```vb
-'$INCLUDE:'source/Input.bi'
+FUNCTION AudioConv_ConvertDualMonoToStereoS8$ (buffer AS STRING)
 ```
 
-### Input Constants
+- **Description**: De-interleaves/converts a dual-mono 8-bit audio buffer (where the first half contains left channel samples and the second half contains right channel samples) into standard interleaved stereo format (`L0, R0, L1, R1, ...`).
+- **Parameters**:
+  - `buffer`: Dual-mono 8-bit audio sample buffer.
+- **Returns**: Interleaved stereo 8-bit audio buffer of identical total byte length.
 
-- **Mouse Buttons**: `MOUSE_BUTTON_LEFT` (1), `MOUSE_BUTTON_RIGHT` (2), `MOUSE_BUTTON_MIDDLE` / `MOUSE_BUTTON_CENTER` (3).
-- **Gamepad Buttons**: `GAMEPAD_BUTTON_A` (1), `GAMEPAD_BUTTON_B` (2), `GAMEPAD_BUTTON_X` (3), `GAMEPAD_BUTTON_Y` (4), `GAMEPAD_BUTTON_LB` (5), `GAMEPAD_BUTTON_RB` (6), `GAMEPAD_BUTTON_LT` (7), `GAMEPAD_BUTTON_RT` (8), `GAMEPAD_BUTTON_BACK` (9), `GAMEPAD_BUTTON_START` (10).
-- **Gamepad Axes**: `GAMEPAD_AXIS_LX` (1), `GAMEPAD_AXIS_LY` (2), `GAMEPAD_AXIS_RX` (3), `GAMEPAD_AXIS_RY` (4).
-- **Deadzone**: `GAMEPAD_AXIS_DEADZONE_DEFAULT` (0.20 / 20%).
-- **Modifier Keys**: `KEY_LSHIFT`, `KEY_RSHIFT`, `KEY_LCTRL`, `KEY_RCTRL`, `KEY_LALT`, `KEY_RALT`, `KEY_LSUPER`, `KEY_RSUPER`.
-- **Navigation & Function Keys**: `KEY_SPACE`, `KEY_ENTER`, `KEY_ESCAPE`, `KEY_TAB`, `KEY_BACKSPACE`, `KEY_UP`, `KEY_DOWN`, `KEY_LEFT`, `KEY_RIGHT`, `KEY_PAGE_UP`, `KEY_PAGE_DOWN`, `KEY_HOME`, `KEY_END`, `KEY_INSERT`, `KEY_DELETE`, `KEY_F1` to `KEY_F12`.
+#### `AudioConv_ConvertDualMonoToStereoS16$`
 
-### Input Frame Polling
+```vb
+FUNCTION AudioConv_ConvertDualMonoToStereoS16$ (buffer AS STRING)
+```
 
-- `SUB Input_Update`: Polls all input devices (keyboard, mouse, game controllers, window events) and computes frame deltas, transitions, and navigation actions. Call once per frame in the main application loop.
-- `SUB Input_Poll`: Alias for `Input_Update`.
-- `FUNCTION Input_HasEvent%%`: Returns `_TRUE` if any keyboard, mouse, window, or gamepad event is pending.
-
-### Input Keyboard APIs
-
-- `FUNCTION Input_HasKeyboardEvent%%`: Returns `_TRUE` if a key was pressed this frame.
-- `FUNCTION Input_PeekKeyboardKey&`: Returns the last `_KEYHIT` key code without clearing it.
-- `SUB Input_ConsumeKeyboardKey`: Explicitly consumes the current keyboard key and resets navigation action flags.
-- `FUNCTION Input_IsKeyDown%% (keyCode AS LONG)`: Returns `_TRUE` if the specified key is currently held down.
-- `FUNCTION Input_IsKeyPressed%% (keyCode AS LONG)`: Alias for `Input_IsKeyDown`.
-- `FUNCTION Input_IsShiftDown%%`: Returns `_TRUE` if either Left or Right Shift is held down.
-- `FUNCTION Input_IsCtrlDown%%`: Returns `_TRUE` if either Left or Right Ctrl is held down.
-- `FUNCTION Input_IsAltDown%%`: Returns `_TRUE` if either Left or Right Alt is held down.
-- `FUNCTION Input_IsSuperDown%%`: Returns `_TRUE` if either Left or Right Windows/Command key is held down.
-
-### Input Mouse APIs
-
-- `FUNCTION Input_HasMouseEvent%%`: Returns `_TRUE` if mouse movement, wheel, or button activity occurred.
-- `SUB Input_GetMousePosition (position AS Vector2f)`: Retrieves cursor position in a `Vector2f`.
-- `SUB Input_GetMousePositionXY (x AS SINGLE, y AS SINGLE)`: Retrieves cursor position in scalar variables.
-- `FUNCTION Input_GetMouseX! ()`: Returns current mouse X coordinate.
-- `FUNCTION Input_GetMouseY! ()`: Returns current mouse Y coordinate.
-- `SUB Input_GetMouseDelta (delta AS Vector2f)`: Retrieves mouse movement vector since previous frame.
-- `SUB Input_GetMouseDeltaXY (dx AS SINGLE, dy AS SINGLE)`: Retrieves mouse movement delta in scalar variables.
-- `FUNCTION Input_GetMouseDeltaX! ()`: Returns mouse X movement delta.
-- `FUNCTION Input_GetMouseDeltaY! ()`: Returns mouse Y movement delta.
-- `FUNCTION Input_GetMouseScrollWheelValue! ()`: Returns accumulated scroll wheel delta for the frame.
-- `FUNCTION Input_GetMouseWheel! ()`: Alias for `Input_GetMouseScrollWheelValue`.
-- `FUNCTION Input_IsMouseButtonDown%% (button AS LONG)`: Checks if a button is held down.
-- `FUNCTION Input_IsMouseButtonPressed%% (button AS LONG)`: Alias for `Input_IsMouseButtonDown`.
-- `FUNCTION Input_WasMouseButtonPressed%% (button AS LONG)`: Checks if a button transitioned from UP to DOWN this frame.
-- `FUNCTION Input_GetMouseButtonPressed%% (button AS LONG)`: Checks button press transition and consumes it.
-- `FUNCTION Input_WasMouseButtonClicked%% (button AS LONG)`: Checks if a button transitioned from DOWN to UP this frame.
-- `FUNCTION Input_GetMouseButtonClicked%% (button AS LONG)`: Checks button release/click transition and consumes it.
-- `SUB Input_GetMouseButtonDownPosition (button AS LONG, position AS Vector2f)`: Gets coordinate where button was pressed down.
-- `SUB Input_GetMouseButtonUpPosition (button AS LONG, position AS Vector2f)`: Gets coordinate where button was released.
-- `SUB Input_GetMouseButtonClickBounds (button AS LONG, bounds AS Bounds2f)`: Gets sanitized bounding box enclosing the click.
-- `FUNCTION Input_IsMouseInRect%% (x1 AS SINGLE, y1 AS SINGLE, x2 AS SINGLE, y2 AS SINGLE)`: Tests if mouse cursor is within rectangle.
-- `FUNCTION Input_IsMouseInBounds%% (bounds AS Bounds2f)`: Tests if mouse cursor is within bounding box.
-- `FUNCTION Input_IsMouseClickInRect%% (button AS LONG, x1 AS SINGLE, y1 AS SINGLE, x2 AS SINGLE, y2 AS SINGLE)`: Tests if a button click occurred inside rectangle.
-- `FUNCTION Input_IsMouseClickInBounds%% (button AS LONG, bounds AS Bounds2f)`: Tests if a button click occurred inside bounding box.
-- `FUNCTION Input_IsMousePressInRect%% (button AS LONG, x1 AS SINGLE, y1 AS SINGLE, x2 AS SINGLE, y2 AS SINGLE)`: Tests if a button press occurred inside rectangle.
-- `FUNCTION Input_IsMousePressInBounds%% (button AS LONG, bounds AS Bounds2f)`: Tests if a button press occurred inside bounding box.
-
-### Input Game Controller APIs
-
-- `FUNCTION Input_HasGamepadEvent%%`: Returns `_TRUE` if gamepad activity occurred this frame.
-- `FUNCTION Input_IsGamepadConnected%% (gamepadIndex AS LONG)`: Checks if gamepad (1 or 2) is connected.
-- `FUNCTION Input_GetGamepadStickLX! (gamepadIndex AS LONG)`: Returns normalized left stick X in range `[-1.0, 1.0]`.
-- `FUNCTION Input_GetGamepadStickLY! (gamepadIndex AS LONG)`: Returns normalized left stick Y in range `[-1.0, 1.0]`.
-- `FUNCTION Input_GetGamepadStickRX! (gamepadIndex AS LONG)`: Returns normalized right stick X in range `[-1.0, 1.0]`.
-- `FUNCTION Input_GetGamepadStickRY! (gamepadIndex AS LONG)`: Returns normalized right stick Y in range `[-1.0, 1.0]`.
-- `SUB Input_GetGamepadStickL (vec AS Vector2f, gamepadIndex AS LONG)`: Retrieves normalized left stick vector.
-- `SUB Input_GetGamepadStickR (vec AS Vector2f, gamepadIndex AS LONG)`: Retrieves normalized right stick vector.
-- `FUNCTION Input_GetGamepadAxis! (axisIndex AS LONG, gamepadIndex AS LONG)`: Queries stick axis by `GAMEPAD_AXIS_*` constant.
-- `FUNCTION Input_IsGamepadButtonDown%% (buttonIndex AS LONG, gamepadIndex AS LONG)`: Checks if gamepad button is held down.
-- `FUNCTION Input_WasGamepadButtonPressed%% (buttonIndex AS LONG, gamepadIndex AS LONG)`: Checks if button was pressed this frame.
-- `FUNCTION Input_GetGamepadButtonPressed%% (buttonIndex AS LONG, gamepadIndex AS LONG)`: Checks button press transition and consumes it.
-- `FUNCTION Input_WasGamepadButtonReleased%% (buttonIndex AS LONG, gamepadIndex AS LONG)`: Checks if button was released this frame.
-- `SUB Input_SetGamepadDeadzone (deadzone AS SINGLE)`: Sets stick deadzone threshold (clamped to `[0.0, 0.99]`).
-- `FUNCTION Input_GetGamepadDeadzone! ()`: Returns current analog stick deadzone.
-- `FUNCTION Input_GetControllerAxis% (axis AS INTEGER)`: GlyphUI compatibility returning raw stick coordinate (1..254).
-- `FUNCTION Input_IsControllerButtonPressed% (button AS INTEGER)`: GlyphUI compatibility returning button state for Gamepad 1.
-
-### Input TUI Navigation Actions
-
-Synthesizes discrete, edge-triggered navigation pulses combining Keyboard, Gamepad, and Mouse to prevent runaway scrolling:
-
-- `FUNCTION Input_NavUp%%`: Returns `_TRUE` on Up Arrow, Keypad Up, or Gamepad Stick Up pulse.
-- `FUNCTION Input_NavDown%%`: Returns `_TRUE` on Down Arrow, Keypad Down, or Gamepad Stick Down pulse.
-- `FUNCTION Input_NavLeft%%`: Returns `_TRUE` on Left Arrow, Keypad Left, or Gamepad Stick Left pulse.
-- `FUNCTION Input_NavRight%%`: Returns `_TRUE` on Right Arrow, Keypad Right, or Gamepad Stick Right pulse.
-- `FUNCTION Input_NavConfirm%%`: Returns `_TRUE` on Enter, Space, or Gamepad Button A / Start.
-- `FUNCTION Input_NavCancel%%`: Returns `_TRUE` on Escape or Gamepad Button B / Back.
-- `FUNCTION Input_NavPageUp%%`: Returns `_TRUE` on Page Up or Gamepad Left Bumper.
-- `FUNCTION Input_NavPageDown%%`: Returns `_TRUE` on Page Down or Gamepad Right Bumper.
-
-### Input Window Event APIs
-
-- `FUNCTION Input_HasWindowEvent%%`: Returns `_TRUE` if a window resize or exit request occurred.
-- `FUNCTION Input_WindowShouldClose%%`: Returns `_TRUE` if the window close button (`_EXIT`) was clicked.
-- `SUB Input_SetWindowShouldClose (shouldClose AS _BYTE)`: Programmatically sets the window close request state.
-- `FUNCTION Input_WasWindowResized%%`: Returns `_TRUE` if the window was resized (`_RESIZE`) this frame.
-- `FUNCTION Input_GetWindowResizeWidth! ()`: Returns new window width if resized.
-- `FUNCTION Input_GetWindowResizeHeight! ()`: Returns new window height if resized.
-- `SUB Input_GetWindowResizeSize (size AS Vector2f)`: Retrieves new window dimensions in a `Vector2f`.
+- **Description**: Converts a dual-mono 16-bit little-endian audio buffer (where the first half of bytes represents left channel 16-bit samples and the second half represents right channel 16-bit samples) into standard interleaved stereo format (`L0_lo, L0_hi, R0_lo, R0_hi, ...`).
+- **Parameters**:
+  - `buffer`: Dual-mono 16-bit audio sample buffer.
+- **Returns**: Interleaved stereo 16-bit audio buffer of identical total byte length.
 
 ---
 
-## Immediate-Mode TUI API (`TUI.bi`)
+### ADPCM Sample Decompression
 
-Include headers:
-
-```vb
-'$INCLUDE:'source/TUI.bi'
-```
-
-### TUI Constants
-
-#### Channel Action Codes
-
-Returned in `outAction` by `TUI_ChannelBadge`:
+#### `AudioConv_ConvertADPCM4ToS8$`
 
 ```vb
-CONST TUI_CHANNEL_ACTION_NONE%% = 0%%
-CONST TUI_CHANNEL_ACTION_MUTE%% = 1%%
-CONST TUI_CHANNEL_ACTION_SOLO%% = 2%%
+FUNCTION AudioConv_ConvertADPCM4ToS8$ (buffer AS STRING, compTab AS STRING)
 ```
 
-#### Rate-Limiting Constants
-
-```vb
-CONST TUI_SCRUB_COOLOFF_SECS# = 0.08# ' 80 ms cool-off interval for seek scrubbing
-```
-
-#### Text Mode Color Constants
-
-```vb
-CONST TUI_COLOR_BLACK& = 0&
-CONST TUI_COLOR_BLUE& = 1&
-CONST TUI_COLOR_GREEN& = 2&
-CONST TUI_COLOR_CYAN& = 3&
-CONST TUI_COLOR_RED& = 4&
-CONST TUI_COLOR_MAGENTA& = 5&
-CONST TUI_COLOR_BROWN& = 6&
-CONST TUI_COLOR_WHITE& = 7&
-CONST TUI_COLOR_GRAY& = 8&
-CONST TUI_COLOR_LIGHT_BLUE& = 9&
-CONST TUI_COLOR_LIGHT_GREEN& = 10&
-CONST TUI_COLOR_LIGHT_CYAN& = 11&
-CONST TUI_COLOR_LIGHT_RED& = 12&
-CONST TUI_COLOR_LIGHT_MAGENTA& = 13&
-CONST TUI_COLOR_YELLOW& = 14&
-CONST TUI_COLOR_BRIGHT_WHITE& = 15&
-```
-
----
-
-### TUI Types
-
-#### `__TUI_Context`
-
-Internal context maintaining minimal persistent state across frames:
-
-```vb
-TYPE __TUI_Context
-    initialized AS _BYTE
-    inFrame AS _BYTE
-    widgetCount AS LONG                 ' Current frame auto-incremented widget counter
-    totalWidgets AS LONG                ' Total interactive widgets from previous frame
-    focusedId AS LONG                   ' Currently focused widget ID (1..totalWidgets)
-    hotId AS LONG                       ' Currently hovered widget ID
-    activeId AS LONG                    ' Widget currently being pressed or dragged
-    mousePos AS Vector2f                ' Current mouse position (character column/row)
-    mouseClickedL AS _BYTE              ' Left mouse button clicked this frame
-    mouseDownL AS _BYTE                 ' Left mouse button held down this frame
-    mouseClickedR AS _BYTE              ' Right mouse button clicked this frame
-    navNext AS _BYTE                    ' Advance focus (Tab, Gamepad RB)
-    navPrev AS _BYTE                    ' Retreat focus (Shift+Tab, Gamepad LB)
-    navConfirm AS _BYTE                 ' Trigger focused widget (Enter, Space, Gamepad A)
-    navSolo AS _BYTE                    ' Trigger channel solo (S, Shift+Enter, Gamepad Y/X)
-    hasNavFocus AS _BYTE                ' True when keyboard/gamepad focus indicator is active
-    lastScrubTime AS DOUBLE             ' Uptime timestamp of last seek scrub
-    prevMousePos AS Vector2f            ' Previous frame mouse position
-END TYPE
-```
-
----
-
-### TUI Frame Lifecycle Management
-
-#### `TUI_Begin`
-
-```vb
-SUB TUI_Begin
-```
-
-- **Description**: Begins a new Immediate-Mode TUI frame. Gathers input state
-  from `Input_*`, detects navigation cycling (Tab / Shift+Tab / Gamepad bumpers),
-  advances or wraps the active focused widget ID, and resets transient frame counters.
-
-#### `TUI_End`
-
-```vb
-SUB TUI_End
-```
-
-- **Description**: Concludes the Immediate-Mode TUI frame. Updates `totalWidgets`,
-  clamps `focusedId` to the valid widget range, and resets the frame state.
-
----
-
-### TUI Immediate Widgets
-
-#### `TUI_Button%%`
-
-```vb
-FUNCTION TUI_Button%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING)
-```
-
-- **Description**: Renders an interactive 3-line tall VB-DOS style 3D push button
-  using in-boundary directional lighting (no drop shadows). In normal raised
-  state, top and left borders are highlighted (`Bright White`) while bottom and
-  right borders are in shadow (`Black`). When clicked and held down by the mouse
-  or during keyboard confirmation, lighting inverts to simulate physical button
-  depression without shifting the centered interior label. Action triggers on
-  mouse button release while hovering over the button. The currently focused
-  button is rendered with a double-line border
-  (`CHR$(201)`, `CHR$(205)`, `CHR$(187)`, `CHR$(186)`, `CHR$(200)`, `CHR$(188)`),
-  while non-focused buttons use a single-line border
-  (`CHR$(218)`, `CHR$(196)`, `CHR$(191)`, `CHR$(179)`, `CHR$(192)`, `CHR$(217)`).
+- **Description**: Decompresses 4-bit ADPCM compressed audio samples into full 8-bit signed PCM samples using a 16-byte delta decompression table (used by Digitrakker `.MDL` and similar module formats). Each source byte yields two 8-bit signed samples (low nibble first, then high nibble).
 - **Parameters**:
-  - `x`: 1-based character column coordinate of top-left corner.
-  - `y`: 1-based character row coordinate of top-left corner.
-  - `w`: Total width in characters including borders.
-  - `text`: Display label string.
-- **Returns**: `_TRUE` if clicked (mouse release inside bounds) or confirmed via
-  keyboard / controller while focused; `_FALSE` otherwise.
+  - `buffer`: 4-bit ADPCM packed sample byte stream.
+  - `compTab`: 16-byte string containing the signed delta lookup table.
+- **Returns**: Decompressed signed 8-bit PCM sample buffer (length is exactly `LEN(buffer) * 2`).
 
-#### `TUI_ToggleButton%%`
-
-```vb
-FUNCTION TUI_ToggleButton%% (x AS LONG, y AS LONG, w AS LONG, text AS STRING, isToggled AS _BYTE)
-```
-
-- **Description**: Renders an interactive 3-line tall VB-DOS style 3D toggle
-  button with raised / sunken visual states and directional lighting (no drop
-  shadows). Displays sunken in green when `isToggled` is true without shifting
-  interior label text. When pressed and held, it visibly depresses. The currently
-  focused button is rendered with a double-line border, while non-focused
-  buttons use a single-line border.
-- **Parameters**:
-  - `x`: 1-based character column coordinate of top-left corner.
-  - `y`: 1-based character row coordinate of top-left corner.
-  - `w`: Total width in characters including borders.
-  - `text`: Display label string.
-  - `isToggled`: `_TRUE` if active / sunken, `_FALSE` if raised.
-- **Returns**: `_TRUE` if clicked/triggered to toggle state; `_FALSE` otherwise.
-
-#### `TUI_ChannelBadge%%`
-
-```vb
-FUNCTION TUI_ChannelBadge%% (x AS LONG, y AS LONG, ch AS LONG, _
-    badgeText AS STRING, isMuted AS _BYTE, isSoloed AS _BYTE, outAction AS _BYTE)
-```
-
-- **Description**: Renders an interactive tracker channel badge with live Mute
-  (`[MUT]`) and Solo (`[SLO]`) indicators.
-- **Parameters**:
-  - `x`: Character column coordinate.
-  - `y`: Character row coordinate.
-  - `ch`: Channel index (0-based).
-  - `badgeText`: Subtype text (e.g. `"PCM"`, `"AM "`, `"FMm"`, `"FMd"`).
-  - `isMuted`: `_TRUE` if channel is muted.
-  - `isSoloed`: `_TRUE` if channel is soloed.
-  - `outAction`: Output parameter set to `TUI_CHANNEL_ACTION_MUTE` or
-    `TUI_CHANNEL_ACTION_SOLO`.
-- **Returns**: `_TRUE` if an action was triggered; `_FALSE` otherwise.
-
-#### `TUI_ProgressBar&`
-
-```vb
-FUNCTION TUI_ProgressBar& (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, _
-    maxVal AS SINGLE, label AS STRING)
-```
-
-- **Description**: Renders an interactive progress / seek bar. Supports real-time
-  scrubbing with an ~80 ms rate-limiting cool-off interval to prevent rapid order
-  jumping. Renders non-destructively: prefix label and percentage readout inherit
-  the current `_BACKGROUNDCOLOR`, and caller's `_DEFAULTCOLOR` / `_BACKGROUNDCOLOR`
-  are preserved upon return.
-- **Parameters**:
-  - `x`: Character column coordinate.
-  - `y`: Character row coordinate.
-  - `w`: Total width in characters including bracket delimiters.
-  - `curVal`: Current numeric value.
-  - `maxVal`: Maximum value.
-- **Returns**: Target position index if clicked, dragged, or nudged; or `-1` if
-  no interaction occurred.
-
-#### `TUI_Slider!`
-
-```vb
-FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, _
-    minVal AS SINGLE, maxVal AS SINGLE, label AS STRING)
-```
-
-- **Description**: Renders an interactive floating-point slider bar with steppers
-  and percentage readout. Renders non-destructively: prefix label and percentage
-  readout inherit the current `_BACKGROUNDCOLOR`, and caller's `_DEFAULTCOLOR` /
-  `_BACKGROUNDCOLOR` are preserved upon return.
-- **Parameters**:
-  - `x`: Character column coordinate.
-  - `y`: Character row coordinate.
-  - `w`: Slider bar character width.
-  - `curVal`: Current value.
-  - `minVal`: Minimum value boundary.
-  - `maxVal`: Maximum value boundary.
-  - `label`: Label prefix string (e.g. `"VOL"`).
-- **Returns**: Updated single-precision value if adjusted; or `curVal` if
-  unadjusted.
-
-#### `TUI_PanelEx`
-
-```vb
-SUB TUI_PanelEx (x AS LONG, y AS LONG, w AS LONG, h AS LONG, title AS STRING, isDoubleBorder AS _BYTE, isOpaque AS _BYTE)
-```
-
-- **Description**: Renders a beveled container panel frame with an optional title string embedded into the top border, supporting double/single border styling and selectable opacity.
-- **Parameters**:
-  - `x`: Column coordinate of the top-left corner.
-  - `y`: Row coordinate of the top-left corner.
-  - `w`: Width in characters.
-  - `h`: Height in characters.
-  - `title`: Header caption displayed in the top border.
-  - `isDoubleBorder`: Nonzero for double-line border style, zero for single-line style.
-  - `isOpaque`: Nonzero to clear interior with background color spaces (opaque), zero to leave interior transparent.
-
-#### `TUI_Panel`
-
-```vb
-SUB TUI_Panel (x AS LONG, y AS LONG, w AS LONG, h AS LONG, title AS STRING, isDoubleBorder AS _BYTE)
-```
-
-- **Description**: Renders an opaque beveled container panel frame with an optional title string embedded into the top border (calls `TUI_PanelEx` with `isOpaque = _TRUE`).
-- **Parameters**:
-  - `x`: Column coordinate of the top-left corner.
-  - `y`: Row coordinate of the top-left corner.
-  - `w`: Width in characters.
-  - `h`: Height in characters.
-  - `title`: Header caption displayed in the top border.
-  - `isDoubleBorder`: Nonzero for double-line border style, zero for single-line style.
-
-#### `TUI_TabBar%%`
-
-```vb
-FUNCTION TUI_TabBar%% (x AS LONG, y AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG)
-```
-
-- **Description**: Renders a horizontal bar of tabs without an outer container box. Clicking or triggering an inactive tab updates `selectedIdx` and returns `_TRUE`.
-- **Parameters**:
-  - `x`: Column coordinate of the start of the tab bar.
-  - `y`: Row coordinate.
-  - `tabCaptions()`: Array of tab caption strings.
-  - `tabCount`: Total number of tabs in the array.
-  - `selectedIdx`: In/Out 1-based index of the currently active tab.
-- **Return Value**: `_TRUE` if tab selection changed this frame, `_FALSE` otherwise.
-
-#### `TUI_TabBarEx%%`
-
-```vb
-FUNCTION TUI_TabBarEx%% (x AS LONG, y AS LONG, boxX1 AS LONG, boxY1 AS LONG, boxX2 AS LONG, boxY2 AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG, isDisabled AS _BYTE)
-```
-
-- **Description**: Extended tab bar supporting disabled state and an optional diary-style container border box. When `boxX1 > 0`, draws an enclosing border box whose top edge seamlessly connects to the active tab via CP437 ASCII 189/211 glyphs and seals unselected tabs with ASCII 193.
-- **Parameters**:
-  - `x`: Column coordinate of the start of the tab bar.
-  - `y`: Row coordinate of the tab bar.
-  - `boxX1`: Left column of the container border box (or 0 for no box).
-  - `boxY1`: Top row of the container border box (or 0 for no box).
-  - `boxX2`: Right column of the container border box (or 0 for no box).
-  - `boxY2`: Bottom row of the container border box (or 0 for no box).
-  - `tabCaptions()`: Array of tab caption strings.
-  - `tabCount`: Total number of tabs in the array.
-  - `selectedIdx`: In/Out 1-based index of the currently active tab.
-  - `isDisabled`: Nonzero to render tabs grayed out and non-interactive.
-- **Return Value**: `_TRUE` if tab selection changed this frame, `_FALSE` otherwise.
-
-#### `TUI_TabControl%%`
-
-```vb
-FUNCTION TUI_TabControl%% (x AS LONG, y AS LONG, boxX1 AS LONG, boxY1 AS LONG, boxX2 AS LONG, boxY2 AS LONG, tabCaptions() AS STRING, tabCount AS LONG, selectedIdx AS LONG)
-```
-
-- **Description**: Helper wrapper around `TUI_TabBarEx` that renders an interactive diary tab control with integrated content container box.
-- **Parameters**:
-  - `x`: Column coordinate of the start of the tab bar.
-  - `y`: Row coordinate of the tab bar.
-  - `boxX1`: Left column of the container border box.
-  - `boxY1`: Top row of the container border box.
-  - `boxX2`: Right column of the container border box.
-  - `boxY2`: Bottom row of the container border box.
-  - `tabCaptions()`: Array of tab caption strings.
-  - `tabCount`: Total number of tabs in the array.
-  - `selectedIdx`: In/Out 1-based index of the currently active tab.
-- **Return Value**: `_TRUE` if tab selection changed this frame, `_FALSE` otherwise.
-
-#### `TUI_VUMeter`
-
-```vb
-SUB TUI_VUMeter (x AS LONG, y AS LONG, h AS LONG, level AS SINGLE, peak AS SINGLE, isMuted AS _BYTE)
-```
-
-- **Description**: Renders a vertical 1-column VU meter with 3-color graduation (green, yellow, red), peak hold indicator, and muted state support.
-- **Parameters**:
-  - `x`: Column coordinate.
-  - `y`: Top row coordinate.
-  - `h`: Height in character rows.
-  - `level`: Normalized volume level (0.0 to 1.0).
-  - `peak`: Normalized peak volume level (0.0 to 1.0).
-  - `isMuted`: Nonzero to render in muted gray tone.
-
-#### `TUI_ScrollList&`
-
-```vb
-FUNCTION TUI_ScrollList& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() AS STRING, totalItems AS LONG, selectedIdx AS LONG, scrollOffset AS LONG)
-```
-
-- **Description**: Renders a scrollable selection list with item hover, click selection, scrollbar track, thumb, and mouse wheel navigation.
-- **Parameters**:
-  - `x`: Column coordinate of the top-left corner.
-  - `y`: Row coordinate of the top-left corner.
-  - `w`: Total list width in characters.
-  - `h`: Total visible line height.
-  - `items()`: Array of item strings.
-  - `totalItems`: Valid item count in the array.
-  - `selectedIdx`: In/Out 1-based index of currently selected item.
-  - `scrollOffset`: In/Out 1-based index of top visible item.
-- **Return Value**: 1-based index of item clicked this frame, or 0 if none.
-
----
-
-## Playlist Management API (`Playlist.bi`)
-
-Include header:
-
-```vb
-'$INCLUDE:'source/Playlist.bi'
-```
-
-### Playlist Constants
-
-```vb
-CONST PLAYLIST_REPEAT_NONE%% = 0%%
-CONST PLAYLIST_REPEAT_ALL%% = 1%%
-CONST PLAYLIST_REPEAT_ONE%% = 2%%
-```
-
-### Playlist Types
-
-#### `PlaylistEntry`
-
-```vb
-TYPE PlaylistEntry
-    filePath AS STRING
-    title AS STRING
-    duration AS DOUBLE
-END TYPE
-```
-
-#### `Playlist`
-
-```vb
-TYPE Playlist
-    _DYNAMIC entries(0 TO 0) AS PlaylistEntry
-    count AS LONG
-    currentIndex AS LONG
-    isShuffle AS _BYTE
-    repeatMode AS _BYTE
-    _DYNAMIC shuffleOrder(0 TO 0) AS LONG
-    shufflePos AS LONG
-END TYPE
-```
-
-### Playlist Queue Management and Navigation
-
-#### `Playlist_Initialize` / `Playlist_Clear`
-
-```vb
-SUB Playlist_Initialize (pl AS Playlist)
-SUB Playlist_Clear (pl AS Playlist)
-```
-
-- **Description**: Resets or clears a playlist structure to empty state.
-
-#### `Playlist_Add`
-
-```vb
-FUNCTION Playlist_Add%% (pl AS Playlist, filePath AS STRING, title AS STRING, duration AS DOUBLE)
-SUB Playlist_Add (pl AS Playlist, filePath AS STRING, title AS STRING, duration AS DOUBLE)
-```
-
-- **Description**: Appends a file to the playlist queue. If `title` is empty, the file name is automatically extracted.
-
-#### `Playlist_Remove`
-
-```vb
-FUNCTION Playlist_Remove%% (pl AS Playlist, index AS LONG)
-SUB Playlist_Remove (pl AS Playlist, index AS LONG)
-```
-
-- **Description**: Removes an entry by 1-based index and shifts remaining entries.
-
-#### `Playlist_Shuffle` / `Playlist_SetShuffle`
-
-```vb
-SUB Playlist_Shuffle (pl AS Playlist)
-SUB Playlist_SetShuffle (pl AS Playlist, enable AS _BYTE)
-```
-
-- **Description**: Generates a Fisher-Yates randomized permutation of playlist entries for non-repeating shuffle playback.
-
-#### `Playlist_SetRepeatMode`
-
-```vb
-SUB Playlist_SetRepeatMode (pl AS Playlist, mode AS _BYTE)
-```
-
-- **Description**: Sets repeat behavior (`PLAYLIST_REPEAT_NONE`, `PLAYLIST_REPEAT_ALL`, or `PLAYLIST_REPEAT_ONE`).
-
-#### `Playlist_GetNext&` / `Playlist_GetPrevious&`
-
-```vb
-FUNCTION Playlist_GetNext& (pl AS Playlist)
-FUNCTION Playlist_GetPrevious& (pl AS Playlist)
-```
-
-- **Description**: Advances or retreats through the queue according to shuffle and repeat modes. Returns 0 when the end of a non-repeating playlist is reached.
-
-### Playlist M3U File I/O
-
-#### `Playlist_LoadM3U`
-
-```vb
-FUNCTION Playlist_LoadM3U%% (pl AS Playlist, m3uFilePath AS STRING)
-SUB Playlist_LoadM3U (pl AS Playlist, m3uFilePath AS STRING)
-```
-
-- **Description**: Loads entries and `#EXTINF` metadata from an `.m3u` or `.m3u8` playlist file.
-
-#### `Playlist_SaveM3U`
-
-```vb
-FUNCTION Playlist_SaveM3U%% (pl AS Playlist, m3uFilePath AS STRING)
-SUB Playlist_SaveM3U (pl AS Playlist, m3uFilePath AS STRING)
-```
-
-- **Description**: Exports the current playlist queue and metadata to an `.m3u` file.
-
----
-
-## Background Visual Animation API (`Background.bi`)
-
-Include header:
-
-```vb
-'$INCLUDE:'Background.bi'
-```
-
-Provides retro visual animation effects for the player during idle playback or ambient mode. Supports 7 distinct background modes: 3D Starfield Warp, Kinetic Bouncing Snakes, Launching Fireworks, Retro Cellular Fire, Demoscene Plasma, Bouncing Kinetic Balls, and Digital Matrix Rain.
-
-### Background Constants and Modes
-
-```vb
-CONST BACKGROUND_MODE_NONE& = 0&
-CONST BACKGROUND_MODE_STARS& = 1&
-CONST BACKGROUND_MODE_SNAKES& = 2&
-CONST BACKGROUND_MODE_FIREWORKS& = 3&
-CONST BACKGROUND_MODE_FIRE& = 4&
-CONST BACKGROUND_MODE_PLASMA& = 5&
-CONST BACKGROUND_MODE_BALLS& = 6&
-CONST BACKGROUND_MODE_MATRIX& = 7&
-CONST BACKGROUND_MODE_FIRST& = BACKGROUND_MODE_STARS
-CONST BACKGROUND_MODE_LAST& = BACKGROUND_MODE_MATRIX
-```
-
-### Background Types
-
-#### `Background`
-
-Unified context encapsulating all background visual simulation states:
-
-- `starfield`: Star positions, angles, velocities, and 3D depth buffers.
-- `snakes`: Kinetic snake positions, turn rates, velocities, and occupancy grid.
-- `fireworks`: Rocket trajectory, explosion spark particles, and gravity simulation.
-- `fire`: Cellular automata heat grid with upward propagation and cooling decay.
-- `plasma`: Fast 512-entry precomputed sine LUT and multi-frequency wave phase ticks.
-- `balls`: Kinetic bouncing balls with gravity, wall rebounds, and elastic ball-to-ball collisions.
-- `matrix`: Falling code stream columns with glowing leading heads, green trails, and character mutation.
-- `mode`: Active `BACKGROUND_MODE_*` constant.
-- `size`: Vector2f screen dimensions in characters.
-
-### Background Lifecycle and Rendering
-
-#### `Background_InitializeEx`
-
-```vb
-SUB Background_InitializeEx (ctx AS Background, viewport AS Bounds2f)
-```
-
-- **Description**: Allocates and initializes all 7 background effect engines constrained within the specified rectangular `viewport` bounding box. Calculates width and height, sets up all simulation grids/buffers, and selects an initial random background mode.
-
-#### `Background_Initialize`
-
-```vb
-SUB Background_Initialize (ctx AS Background)
-```
-
-- **Description**: Simplified initializer that defaults the viewport to full-screen bounds `(0, 0) - (_WIDTH, _HEIGHT)` and delegates to `Background_InitializeEx`. Selects an initial random background mode.
-
-#### `Background_UpdateAndDraw`
-
-```vb
-SUB Background_UpdateAndDraw (ctx AS Background)
-```
-
-- **Description**: Advances the simulation state of the currently active background mode by one frame and renders it directly to the active screen buffer.
-
-### Background Mode Control and Queries
-
-#### `Background_SetRandomMode`
-
-```vb
-SUB Background_SetRandomMode (ctx AS Background)
-```
-
-- **Description**: Randomly selects an active background mode from the 7 available modes (`BACKGROUND_MODE_FIRST` to `BACKGROUND_MODE_LAST`).
-
-#### `Background_CycleMode`
-
-```vb
-SUB Background_CycleMode (ctx AS Background)
-```
-
-- **Description**: Advances to the next sequential background effect mode, wrapping around from `BACKGROUND_MODE_LAST` back to `BACKGROUND_MODE_FIRST`. Typically bound to hotkey `B`.
-
-#### `Background_GetModeName$`
-
-```vb
-FUNCTION Background_GetModeName$ (mode AS LONG)
-```
-
-- **Description**: Returns the human-readable display name for the given mode ID (`"Starfield"`, `"Kinetic Snakes"`, `"Fireworks"`, `"Retro Fire"`, `"Demoscene Plasma"`, `"Bouncing Balls"`, `"Digital Matrix Rain"`).
