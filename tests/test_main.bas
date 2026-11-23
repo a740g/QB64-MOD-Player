@@ -4068,6 +4068,16 @@ SUB Test_TUI
     pbVal = TUI_ProgressBar(10, 5, 50, 0!, 0!, _STR_EMPTY)
     TEST_CHECK pbVal = -1, "Zero maxVal returns -1 safely without division by zero"
     TUI_End
+
+    ' Forgiving seek drag when mouse drifts vertically outside row (y=15 vs y=5)
+    TUI_Begin
+    __TUI.lastScrubTime = 0#
+    Vector2f_Set 40!, 15!, __TUI.mousePos
+    __TUI.mouseDownL = _TRUE
+    __TUI.activeId = 1
+    pbVal = TUI_ProgressBar(10, 5, 50, 0!, 30!, "POS:")
+    TEST_CHECK pbVal >= 14 _ANDALSO pbVal <= 16, "Forgiving seek drag calculates target position despite vertical drift"
+    TUI_End
     TEST_CASE_END
 
     TEST_CASE_BEGIN "TUI: Slider Stepper Buttons and Track Interaction"
@@ -4107,6 +4117,26 @@ SUB Test_TUI
     DIM slVal3 AS SINGLE: slVal3 = TUI_Slider(10, 5, 14, 0.10!, 0!, 1!, "VOL")
     TEST_CHECK slVal3 >= 0.40! _ANDALSO slVal3 <= 0.50!, "Track click repositions value near 44%"
     TEST_CHECK __TUI.activeId = 0, "Click consumed by track"
+    TUI_End
+
+    ' Test 4: Forgiving drag when mouse drifts vertically outside row (y=15 vs y=5)
+    TUI_Begin
+    Vector2f_Set 25!, 15!, __TUI.mousePos
+    __TUI.mouseDownL = _TRUE
+    __TUI.activeId = 1
+    __TUI.activePart = 3
+    DIM slVal4 AS SINGLE: slVal4 = TUI_Slider(10, 5, 14, 0.10!, 0!, 1!, "VOL")
+    TEST_CHECK ABS(slVal4 - 1.0!) < 0.001!, "Forgiving slider drag updates to track end despite vertical drift"
+    TUI_End
+
+    ' Test 5: Forgiving drag clamped beyond left boundary (x=5 vs xTrack=16)
+    TUI_Begin
+    Vector2f_Set 5!, 2!, __TUI.mousePos
+    __TUI.mouseDownL = _TRUE
+    __TUI.activeId = 1
+    __TUI.activePart = 3
+    DIM slVal5 AS SINGLE: slVal5 = TUI_Slider(10, 5, 14, 0.50!, 0!, 1!, "VOL")
+    TEST_CHECK ABS(slVal5 - 0.0!) < 0.001!, "Forgiving slider drag clamps to minVal when drifting left"
     TUI_End
     TEST_CASE_END
 
@@ -4180,6 +4210,41 @@ SUB Test_TUI
     TEST_CHECK activatedItem = 2, "TUI_ScrollList activates clicked item index 2"
     TEST_CHECK listSel = 2, "Selected index updated to 2"
     TEST_CHECK __TUI.widgetCount = 1, "TUI_ScrollList registered as widget 1"
+    TUI_End
+
+    ' Test 2: Scrollbar Down Arrow click increments scrollOffset
+    TUI_Begin
+    ' List at (10, 5), w=25, h=5. xScroll = 10 + 25 - 1 = 34. Down arrow is at row 5 + 5 - 1 = 9
+    Vector2f_Set 34!, 9!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE
+    DIM downItem AS LONG
+    downItem = TUI_ScrollList(10, 5, 25, 5, listItems(), 8, listSel, listScroll)
+    TEST_CHECK listScroll = 2, "Scrollbar down arrow click advances scrollOffset to 2"
+    TEST_CHECK downItem = 0, "Down arrow click does not activate any list item"
+    TUI_End
+
+    ' Test 3: Scrollbar Up Arrow click decrements scrollOffset
+    TUI_Begin
+    ' Up arrow is at row 5, col 34
+    Vector2f_Set 34!, 5!, __TUI.mousePos
+    __TUI.mouseClickedL = _TRUE
+    DIM upItem AS LONG
+    upItem = TUI_ScrollList(10, 5, 25, 5, listItems(), 8, listSel, listScroll)
+    TEST_CHECK listScroll = 1, "Scrollbar up arrow click decrements scrollOffset back to 1"
+    TEST_CHECK upItem = 0, "Up arrow click does not activate any list item"
+    TUI_End
+
+    ' Test 4: Forgiving scrollbar thumb drag drifting horizontally outside list hitbox
+    TUI_Begin
+    ' Mouse at column 0 (far left, outside list), row 9 (bottom). activeId=1, activePart=4
+    Vector2f_Set 0!, 9!, __TUI.mousePos
+    __TUI.mouseDownL = _TRUE
+    __TUI.activeId = 1
+    __TUI.activePart = 4
+    DIM dragItem AS LONG
+    dragItem = TUI_ScrollList(10, 5, 25, 5, listItems(), 8, listSel, listScroll)
+    TEST_CHECK listScroll = 4, "Forgiving scrollbar drag advances scrollOffset to maxScroll (4) despite drifting outside hitbox"
+    TEST_CHECK dragItem = 0, "Scrollbar drag does not activate list items"
     TUI_End
     TEST_CASE_END
 
