@@ -1493,7 +1493,7 @@ FUNCTION TUI_ScrollBarV& (x AS LONG, y AS LONG, h AS LONG, offset AS LONG, pageS
     ELSEIF isDisabled THEN
         COLOR TUI_COLOR_GRAY, origBg
     ELSE
-        COLOR TUI_COLOR_GRAY, origBg
+        COLOR TUI_COLOR_WHITE, origBg
     END IF
     _PRINTSTRING (x, y), __TUI_GLYPH_UP_ARROW
 
@@ -1503,7 +1503,7 @@ FUNCTION TUI_ScrollBarV& (x AS LONG, y AS LONG, h AS LONG, offset AS LONG, pageS
         DIM drawY AS LONG: drawY = y + 1 + t
         IF NOT isDisabled _ANDALSO t >= thumbStart _ANDALSO t < thumbStart + thumbLen THEN
             IF __TUI.activeId = thisId _ANDALSO __TUI.activePart = 4 _ANDALSO __TUI.mouseDownL THEN
-                COLOR TUI_COLOR_BLACK, TUI_COLOR_YELLOW
+                COLOR TUI_COLOR_YELLOW, origBg
             ELSE
                 COLOR TUI_COLOR_BRIGHT_WHITE, origBg
             END IF
@@ -1512,7 +1512,7 @@ FUNCTION TUI_ScrollBarV& (x AS LONG, y AS LONG, h AS LONG, offset AS LONG, pageS
             IF isDisabled THEN
                 COLOR TUI_COLOR_GRAY, origBg
             ELSE
-                COLOR TUI_COLOR_GRAY, origBg
+                COLOR TUI_COLOR_WHITE, origBg
             END IF
             _PRINTSTRING (x, drawY), __TUI_GLYPH_VLINE
         END IF
@@ -1524,7 +1524,7 @@ FUNCTION TUI_ScrollBarV& (x AS LONG, y AS LONG, h AS LONG, offset AS LONG, pageS
     ELSEIF isDisabled THEN
         COLOR TUI_COLOR_GRAY, origBg
     ELSE
-        COLOR TUI_COLOR_GRAY, origBg
+        COLOR TUI_COLOR_WHITE, origBg
     END IF
     _PRINTSTRING (x, y + h - 1), __TUI_GLYPH_DOWN_ARROW
 
@@ -1647,7 +1647,7 @@ FUNCTION TUI_ScrollBarH& (x AS LONG, y AS LONG, w AS LONG, offset AS LONG, pageS
     ELSEIF isDisabled THEN
         COLOR TUI_COLOR_GRAY, origBg
     ELSE
-        COLOR TUI_COLOR_GRAY, origBg
+        COLOR TUI_COLOR_WHITE, origBg
     END IF
     _PRINTSTRING (x, y), __TUI_GLYPH_LEFT_ARROW
 
@@ -1657,7 +1657,7 @@ FUNCTION TUI_ScrollBarH& (x AS LONG, y AS LONG, w AS LONG, offset AS LONG, pageS
         DIM drawX AS LONG: drawX = x + 1 + t
         IF NOT isDisabled _ANDALSO t >= thumbStart _ANDALSO t < thumbStart + thumbLen THEN
             IF __TUI.activeId = thisId _ANDALSO __TUI.activePart = 5 _ANDALSO __TUI.mouseDownL THEN
-                COLOR TUI_COLOR_BLACK, TUI_COLOR_YELLOW
+                COLOR TUI_COLOR_YELLOW, origBg
             ELSE
                 COLOR TUI_COLOR_BRIGHT_WHITE, origBg
             END IF
@@ -1666,7 +1666,7 @@ FUNCTION TUI_ScrollBarH& (x AS LONG, y AS LONG, w AS LONG, offset AS LONG, pageS
             IF isDisabled THEN
                 COLOR TUI_COLOR_GRAY, origBg
             ELSE
-                COLOR TUI_COLOR_GRAY, origBg
+                COLOR TUI_COLOR_WHITE, origBg
             END IF
             _PRINTSTRING (drawX, y), __TUI_GLYPH_HLINE
         END IF
@@ -1678,7 +1678,7 @@ FUNCTION TUI_ScrollBarH& (x AS LONG, y AS LONG, w AS LONG, offset AS LONG, pageS
     ELSEIF isDisabled THEN
         COLOR TUI_COLOR_GRAY, origBg
     ELSE
-        COLOR TUI_COLOR_GRAY, origBg
+        COLOR TUI_COLOR_WHITE, origBg
     END IF
     _PRINTSTRING (x + w - 1, y), __TUI_GLYPH_RIGHT_ARROW
 

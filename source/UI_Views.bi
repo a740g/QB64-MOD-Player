@@ -1009,7 +1009,7 @@ FUNCTION UI_RenderPlaylist%% (pl AS Playlist, selectedItem AS LONG, scrollOffset
     plHScroll = TUI_ScrollBarH(12, 84, 80, plHScroll, 80, maxNameLen)
 
     ' Corner junction cell at (92, 84)
-    COLOR TUI_COLOR_GRAY, TUI_COLOR_BLACK
+    COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
     _PRINTSTRING (92, 84), __TUI_GLYPH_CORNER_BR
 
     IF activated > 0 THEN
