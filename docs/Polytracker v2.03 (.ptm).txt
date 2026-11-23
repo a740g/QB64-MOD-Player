@@ -7,6 +7,62 @@ different versions, including some customized test versions), and therefor
 I stick to version 2.03 here.
 
 
+1) Introduction
+~~~~~~~~~~~~~~~
+
+Poly Tracker is a Scream Tracker 3 like tracker written by Lone Ranger of AcmE
+and thoroughly tested by ViC / AcmE and The REW / Nostalgia. The original
+intent was to release the tracker as a shareware product, but after the release
+of Fast Tracker 2, Lone Ranger decided the tracker would need a major face-lift
+before a 'commercial' release. ViC and The REW compose all of their music in
+Poly Tracker, and because they are rather succesful in doing so (they are the
+two best musicians in the Netherlands) more and more people ask for the format
+of the PTM (Poly Tracker Module) files Poly Tracker produces.
+
+As is normal with coders, Lone Ranger did not have the PTM file format (like
+Otto Chrons of DMP still does not have a description of the AMF format), but
+because the Nostalgia products use PTM files I got some source code and header
+descriptions and stuff from Lone Ranger so I could draw up a simple format
+description. This description did not really suffice for a scene release
+(although a number of people already have this document), so here I am typing a
+less concise description allowing other scene members to support the PTM format
+in their players.
+
+This is a description of version 2.03 of the PTM format. Early formats are no
+longer used or supported by the current version of Poly Tracker (it still says
+"version 1.0=E1", but I think there have been about a dozen different versions,
+including some customized test versions), and therefor I stick to version 2.03
+here.
+
+When writing Poly Tracker, Lone Ranger needed a simple, straight forward module
+format. Since Poly Tracker was to become a better Scream Tracker (both ViC and
+The REW liked the Scream Tracker 3 interface but the program itself did not
+meet their requirements) Lone Ranger took a quick look at the S3M format and
+decided to adept it to the needs of Poly Tracker. This means that the PTM
+format has many similiarities with the S3M format, leaving out some typical ST3
+fields and putting in some extra Poly Tracker specific stuff. This may cause
+the format to look a little awkard, but remember that it was never the
+intention to release a Poly Tracker using this specification - it was merely a
+convenient beta-version format.
+
+This document is divided into several parts. First, I give a concise
+description of the PTM lay-out, followed by a more thorough and detailed
+explanation. The next section covers the effects used by Poly Tracker, followed
+by the last chapter, written for those who already include S3M support into
+their player, comparing the two formats.
+
+Well, that's enough introduction chat, I hope you find this a useful document.
+Any questions regarding this format can be sent to me by e-mail. Momentarely my
+address is jal@hacom.nl. You can also check the Nostalgia home page:
+http://pitel_lnx.ibk.fnt.hvu.nl/~therew/Nostalgia.html, where any updates
+of this document can also be found.
+
+Version 1.1 of this document covers one additional subject: the volume table
+used in Poly Tracker. It is covered in section 6.
+
+JAL / Nostalgia, 27 May / 12 September 1995
+
+
 Concise description of the PTM format / PTM format reference
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

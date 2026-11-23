@@ -1,10 +1,10 @@
 -----------------------------------------------------------------------------
 
-        MED/OctaMED MMD0/MMD1/MMD2 file formats
-        written by Teijo Kinnunen (18.05.1995)
-        Revision 4
+        MED/OctaMED MMD0/MMD1/MMD2/MMD3 file formats
+        written by Teijo Kinnunen (01.02.1996)
+        Revision 6
 
-$VER: MMD_documentation 4 (18.05.1995)
+$VER: MMD_documentation 6 (01.02.1996)
 
 -----------------------------------------------------------------------------
 
@@ -19,7 +19,11 @@ The limitations in MMD0 block format forced me to create a new file format
 for OctaMED Professional, this format is 'MMD1'. It's mostly the same as
 MMD0, except the block structure is different. Another new format is called
 'MMD2', this extends some of the old limits and provides a couple of new
-features
+features. 'MMD3' is identical to 'MMD2', but programs supporting this
+format must be able to recognize mixing mode of OctaMED Soundstudio. (This
+new id was introduced so that old program would not try to play modules they
+really can't.) Note that 'V7' in the following documentation refers to
+OctaMED Soundstudio V1.
 
 Design concepts
 ~~~~~~~~~~~~~~~
@@ -69,7 +73,8 @@ struct MMD0 {
 /* 12 */    UWORD   psecnum;    /* for the player routine, MMD2 only */
 /* 14 */    UWORD   pseq;       /*  "   "   "   "    */
 /* 16 */    struct MMD0Block **blockarr;
-/* 20 */    ULONG   reserved1;
+/* 20 */    UBYTE   mmdflags;
+/* 21 */    UBYTE   reserved[3];
 /* 24 */    struct InstrHdr **smplarr;
 /* 28 */    ULONG   reserved2;
 /* 32 */    struct MMD0exp *expdata;
@@ -87,11 +92,13 @@ struct MMD0 {
 id
 --
 This longword is used to identify the MMD and its version. Currently defined
-MMD types are MMD0 (0x4D4D4430), MMD1 (0x4D4D4431) and MMD2 (0x4D4D4432).
-MMD3 and upwards are reserved for future versions.
+MMD types are MMD0 (0x4D4D4430), MMD1 (0x4D4D4431), MMD2 (0x4D4D4432) and
+MMD3 (0x4D4D4433). MMD4 and upwards are reserved for future versions. Note
+that MMD2 and MMD3 file formats are identical (some notes exist below,
+though).
 
-In multi-modules, the following modules usually contain id MCNT, MCN1 or
-MCN2. The first module always has MMD0 - MMD2 as an id.
+In multi-modules, the following modules usually contain id MCNT, MCN1, MCN2
+or MCN3. The first module always has MMD0 - MMD3 as an id.
 
 modlen
 ------
@@ -113,10 +120,21 @@ offset  $00002400: block 1 data...
 ...
 The size of the table is MMD0song.numblocks longwords.
 
+mmdflags
+--------
+This field contains generic flags of the module. Only one flag is currently
+defined:
+
+    MMD_LOADTOFASTMEM    0x1
+
+This flag instructs the loading routine (LoadModule) to always read this
+module into fast RAM (if it uses mixing, 8 ch mode or no samples). Not all
+versions of OctaMED write this flag.
+
 smplarr
 -------
 Pointer to a table of instrument pointers. The size of the table is
-MMD0song.songlen longwords. This pointer is zero in OctaMED Pro MMD1 songs.
+MMD0song.numsamples longwords. This pointer is zero in OctaMED Pro MMD1 songs.
 In this case, OctaMED Pro loads the instruments from disk(s).
 
 expdata
@@ -226,13 +244,14 @@ Contains many single-bit flags:
 
 flags2
 ------
-More flags, currently only BPM stuff:
+More flags:
     FLAG2_BMASK 0x1F (bits 0-4)     BPM beat length (in lines)
                                     0 = 1 line, $1F = 32 lines.
                                     (OctaMED Pro Lines Per Beat slider.)
     FLAG2_BPM   0x20    BPM mode on
+    FLAG2_MIX   0x80    This flag implies that the module uses mixing.
 
-    (bits 0x40 and 0x80 are not defined, and must be set to zero)
+    (bit 0x40 is not defined, and must be set to zero)
 
 tempo2
 ------
@@ -265,7 +284,15 @@ struct MMD2song {
                            (also the number of entries in
                            'trackvols' table) */
     UWORD   numpseqs;   /* number of PlaySeqs in 'playseqtable' */
-    UBYTE   pad0[240];  /* reserved for future expansion */
+    BYTE    *trackpans;		/* NULL means 'all centered */
+    ULONG   flags3;		/* see defs below */
+    UWORD   voladj;		/* volume adjust (%), 0 means 100 */
+    UWORD   channels;		/* mixing channels, 0 means 4 */
+    UBYTE   mix_echotype;	/* 0 = nothing, 1 = normal, 2 = cross */
+    UBYTE   mix_echodepth;	/* 1 - 6, 0 = default */
+    UWORD   mix_echolen;	/* echo length in milliseconds */
+    BYTE    mix_stereosep;	/* stereo separation */
+    UBYTE   pad0[223];		/* reserved for future expansion */
 /* Below fields are MMD0/MMD1-compatible (except pad1[]) */
     UWORD   deftempo;
     BYTE    playtransp;
@@ -313,6 +340,53 @@ The number of tracks this song uses (i.e. the width of the widest block).
 numpseqs
 --------
 The number of PlaySeqs in 'playseqtable'.
+
+trackpans
+---------
+Points to a table of 'numtracks' BYTEs, which contain values -16 - 16 for
+panpot positions of tracks.
+
+flags3
+------
+These flags:
+    FLAG3_STEREO     0x1    Mixing in stereo
+    FLAG3_FREEPAN    0x2    Mixing flag: free pan
+
+voladj
+------
+Volume adjust value of the module (mixing). Value 0 equals volume adjust
+100.
+
+channels
+--------
+Max. number of mixing channels. Value 0 equals 4.
+
+mix_echotype
+------------
+Currently these echo types are defined (this is an ordinal number, not
+a bit field):
+	0 = none
+	1 = normal
+	2 = cross echo
+
+mix_echodepth
+-------------
+Echo depth, currently these values are defined:
+	0 = default
+	1 = 50 %
+	2 = 25 %
+	3 = 12.5 %
+	4 = 6.25 %
+	5 = 3.125 %
+	6 = 1.5625 %
+
+mix_echolen
+-----------
+Echo length in milliseconds.
+
+mix_stereosep
+-------------
+Stereo separation (-4 - 4).
 
 pad[]
 -----
@@ -619,7 +693,7 @@ These are defined as structure arrays (exp_smp and iinfo point to the first
 structure). The extension structures don't have a constant size, instead you
 have to read s_ext_entrsz or i_ext_entrsz to get the structure sizes. When
 reading, you have to check the entrsz fields to see which structure members
-do exist.
+do exist. See the MMD3 note below for s_ext_entries!!
 
 The difference between InstrExt and MMDInstrInfo is that InstrExt contains
 information the play-routine is interested in (e.g. finetune). MMDInstrInfo
@@ -647,7 +721,10 @@ The expansion structure follows:
         ULONG  songnamelen;
         struct MMDDumpData *dumps;
         struct MMDInfo *mmdinfo;
-        ULONG  reserved2[6];
+        struct MMDARexx *mmdrexx;
+        struct MMDMIDICmd3x *mmdcmd3x;
+        ULONG  reserved2[3];
+        ULONG  tag_end;
     };
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -669,6 +746,9 @@ The expansion structure follows:
                         /* Below fields saved by >= V5.02 */
                         UBYTE output_device;
                         UBYTE reserved;
+                        /* Below fields saved by >= V7 */
+                        ULONG long_repeat;
+                        ULONG long_replen;
                     };
 
                     hold, decay = hold/decay values of the
@@ -685,6 +765,7 @@ The expansion structure follows:
                                   SSFLG_LOOP     0x01 (Loop On/Off)
                                   SSFLG_EXTPSET  0x02 (Ext. Preset)
                                   SSFLG_DISABLED 0x04 (Disabled)
+                                  SSFLG_PINGPONG 0x08 (Ping-pong looping)
 
                     long_midi_preset = overrides the preset in the
                                        song structure (allows ext.
@@ -698,8 +779,17 @@ The expansion structure follows:
 
                     reserved = zero, at the moment
 
+                    long_repeat, long_replen = override repeat and repeat
+                            length values in the song structure. These
+                            fields allow long and odd repeat values.
+                            (Which are not useful unless mixing or using
+                            fast mem playing.)
+
     s_ext_entries   = the size of InstrExt structure array (i.e. the
-                      number of InstrExt structures).
+                      number of InstrExt structures). IMPORTANT: If you are
+                      reading MMD3 modules, this value may be greater than
+                      63! You should ignore any exp_smp structures above 63
+                      in that case! (Making room for > 63 instruments.)
 
     s_ext_entrsz    = the size of each InstrExt structure (in bytes).
 
@@ -842,6 +932,77 @@ The expansion structure follows:
                          tabs allowed (ListView gadgets can't display them).
 
                   length = data length in bytes.
+
+    mmdrexx     = contains the embedded ARexx commands (triggered by the
+                  song). 'mmdrexx' points to this structure:
+
+                  struct MMDARexx {
+                      UWORD  res;	/* reserved, must be zero! */
+                      UWORD  trigcmdlen; /* size of trigcmd entries
+                                            (MUST be used!!) */
+                      struct MMDARexxTrigCmd *trigcmd; /* a chain of
+                                         MMDARexxTrigCmds, or NULL */
+                  };
+
+                  'trigcmdlen' is the size of trigcmd entries. You must
+                  write sizeof(struct MMDARexxTrigCmd) to this field when
+                  writing modules.
+
+                  struct MMDARexxTrigCmd is:
+
+                  struct MMDARexxTrigCmd {
+                      struct MMDARexxTrigCmd *next; /* the next command,
+                                                      or NULL */
+                      UBYTE cmdnum; /* command number (01..FF) */
+                      UBYTE pad;
+                      WORD cmdtype; /* command type (OMACTION_...) */
+                      STRPTR cmd; /* command, or NULL */
+                      STRPTR port; /* port, or NULL */
+                      UWORD cmd_len; /* length of 'cmd' string (without
+                              term. 0) */
+                      UWORD port_len; /* length of 'port' string (without
+                              term. 0) */
+                  }; /* current (V7) structure size: 20 */
+
+                  next = Pointer to the next instance of this structure.
+                         Use when reading.
+
+                  cmdnum = Command (data byte) number for sending this
+                           command (01...FF).
+
+                  cmdtype = Command type (see modplayer.h).
+
+                  cmd = Command string (pointer), NULL if none.
+
+                  port = Port name string (pointer), NULL if none.
+                         (For OMACTION_CMDEXT.)
+
+                  cmd_len, port_len = lengths of the above two strings
+
+    mmdcmd3x    = This structure contains the settings for command 3x.
+                  The information is in the following structure:
+
+                  struct MMDMIDICmd3x {
+                      UBYTE struct_vers; // current version = 0
+                      UBYTE pad;
+                      UWORD num_of_settings; // number of Cmd3x settings
+                                             // (currently set to 15)
+                      UBYTE *ctrlr_types; // controller types [ignore
+                                          // unknown types!!]
+                      UWORD *ctrlr_numbers; // controller numbers
+                  };
+
+                  struct_vers = 0
+
+                  num_of_settings = number of controller settings
+                                    (could be > 15 in the future)
+
+                  ctrlr_types = pointer to a UBYTE array of controller
+                                types (see modplayer.h for MCS_TYPE_xx
+                                definitions).
+
+                  ctrlr_numbers = pointer to a UWORD array of controller
+                                  numbers
 
     reserved2   = future expansion fields, that MUST be zero now.
 

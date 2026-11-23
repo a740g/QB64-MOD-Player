@@ -201,10 +201,10 @@ submit a pull request with a fix.
 ## References and Documentation
 
 <!-- markdownlint-disable MD013 -->
-- [MOD Player Tutorial](docs/FMODDOC.TXT) by *FireLight*
-- [S3M Player Tutorial](docs/FS3MDOC.TXT) by *FireLight*
-- [Noisetracker/Soundtracker/Protracker Module Format](docs/MOD-FORM.TXT) by *Andrew Scott*
-- [MODFIL10.TXT](docs/MODFIL10.TXT) by *Thunder*
+- [MOD Player Tutorial](docs/FireLight%20MOD%20Player%20Tutorial.txt) by *FireLight*
+- [S3M Player Tutorial](docs/FireLight%20S3M%20Player%20Tutorial.txt) by *FireLight*
+- [Noisetracker/Soundtracker/Protracker Module Format](docs/Pro-Noise-Soundtracker%20module%20format%20(rev%204).txt) by *Andrew Scott*
+- [MODFIL10.TXT](docs/Protracker%20effects%20(MODFIL12.TXT)%20(.mod).txt) by *Thunder*
 - [Protracker Module](https://wiki.multimedia.cx/index.php/Protracker_Module) from *MultimediaWiki*
 - [Scream Tracker 3 Module](https://wiki.multimedia.cx/index.php/Scream_Tracker_3_Module) from *MultimediaWiki*
 - [S3M Format](https://moddingwiki.shikadi.net/wiki/S3M_Format) by *ModdingWiki*

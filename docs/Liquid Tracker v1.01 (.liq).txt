@@ -1,12 +1,14 @@
-         ึฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤท
-         บ          Liquid Tracker module (LIQ) file format            บ
-         ำฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฤฝ
 
-     (C) Nir Oren, 1995. May be freely used by any programmer.
 
-    ีอออออออออธ
-    ณ Header  ณ
-    ิอออออออออพ
+         +-------------------------------------------------------------+
+         |          Liquid Tracker module (LIQ) file format            |
+         +-------------------------------------------------------------+
+
+     (C) Nir Oren, 1995-98. May be freely used by any programmer.
+
+    +---------+
+    | Header  |
+    +---------+
 
    Offset  Length   Description
    ------------------------------------------
@@ -15,7 +17,7 @@
      2Ch     20     Artist Name
      40h      1     1Ah
      41h     20     Tracker Name
-     55h      2     Format Version - currently 0101h   (Read note*)
+     55h      2     Format Version - currently 0102h   (Read note*)
      57h      2     Initial speed
      59h      2     Initial BPM
      5Bh      2     Lowest note (Amiga Period*4)
@@ -33,7 +35,14 @@
      ...  NumTracks       Initial Channel Volume setup
      ...  NumSequence     Sequence Table Data
 
-     From format version 0101h -
+
+  *  A note about the Format Version - a loader should try loading even
+     if the LSB of the Format Version is different from what it knows
+     (used when wanting to add more info to the header but leaving the
+     format compatible) only if the MSB byte is different, the loader
+     is not able to handle it.
+
+   == FROM FORMAT VERSION 0101h: ==
 
    Offset  Length   Description
    ------------------------------------------
@@ -42,9 +51,16 @@
      ...  4               Number of Echo Pools
      ...  NumPools x 20   Echo Pools Data
 
-  ีออออออออออออออออออออธ
-  ณ  Echo Pools Data   ณ
-  ิออออออออออออออออออออพ
+   == FROM FORMAT VERSION 0102h: ==
+
+   Offset  Length   Description
+   ------------------------------------------
+     ...  2               Amplification (0-1000d)
+
+
+  +--------------------+
+  |  Echo Pools Data   |
+  +--------------------+
       - Each Echo Pool data consists of 20 bytes in the following mannar:
 
         1 DWORD  - DELAY value (in miliseconds)
@@ -52,17 +68,12 @@
         1 DWORD  - Decay value for right channel (0-64)
         1 DWORD  - Flags (&1 - Stereo flip)
         1 DWORD  - Reserved
-
-  *  A note about the Format Version - a loader should try loading even
-     if the LSB of the Format Version is different from what it knows
-     (used when wanting to add more info to the header but leaving the
-     format compatible) only if the MSB byte is different, the loader
-     is not able to handle it.
+  
 
 
-  ีออออออออออออออออออออธ
-  ณ  Patterns data     ณ
-  ิออออออออออออออออออออพ
+  +--------------------+
+  |  Patterns data     |
+  +--------------------+
 
       - For empty patterns, a 4-byte value of '!!!!' will be found here
 
@@ -115,9 +126,9 @@
        byte after there's Intervals count(-1) indicator), but there's just
        one note specified after, which is duplicated on all the Intervals.
 
-   ีอออออออออออออออออธ
-   ณ Instrument data ณ
-   ิอออออออออออออออออพ
+   +-----------------+
+   | Instrment data  |
+   +-----------------+
 
       - Just a series of LDSS files (Read in LDSS.DOC)
 
@@ -131,4 +142,20 @@
       NOTE that any file offset indicated in the LDSS header is relative
       to it's header start position, of course.
 
+
+ +-------------------------------= CONTACTS =-------------------------------+
+ |                                                                _______   |
+ |                                                               \     \_\  |
+ |                                                               / \_______\|
+ |   You can cont(r)act the author by:    |      SnailMail:  ||__\   __/ |  |
+ |                                        |                 (oo_________/   |
+ |                                        |                                 |
+ | -------------------------------------  |         <NOT AVAILABLE>         |
+ | InterNET: niroren@iname.com            |                                 |
+ |                                        |                                 |
+ |                                        |                                 |
+ +--------------------------------------------------------------------------+
+
+
                                ---- EOF ----
+

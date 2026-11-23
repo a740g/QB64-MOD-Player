@@ -1,4 +1,4 @@
-xmp/doc/format/sfx_format
+xmp/docs/format/sfx_format
 analysed by Claudio Matsuoka <claudio@helllabs.org>
 Mon Feb 22 09:29:58 EST 1999
 
@@ -17,6 +17,9 @@ big-endian.
 Update: effects description added based on the replayer code sent by BuZz
 (Sound Abspiel Routine zu Sound FX (C) 1988 LINEL Switzerland)
 
+Update2 (Oct/2015): fix effects 5/6/7/8 fixed based on MOD.AMC-Slide sent by
+Lamar McLouth.
+
 Here is the format description in "Asle" style:
 
 
@@ -30,7 +33,7 @@ Offset    Size (bytes)   Comment
       ***************************************
       * The following is repeated 15 times  *
       * with 30 bytes description for 1 smp *
-******************************************************
+******************************************************        
                                                      *
   80	       22        Sample name                 *
  102            2        Sample length / 2 (?)       *
@@ -39,7 +42,7 @@ Offset    Size (bytes)   Comment
  106            2        Loop start                  *
  108            2        Loop length / 2             *
                                                      *
-******************************************************
+******************************************************        
 
  530            1        Song length
  531            1        ? (restart position?)
@@ -73,9 +76,10 @@ Effects:
   2xy	Pitch bend (x = down, y = up)
   3xx	LED on (set bit 0 at address 0xbfe001)
   4xx	LED off (clear bit 0 at address 0xbfe001)
-  5xx	Volume up (add xx to current volume)
-  6xx	Set volume (like Protracker Cyy where yy = 64 - xx)
-  7xx	Set step up
-  8xx	Set step down
+  5xx	Change volume up (add xx to current volume)
+  6xx	Change volume down (subtract xx from current volume)
+  7xx	Change period up (slide to current period + xx)
+  8xx	Change period down (slide to current period - xx)
 
 The default delay value is 14565 (approx. 122 BPM in Protracker).
+

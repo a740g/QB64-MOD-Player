@@ -631,3 +631,13 @@ _pp_DecrunchColor:
 
 myBitsTable:
 	dc.b	$09,$0a,$0b,$0b		; Efficiency table
+***********************************************************************
+
+That's all for now - hope you don't mind...
+If you want to use the PowerPacker decrunching routine, I suggest instead
+using powerpacker.library if you are on the Amiga; if it is for a demo, I
+suggest using another cruncher, for instance CrunchMaster.  It has better
+compression ratios than PowerPacker.
+
+Vishnu CRB           Feel free to e-mail me.
+steinarm@ifi.uio.no  "...all the modern inconveniences..." (Mark Twain)
