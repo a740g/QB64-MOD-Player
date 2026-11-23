@@ -41,6 +41,8 @@ CONST UI_ACTION_PREV_TRACK%% = 5%%
 CONST UI_ACTION_NEXT_TRACK%% = 6%%
 CONST UI_ACTION_STOP%% = 7%%
 CONST UI_ACTION_PLAY_INDEX%% = 8%%
+CONST UI_ACTION_ADD_FILE%% = 9%%
+CONST UI_ACTION_ADD_FOLDER%% = 10%%
 
 ' CP437 glyph and control character constants for UI rendering
 CONST __UI_GLYPH_NOTE = CHR$(14) ' Music note
@@ -973,10 +975,10 @@ FUNCTION UI_RenderPlaylist%% (pl AS Playlist, selectedItem AS LONG, scrollOffset
     TUI_Panel 97, 10, 46, 77, "Queue Manager", _TRUE
 
     DIM bY AS LONG: bY = 13
-    IF TUI_Button(106, bY, 28, __UI_GLYPH_NOTE + " Add File(s)...") THEN action = UI_ACTION_OPEN_FILE
+    IF TUI_Button(106, bY, 28, __UI_GLYPH_NOTE + " Add File(s)...") THEN action = UI_ACTION_ADD_FILE
     bY = bY + 4
 
-    IF TUI_Button(106, bY, 28, __UI_GLYPH_NOTE + " Add Folder...") THEN action = UI_ACTION_OPEN_FOLDER
+    IF TUI_Button(106, bY, 28, __UI_GLYPH_NOTE + " Add Folder...") THEN action = UI_ACTION_ADD_FOLDER
     bY = bY + 4
 
     IF TUI_Button(106, bY, 28, "- Remove Selected") THEN

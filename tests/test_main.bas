@@ -4397,6 +4397,35 @@ SUB Test_Playlist
     TEST_CHECK UBOUND(pl.entries) = 0, "Entries array reset to 0"
     TEST_CHECK UBOUND(pl.shuffleOrder) = 0, "ShuffleOrder array reset to 0"
     TEST_CASE_END
+
+    TEST_CASE_BEGIN "Playlist: Clear vs Append Queue Workflows"
+    Playlist_Initialize pl
+    Playlist_Add pl, "old1.mod", "Old 1", 50#
+    Playlist_Add pl, "old2.mod", "Old 2", 60#
+    TEST_CHECK pl.count = 2, "Initial playlist has 2 items"
+
+    ' Simulate Append: adding multi-selected files
+    DIM appendFiles(0 TO 1) AS STRING
+    appendFiles(0) = "new1.mod": appendFiles(1) = "new2.mod"
+    DIM afI AS LONG
+    FOR afI = 0 TO 1
+        Playlist_Add pl, appendFiles(afI), "", 0#
+    NEXT afI
+    TEST_CHECK pl.count = 4, "Appended 2 items, total is 4"
+    TEST_CHECK pl.entries(1).title = "Old 1", "Old 1 still at index 1"
+    TEST_CHECK pl.entries(3).title = "new1.mod", "Appended item at index 3"
+
+    ' Simulate Clear & Play: clearing then adding multi-selected files
+    Playlist_Clear pl
+    TEST_CHECK pl.count = 0, "Playlist cleared"
+    DIM clearPlayFiles(0 TO 1) AS STRING
+    clearPlayFiles(0) = "fresh1.mod": clearPlayFiles(1) = "fresh2.mod"
+    FOR afI = 0 TO 1
+        Playlist_Add pl, clearPlayFiles(afI), "", 0#
+    NEXT afI
+    TEST_CHECK pl.count = 2, "Cleared and reloaded playlist has 2 items"
+    TEST_CHECK pl.entries(1).title = "fresh1.mod", "First item is fresh1.mod"
+    TEST_CASE_END
 END SUB
 
 ''' @brief Tests for Pathname.bi and recursive directory scanning.

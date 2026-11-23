@@ -261,10 +261,13 @@ SUB App_AddFolderToPlaylist (folderPath AS STRING)
     END IF
 END SUB
 
-''' @brief Displays native file open dialog and queues/plays selected files.
-SUB App_OpenFileDialog
+''' @brief Displays native file open dialog and queues or replaces/plays selected files.
+''' @param clearAndPlay If _TRUE, clears playlist and immediately plays track 1; if _FALSE, appends to playlist.
+SUB App_OpenFileDialog (clearAndPlay AS _BYTE)
     SHARED GlobalPlaylist AS Playlist
     SHARED Player AS MODPlayer
+    SHARED SelectedPlaylistItem AS LONG
+    SHARED PlaylistScrollOffset AS LONG
 
     DIM ofdList AS STRING
     ofdList = _OPENFILEDIALOG$(APP_NAME, , APP_TRACKER_FILE_PATTERNS, "Music Tracker Files", _TRUE)
@@ -272,34 +275,77 @@ SUB App_OpenFileDialog
 
     REDIM fileNames(0 TO 0) AS STRING
     DIM j AS LONG: j = String_Tokenize(ofdList, "|", _STR_LF, _FALSE, fileNames())
+    IF j <= 0 THEN EXIT SUB
+
+    DIM validCount AS LONG
+    DIM i AS LONG
+    FOR i = 0 TO j - 1
+        IF LEN(fileNames(i)) > 0 THEN validCount = validCount + 1
+    NEXT i
+    IF validCount = 0 THEN EXIT SUB
+
+    IF clearAndPlay THEN
+        Playlist_Clear GlobalPlaylist
+        SelectedPlaylistItem = 1
+        PlaylistScrollOffset = 1
+    END IF
 
     DIM firstAdded AS LONG: firstAdded = GlobalPlaylist.count + 1
-    DIM i AS LONG
     FOR i = 0 TO j - 1
         IF LEN(fileNames(i)) > 0 THEN
             Playlist_Add GlobalPlaylist, fileNames(i), "", 0#
         END IF
     NEXT i
 
-    IF NOT Player.song.isPlaying _ANDALSO firstAdded <= GlobalPlaylist.count THEN
-        App_PlayTrack firstAdded
+    IF clearAndPlay THEN
+        IF GlobalPlaylist.count > 0 THEN
+            App_PlayTrack 1
+        END IF
+    ELSE
+        IF NOT Player.song.isPlaying _ANDALSO firstAdded <= GlobalPlaylist.count THEN
+            App_PlayTrack firstAdded
+        END IF
     END IF
 END SUB
 
-''' @brief Displays native folder selection dialog and queues music files.
-SUB App_OpenFolderDialog
+''' @brief Displays native folder selection dialog and queues or replaces/plays music files.
+''' @param clearAndPlay If _TRUE, clears playlist and immediately plays track 1; if _FALSE, appends to playlist.
+SUB App_OpenFolderDialog (clearAndPlay AS _BYTE)
     SHARED GlobalPlaylist AS Playlist
     SHARED Player AS MODPlayer
+    SHARED SelectedPlaylistItem AS LONG
+    SHARED PlaylistScrollOffset AS LONG
 
     DIM folderPath AS STRING
     folderPath = _SELECTFOLDERDIALOG$("Select folder containing module music:", "")
     IF LEN(folderPath) = 0 THEN EXIT SUB
+    IF NOT _DIREXISTS(folderPath) THEN EXIT SUB
+
+    REDIM matchedFiles(0 TO 0) AS STRING
+    DIM count AS _UNSIGNED LONG
+    count = Pathname_BuildFileList(folderPath, APP_TRACKER_FILE_PATTERNS, matchedFiles())
+    IF count = 0 THEN EXIT SUB
+
+    IF clearAndPlay THEN
+        Playlist_Clear GlobalPlaylist
+        SelectedPlaylistItem = 1
+        PlaylistScrollOffset = 1
+    END IF
 
     DIM firstAdded AS LONG: firstAdded = GlobalPlaylist.count + 1
-    App_AddFolderToPlaylist folderPath
+    DIM fi AS _UNSIGNED LONG
+    FOR fi = 0 TO count - 1
+        Playlist_Add GlobalPlaylist, matchedFiles(fi), "", 0#
+    NEXT fi
 
-    IF NOT Player.song.isPlaying _ANDALSO firstAdded <= GlobalPlaylist.count THEN
-        App_PlayTrack firstAdded
+    IF clearAndPlay THEN
+        IF GlobalPlaylist.count > 0 THEN
+            App_PlayTrack 1
+        END IF
+    ELSE
+        IF NOT Player.song.isPlaying _ANDALSO firstAdded <= GlobalPlaylist.count THEN
+            App_PlayTrack firstAdded
+        END IF
     END IF
 END SUB
 
@@ -531,8 +577,8 @@ DO
         CASE UI_VIEW_MODE_PLAYLIST
             DIM plAction AS _BYTE: plAction = UI_RenderPlaylist(GlobalPlaylist, SelectedPlaylistItem, PlaylistScrollOffset)
             IF NOT ShowHelpModal THEN
-                IF plAction = UI_ACTION_OPEN_FILE THEN App_OpenFileDialog
-                IF plAction = UI_ACTION_OPEN_FOLDER THEN App_OpenFolderDialog
+                IF plAction = UI_ACTION_ADD_FILE THEN App_OpenFileDialog _FALSE
+                IF plAction = UI_ACTION_ADD_FOLDER THEN App_OpenFolderDialog _FALSE
                 IF plAction = UI_ACTION_PLAY_INDEX THEN App_PlayTrack SelectedPlaylistItem
             END IF
 
@@ -556,8 +602,8 @@ DO
     IF NOT ShowHelpModal THEN
         SELECT CASE topAction
             CASE UI_ACTION_QUIT: EXIT DO
-            CASE UI_ACTION_OPEN_FILE: App_OpenFileDialog
-            CASE UI_ACTION_OPEN_FOLDER: App_OpenFolderDialog
+            CASE UI_ACTION_OPEN_FILE: App_OpenFileDialog _TRUE
+            CASE UI_ACTION_OPEN_FOLDER: App_OpenFolderDialog _TRUE
             CASE UI_ACTION_MODARCHIVE: App_PlayModArchiveRandom
             CASE UI_ACTION_PREV_TRACK: App_PlayPrevTrack
             CASE UI_ACTION_NEXT_TRACK: App_PlayNextTrack

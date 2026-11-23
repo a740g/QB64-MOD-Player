@@ -1,0 +1,639 @@
+
+ ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÜ      ÜÜÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÜÜ    ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÜÜ
+  ÛÛÛÛÛÛÛÛÛÛÛÛßßßßßßÛÛÛÛÛ    ÛÛÛÛÛÛÛÛÛÛÛÛÛßßßßÛÛÛÛÛ   ßÛÛÛÛÛÛÛÛÛÛÛÛÛßßßßßÛÛÛÛÛ
+  ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛß   ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ   ÛÛÛÛÛÛÛÛÛÛÛÛÛ      ÛÛÛÛÛ
+  ÛÛÛÛÛÛÛÛÛÛÛÛ      ÛÛÛÛÛ   ÛÛÛÛÛÛÛÛÛÛÛÛÛ      ÛÛÛÛÛ   ÛÛÛÛÛÛÛÛÛÛÛÛÛ     ÜÛÛÛÛÛ
+ ÛÛÛÛÛÛÛÛÛÛÛÛÛÛ    ÛÛÛÛÛÛÛ ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ    ÛÛÛÛÛÛÛ ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+ ÛÛÛÛÛÛÛÛÛÛÛÛÛÛ    ÛÛÛÛÛÛÛ ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ    ÛÛÛÛÛÛÛ ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ
+ ÛÛÛÛÛÛÛÛÛÛÛÛÛÛ    ÛÛÛÛÛÛÛ ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛ    ÛÛÛÛÛÛÛ ÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛÛßß
+
+ ÚÄÄÄÄÄÄÄÄÄÄ ÄÄ Ä -ùú Reality ADlib Tracker  Version 1.1a úù- Ä ÄÄ ÄÄÄÄÄÄÄÄÄÄ¿
+ ³                                                                            ³
+ ³                      (c)1995 by Shayde, Rogue, & Void.                     ³
+ |                            -REALITY PRODUCTIONS-                           ³
+ :                                                                            ³
+ ú                                                                            |
+                                                                              :
+                                                                              ù
+                                  INTRODUCTION
+                               ß ßßßßßßßßßßßßßß ß
+
+   Why?
+   ~~~~
+
+   Why?  Well take a look around and see if YOU can find any decent Adlib
+   trackers around!
+
+   Being a demo group, Reality had occasion to need Adlib tunes for our
+ ú intros.  Void (our musician) went to work producing a tune in
+ . Scream-Tracker 3, despite the fact that it was designed more as a sample
+ ù tracker and Adlib seemed to be a tacked on after-thought.  But that
+ : wasn't the main problem.  When it came time to put the tune into the
+ | intro....where the hell do you find player code?!
+ ³ That's right.  Future Crew didn't see fit to include player code with ST3  ú
+   hence making it useless for demo/intro development.                        .
+ ³ The technical documentation wasn't thorough enough either so my first      :
+ ³ attempt at writing player code for it went miserably awry.                 |
+ ³                                                                            ³
+ ³ Then we heard that a few groups were using a package called HSC-Tracker    :
+ ³ in their intros.  We saw it on the boards so we downloaded it, noting      ³
+   that it was described as being "The Ultimate Adlib Tracker" including      ³
+ ³ player code.  Well this sounded like our problems were over so we gave it  ³
+ | to our musician to try....  Hmmm.  I think I heard him scream from across  ³
+ : the Tasman!  To the average user, HSC-Tracker looks like quite a complete  ³
+ . package but the actual editor program was too simplistic and unfriendly    ³
+ ú for use (sorry Chicken!).  What's more, the included "linkable" player     ³
+   code was in OBJect format which doesn't make customising it very easy,     ³
+   and is unusable if you use a different MODEL or want to use it in          ³
+   protected mode.                                                            ³
+                                                                              |
+   So after that, the others in the group said "Fuck it.  We'll just have     :
+   to use a sample module (not that it's easy finding decent player code for  ù
+   that!) and forget about Adlib."  But instead I decided to stop work on     .
+ ú the intro and knock up a quick Adlib editor for our musician to use.
+ .                                                                            ú
+ ù Hence was born RAD, which stands for Reality ADlib tracker.  In the end,
+ : we got so involved in putting everything WE wanted into RAD that it has
+ | had a lot more effort put into it than was originally intended.  It is
+ ³ now a fully-fledged tracker, and we think it is the best Adlib tracker
+ ³ you're likely to find in the scene.  But not just that, for the demo
+ ³ crews out there, RAD comes complete with full player source-code for
+ º playing RAD tunes in your intros/demos.                                    .
+ ³ Just like the old days on Amiga...! :)                                     :
+ º                                                                            ³
+ ÌÍÄÍÍÄÍÄÄÄ ÄÄ Ä - ù ú              Ä ÄÄ ÄÄÄ- ÄÄÄÄÄÍÄÄÍÄÍÍÄÍÍÍÄÄÍÍÍÍÍÍÍÍÍÍÍÍÍÍ´
+ ³                                                                            |
+ ³ What Does It Do?                                                           :
+ ³ ~~~~~~~~~~~~~~~~                                                           ù
+ ³
+ | RAD, as with all trackers, is a program that allows you to author musical
+ : arrangements.  It was based more-or-less on Protracker (on the Amiga)
+ . which is the model that most music trackers seem to be based on.
+
+       Tracker tunes are made up of three main components:
+                                                                              ú
+                   * Instruments
+                   * Order list                                               ù
+                   * Patterns                                                 .
+                                                                              :
+       These will be described later.                                         |
+                                                                              ³
+
+       RAD has the following features:                                        ³
+                                                                              º
+ ú                 * Up to 31 separate instruments                            ³
+ ù                 * Up to 32 separate patterns                               º
+ :                 * Up to 128 patterns in the order                          º
+ ³                 * 9 channels                                               º
+ ³                 * Compact tune file size.                                  ³
+ º                  (A fraction of the size of OTHER trackers!)               º
+ ³                 * Easy to use                                              º
+ º                                                                            ³
+ ÌÍÍÍÍÍÄÍÍÍÄÍÍÄÍÄÄÄÄÄÄ Ä -ù ú                                     ú ù Ä ÄÄ ÄÄÄ¹
+ º                                                                            º
+ º                                                                            ³
+ ³                                INSTRUCTIONS                                º
+ º                             ß ßßßßßßßßßßßßßß ß                             ³
+ º                                                                            |
+ ³ Starting RAD                                                               ³
+ º ~~~~~~~~~~~~                                                               |
+ ³                                                                            :
+ ³     To start RAD, run the .EXE file, ie:                                   ù
+ |                                                                            ú
+ :              RAD<enter>
+ .
+ ú You will then see the main RAD screen with credits information in the      ú
+   lower half.  Press a key to clear the credits window.                      .
+
+
+
+ ú Obtaining help while using RAD
+ . ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ |
+ ³ To enter the multi-page help system, press "?".  Keys handy to know
+ ³ while traversing the pages:
+ ³
+ ³     ESC            - Return to the pattern editor
+ ³     ?              - Go back to the last major menu
+ ³     BACKSPACE      - Go back to the last page you were on (up to 64 times)
+ |     WHITE letters  - Keys to press to move to another page.
+ ³
+ . As from V1.1a, a new quick-key reference has been added.  Press F12 and    ú
+ | you will see the start of a large scrollable document where the Pattern    ù
+ : Editor used to be, which gives a run down on all the keys you can use      .
+ . within RAD.                                                                :
+ ú                                                                            |
+                                                                              ³
+                                                                              ³
+   Layout of RAD                                                              |
+   ~~~~~~~~~~~~~                                                              :
+                                                                              .
+   As tracker tunes have three main parts, RAD's screen is split up into      ú
+   three areas corresponding to those parts.  In the top half of the screen
+ ú in the left-hand window is the Instrument Editor.  To the right of this
+ ù window is another, thinner window that is the Order-List Editor.
+ . The entire lower half of the screen is (as in most trackers) the Pattern
+ : Editor.  The first key to know is the " ` " (back tick) key.  This
+ | Switches between the three areas of the screen as you can only be using
+ ³ one area at a time.
+ ³                                                                            ú
+ ³ When you first enter RAD, you start off in the Pattern Editor.             .
+ :                                                                            :
+ ÃÄÄÄÄÄÄ ÄÄ Ä- - ù ú                                                 ú -Ä ÄÄÄÄ´
+ |                                                                            |
+ : Pattern Editor                                                             :
+ . ~~~~~~~~~~~~~~                                                             ú
+ ú                                                                            .
+   The Pattern Editor is where you enter the actual notes that will be        ù
+   played.  RAD allows up to 32 separate patterns and each pattern is made    :
+   up of 64 lines.  Each line has 9 entries corresponding to the 9 Adlib      ³
+   channels.  As RAD plays a pattern it steps through each line at the given  .
+   speed (described later) outputting the note in each column (if there IS    ³
+   one) to the corresponding Adlib channel.  Each entry in the pattern is     |
+   made up of FOUR items, eg.                                                 ³
+                                                                              ³
+       C#3 2C30                                                               º
+       ÃÙ³ ³³ÃÙ                                                               ³
+       ÀÄÅÄÅÅÅÄÄÄÄÄÄ 1) The NOTE that is played. "#" = sharp, "-" = normal.   º
+         ³ ³³³                                                                º
+         ÀÄÅÅÅÄÄÄÄÄÄ 2) The OCTAVE of the note. From 0 to 7.                  º
+           ³³³                                                                º
+           ÀÅÅÄÄÄÄÄÄ 3) The INSTRUMENT the note is played in (in Hex).        ³
+ ú          ³³                                                                º
+ .          ÀÅÄÄÄÄÄÄ 4) The SPECIAL EFFECT, (if any) to perform.              º
+ :           ÀÄÄÄÄÄÄÄÄÄ and the parameter for the special effect.             ³
+ |                                                                            º
+ ³                                                                            ³
+ ³ The note item follows usual musical notation.  There are twelve available  ³
+ | notes per octave:                                                          .
+ ù                                                                            ³
+ :     C, C#, D, D#, E, F, F#, G, G#, A, A#, B                                |
+ ú                                                                            :
+   You can write a note in a given position in the pattern by pressing        .
+   one of the NOTE KEYS, as set out below:                                    ú
+
+ Actual
+   Note-   C#  D#      F#  G#  A#      C#  D#      F#  G#  A#      C#  D#
+         ŞÛÛ  ŞÛ  ŞÛÛŞÛÛ  ŞÛ  ŞÛ  ŞÛÛŞÛÛ  ŞÛ  ŞÛÛŞÛÛ  ŞÛ  ŞÛ  ŞÛÛŞÛÛ  ŞÛ  ŞÛÛ
+   Keys-ŞÛÛ SŞÛ DŞÛÛŞÛÛ GŞÛ HŞÛ JŞÛÛŞÛÛ 2ŞÛ 3ŞÛÛŞÛÛ 5ŞÛ 6ŞÛ 7ŞÛÛŞÛÛ 9ŞÛ 0ŞÛÛ
+         ŞÛÛ  ŞÛ  ŞÛÛŞÛÛ  ŞÛ  ŞÛ  ŞÛÛŞÛÛ  ŞÛ  ŞÛÛŞÛÛ  ŞÛ  ŞÛ  ŞÛÛŞÛÛ  ŞÛ  ŞÛÛ
+         ŞÛÛ  ŞÛ  ŞÛÛŞÛÛ  ŞÛ  ŞÛ  ŞÛÛŞÛÛ  ŞÛ  ŞÛÛŞÛÛ  ŞÛ  ŞÛ  ŞÛÛŞÛÛ  ŞÛ  ŞÛÛ
+         ŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛ
+   Keys-ŞİZÛŞİXÛŞİCÛŞİVÛŞİBÛŞİNÛŞİMÛŞİQÛŞİWÛŞİEÛŞİRÛŞİTÛŞİYÛŞİUÛŞİIÛŞİOÛŞİPÛ
+         ŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛŞÛÛÛ
+ Actual
+   Note-  C   D   E   F   G   A   B   C   D   E   F   G   A   B   C   D   E
+
+
+   When you write a note, the octave is also written.  You can change the
+   current octave using the "," and "." keys.  The currently selected
+   instrument is also written and you will hear the instrument played at
+   the given pitch.
+ ú
+ . You can change instruments by pressing "[" and "]".
+ :                                                                            ú
+ | You can navigate the Pattern Editor by using the CURSOR KEYS,              ù
+ ³ and the following:                                                         .
+ ³                                                                            :
+ ù     TAB     - move to the next channel                                     |
+ :     BackTAB - move to the previous channel                                 ³
+ .     PgUp    - move up 16 lines                                             ³
+ ú     PgDown  - move down 16 lines                                           ³
+       Home    - move to the top of the pattern                               :
+       End     - move to the end of the pattern                               ³
+                                                                              |
+   To add/alter special effects, cursor over to the special effects           :
+   column and use one of the following numbers/letters:                       .
+                                                                              ú
+       0       - No effect
+
+       1       - Slide note down (pitch bend).  Parameter gives speed of
+                 slide.
+
+ ú     2       - Slide note up (pitch bend).  Parameter gives speed of slide.
+ ù
+ .     3       - Slide to note.  This slides the LAST note played till it
+ :               reaches the note given with this effect.  The parameter
+ |               gives the speed of the slide.  Use parameter "00" in
+ ³               subsequent lines to continue the slide.
+ :
+ ³     5       - Combined slide to note & Volume slide.  This command has
+ ³               the same functionality as effect 3 with parameter "00" but
+ ù               in this case, the parameter details a volume slide.
+ ³               1-49 fades the volume of the instrument down.
+ ³               51-99 fades the volume of the instrument up.
+ º
+ ³     A       - Volume slide.  1-49 fades the volume of the instrument down
+ º               at the given speed.  51-99 fades the volume of the
+ º               instrument up at the given speed.
+ ³
+ º     C       - Set volume.  Sets the absolute volume of the instrument.
+ º               Values range from 0 (silent) to 64 (loudest).
+ º
+ º     D       - Break.  When RAD encounters this command it skips the rest
+ º               of the pattern and moves to the next pattern as specified
+ º               in the Order List.  The parameter, if given, specifies a
+ º               line in the next pattern to start from.
+ º               eg.  Effect "D12" would break to line 12 of the next pattern
+ º                    in the Order List.
+ ³               This command is handy for "cutting short" a pattern if
+ º               you don't want to use all 64 lines.  Just place a D00 on the
+ º               last line you used and the rest will be ignored.
+ ³
+ º     F       - Set speed.  By default RAD starts up with a speed of 6 but
+ ³               you can use this command to slow down and speed up the
+ ³               playback rate of your tune.  To understand the speed value,
+ |               know that RAD uses a 50Hz timer which is delayed by the
+ ³               speed value between each line of the pattern.                ú
+ |               What this means is that, say, if you set the speed to 50,
+ :               (using "F50"), then each line will play at the rate of one   ú
+ ù               per second.  Special effects, however, are modified          ù
+ ú               50 times a second.                                           .
+                                                                              :
+   To play the current pattern (to see how it sounds) press F6.               |
+   Pressing F6 again will stop the playback.  To move to a new pattern        ³
+   press "-" and "+/=".                                                       .
+                                                                              ³
+   You can use the following editing keys to help you in writing patterns:    ³
+                                                                              ³
+       INSERT  - insert a line in the current channel                         º
+       DELETE  - delete the current line in the current channel               ³
+       SPACEBAR- wipe the current item only (also stops playback).            º
+ ú     F1      - Move to the top left corner of the region you wish to copy   º
+ .               and press F1.  Then move to the lower right corner and       º
+ :               press F1 again.  The highlighted region will then be moved   ³
+ |               into a copy buffer.                                          º
+ :     F2      - Will paste the contents of the copy buffer to the current    ³
+ ³               cursor location.                                             |
+ .     F3      - Will copy the entire pattern into the copy buffer.           :
+ ³     F4      - Will replace the entire current pattern with the contents    .
+ ³               of the copy buffer (be careful!).
+ ³     F9      - decrement the current speed value                            ú
+ ³     F10     - increment the current speed value                            :
+ ³                                                                            |
+ ÆÍÍÍÍÍÍÍÍÍÍÍÄÍÍÍÄÍÍÄÍÄÄÍÄÄ ÄÄÄ ÄÄ Ä- Ä - ù ú                 ú - Ä -Ä ÄÄ ÄÄÄÄµ
+ |                                                                            ³
+ : Instrument Editor                                                          ³
+ . ~~~~~~~~~~~~~~~~~                                                          ³
+ ú                                                                            ³
+   To edit your instruments you need to switch to the Instrument Editor.      ³
+   Use the " ` " (back tick) key to switch between windows until you see a    ³
+   highlight bar appear over the top-left item in the instrument window.      |
+                                                                              :
+   RAD supports up to 31 instruments and it is these instruments that         ù
+   actually produce the sound.  Each note in your patterns specifies an       ú
+   instrument that that note is played on.  Instruments can vary
+   significantly in sound from each other and, accordingly, your tune's
+   mood will change dramatically depending on the instrument mix you use.
+   Some instruments sound good as lead, other as bass and others are only
+   useful as percussion.
+
+   To begin with you will probably find it easier just to load
+   pre-written tunes and use the instruments that came with them (you can
+   do this by loading the tune and pressing Control-C to clear the patterns
+   leaving the instruments intact).
+
+   However, to design your own instruments, once you are in the Instrument
+ ú Editor you can interactively alter the currently selected instrument's
+ . properties (remember "[" and "]" select instruments).  Use Cursor Up and
+ ù Down to select the property to alter, and Cursor Left and Right to
+ : decrease or increase or toggle the property's value.  Alternatively,
+ . you can press ENTER on the parameter you wish to change, and input the
+   value manually with the numeric keys.  There isn't much to say regarding
+ : how to correctly set properties, as different things produce different
+ | effects.  Simply alter things and press a Note Key to see how it sounds!
+ ³ The one property's effect you SHOULD be aware of is the CARRIER's volume.
+ . This governs the output volume of the instrument and, in fact, this is
+ ³ the property that is modified by the Set Volume and Volume Slide commands.
+ º
+ ³ Other than that,  Good Luck! :-)
+ º
+ º If you create a cool sounding instrument, you'll probably want to put
+ º it aside somewhere for future use.  Use Control-G (Get instrument) and
+ ³ Control-P (Put instrument) to load and save instruments.  Refer to         .
+ º Loading and Saving below on how to use the interactive directory.          :
+ ³                                                                            |
+ ÃÄÄÄÄÄÄÄ ÄÄ Ä- Ä - ú                         Ä ÄÄ ÄÄÄ ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ¹
+ :                                                                            º
+ . Order List Editor                                                          º
+ ú ~~~~~~~~~~~~~~~~~                                                          º
+                                                                              º
+   Once you have created a few patterns you will want to string them          ³
+   together to create a complete tune.  By moving to the Order Editor (use    º
+   " ` " remember) you can define when each pattern will be played.  Line 00  º
+   corresponds to the first pattern to be played, line 01 the second, etc.    ³
+   By using Cursor Up & Down to select a line, with Insert or Delete to       º
+   remove or add a line as necessary, you can use Cursor Left and Right to    ³
+   set which pattern will be played at that position in the song.             ³
+   for example, suppose you had the following Order List:                     :
+                                                                              ³
+                 00³03                                                        .
+                 01³01                                                        :
+ ú               02³04                                                        ù
+ .               03³01                                                        ú
+ :               04³02
+ |               0502
+ ³
+ : When you start your tune playing (with F5), it will start by playing
+ ³ pattern 03 (specifed by line 00).  Once it has played all 64 lines of
+ º pattern 03 (or less if you used a Break command) it will then play the
+ ³ pattern specified by the next line, in this case, pattern 01.
+ º Each line will be played one after the other, playing the pattern listed
+ º for that line.
+ º As you can see in the above example you can re-use patterns (Pattern 01
+ ³ is used in line 01 and 03) if there is a chorus or refrain you want to
+ º repeat in your tune.
+ ³
+ | If you notice in the above example, there is a line that contains a
+ ³ right arrow between the line and the pattern.  This is a JUMP MARKER
+ : and it tells RAD to jump to a new line.  So when RAD gets to line 05 in    .
+ . the example, rather than playing pattern 02 it will instead jump to LINE   :
+ ú 02.  Hence the list of patterns that will be played with the above Order   |
+   List is:                                                                   ³
+                                                                              ³
+                 03, 01, 04, 01, 02, 04, 01, 02, 04, 01, 02....               ³
+                                      ³                                       ³
+                                      ÀÄÄÄÄÄÄ Repeat caused by Jump Marker    ³
+                                                                              ³
+   You can mark the current line as a jump marker by pressing '\' and         º
+   then using Cursor Left & Right to set the line the marker will jump to.    ³
+   A Jump Marker cannot be placed on Line 00.                                 º
+                                                                              º
+ ú RAD will repeat the song from Line 00 when it gets to the end of the       ³
+ . Order List so you don't need to place a Jump Marker that jumps to Line     º
+ : 00 at the end of your Order List if you want your tune to repeat.          º
+ |                                                                            º
+ ÃÄÄ Ä- Ä ù ú                                            ú ù Ä ÄÄ ÄÄÄÄÄÍÄÍÍÄÍÍ¹
+ ³                                                                            ³
+ ³ Loading & Saving Tunes                                                     º
+ : ~~~~~~~~~~~~~~~~~~~~~~                                                     ³
+ ³                                                                            ³
+ | Naturally enough, once you have completed your Symphony No. 5, you'll      ³
+ : want to keep a permanent record of it.  To save your tune press            ³
+ ù Control-S to bring up the directory.  You can select an existing           :
+ ú filename by positioning the highlight bar on it, using the cursor keys,    ³
+   and then pressing Enter.  By selecting a directory or a device you can     |
+   move around your disk structure.  If you are saving a new file then you    :
+   will need to type a new filename.  Press TAB to switch to the filename     ù
+   field and enter the desired filename, using the editing keys to fix        ú
+   typing mistakes as necessary.  Press Enter to save.  If you are saving
+   over an existing file you will be asked to confirm.
+
+   Loading follows a similar procedure.  Press Control-L and use the
+   directory and filename field to select the desired tune file.  Whereas
+ ú saving, however, only creates RAD compatible files, you may load not
+ ù only RAD files, but ScreamTracker 3 and HSC-Tracker compatible files.
+ .
+ : Note:
+ |      Due to differences in structure between the different tracker
+ ³      packages, converted tunes will sometimes not sound like their
+ ³      originals.  Therefore loading .S3M and .HSC tunes should really be
+ ³      viewed as a tool for converting these formats to RAD format, rather
+ :      than for general purpose playing.
+ ³
+ |
+ : Adding a Description
+ . ~~~~~~~~~~~~~~~~~~~~
+ ú
+   Because tracker tunes circulate widely and are often not accompanied
+   by documentation, traditionally musicians have placed author information
+   and greets in the instrument fields of their compositions.  RAD does not
+   have instrument fields but you can add a description to your tune by
+   entering the Description Editor.  Press Control-D to toggle between
+   editing the Description and editing the Pattern.  The Description Editor
+   is a simple free-form one page text editor.  Type whatever you like,
+   where you like, even if it's just the name of the tune!
+                                                                              ú
+   Because RAD was written as an intro tune development system, the tune      ù
+   files were designed to be fairly compact so as not to take up much room    :
+ ú in any programs it was used in.  Adding a Description to a tune will       |
+ . add to the length of the tune.  In the bottom right corner of the          .
+ : Description Editor is a counter that displays the number of bytes that     ³
+ ³ the current Description text will occupy in the saved file so you'll       .
+ . always know just how much space your hot air is going to take up! :-)      ³
+ ³                                                                            ³
+ ³ You may not see much use for a Description especially if the tune is       ³
+ º ultimately destined for use in an intro but the fact is module-ripping     ³
+ ³ is a popular past-time and chances are, if your tune is awesome, it WILL   ³
+ º be ripped out of your intro and spread around.  You can at least make      |
+ º sure everyone knows who wrote the ripped tune because the description      :
+ ³ will be ripped along with the tune!                                        ù
+ º                                                                            ú
+ ÌÍÄÍÄÄÍÍÄÄÍÍÍÍÍÍÍÍÄÍÍÍÄÍÍÄÄÍÄÄÄÄ ÄÄ Ä- Ä ù ú
+ º
+ ³                                                                            ú
+ º                               CODING NOTES                                 ù
+ ³                            ß ßßßßßßßßßßßßßß ß                              :
+ ³                                                                            |
+ ³ Yo coding-type dude!                                                       ³
+ ³ This section is geared more towards the seasoned coder, so skip this if    ³
+ ³ you're not!                                                                ³
+ :                                                                            ³
+ ³ RAD's whole reason for being, is as a tool for writing tunes for use       ³
+ | in intros.  To this end, the FULL player source-code for playing RAD       ³
+ : tunes in your productions is included.  The format follows that            |
+ ù traditionally set by trackers on the Amiga.  Three routines are            :
+   provided:                                                                  .
+                                                                              ú
+       InitPlayer
+       EndPlayer
+       PlayMusic
+
+   During your initialisation step in your intro, include a call to
+   "InitPlayer" with ES:0 pointing to a RAD module.  When you close down
+   your intro or want the tune to stop, call "EndPlayer".  Now to have the
+   tune play, you need to call PlayMusic 50 times a second for a tune
+   written in "normal timer mode" or 18.2 times a second (the standard PC
+   timer cycle) for a tune written in "slow timer mode".  You can check bit
+ ú 6 of the byte at offset 17 in the RAD module to see which timer mode the
+ ù tune was written for.  If the bit is set then it is a "slow timer" tune.
+ :
+ | The "slow timer mode" was provided for those people that just want a
+ ³ simple interrupt structure for playing the music, as the normal 50Hz rate
+ : requires a re-program of the hardware clock which may be needed as a
+ ³ Vertical Refresh timer.  As a lot of intros provide support for calling
+ ³ the system interrupt 18.2 times a second it is easy enough to add a call
+ º to PlayMusic there.  If you don't then you'll have to use one of the
+ ³ Adlib timers to get a 50Hz or 18.2Hz reference signal for when to call
+ º PlayMusic during your Vertical Refresh interrupt.
+ º
+ ³ By pressing '*' in RAD you toggle normal and slow timer modes for the
+ º current tune.  HSC tunes are automatically loaded as slow-timer tunes
+ º for compatibility.
+ º
+ º The provided player code was written as a real-mode player and to
+ º reference variables through CS: because I didn't want to use ASSUMEs
+ º which would replace any ASSUMEs you had set up in your main code.  Be
+ ³ careful if you wish to remove the CS: overrides as the player uses DS:
+ º as a pointer to the tune file.  You will HAVE to remove the CS:            ú
+ º overrides if you wish to use the player in protected mode.                 ù
+ ³                                                                            :
+ º But then, that's the beauty of having the full source code to the          ³
+ ³ player - you can hack it around all you like to fit in with your code,     .
+ | something that OTHER tracker writers don't seem to realise with their      ³
+ : .OBJ format players, WHEN they bother to release players for their         ³
+ . trackers at all...                                                         ³
+ ú                                                                            º
+   Oh...  If you DO use RAD or its player in your production, all we ask is   ³
+   that you give REALITY a mega-greet or credits somewhere! :-)               º
+                                                                              º
+   ** NOTE:  Apologies to all who used the V1.0 player code only to find it   ³
+             didn't play tunes exactly as they played within RAD.  This bug   º
+             in the PLAYER.ASM code has been mashed!                          º
+                                                                              ³
+   Since the first release of RAD, some coders have asked why I require the   º
+   player code to go through the timer interrupt.  What a few people don't    º
+   seem to realise is that I've only SUGGESTED this as an example, as this    º
+ ú is the most likely method of calling the player code.  For correct play-   º
+ ù back of your RAD tune, you SHOULD call PlayMusic 50/s (or 18.2/s) but how  º
+ . you supply these rates is entirely up to you!                              º
+ |                                                                            º
+ ÃÄÍÄÍÍÄÍÍÍÄÍÄÄÄ ÄÄÄ ÄÄ Ä- Ä - ù ú                             ú ù - ÄÄ ÄÄÄ ÄÍ¹
+ .                                                                            ³
+ ú                                                                            |
+                            TECHNICAL SPECIFICATIONS                          :
+                         ß ßßßßßßßßßßßßßßßßßßßßßßßßßß ß                       ù
+
+     RAD V1.0+ file format is as follows: (values in hex)
+
+   ÛßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßÛ
+   Û HEADER                                                                 Û
+   ÛÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÛ
+   Û Offset  00..0F:"RAD by REALiTY!!" - Use this to recognize a RAD tune.  Û
+   Û                                     Just detecting the initial "RAD"   Û
+   Û                                     should be sufficient though! ;-)   Û
+   Û                                                                        Û
+   Û Offset      10:BCD                - Version of RAD file (not RAD ver.) Û
+   Û                                     Currently 10h for v1.0.            Û
+   Û                                                                        Û
+   Û Offset      11:Bit 7              - Set if a description follows.      Û
+   Û                Bit 6              - Set if it's a "slow-timer" tune.   Û
+   Û                Bits 4..0          - The initial speed of the tune.     Û
+   Û                                                                        Û
+   ÛßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßÛ
+   Û DESCRIPTION                                                            Û
+   ÛÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÛ
+   Û The description follows the header if Bit 7 of Offset 11h is set.  The Û
+   Û description is a null-terminated string.  To save some space in the    Û
+   Û tune file, the characters mean:                                        Û
+   Û                                                                        Û
+   Û Char 00      - End of description (null-terminator)                    Û
+   Û Char 01      - Move to start of next line (Carriage return)            Û
+   Û Char 02..1F  - Output this many spaces                                 Û
+   Û Char 20..FF  - Output this character                                   Û
+   Û                                                                        Û
+   ÛßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßÛ
+   Û INSTRUMENTS                                                            Û
+   ÛÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÛ
+   Û Next come the instruments:                                             Û
+   Û                                                                        Û
+   Û Offset      00:No. of Adlib instrument that follows (or 0 for no more) Û
+   Û Offset  01..0B:The instrument definition in HSC .INS format:           Û
+   Û                                                                        Û
+   Û          ÉÍÍÍÍÍÍËÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍËÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ»          Û
+   Û          º      º                   º Adlib Register        º          Û
+   Û          º Byte º Carrier/Modulator º (Relative to Chan. 0) º          Û
+   Û          ÌÍÍÍÍÍÍÊÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÊÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ¹          Û
+   Û          º  00  ³  Carrier          ³   23h                 º          Û
+   Û          º  01  ³  Modulator        ³   20h                 º          Û
+   Û          º  02  ³  Carrier          ³   43h - Instr. Volume º          Û
+   Û          º  03  ³  Modulator        ³   40h                 º          Û
+   Û          º  04  ³  Carrier          ³   63h                 º          Û
+   Û          º  05  ³  Modulator        ³   60h                 º          Û
+   Û          º  06  ³  Carrier          ³   83h                 º          Û
+   Û          º  07  ³  Modulator        ³   80h                 º          Û
+   Û          º  08  ³  Both             ³   C0h                 º          Û
+   Û          º  09  ³  Carrier          ³   E3h                 º          Û
+   Û          º  0A  ³  Modulator        ³   E0h                 º          Û
+   Û          ÈÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ¼          Û
+   Û                                                                        Û
+   ÛßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßÛ
+   Û ORDER LIST                                                             Û
+   ÛÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÛ
+   Û The Order List follows the instruments:                                Û
+   Û                                                                        Û
+   Û Offset      00:Length of Order List (up to 128)                        Û
+   Û                                                                        Û
+   Û Offset  01..nn:List of orders, one byte for each line:                 Û
+   Û                                                                        Û
+   Û                00..1F:The pattern to play.                             Û
+   Û                80..FF:The line to jump to minus 80h (Jump Marker)      Û
+   Û                                                                        Û
+   ÛßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßÛ
+   Û PATTERN OFFSET TABLE                                                   Û
+   ÛÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÛ
+   Û  For all 32 patterns there is a word in this table which gives the     Û
+   Û  offset from the start of the file of the pattern data.                Û
+   Û  If a pattern is empty then the offset is zero.                        Û
+   Û                                                                        Û
+   ÛßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßÛ
+   Û PATTERNS                                                               Û
+   ÛÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÛ
+   Û Offset      00:Line number whose notes follow.  Bit 7 set means that   Û
+   Û                this is the last line.  Note, lines that have no notes  Û
+   Û                or effects on do not appear.                            Û
+   Û                                                                        Û
+   Û Offset  01....:List of notes for that line:                            Û
+   Û                                                                        Û
+   Û              Offset     00:Channel no. note appears in (0 to 8).       Û
+   Û                            Bit 7 set means this is the last note for   Û
+   Û                            this line.                                  Û
+   Û              Offset 01..02:The note/effect for this channel.           Û
+   Û                            If the effect nibble is non-zero then       Û
+   Û                            Offset 03 contains the parameter, otherwise Û
+   Û                            the next channel starts at Offset 03.       Û
+   Û                                                                        Û
+   ÛßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßßÛ
+   Û NOTES                                                                  Û
+   ÛÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÛ
+   Û Notes occupy three bytes (two if the effect nibble is zero):           Û
+   Û                                                                        Û
+   Û           Byte 00:Bit    7:  Bit 4 of the instrument number.           Û
+   Û                   Bit 6..4:  Octave of note.                           Û
+   Û                   Bit 3..0:  Note (1-12) in this order:                Û
+   Û                              C#, D, D#, E, F, F#, G, G#, A, A#, B, C   Û
+   Û                              A zero denotes no note and 15 denotes a   Û
+   Û                              KEY-OFF.                                  Û
+   Û                                                                        Û
+   Û           Byte 01:Bit 7..4:  Bits 3 to 0 of the instrument number.     Û
+   Û                   Bit 3..0:  The effect nibble (the effect column      Û
+   Û                              in RAD is the hex equivalent of this      Û
+   Û                              nibble).                                  Û
+   Û                                                                        Û
+   Û           Byte 02:The parameter to the effect (if any).                Û
+   Û                   Because parameters only go from 0 to 99, bit 7 is    Û
+   Û                   not used, but may be used in a later version of RAD. Û
+   Û                                                                        Û
+   ÛÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÜÛ
+
+ ÉÍÍÍÄÍÍÍÄÍÍÄÍÄÄÍÄÄ ÄÄÄ Ä- Ä - ú                             ú ù Ä ÄÄ ÄÄÄ ÄÍÄÍ»
+ º                                                                            ³
+ º Last Words                                                                 º
+ º ~~~~~~~~~~                                                                 º
+ º                                                                            ³
+ º Well we hope you get a lot of use out of RAD.  Although RAD started        º
+ º as a simple project by me (Shayde) it soon turned into something a lot     ³
+ ³ more complex and RAD would not be wot it is without the considerable       |
+ º input from all members of Reality.  The graphics and a lot of design       :
+ º ideas were put forward by Rogue (grafix artist) and Void (musician).       ù
+ ³ Because WE knew want we wanted out of a music development package, RAD     ú
+ º has evolved into something we are very happy to use for developing our
+ ³ productions.  We hope you dudez also discover how to be RADical...!
+ ³
+ |                                                                            ú
+ :    RAD woz Kiwi-coded in 100% assembler by SHAYDE                          .
+ ù                                                                            :
+ ú    RAD's graphics were Oz-drawn in 100% ANSI by ROGUE and VOID.            ³
+                                                                              |
+      Documentation by SHAYDE, Doc-Ansi by ROGUE.                             ³
+                                                                              ³
+   If you'd like to send us any of your quality tunes made with RAD,          º
+   please do so, and we'll include them in the next release pack!             ³
+   (Our contact address can be found within RAD)                              º
+                                                                              º
+   L8'er dudes!                                                               ³
+                                                                              º
+                                                                              º
+                                                                              º
+    ú ù Ä Ä- ÄÄ ÄÄÄÄÄ´ REALITY PRODUCTIONS - April 1995 ÃÄ Ä ÄÄ ÄÄÄÍÄÍÍÄÍÍÍÄÍÍ¼
+
