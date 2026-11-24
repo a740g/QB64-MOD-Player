@@ -4246,6 +4246,39 @@ SUB Test_TUI
     TEST_CHECK listScroll = 4, "Forgiving scrollbar drag advances scrollOffset to maxScroll (4) despite drifting outside hitbox"
     TEST_CHECK dragItem = 0, "Scrollbar drag does not activate list items"
     TUI_End
+
+    ' Test 5: Mouse hover updates selection without activating
+    TUI_Begin
+    Vector2f_Set 15!, 7!, __TUI.mousePos ' Row 2 is item 3 (scrollOffset is 1, row 2 is 5+2=7)
+    listScroll = 1
+    listSel = 1
+    DIM hovItem AS LONG
+    hovItem = TUI_ScrollList(10, 5, 25, 5, listItems(), 8, listSel, listScroll)
+    TEST_CHECK listSel = 3, "Hover over row updates selected index to 3"
+    TEST_CHECK hovItem = 0, "Hover alone does not activate item"
+    TUI_End
+
+    ' Test 6: Keyboard navigation inherited via vertical scrollbar in ScrollList
+    TUI_Begin
+    Vector2f_Set 15!, 5!, __TUI.mousePos ' Mouse inside list bounds
+    listSel = 1
+    listScroll = 1
+    __Input.kbdKeyCode = _KEY_DOWN
+    DIM kdItem AS LONG: kdItem = TUI_ScrollList(10, 5, 25, 5, listItems(), 8, listSel, listScroll)
+    TEST_CHECK listScroll = 2, "Down arrow scrolls listOffset to 2 via vertical scrollbar"
+    TEST_CHECK listSel = 2, "Selected index clamped within visible rows to 2"
+    TEST_CHECK kdItem = 0, "Down arrow does not activate item"
+    TUI_End
+
+    ' Test 7: Enter key activates selected item
+    TUI_Begin
+    Vector2f_Set 15!, 6!, __TUI.mousePos ' Hover over row 2 (item 2)
+    listSel = 1
+    listScroll = 1
+    __Input.kbdKeyCode = KEY_ENTER
+    DIM enterItem AS LONG: enterItem = TUI_ScrollList(10, 5, 25, 5, listItems(), 8, listSel, listScroll)
+    TEST_CHECK enterItem = 2, "Enter key activates selected item index 2"
+    TUI_End
     TEST_CASE_END
 
     TEST_CASE_BEGIN "TUI: Standalone Vertical Scrollbar (TUI_ScrollBarV)"
@@ -4298,6 +4331,22 @@ SUB Test_TUI
     DIM sbvDrag AS LONG: sbvDrag = TUI_ScrollBarV(10, 5, 20, 1, 5, 20)
     TEST_CHECK sbvDrag = 16, "TUI_ScrollBarV forgiving drag advances to maxOffset (16) despite horizontal drift"
     TUI_End
+
+    ' 7. Keyboard navigation when hovered
+    TUI_Begin
+    Vector2f_Set 10!, 10!, __TUI.mousePos ' Hover on scrollbar
+    __Input.kbdKeyCode = _KEY_DOWN
+    DIM sbKeyVal AS LONG: sbKeyVal = TUI_ScrollBarV(10, 5, 20, 1, 5, 20)
+    TEST_CHECK sbKeyVal = 2, "Down arrow key on hovered vertical scrollbar increments offset"
+    TUI_End
+
+    ' 8. TUI_ScrollBarVEx keyboard navigation when hovering client area
+    TUI_Begin
+    Vector2f_Set 15!, 10!, __TUI.mousePos ' Mouse at column 15 (scrollbar at col 10, client area 10..30)
+    __Input.kbdKeyCode = _KEY_DOWN
+    DIM sbvClientVal AS LONG: sbvClientVal = TUI_ScrollBarVEx(10, 5, 20, 1, 5, 20, 10, 20)
+    TEST_CHECK sbvClientVal = 2, "TUI_ScrollBarVEx scrolls when mouse is in client area"
+    TUI_End
     TEST_CASE_END
 
     TEST_CASE_BEGIN "TUI: Standalone Horizontal Scrollbar (TUI_ScrollBarH)"
@@ -4349,6 +4398,22 @@ SUB Test_TUI
     __TUI.activePart = 5
     DIM sbhDrag AS LONG: sbhDrag = TUI_ScrollBarH(10, 5, 40, 1, 8, 32)
     TEST_CHECK sbhDrag = 25, "TUI_ScrollBarH forgiving drag advances to maxOffset (25) despite vertical drift"
+    TUI_End
+
+    ' 7. Keyboard navigation when hovered
+    TUI_Begin
+    Vector2f_Set 20!, 5!, __TUI.mousePos ' Hover on horizontal scrollbar
+    __Input.kbdKeyCode = _KEY_RIGHT
+    DIM sbhKeyVal AS LONG: sbhKeyVal = TUI_ScrollBarH(10, 5, 40, 1, 8, 32)
+    TEST_CHECK sbhKeyVal = 2, "Right arrow key on hovered horizontal scrollbar increments offset"
+    TUI_End
+
+    ' 8. TUI_ScrollBarHEx keyboard navigation when hovering client area
+    TUI_Begin
+    Vector2f_Set 20!, 10!, __TUI.mousePos ' Mouse at row 10 (scrollbar at row 5, client area rows 5..15)
+    __Input.kbdKeyCode = _KEY_RIGHT
+    DIM sbhClientVal AS LONG: sbhClientVal = TUI_ScrollBarHEx(10, 5, 40, 1, 8, 32, 5, 10)
+    TEST_CHECK sbhClientVal = 2, "TUI_ScrollBarHEx scrolls when mouse is in client area"
     TUI_End
     TEST_CASE_END
 

@@ -840,8 +840,8 @@ SUB UI_RenderInstruments (player AS MODPlayer, selectedInst AS LONG, scrollOffse
         END IF
     NEXT r
 
-    ' Standalone Vertical Scrollbar at column 81 (rows 13 to 85, height 73)
-    scrollOffset = TUI_ScrollBarV(81, 13, maxRows, scrollOffset, maxRows, totalInsts)
+    ' Standalone Vertical Scrollbar at column 81 (rows 13 to 85, height 73, client area columns 5 to 81)
+    scrollOffset = TUI_ScrollBarVEx(81, 13, maxRows, scrollOffset, maxRows, totalInsts, 5, 77)
 
     ' Right Panel: Detailed Synth Inspector (columns 85 to 142, rows 10 to 86)
     TUI_Panel 85, 10, 58, 77, "Instrument Inspector", _TRUE
@@ -981,6 +981,10 @@ FUNCTION UI_RenderPlaylist%% (pl AS Playlist, selectedItem AS LONG, scrollOffset
                 isRowHovered = Bounds2f_ContainsPoint(rowBounds, __TUI.mousePos) _ANDALSO __TUI.activeId = 0
             END IF
 
+            IF isRowHovered THEN
+                selectedItem = itemIdx
+            END IF
+
             IF isRowHovered _ANDALSO __TUI.activeId = 0 _ANDALSO TUI_IsMouseClickedInBounds(rowBounds) THEN
                 selectedItem = itemIdx
                 activated = itemIdx
@@ -1002,11 +1006,34 @@ FUNCTION UI_RenderPlaylist%% (pl AS Playlist, selectedItem AS LONG, scrollOffset
         END IF
     NEXT r
 
-    ' Standalone Vertical Scrollbar at column 92 (rows 12 to 83, height 72)
-    scrollOffset = TUI_ScrollBarV(92, 12, visRows, scrollOffset, visRows, pl.count)
+    ' Standalone Vertical Scrollbar at column 92 (rows 12 to 83, height 72, client columns 5 to 92)
+    ' Inherits Up, Down, PageUp, PageDown, Home, End, and mouse wheel
+    scrollOffset = TUI_ScrollBarVEx(92, 12, visRows, scrollOffset, visRows, pl.count, 5, 88)
 
-    ' Standalone Horizontal Scrollbar at row 84 (columns 12 to 91, width 80)
-    plHScroll = TUI_ScrollBarH(12, 84, 80, plHScroll, 80, maxNameLen)
+    ' Standalone Horizontal Scrollbar at row 84 (columns 12 to 91, width 80, client rows 12 to 84)
+    ' Inherits Left and Right arrow keys
+    plHScroll = TUI_ScrollBarHEx(12, 84, 80, plHScroll, 80, maxNameLen, 12, visRows + 1)
+
+    ' Enter key confirms selected item in playlist table
+    DIM tableBounds AS Bounds2f
+    Bounds2f_Set 5, 12, 92, 12 + visRows - 0.001!, tableBounds
+    IF NOT __TUI_IsInputBlockedByModal THEN
+        IF Bounds2f_ContainsPoint(tableBounds, __TUI.mousePos) THEN
+            IF Input_PeekKeyboardKey = KEY_ENTER THEN
+                Input_ConsumeKeyboardKey
+                IF selectedItem >= 1 _ANDALSO selectedItem <= pl.count THEN
+                    activated = selectedItem
+                END IF
+            END IF
+        END IF
+    END IF
+
+    ' Keep selection within visible bounds when scrollOffset was moved by vertical scrollbar
+    IF selectedItem < scrollOffset THEN
+        selectedItem = scrollOffset
+    ELSEIF pl.count > 0 _ANDALSO selectedItem >= scrollOffset + visRows THEN
+        selectedItem = scrollOffset + visRows - 1
+    END IF
 
     ' Corner junction cell at (92, 84)
     COLOR TUI_COLOR_WHITE, TUI_COLOR_BLACK
@@ -1164,8 +1191,8 @@ SUB UI_RenderSongInfo (player AS MODPlayer, commentScroll AS LONG)
         END IF
     NEXT li
 
-    ' Standalone Vertical Scrollbar at column 141 (rows 41 to 84, height 44)
-    commentScroll = TUI_ScrollBarV(141, 41, visLines, commentScroll, visLines, numLines)
+    ' Standalone Vertical Scrollbar at column 141 (rows 41 to 84, height 44, client area columns 6 to 141)
+    commentScroll = TUI_ScrollBarVEx(141, 41, visLines, commentScroll, visLines, numLines, 6, 136)
 END SUB
 
 ''' @brief Renders View 7: Full-width stereo visualizer (Spectrum Analyzer & Oscilloscope) or demoscene background when idle.

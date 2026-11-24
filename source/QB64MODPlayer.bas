@@ -115,7 +115,9 @@ SUB App_PlayTrack (trackIdx AS LONG)
         SelectedInstrument = 1
         InstrumentScrollOffset = 1
         CommentScrollOffset = 1
-        CurrentView = UI_VIEW_MODE_TRACKER
+        IF CurrentView <> UI_VIEW_MODE_PLAYLIST THEN
+            CurrentView = UI_VIEW_MODE_TRACKER
+        END IF
 
         DIM winTitle AS STRING
         IF LEN(Pathname_GetDriveOrScheme(filePath)) > 2 THEN
@@ -670,11 +672,15 @@ DO
                 SELECT CASE k
                     CASE _KEY_LEFT
                         Input_ConsumeKeyboardKey
-                        IF Player.song.isPlaying THEN MODPlayer_GoToPreviousPosition Player
+                        IF Player.song.isPlaying THEN
+                            MODPlayer_GoToPreviousPosition Player
+                        END IF
 
                     CASE _KEY_RIGHT
                         Input_ConsumeKeyboardKey
-                        IF Player.song.isPlaying THEN MODPlayer_GoToNextPosition Player
+                        IF Player.song.isPlaying THEN
+                            MODPlayer_GoToNextPosition Player
+                        END IF
 
                     CASE KEY_SPACE
                         Input_ConsumeKeyboardKey
@@ -720,6 +726,7 @@ DO
                         ELSEIF CurrentView = UI_VIEW_MODE_SONGINFO THEN
                             CommentScrollOffset = _MIN(500, CommentScrollOffset + 10)
                         END IF
+
                 END SELECT
             END IF
     END SELECT

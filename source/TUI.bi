@@ -869,16 +869,30 @@ FUNCTION TUI_Slider! (x AS LONG, y AS LONG, w AS LONG, curVal AS SINGLE, minVal 
         END IF
     END IF
 
-    ' Keyboard focus navigation (Left/Right arrow nudge)
+    ' Keyboard focus navigation (Left/Right arrow nudge, Home/End, PageUp/PageDown)
     DIM isFocused AS _BYTE: isFocused = (__TUI.focusedId = thisId)
-    IF isFocused _ANDALSO __TUI.hasNavFocus THEN
-        IF Input_NavLeft THEN
-            updatedVal = _CLAMP(curVal - stepSize, minVal, maxVal)
-            Input_ConsumeKeyboardKey
-        ELSEIF Input_NavRight THEN
-            updatedVal = _CLAMP(curVal + stepSize, minVal, maxVal)
-            Input_ConsumeKeyboardKey
-        END IF
+    IF ((isFocused _ANDALSO __TUI.hasNavFocus) _ORELSE isHovered) _ANDALSO NOT __TUI_IsInputBlockedByModal THEN
+        DIM slKey AS LONG: slKey = Input_PeekKeyboardKey
+        SELECT CASE slKey
+            CASE _KEY_LEFT, _KEY_DOWN, KEY_MINUS, KEY_UNDERSCORE
+                updatedVal = _CLAMP(curVal - stepSize, minVal, maxVal)
+                Input_ConsumeKeyboardKey
+            CASE _KEY_RIGHT, _KEY_UP, KEY_PLUS, KEY_EQUAL
+                updatedVal = _CLAMP(curVal + stepSize, minVal, maxVal)
+                Input_ConsumeKeyboardKey
+            CASE _KEY_PAGEUP
+                updatedVal = _CLAMP(curVal + stepSize * 2!, minVal, maxVal)
+                Input_ConsumeKeyboardKey
+            CASE _KEY_PAGEDOWN
+                updatedVal = _CLAMP(curVal - stepSize * 2!, minVal, maxVal)
+                Input_ConsumeKeyboardKey
+            CASE _KEY_HOME
+                updatedVal = minVal
+                Input_ConsumeKeyboardKey
+            CASE _KEY_END
+                updatedVal = maxVal
+                Input_ConsumeKeyboardKey
+        END SELECT
     END IF
 
     ' Rendering
@@ -1378,15 +1392,17 @@ SUB TUI_VUMeter (x AS LONG, y AS LONG, h AS LONG, level AS SINGLE, peak AS SINGL
     COLOR origFg, origBg
 END SUB
 
-''' @brief Renders a standalone vertical scrollbar with proportional thumb and forgiving drag.
+''' @brief Renders a standalone vertical scrollbar with proportional thumb, forgiving drag, and optional client area hit testing for mouse wheel and keyboard navigation.
 ''' @param x Character column.
 ''' @param y Character row of top stepper.
 ''' @param h Total height in characters (minimum 3: up arrow, track, down arrow).
 ''' @param offset Current 1-based scroll offset (1..totalSize - pageSize + 1).
 ''' @param pageSize Visible lines in viewport.
 ''' @param totalSize Total lines in content.
+''' @param clientX Character column of content/client area (or x for scrollbar alone).
+''' @param clientW Character width of content/client area (or 1 for scrollbar alone).
 ''' @return Updated 1-based scroll offset.
-FUNCTION TUI_ScrollBarV& (x AS LONG, y AS LONG, h AS LONG, offset AS LONG, pageSize AS LONG, totalSize AS LONG)
+FUNCTION TUI_ScrollBarVEx& (x AS LONG, y AS LONG, h AS LONG, offset AS LONG, pageSize AS LONG, totalSize AS LONG, clientX AS LONG, clientW AS LONG)
     SHARED __TUI AS __TUI_Context
 
     DIM origFg AS _UNSIGNED LONG: origFg = _DEFAULTCOLOR
@@ -1397,7 +1413,7 @@ FUNCTION TUI_ScrollBarV& (x AS LONG, y AS LONG, h AS LONG, offset AS LONG, pageS
 
     IF h < 3 THEN
         COLOR origFg, origBg
-        TUI_ScrollBarV = offset
+        TUI_ScrollBarVEx = offset
         EXIT FUNCTION
     END IF
 
@@ -1424,22 +1440,54 @@ FUNCTION TUI_ScrollBarV& (x AS LONG, y AS LONG, h AS LONG, offset AS LONG, pageS
         thumbStart = 0
     END IF
 
-    DIM b AS Bounds2f
-    Bounds2f_Set x, y, x + 0.999!, y + h - 0.001!, b
-    DIM isHovered AS _BYTE
+    DIM barB AS Bounds2f
+    Bounds2f_Set x, y, x + 0.999!, y + h - 0.001!, barB
+    DIM isBarHovered AS _BYTE
+
+    DIM cX AS LONG: cX = _IIF(clientX > 0, clientX, x)
+    DIM cW AS LONG: cW = _IIF(clientW > 0, clientW, 1)
+    DIM clientB AS Bounds2f
+    Bounds2f_Set cX, y, cX + cW - 0.001!, y + h - 0.001!, clientB
+    DIM isClientHovered AS _BYTE
+
     IF NOT __TUI_IsInputBlockedByModal THEN
-        isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+        isBarHovered = Bounds2f_ContainsPoint(barB, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+        isClientHovered = Bounds2f_ContainsPoint(clientB, __TUI.mousePos) _ORELSE (__TUI.focusedId = thisId)
     END IF
 
     IF NOT isDisabled THEN
-        IF isHovered THEN
+        IF isClientHovered THEN
             __TUI.hotId = thisId
             DIM wheel AS SINGLE: wheel = Input_GetMouseScrollWheelValue
             IF wheel <> 0! THEN
                 curOffset = _CLAMP(curOffset - CLNG(wheel * 3!), 1, maxOffset)
             END IF
 
-            IF __TUI.mousePressedL _ORELSE TUI_IsMouseClickedInBounds(b) THEN
+            DIM sbKey AS LONG: sbKey = Input_PeekKeyboardKey
+            SELECT CASE sbKey
+                CASE _KEY_UP
+                    curOffset = _CLAMP(curOffset - 1, 1, maxOffset)
+                    Input_ConsumeKeyboardKey
+                CASE _KEY_DOWN
+                    curOffset = _CLAMP(curOffset + 1, 1, maxOffset)
+                    Input_ConsumeKeyboardKey
+                CASE _KEY_PAGEUP
+                    curOffset = _CLAMP(curOffset - _MAX(1, pageSize - 1), 1, maxOffset)
+                    Input_ConsumeKeyboardKey
+                CASE _KEY_PAGEDOWN
+                    curOffset = _CLAMP(curOffset + _MAX(1, pageSize - 1), 1, maxOffset)
+                    Input_ConsumeKeyboardKey
+                CASE _KEY_HOME
+                    curOffset = 1
+                    Input_ConsumeKeyboardKey
+                CASE _KEY_END
+                    curOffset = maxOffset
+                    Input_ConsumeKeyboardKey
+            END SELECT
+        END IF
+
+        IF isBarHovered THEN
+            IF __TUI.mousePressedL _ORELSE TUI_IsMouseClickedInBounds(barB) THEN
                 DIM pY AS LONG: pY = INT(__TUI.mousePos.y)
                 IF pY = y THEN
                     ' Up arrow
@@ -1488,7 +1536,7 @@ FUNCTION TUI_ScrollBarV& (x AS LONG, y AS LONG, h AS LONG, offset AS LONG, pageS
 
     ' Rendering
     ' Up Arrow
-    IF NOT isDisabled _ANDALSO isHovered _ANDALSO INT(__TUI.mousePos.y) = y THEN
+    IF NOT isDisabled _ANDALSO isBarHovered _ANDALSO INT(__TUI.mousePos.y) = y THEN
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
     ELSEIF isDisabled THEN
         COLOR TUI_COLOR_GRAY, origBg
@@ -1519,7 +1567,7 @@ FUNCTION TUI_ScrollBarV& (x AS LONG, y AS LONG, h AS LONG, offset AS LONG, pageS
     NEXT t
 
     ' Down Arrow
-    IF NOT isDisabled _ANDALSO isHovered _ANDALSO INT(__TUI.mousePos.y) = y + h - 1 THEN
+    IF NOT isDisabled _ANDALSO isBarHovered _ANDALSO INT(__TUI.mousePos.y) = y + h - 1 THEN
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
     ELSEIF isDisabled THEN
         COLOR TUI_COLOR_GRAY, origBg
@@ -1529,18 +1577,32 @@ FUNCTION TUI_ScrollBarV& (x AS LONG, y AS LONG, h AS LONG, offset AS LONG, pageS
     _PRINTSTRING (x, y + h - 1), __TUI_GLYPH_DOWN_ARROW
 
     COLOR origFg, origBg
-    TUI_ScrollBarV = curOffset
+    TUI_ScrollBarVEx = curOffset
 END FUNCTION
 
-''' @brief Renders a standalone horizontal scrollbar with proportional thumb and forgiving drag.
+''' @brief Renders a standalone vertical scrollbar with proportional thumb and forgiving drag.
+''' @param x Character column.
+''' @param y Character row of top stepper.
+''' @param h Total height in characters (minimum 3: up arrow, track, down arrow).
+''' @param offset Current 1-based scroll offset (1..totalSize - pageSize + 1).
+''' @param pageSize Visible lines in viewport.
+''' @param totalSize Total lines in content.
+''' @return Updated 1-based scroll offset.
+FUNCTION TUI_ScrollBarV& (x AS LONG, y AS LONG, h AS LONG, offset AS LONG, pageSize AS LONG, totalSize AS LONG)
+    TUI_ScrollBarV = TUI_ScrollBarVEx(x, y, h, offset, pageSize, totalSize, x, 1)
+END FUNCTION
+
+''' @brief Renders a standalone horizontal scrollbar with proportional thumb, forgiving drag, and optional client area hit testing for keyboard navigation.
 ''' @param x Character column of left stepper.
 ''' @param y Character row.
 ''' @param w Total width in characters (minimum 3: left arrow, track, right arrow).
 ''' @param offset Current 1-based scroll offset (1..totalSize - pageSize + 1).
 ''' @param pageSize Visible columns in viewport.
 ''' @param totalSize Total columns in content.
+''' @param clientY Character row of content/client area (or y for scrollbar alone).
+''' @param clientH Character height of content/client area (or 1 for scrollbar alone).
 ''' @return Updated 1-based scroll offset.
-FUNCTION TUI_ScrollBarH& (x AS LONG, y AS LONG, w AS LONG, offset AS LONG, pageSize AS LONG, totalSize AS LONG)
+FUNCTION TUI_ScrollBarHEx& (x AS LONG, y AS LONG, w AS LONG, offset AS LONG, pageSize AS LONG, totalSize AS LONG, clientY AS LONG, clientH AS LONG)
     SHARED __TUI AS __TUI_Context
 
     DIM origFg AS _UNSIGNED LONG: origFg = _DEFAULTCOLOR
@@ -1551,7 +1613,7 @@ FUNCTION TUI_ScrollBarH& (x AS LONG, y AS LONG, w AS LONG, offset AS LONG, pageS
 
     IF w < 3 THEN
         COLOR origFg, origBg
-        TUI_ScrollBarH = offset
+        TUI_ScrollBarHEx = offset
         EXIT FUNCTION
     END IF
 
@@ -1578,22 +1640,42 @@ FUNCTION TUI_ScrollBarH& (x AS LONG, y AS LONG, w AS LONG, offset AS LONG, pageS
         thumbStart = 0
     END IF
 
-    DIM b AS Bounds2f
-    Bounds2f_Set x, y, x + w - 0.001!, y + 0.999!, b
-    DIM isHovered AS _BYTE
+    DIM barB AS Bounds2f
+    Bounds2f_Set x, y, x + w - 0.001!, y + 0.999!, barB
+    DIM isBarHovered AS _BYTE
+
+    DIM cY AS LONG: cY = _IIF(clientY > 0, clientY, y)
+    DIM cH AS LONG: cH = _IIF(clientH > 0, clientH, 1)
+    DIM clientB AS Bounds2f
+    Bounds2f_Set x, cY, x + w - 0.001!, cY + cH - 0.001!, clientB
+    DIM isClientHovered AS _BYTE
+
     IF NOT __TUI_IsInputBlockedByModal THEN
-        isHovered = Bounds2f_ContainsPoint(b, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+        isBarHovered = Bounds2f_ContainsPoint(barB, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
+        isClientHovered = Bounds2f_ContainsPoint(clientB, __TUI.mousePos) _ORELSE (__TUI.focusedId = thisId)
     END IF
 
     IF NOT isDisabled THEN
-        IF isHovered THEN
+        IF isClientHovered THEN
             __TUI.hotId = thisId
+            DIM sbHKey AS LONG: sbHKey = Input_PeekKeyboardKey
+            SELECT CASE sbHKey
+                CASE _KEY_LEFT
+                    curOffset = _CLAMP(curOffset - 1, 1, maxOffset)
+                    Input_ConsumeKeyboardKey
+                CASE _KEY_RIGHT
+                    curOffset = _CLAMP(curOffset + 1, 1, maxOffset)
+                    Input_ConsumeKeyboardKey
+            END SELECT
+        END IF
+
+        IF isBarHovered THEN
             DIM wheel AS SINGLE: wheel = Input_GetMouseScrollWheelValue
             IF wheel <> 0! THEN
                 curOffset = _CLAMP(curOffset - CLNG(wheel * 3!), 1, maxOffset)
             END IF
 
-            IF __TUI.mousePressedL _ORELSE TUI_IsMouseClickedInBounds(b) THEN
+            IF __TUI.mousePressedL _ORELSE TUI_IsMouseClickedInBounds(barB) THEN
                 DIM pX AS LONG: pX = INT(__TUI.mousePos.x)
                 IF pX = x THEN
                     ' Left arrow
@@ -1642,7 +1724,7 @@ FUNCTION TUI_ScrollBarH& (x AS LONG, y AS LONG, w AS LONG, offset AS LONG, pageS
 
     ' Rendering
     ' Left Arrow
-    IF NOT isDisabled _ANDALSO isHovered _ANDALSO INT(__TUI.mousePos.x) = x THEN
+    IF NOT isDisabled _ANDALSO isBarHovered _ANDALSO INT(__TUI.mousePos.x) = x THEN
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
     ELSEIF isDisabled THEN
         COLOR TUI_COLOR_GRAY, origBg
@@ -1673,7 +1755,7 @@ FUNCTION TUI_ScrollBarH& (x AS LONG, y AS LONG, w AS LONG, offset AS LONG, pageS
     NEXT t
 
     ' Right Arrow
-    IF NOT isDisabled _ANDALSO isHovered _ANDALSO INT(__TUI.mousePos.x) = x + w - 1 THEN
+    IF NOT isDisabled _ANDALSO isBarHovered _ANDALSO INT(__TUI.mousePos.x) = x + w - 1 THEN
         COLOR TUI_COLOR_BRIGHT_WHITE, TUI_COLOR_CYAN
     ELSEIF isDisabled THEN
         COLOR TUI_COLOR_GRAY, origBg
@@ -1683,7 +1765,80 @@ FUNCTION TUI_ScrollBarH& (x AS LONG, y AS LONG, w AS LONG, offset AS LONG, pageS
     _PRINTSTRING (x + w - 1, y), __TUI_GLYPH_RIGHT_ARROW
 
     COLOR origFg, origBg
-    TUI_ScrollBarH = curOffset
+    TUI_ScrollBarHEx = curOffset
+END FUNCTION
+
+''' @brief Renders a standalone horizontal scrollbar with proportional thumb and forgiving drag.
+''' @param x Character column of left stepper.
+''' @param y Character row.
+''' @param w Total width in characters (minimum 3: left arrow, track, right arrow).
+''' @param offset Current 1-based scroll offset (1..totalSize - pageSize + 1).
+''' @param pageSize Visible columns in viewport.
+''' @param totalSize Total columns in content.
+''' @return Updated 1-based scroll offset.
+FUNCTION TUI_ScrollBarH& (x AS LONG, y AS LONG, w AS LONG, offset AS LONG, pageSize AS LONG, totalSize AS LONG)
+    TUI_ScrollBarH = TUI_ScrollBarHEx(x, y, w, offset, pageSize, totalSize, y, 1)
+END FUNCTION
+
+''' @brief Handles standard keyboard navigation for list controls (Up, Down, PageUp, PageDown, Home, End, Enter).
+''' @param totalItems Total number of items in the list.
+''' @param selectedIdx In/Out: Currently selected 1-based index.
+''' @param scrollOffset In/Out: Top visible 1-based index.
+''' @param pageSize Number of visible rows per page.
+''' @return 1-based index of item confirmed by Enter key, or 0 if none.
+FUNCTION TUI_ListNavigate& (totalItems AS LONG, selectedIdx AS LONG, scrollOffset AS LONG, pageSize AS LONG)
+    IF __TUI_IsInputBlockedByModal THEN EXIT FUNCTION
+
+    DIM k AS LONG: k = Input_PeekKeyboardKey
+    DIM activated AS LONG
+
+    SELECT CASE k
+        CASE _KEY_UP
+            Input_ConsumeKeyboardKey
+            selectedIdx = _MAX(1, selectedIdx - 1)
+            IF selectedIdx < scrollOffset THEN scrollOffset = selectedIdx
+
+        CASE _KEY_DOWN
+            Input_ConsumeKeyboardKey
+            IF totalItems > 0 THEN
+                selectedIdx = _MIN(totalItems, selectedIdx + 1)
+                IF selectedIdx >= scrollOffset + pageSize THEN scrollOffset = selectedIdx - pageSize + 1
+            END IF
+
+        CASE _KEY_PAGEUP
+            Input_ConsumeKeyboardKey
+            selectedIdx = _MAX(1, selectedIdx - pageSize)
+            scrollOffset = _MAX(1, scrollOffset - pageSize)
+            IF selectedIdx < scrollOffset THEN scrollOffset = selectedIdx
+
+        CASE _KEY_PAGEDOWN
+            Input_ConsumeKeyboardKey
+            IF totalItems > 0 THEN
+                selectedIdx = _MIN(totalItems, selectedIdx + pageSize)
+                scrollOffset = _MIN(_MAX(1, totalItems - pageSize + 1), scrollOffset + pageSize)
+                IF selectedIdx >= scrollOffset + pageSize THEN scrollOffset = selectedIdx - pageSize + 1
+            END IF
+
+        CASE _KEY_HOME
+            Input_ConsumeKeyboardKey
+            selectedIdx = 1
+            scrollOffset = 1
+
+        CASE _KEY_END
+            Input_ConsumeKeyboardKey
+            IF totalItems > 0 THEN
+                selectedIdx = totalItems
+                scrollOffset = _MAX(1, totalItems - pageSize + 1)
+            END IF
+
+        CASE KEY_ENTER
+            Input_ConsumeKeyboardKey
+            IF selectedIdx >= 1 _ANDALSO selectedIdx <= totalItems THEN
+                activated = selectedIdx
+            END IF
+    END SELECT
+
+    TUI_ListNavigate = activated
 END FUNCTION
 
 ''' @brief Renders a scrollable selection list with item hover, selection, and scrollbar.
@@ -1749,6 +1904,10 @@ FUNCTION TUI_ScrollListEx& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() 
                 isRowHovered = Bounds2f_ContainsPoint(rowBounds, __TUI.mousePos) _ANDALSO (__TUI.activeId = 0 _ORELSE __TUI.activeId = thisId)
             END IF
 
+            IF isRowHovered THEN
+                selectedIdx = itemIdx
+            END IF
+
             IF isRowHovered _ANDALSO (__TUI.activeId = 0 _ORELSE (__TUI.activeId = thisId _ANDALSO __TUI.activePart <> 4)) _ANDALSO TUI_IsMouseClickedInBounds(rowBounds) THEN
                 selectedIdx = itemIdx
                 itemActivated = itemIdx
@@ -1772,8 +1931,32 @@ FUNCTION TUI_ScrollListEx& (x AS LONG, y AS LONG, w AS LONG, h AS LONG, items() 
         END IF
     NEXT r
 
-    ' Right border: Delegate to standalone vertical scrollbar
-    scrollOffset = TUI_ScrollBarV(x + w - 1, y, h, scrollOffset, h, totalItems)
+    ' Right border: Delegate to standalone vertical scrollbar with full list client area (inherits Up, Down, PageUp, PageDown, Home, End, Wheel)
+    scrollOffset = TUI_ScrollBarVEx(x + w - 1, y, h, scrollOffset, h, totalItems, x, w)
+
+    ' Enter key confirms selected item
+    DIM listBounds AS Bounds2f
+    Bounds2f_Set x, y, x + w - 0.001!, y + h - 0.001!, listBounds
+    DIM isListHovered AS _BYTE
+    IF NOT __TUI_IsInputBlockedByModal THEN
+        isListHovered = Bounds2f_ContainsPoint(listBounds, __TUI.mousePos) _ORELSE (__TUI.focusedId = thisId)
+    END IF
+
+    IF isListHovered _ANDALSO NOT __TUI_IsInputBlockedByModal THEN
+        IF Input_PeekKeyboardKey = KEY_ENTER THEN
+            Input_ConsumeKeyboardKey
+            IF selectedIdx >= 1 _ANDALSO selectedIdx <= totalItems THEN
+                itemActivated = selectedIdx
+            END IF
+        END IF
+    END IF
+
+    ' Keep selection within visible bounds when scrollOffset was moved by scrollbar
+    IF selectedIdx < scrollOffset THEN
+        selectedIdx = scrollOffset
+    ELSEIF totalItems > 0 _ANDALSO selectedIdx >= scrollOffset + h THEN
+        selectedIdx = scrollOffset + h - 1
+    END IF
 
     COLOR origFg, origBg
     TUI_ScrollListEx = itemActivated
