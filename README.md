@@ -5,7 +5,7 @@ A high-performance tracker music player and library written in [QB64-PE](https:/
 Supports classic module formats:
 
 - **MOD**: ProTracker, SoundTracker, StarTrekker (1 to 99 channels, AM synth)
-- **S3M**: Scream Tracker 3 (digital audio + Yamaha OPL2/OPL3 AdLib FM)
+- **S3M**: Scream Tracker 3 (digital audio + OPL2 FM)
 - **MTM**: MultiTracker
 - **669**: Composer 669
 - **FAR**: Farandole Composer
@@ -85,8 +85,8 @@ SYSTEM
 
 ## Documentation
 
-- **[API Reference](docs/API.md)**: Complete API documentation.
-- **[References](docs/REFERENCES.md)**: Specification and tutorial references.
+- [API Reference](docs/API.md)
+- [References](docs/REFERENCES.md)
 
 ## License
 
